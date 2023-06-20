@@ -1,3 +1,19 @@
+##############################################################################
+# File: 2D_IWScalingTest_20iw.i
+# File Location: /examples/sintering/test_inputs/01_newForkTest/2D_IWScalingTest_20iw.i
+# Created Date: Monday June 19th 2023
+# Author: Brandon Battas (bbattas@ufl.edu)
+# -----
+# Last Modified: Tuesday June 20th 2023
+# Modified By: Brandon Battas
+# -----
+# Description:
+#  This is a copy of the small IW IW scaling input adjusted for Linux location
+#  on the csv input and with 3 timesteps to basically confirm the new MOOSE
+#  branch iso-d was working
+#
+##############################################################################
+
 [Mesh]
   [gmg]
     type = DistributedRectilinearMeshGenerator
