@@ -4,8 +4,8 @@
 # Created Date: Wednesday June 21st 2023
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday June 21st 2023
-# Modified By: Battas,Brandon Scott
+# Last Modified: Monday June 26th 2023
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  This is a copy of the small IW IW scaling input adjusted for Mac location
@@ -33,7 +33,7 @@
 [GlobalParams]
   op_num = 2
   var_name_base = gr
-  int_width = 20 #particle radius is 2000
+  int_width = 20
   profile = TANH
 []
 
@@ -178,7 +178,7 @@
     Q = 2.77
     Em = 3.608
     bulkindex = 1
-    gbindex = 0
+    gbindex = -1
     surfindex = 1e11
     # iw_scaling = TRUE
   []

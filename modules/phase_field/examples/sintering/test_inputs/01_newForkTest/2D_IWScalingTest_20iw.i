@@ -4,7 +4,7 @@
 # Created Date: Monday June 19th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday June 20th 2023
+# Last Modified: Monday June 26th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -33,7 +33,7 @@
 [GlobalParams]
   op_num = 2
   var_name_base = gr
-  int_width = 20 #particle radius is 2000
+  int_width = 20
   profile = TANH
 []
 
@@ -178,7 +178,7 @@
     Q = 2.77
     Em = 3.608
     bulkindex = 1
-    gbindex = 0
+    gbindex = -1
     surfindex = 1e11
     # iw_scaling = TRUE
   []
