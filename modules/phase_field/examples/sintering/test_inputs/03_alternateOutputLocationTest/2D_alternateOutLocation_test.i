@@ -1,6 +1,6 @@
 ##############################################################################
-# File: 01_2grain_full_test.i
-# File Location: /examples/sintering/paper2/01_test_inputs/01_2grain_full/01_2grain_full_test.i
+# File: 2D_alternateOutLocation_test.i
+# File Location: /examples/sintering/test_inputs/03_alternateOutputLocationTest/2D_alternateOutLocation_test.i
 # Created Date: Monday June 26th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
@@ -8,27 +8,25 @@
 # Modified By: Brandon Battas
 # -----
 # Description:
-# Test input of 2 spherical grains touching with free space all around
-# Based on Figure 4 in the paper were replicating
-# Currently testing delta*Dgb vs Ds for IW vs GBW and gamma balancing
-# since apparently there are some issues with just changing ggb and gs?
-# This is a base level just get it running, then we can test those issues later.
-#  1 timestep rn, very coarse
+#  Testing the ability to write output to a different location and
+#  the naming specifics needed for that (goal is to use this with MOOSE on
+#  HPG to keep inputs in ~/moose but output results to /blue)
+#  https://github.com/idaholab/moose/discussions/22986
+#  DOESNT WORK- cant do outside base moose directory looks like, but can use
+#  subdirectories at least?  but would have to manually name filename each time
+#  and make the dir since csv throws errors if path isnt there
 ##############################################################################
 
 [Mesh]
   [gmg]
     type = DistributedRectilinearMeshGenerator
-    dim = 3
-    nx = 100
+    dim = 2
+    nx = 60
     ny = 60
-    nz = 60
     xmin = 0
-    xmax = 500
+    xmax = 600
     ymin = 0
-    ymax = 300
-    zmin = 0
-    zmax = 300
+    ymax = 600
   []
   parallel_type = DISTRIBUTED
   uniform_refine = 0
@@ -38,18 +36,19 @@
 [GlobalParams]
   op_num = 2
   var_name_base = gr
-  int_width = 20 #particle radius is 100
+  int_width = 20
   profile = TANH
 []
 
 [Variables]
   [w]
+    # order = SECOND
   []
   [phi]
+    # order = SECOND
   []
-  [gr0]
-  []
-  [gr1]
+  [PolycrystalVariables]
+    # order = SECOND
   []
 []
 
@@ -90,39 +89,60 @@
   [phi_IC]
     type = SpecifiedSmoothCircleIC
     variable = phi
-    x_positions = '150 350'
-    y_positions = '150 150'
-    z_positions = '150 150'
-    radii = '100 100'
+    x_positions = '320 600'
+    y_positions = '600 320'
+    z_positions = '  0   0'
+    radii = '200 200'
     invalue = 0
     outvalue = 1
   []
   [gr0_IC]
     type = SmoothCircleIC
     variable = gr0
-    x1 = 150
-    y1 = 150
-    z1 = 150
-    radius = 100
+    x1 = 320
+    y1 = 600
+    z1 = 0
+    radius = 200
     invalue = 1
     outvalue = 0
   []
   [gr1_IC]
     type = SmoothCircleIC
     variable = gr1
-    x1 = 350
-    y1 = 150
-    z1 = 150
-    radius = 100
+    x1 = 600
+    y1 = 320
+    z1 = 0
+    radius = 200
     invalue = 1
     outvalue = 0
+  []
+[]
+
+[BCs]
+  [phi_bc]
+    type = NeumannBC
+    variable = 'phi'
+    boundary = 'right top'
+    value = 0
+  []
+  [gr0_bc]
+    type = NeumannBC
+    variable = 'gr0'
+    boundary = 'right top'
+    value = 0
+  []
+  [gr1_bc]
+    type = NeumannBC
+    variable = 'gr1'
+    boundary = 'right top'
+    value = 0
   []
 []
 
 [Functions]
   [f_T]
     type = ConstantFunction
-    value = 1600
+    value = 1800
   []
   [f_OU]
     type = ConstantFunction
@@ -134,17 +154,17 @@
   # Free energy coefficients for parabolic curves
   [ks]
     type = ParsedMaterial
-    property_name = ks
-    coupled_variables = 'T'
+    f_name = ks
+    args = 'T'
     constant_names = 'a b'
     constant_expressions = '-0.0025 157.16'
-    expression = 'a*T + b'
+    function = 'a*T + b'
   []
   [kv]
     type = ParsedMaterial
-    property_name = kv
+    f_name = kv
     material_property_names = 'ks'
-    expression = '10*ks'
+    function = '10*ks'
   []
   # Diffusivity and mobilities
   [chiD]
@@ -161,9 +181,24 @@
     Q = 2.77
     Em = 3.608
     bulkindex = 1
-    gbindex = 1e11
+    gbindex = -1
     surfindex = 1e11
+    # iw_scaling = TRUE
   []
+  # Should work without gr# in args?
+  # [./cv_eq_old]
+  #   type = DerivativeParsedMaterial
+  #   f_name = cv_eq_old
+  #   args = 'T phi bnds'
+  #   constant_names = 'Ef_b Ef_gb kB'
+  #   constant_expressions = '2.6551964327999986 0.5296941200355877 8.617343e-5'
+  #   derivative_order = 2
+  #   function = 'c_B:=exp(-Ef_b/kB/T);
+  #               c_GB:=exp(-Ef_gb/kB/T);
+  #               bounds:=bnds + phi^2;
+  #               c_B + 4.0 * (c_GB - c_B) * (1.0 - bounds)^2'
+  #   outputs = 'none'
+  # [../]
   [cv_eq]
     type = UO2CvMaterial
     f_name = cv_eq
@@ -189,31 +224,57 @@
   # Concentration is only meant for output
   [c]
     type = ParsedMaterial
-    property_name = c
+    f_name = c
     material_property_names = 'hs rhos hv rhov'
     constant_names = 'Va'
     constant_expressions = '0.04092'
-    expression = 'Va*(hs*rhos + hv*rhov)'
+    function = 'Va*(hs*rhos + hv*rhov)'
     outputs = none #exodus
   []
+  # [./L_mat1]
+  #   type = ParsedMaterial
+  #   # type = DerivativeParsedMaterial
+  #   f_name = L_mat1
+  #   material_property_names = 'L Lv hv'
+  #   args = 'phi'
+  #   constant_names = 'p0'
+  #   constant_expressions = '1.0'
+  #   function = 'hv*Lv + (1-hv)*L'
+  #   outputs = nemesis #none
+  # [../]
   [L_mat]
+    # type = ParsedMaterial
     type = DerivativeParsedMaterial
-    property_name = L_mat
+    f_name = L_mat
     material_property_names = 'L Lv'
-    coupled_variables = 'phi'
+    args = 'phi'
     constant_names = 'p0'
     constant_expressions = '0.3'
-    expression = 'hv:=if(phi<=0.0,0.0,if(phi>=p0,1.0,6*(phi/p0)^5 - 15*(phi/p0)^4 + 10*(phi/p0)^3));
+    function = 'hv:=if(phi<=0.0,0.0,if(phi>=p0,1.0,6*(phi/p0)^5 - 15*(phi/p0)^4 + 10*(phi/p0)^3));
                 hv*Lv + (1-hv)*L'
-    outputs = none
+    # function = '0.1*Lv'
+    outputs = none #none
   []
-  [Diff] # Diffusivity output for debugging
-    type = ParsedMaterial
-    property_name = Diff
-    material_property_names = 'diffusivity'
-    expression = 'diffusivity'
-    outputs = nemesis
-  []
+  # [./L_mat3]
+  #   # type = ParsedMaterial
+  #   type = DerivativeParsedMaterial
+  #   f_name = L_mat3
+  #   material_property_names = 'L Lv'
+  #   args = 'phi'
+  #   constant_names = 'p0'
+  #   constant_expressions = '0.3'
+  #   function = 'hv:=6*(phi/p0)^5 - 15*(phi/p0)^4 + 10*(phi/p0)^3;
+  #               hv*Lv + (1-hv)*L'
+  #   outputs = nemesis #none
+  # [../]
+  # [Diff]
+  #   type = ParsedMaterial
+  #   # type = DerivativeParsedMaterial
+  #   f_name = Diff
+  #   material_property_names = 'diffusivity'
+  #   function = 'diffusivity'
+  #   outputs = nemesis #none
+  # []
 []
 
 [Modules]
@@ -228,13 +289,13 @@
       free_energies_w = 'rhov rhos'
 
       gamma_gr = gamma
-      mobility_name_gr = L_mat
+      mobility_name_gr = L_mat #_mat2 #CHANGED FROM L
       kappa_gr = kappa
       free_energies_gr = 'omegav omegas'
 
       additional_ops = 'phi'
       gamma_grxop = gamma
-      mobility_name_op = L_mat
+      mobility_name_op = L_mat #_mat2
       kappa_op = kappa
       free_energies_op = 'omegav omegas'
     []
@@ -247,12 +308,12 @@
     variable = phi
     v = 'gr0 gr1' #gr2 gr3'# gr4 gr5'# gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15'
     gamma = gamma
-    mob_name = L_mat
+    mob_name = L_mat #_mat2 #????
   []
   [kappa_phi]
     type = ACKappaFunction
     variable = phi
-    mob_name = L_mat
+    mob_name = L_mat #_mat2
     kappa_name = kappa
   []
 []
@@ -432,7 +493,7 @@
   # petsc_options_value = ' asm      lu           2'
   nl_max_its = 20 #40 too large- optimal_iterations is 6
   l_max_its = 30 #if it seems like its using a lot it might still be fine
-  l_tol = 1e-04
+  l_tol = 1e-4
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
@@ -441,21 +502,21 @@
   num_steps = 1
   # dt = 0.0001
   # dtmax = 500
-  dt = 0.0001
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   optimal_iterations = 8 #WAS 6
-  #   dt = 0.0001
-  #   growth_factor = 1.2
-  #   cutback_factor = 0.8
-  #   cutback_factor_at_failure = 0.5 #might be different from the curback_factor
-  # []
-  # [Adaptivity]
-  #   refine_fraction = 0.8
-  #   coarsen_fraction = 0.05 #minimize this- adds error
-  #   max_h_level = 2 #test a short simulation with 1,2,3,4 for this to see where it stops helping
-  #   initial_adaptivity = 2
-  # []
+  # dt = 0.001
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    optimal_iterations = 8 #WAS 6
+    dt = 0.0001
+    growth_factor = 1.2
+    cutback_factor = 0.8
+    cutback_factor_at_failure = 0.5 #might be different from the curback_factor
+  []
+  [Adaptivity]
+    refine_fraction = 0.8
+    coarsen_fraction = 0.05 #minimize this- adds error
+    max_h_level = 2 #test a short simulation with 1,2,3,4 for this to see where it stops helping
+    initial_adaptivity = 2
+  []
 []
 
 [Outputs]
@@ -467,9 +528,11 @@
     type = Nemesis
     # interval = 5              # this ExodusII will only output every third time step
   []
-  print_linear_residuals = false
+  # print_linear_residuals = false
   [checkpoint]
     type = Checkpoint
     num_files = 3
   []
+  file_base = /home/bbattas/projects/moose/modules/phase_field/examples/sintering/test_inputs/03.1_alternateOutputLocationTest/output_name
+  # file_base = /home/bbattas/Documents/moose_test/alternateOutputLocation/outputname
 []
