@@ -12,9 +12,8 @@
 #  the naming specifics needed for that (goal is to use this with MOOSE on
 #  HPG to keep inputs in ~/moose but output results to /blue)
 #  https://github.com/idaholab/moose/discussions/22986
-#  DOESNT WORK- cant do outside base moose directory looks like, but can use
-#  subdirectories at least?  but would have to manually name filename each time
-#  and make the dir since csv throws errors if path isnt there
+#  WORKs- to do outside base moose directory you have to cd to the output directory
+#  and then run it from there!
 ##############################################################################
 
 [Mesh]
@@ -533,6 +532,6 @@
     type = Checkpoint
     num_files = 3
   []
-  file_base = /home/bbattas/projects/moose/modules/phase_field/examples/sintering/test_inputs/03.1_alternateOutputLocationTest/output_name
-  # file_base = /home/bbattas/Documents/moose_test/alternateOutputLocation/outputname
+  # file_base = /home/bbattas/projects/moose/modules/phase_field/examples/sintering/test_inputs/03.1_alternateOutputLocationTest/output_name
+  file_base = /home/bbattas/Documents/moose_test/alternateOutputLocation/outputname
 []
