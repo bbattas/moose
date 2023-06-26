@@ -1,8 +1,8 @@
 #pragma once
 
-//#include "PolycrystalDiffusivityTensorBase.h"
-//#include "DerivativeMaterialPropertyNameInterface.h"  //i think depreciated to
-//DerivativeMaterialInterface???
+// #include "PolycrystalDiffusivityTensorBase.h"
+// #include "DerivativeMaterialPropertyNameInterface.h"  //i think depreciated to
+// DerivativeMaterialInterface???
 #include "Material.h"
 #include "DerivativeMaterialInterface.h"
 
@@ -11,7 +11,7 @@
  * is a scalar, while the Allen Cahn mobilities for the solid and void phases are
  * also scalars.
  */
-//class GrandPotentialIsoMaterial : public PolycrystalDiffusivityTensorBase
+// class GrandPotentialIsoMaterial : public PolycrystalDiffusivityTensorBase
 class GrandPotentialIsoMaterial : public DerivativeMaterialInterface<Material>
 {
 public:
@@ -19,10 +19,10 @@ public:
 
   GrandPotentialIsoMaterial(const InputParameters & parameters);
 
-//  virtual void computeProperties() override;
+  //  virtual void computeProperties() override;
 
 protected:
-//From PCDTB
+  // From PCDTB
   virtual void computeProperties();
   const VariableValue & _T;
   std::vector<const VariableValue *> _vals;
@@ -42,7 +42,7 @@ protected:
   const Real _kb;
   const unsigned int _op_num;
 
-//From GPTensorMaterial
+  // From GPTensorMaterial
   /// mobility tensor
   std::string _D_name;
   MaterialProperty<Real> & _chiD;
@@ -63,7 +63,7 @@ protected:
   Real _surf_thickness;
 
   /// magnitude of mobility tensor
-  //MaterialProperty<Real> & _Dmag;
+  // MaterialProperty<Real> & _Dmag;
 
   /// surface energy
   const MaterialProperty<Real> & _sigma_s;
@@ -84,8 +84,9 @@ protected:
 
   /// solid phase order parameters
   std::vector<NonlinearVariableName> _vals_name;
-  
-  // MaterialProperty<Real> & _D_out;
-  
+
+  // Test output for diffusivity
+  MaterialProperty<Real> & _D_out;
+
   // const MooseEnum _iw_scaling;
 };
