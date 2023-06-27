@@ -480,7 +480,7 @@
 #     type = SMP
 #     coupled_groups = 'w,phi'
 #   [../]
-# []
+# Changed to /blue
 
 [Executioner]
   type = Transient
@@ -533,5 +533,6 @@
     num_files = 3
   []
   # file_base = /home/bbattas/projects/moose/modules/phase_field/examples/sintering/test_inputs/03.1_alternateOutputLocationTest/output_name
-  file_base = /home/bbattas/Documents/moose_test/alternateOutputLocation/outputname
+  # file_base = testpath # Changed to /blue
+  # file_base = testpath # Changed to /blue
 []
