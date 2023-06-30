@@ -171,8 +171,8 @@
     T = T
     c = phi
     OU = OU
-    gb_se_csv = '/home/bbattas/projects/moose/modules/phase_field/examples/sintering/gb_segregation_csv/sigma9_se.csv
-                 /home/bbattas/projects/moose/modules/phase_field/examples/sintering/gb_segregation_csv/sigma11_se.csv'
+    gb_se_csv = '../../../gb_segregation_csv/sigma9_se.csv
+                 ../../../gb_segregation_csv/sigma11_se.csv'
     outputs = 'none'
   []
   [sintering]
