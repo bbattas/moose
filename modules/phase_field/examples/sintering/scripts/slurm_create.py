@@ -245,7 +245,9 @@ def slurmWrite(cwd,inputName):
     # Module loading
     slurmList.append('')
     slurmList.append('module purge')
-    slurmList.append('module load moose/26-jul-21')
+    # slurmList.append('module load moose/26-jul-21')
+    slurmList.append('module load conda')
+    slurmList.append('conda activate moose')
     # Actually go to the output and run the shit
     slurmList.append('')
     slurmList.append('cd $OUTPUT')
