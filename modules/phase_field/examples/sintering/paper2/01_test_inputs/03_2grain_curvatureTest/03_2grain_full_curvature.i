@@ -481,7 +481,7 @@
   start_time = 0
   # end_time = 5000
   steady_state_detection = true
-  num_steps = 5 #50
+  num_steps = 50
   # dt = 0.0001
   # dtmax = 500
   # dt = 0.0001
