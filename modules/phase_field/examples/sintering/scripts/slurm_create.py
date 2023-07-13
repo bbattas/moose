@@ -251,7 +251,7 @@ def slurmWrite(cwd,inputName):
     # Actually go to the output and run the shit
     slurmList.append('')
     slurmList.append('cd $OUTPUT')
-    slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i')
+    slurmList.append('mpirun $MOOSE -i $OUTPUT/'+inputName+'.i')
 
     # Output the slurm script
     # verb(slurmList)
