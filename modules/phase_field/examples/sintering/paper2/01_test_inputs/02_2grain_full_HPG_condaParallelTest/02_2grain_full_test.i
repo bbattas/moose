@@ -4,8 +4,8 @@
 # Created Date: Friday June 30th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday June 30th 2023
-# Modified By: Brandon Battas
+# Last Modified: Thursday July 13th 2023
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  test input 01 but more fine and longer for a simple dataset to start using
@@ -14,7 +14,7 @@
 #  Currently testing delta*Dgb vs Ds for IW vs GBW and gamma balancing
 #  since apparently there are some issues with just changing ggb and gs?
 #  Using this to test running parallel job on conda on HPG also
-#  200 timesteps as an arbitrary guess on time to run
+#  2 timesteps to test that parallel mpi works conda build
 ##############################################################################
 
 [Mesh]
@@ -27,12 +27,12 @@
     xmin = 0
     xmax = 500
     ymin = 0
-    ymax = 300
+    ymax = 150 #was 300
     zmin = 0
-    zmax = 300
+    zmax = 150 #was 300
   []
   parallel_type = DISTRIBUTED
-  uniform_refine = 1
+  uniform_refine = 0 # was 1
   second_order = false
 []
 
@@ -439,7 +439,7 @@
   start_time = 0
   # end_time = 5000
   steady_state_detection = true
-  num_steps = 200
+  num_steps = 2
   # dt = 0.0001
   # dtmax = 500
   # dt = 0.0001
