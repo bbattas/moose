@@ -4,13 +4,13 @@
 # Created Date: Thursday July 13th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday July 13th 2023
+# Last Modified: Friday July 14th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
 #  Testing 2grain input (no adaptivity) to check various outputs for the
-#  purpose of measuring curvature.  Likely something relating to OP gradient
-#  or second order gradient, or laplacian? need to output a buch and look
+#  purpose of measuring curvature.
+#  Testing my new auxkernel for measuring curvature of an op at all points
 #
 ##############################################################################
 
@@ -86,6 +86,10 @@
     order = CONSTANT
     family = MONOMIAL_VEC
   []
+  [phi_aux]
+    order = CONSTANT
+    family = MONOMIAL_VEC
+  []
   [phi_x]
     order = CONSTANT
     family = MONOMIAL
@@ -95,6 +99,10 @@
     family = MONOMIAL
   []
   [phi_z]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [div_test]
     order = CONSTANT
     family = MONOMIAL
   []
@@ -232,8 +240,39 @@
     type = VariableGradientMaterial
     prop = phimat1
     variable = phi
+    outputs = 'nemesis csv'
+  []
+  [mat_check] # testing to compare with my new auxkernel
+    type = ParsedMaterial
+    property_name = mat_check
+    material_property_names = phimat1
+    coupled_variables = phi_x
+    expression = 'phi_x / phimat1'
     outputs = nemesis
   []
+  [mat_checky] # testing to compare with my new auxkernel
+    type = ParsedMaterial
+    property_name = mat_checky
+    material_property_names = phimat1
+    coupled_variables = phi_y
+    expression = 'phi_y / phimat1'
+    outputs = nemesis
+  []
+  [mat_checkz] # testing to compare with my new auxkernel
+    type = ParsedMaterial
+    property_name = mat_checkz
+    material_property_names = phimat1
+    coupled_variables = phi_z
+    expression = 'phi_z / phimat1'
+    outputs = nemesis
+  []
+  # [mat_check_namingx] # testing to compare with my new auxkernel
+  #   type = ParsedMaterial
+  #   property_name = mat_check_naming
+  #   coupled_variables = '*phi_aux'
+  #   expression = 'phi_aux'
+  #   outputs = nemesis
+  # []
 []
 
 [Modules]
@@ -334,6 +373,12 @@
     variable = phi_1
     functor = phi
   []
+  [phiaux_new]
+    type = VariableGradUnitNorm
+    variable = phi_aux
+    component = x
+    gradient_variable = phi
+  []
   [phigradx]
     type = VariableGradientComponent
     variable = phi_x
@@ -351,6 +396,13 @@
     variable = phi_z
     component = z
     gradient_variable = phi
+  []
+  [div_test_aux]
+    type = DivergenceAux
+    variable = div_test
+    u = mat_check
+    v = mat_checky
+    w = mat_checkz
   []
 []
 
@@ -481,7 +533,7 @@
   start_time = 0
   # end_time = 5000
   steady_state_detection = true
-  num_steps = 50
+  num_steps = 2
   # dt = 0.0001
   # dtmax = 500
   # dt = 0.0001
@@ -511,8 +563,8 @@
     # interval = 5              # this ExodusII will only output every third time step
   []
   print_linear_residuals = false
-  [checkpoint]
-    type = Checkpoint
-    num_files = 3
-  []
+  # [checkpoint]
+  #   type = Checkpoint
+  #   num_files = 3
+  # []
 []
