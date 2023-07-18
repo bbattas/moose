@@ -4,7 +4,7 @@
 # Created Date: Thursday July 13th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday July 14th 2023
+# Last Modified: Tuesday July 18th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -90,15 +90,15 @@
     order = CONSTANT
     family = MONOMIAL_VEC
   []
-  [phi_x]
+  [gr0_x]
     order = CONSTANT
     family = MONOMIAL
   []
-  [phi_y]
+  [gr0_y]
     order = CONSTANT
     family = MONOMIAL
   []
-  [phi_z]
+  [gr0_z]
     order = CONSTANT
     family = MONOMIAL
   []
@@ -238,41 +238,41 @@
   []
   [gradMat1]
     type = VariableGradientMaterial
-    prop = phimat1
-    variable = phi
+    prop = gr0mat1
+    variable = gr0
     outputs = 'nemesis csv'
   []
   [mat_check] # testing to compare with my new auxkernel
     type = ParsedMaterial
     property_name = mat_check
-    material_property_names = phimat1
-    coupled_variables = phi_x
-    expression = 'phi_x / phimat1'
+    material_property_names = gr0mat1
+    coupled_variables = gr0_x
+    expression = 'gr0_x / gr0mat1'
     outputs = nemesis
   []
   [mat_checky] # testing to compare with my new auxkernel
     type = ParsedMaterial
     property_name = mat_checky
-    material_property_names = phimat1
-    coupled_variables = phi_y
-    expression = 'phi_y / phimat1'
+    material_property_names = gr0mat1
+    coupled_variables = gr0_y
+    expression = 'gr0_y / gr0mat1'
     outputs = nemesis
   []
   [mat_checkz] # testing to compare with my new auxkernel
     type = ParsedMaterial
     property_name = mat_checkz
-    material_property_names = phimat1
-    coupled_variables = phi_z
-    expression = 'phi_z / phimat1'
+    material_property_names = gr0mat1
+    coupled_variables = gr0_z
+    expression = 'gr0_z / gr0mat1'
     outputs = nemesis
   []
-  # [mat_check_namingx] # testing to compare with my new auxkernel
-  #   type = ParsedMaterial
-  #   property_name = mat_check_naming
-  #   coupled_variables = '*phi_aux'
-  #   expression = 'phi_aux'
-  #   outputs = nemesis
-  # []
+  [phi_grads]
+    type = DerivativeParsedMaterial
+    property_name = phi_grads
+    coupled_variables = 'phi'
+    expression = 'phi'
+    outputs = nemesis
+  []
 []
 
 [Modules]
@@ -379,23 +379,23 @@
     component = x
     gradient_variable = phi
   []
-  [phigradx]
+  [gr0gradx]
     type = VariableGradientComponent
-    variable = phi_x
+    variable = gr0_x
     component = x
-    gradient_variable = phi
+    gradient_variable = gr0
   []
-  [phigrady]
+  [gr0grady]
     type = VariableGradientComponent
-    variable = phi_y
+    variable = gr0_y
     component = y
-    gradient_variable = phi
+    gradient_variable = gr0
   []
-  [phigradz]
+  [gr0gradz]
     type = VariableGradientComponent
-    variable = phi_z
+    variable = gr0_z
     component = z
-    gradient_variable = phi
+    gradient_variable = gr0
   []
   [div_test_aux]
     type = DivergenceAux
