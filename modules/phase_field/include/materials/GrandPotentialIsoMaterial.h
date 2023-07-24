@@ -66,7 +66,7 @@ protected:
   // MaterialProperty<Real> & _Dmag;
 
   /// surface energy
-  const MaterialProperty<Real> & _sigma_s;
+  // const MaterialProperty<Real> & _sigma_s;
 
   /// interface width
   Real _int_width;

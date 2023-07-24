@@ -32,7 +32,7 @@ GrandPotentialIsoMaterial::validParams()
   params.addParam<Real>(
       "GBMobility", -1, "GB mobility input that overrides the temperature dependent calculation");
   params.addParam<std::string>("f_name", "chiD", "Name for the mobility material property");
-  params.addRequiredParam<MaterialPropertyName>("surface_energy", "Surface energy of material");
+  // params.addRequiredParam<MaterialPropertyName>("surface_energy", "Surface energy of material");
   params.addParam<std::string>("solid_mobility", "L", "Name of grain mobility for solid phase");
   params.addParam<std::string>("void_mobility", "Lv", "Name of void phase mobility");
   params.addParam<Real>("GBwidth",
@@ -76,7 +76,7 @@ GrandPotentialIsoMaterial::GrandPotentialIsoMaterial(const InputParameters & par
     _Lv(declareProperty<Real>(_Lv_name)),
     _GBwidth(getParam<Real>("GBwidth")),
     _surf_thickness(getParam<Real>("surf_thickness")),
-    _sigma_s(getMaterialProperty<Real>("surface_energy")),
+    // _sigma_s(getMaterialProperty<Real>("surface_energy")),
     _int_width(getParam<Real>("int_width")),
     _chi_name(getParam<MaterialPropertyName>("chi")),
     _chi(getMaterialProperty<Real>(_chi_name)),
