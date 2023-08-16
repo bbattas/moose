@@ -66,10 +66,10 @@
     order = CONSTANT
     family = MONOMIAL
   []
-  #  [./voids]
-  #    order = CONSTANT
-  #    family = MONOMIAL
-  #  [../]
+  [voids]
+    order = CONSTANT
+    family = MONOMIAL
+  []
   [unique_grains]
     order = CONSTANT
     family = MONOMIAL
