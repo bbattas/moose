@@ -4,7 +4,7 @@
 # Created Date: Wednesday August 16th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday August 16th 2023
+# Last Modified: Thursday August 17th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -423,7 +423,7 @@
   [conditional]
     type = ConditionalFunctionEnableControl
     conditional_function = f_cond
-    enable_objects = terminator_void
+    enable_objects = 'UserObjects::terminator_void'
     reverse_on_false = false
   []
 []
