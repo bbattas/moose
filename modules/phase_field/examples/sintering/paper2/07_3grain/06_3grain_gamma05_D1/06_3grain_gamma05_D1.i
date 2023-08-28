@@ -4,7 +4,7 @@
 # Created Date: Saturday August 19th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Saturday August 19th 2023
+# Last Modified: Monday August 28th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -379,21 +379,30 @@
   #  [../]
 []
 
-# [VectorPostprocessors]
-# #  [./voids]
-# #    type = FeatureVolumeVectorPostprocessor
-# #    flood_counter = void_tracker
-# #    execute_on = 'initial timestep_end final'
-# #    output_centroids = false  #was true
-# #    outputs = csv
-# #  [../]
-#  [./vectorMemory]
-#    type = VectorMemoryUsage
-#    mem_units = gigabytes
-#    outputs = csv
-#    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-#  [../]
-# []
+[VectorPostprocessors]
+  [ctrline]
+    type = LineValueSampler
+    variable = phi
+    start_point = '250 0 207.5'
+    end_point = '250 300 207.5'
+    sort_by = y
+    num_points = 31
+    outputs = csv
+  []
+  # #  [./voids]
+  # #    type = FeatureVolumeVectorPostprocessor
+  # #    flood_counter = void_tracker
+  # #    execute_on = 'initial timestep_end final'
+  # #    output_centroids = false  #was true
+  # #    outputs = csv
+  # #  [../]
+  #  [./vectorMemory]
+  #    type = VectorMemoryUsage
+  #    mem_units = gigabytes
+  #    outputs = csv
+  #    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+  #  [../]
+[]
 
 [UserObjects]
   # [./terminator]  #do i have to specify that this is off so that the control can turn it on?
@@ -446,7 +455,7 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  end_time = 2000
+  end_time = 500
   steady_state_detection = true
   # num_steps = 2
   # dt = 0.0001
