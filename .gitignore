@@ -328,3 +328,6 @@ share/
 
 # My Stuff to not sync
 slurm*.sh
+times_files.npy
+pics/
+core.phase_field*
