@@ -4,7 +4,7 @@
 # Created Date: Saturday August 19th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday August 28th 2023
+# Last Modified: Monday September 4th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -12,16 +12,18 @@
 #  delta=iw but on scaled D internal value, so backcalc Dgb = 1e6, Ds = 2e8
 #  sigma_gb=sig5tiltgb=9.86 eV/nm2, sig_s = 2*sig_gb = 19.7
 #  02 but with different gamma/D
-#  100x60x95 had 3m DoFs-> 150(20k/ea), 300(10k/ea)
+#  cut down the end time and refined the mesh a bit compared to gamma=1
+#  now elements are 4 in xy and 4.0254... (475/118) in z instead of 5
+#  125x75x118 had 5.7m DoFs-> 300(19k/ea), 450(12.7k/ea)
 ##############################################################################
 
 [Mesh]
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 3
-    nx = 100
-    ny = 60
-    nz = 95
+    nx = 125
+    ny = 75
+    nz = 118
     xmin = 0
     xmax = 500
     ymin = 0
