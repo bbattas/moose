@@ -8,6 +8,7 @@ import logging
 import time
 import subprocess
 import json
+import copy
 
 
 pt = logging.warning
@@ -27,17 +28,31 @@ parser.add_argument('--dest','-d', action='store_true', help='''Change the file_
 # Slurm Header Args
 parser.add_argument('--dir-names', action='store_false', help='''SLURM Job Name set to directory names, defaults to true.
                     If false will use .i file names''')
-parser.add_argument('--nodes', type=int, default=1, help='SLURM number of nodes to use. Default=1')
-parser.add_argument('--tasks', type=int, default=30, help='SLURM number of (mpi?) tasks. Default=30')
-parser.add_argument('--cpus-per-task', type=int, default=1, help='SLURM number of cpus per task to use. Default=1')
-parser.add_argument('--mem-per-cpu', type=str, default='7GB', help='''SLURM memory per cpu. The default is fairy safe.
+parser.add_argument('--nodes', type=int, help='SLURM number of nodes to use. Default=1')
+parser.add_argument('--tasks', type=int, help='SLURM number of (mpi?) tasks. Default=30')
+parser.add_argument('--cpus-per-task', type=int, help='SLURM number of cpus per task to use. Default=1')
+parser.add_argument('--mem-per-cpu', type=str, help='''SLURM memory per cpu. The default is fairy safe.
                     Default=7GB''')
 parser.add_argument('--partition', type=str, help='SLURM partition to use. Default=NONE')
 parser.add_argument('--burst','-b', action='store_true', help='SLURM run as a burst job, default off')
-parser.add_argument('--time','-t', type=int, default=72, help='''SLURM number of hours to run, on the default partitions
+parser.add_argument('--time','-t', type=int, help='''SLURM number of hours to run, on the default partitions
                     of [hpg-default, hpg2-compute, bigmem] burst limit is 96, while regular limit is 744 (31 days).
                     Default=72 hours''')
 cl_args = parser.parse_args()
+
+# Defaults for the variables
+class default_vals:
+    dir_names = True
+    nodes = 1
+    tasks = 30
+    cpus_per_task = 1
+    mem_per_cpu = '7GB'
+    time = 72
+    partition = None
+    burst = False
+# save the current input values of cl_args for reference
+input_vals = copy.copy(cl_args)
+
 
 # Toggle verbose
 if cl_args.verbose == True:
@@ -329,6 +344,38 @@ def runSlurm():
     subprocess.run(command)
 
 
+def setCL_valuesOverride(defaults_tf):
+    verb('Setting cl_args based on CL overrides')
+    # Set defaults first (if not loading json)
+    if defaults_tf is True:
+        cl_args.dir_names = default_vals.dir_names
+        cl_args.nodes = default_vals.nodes
+        cl_args.tasks = default_vals.tasks
+        cl_args.cpus_per_task = default_vals.cpus_per_task
+        cl_args.mem_per_cpu = default_vals.mem_per_cpu
+        cl_args.time = default_vals.time
+        cl_args.partition = default_vals.partition
+        cl_args.burst = default_vals.burst
+    # If the cl_args input values not None (or default for T/F)
+    if input_vals.dir_names is False:
+        cl_args.dir_names = input_vals.dir_names
+    if input_vals.nodes is not None:
+        cl_args.nodes = input_vals.nodes
+    if input_vals.tasks is not None:
+        cl_args.tasks = input_vals.tasks
+    if input_vals.cpus_per_task is not None:
+        cl_args.cpus_per_task = input_vals.cpus_per_task
+    if input_vals.mem_per_cpu is not None:
+        cl_args.mem_per_cpu = input_vals.mem_per_cpu
+    if input_vals.time is not None:
+        cl_args.time = input_vals.time
+    if input_vals.partition is not None:
+        cl_args.partition = input_vals.partition
+    if input_vals.burst is True:
+        cl_args.burst = input_vals.burst
+
+
+
 # Read a json file 'slurm_header_template.json' in scripts
 # folder under pf/examples/sintering/ to define the different
 # slurm script header parameters
@@ -349,6 +396,7 @@ def jsonToSlurmVariables():
         cl_args.time = dict['hours']
         cl_args.partition = dict['partition']
         cl_args.burst = dict['burst']
+        setCL_valuesOverride(False)
         slurmHeaderPreview(True)
         # verb(' ')
         # verb(cl_args)
@@ -359,6 +407,7 @@ def jsonToSlurmVariables():
         verb('  '+json_path)
         if cl_args.input:
             manualInput()
+        setCL_valuesOverride(True)
         dict = {}
         dict['job_name_using_dir_names'] = cl_args.dir_names
         dict['nodes'] = cl_args.nodes
@@ -371,9 +420,13 @@ def jsonToSlurmVariables():
 
         with open(json_path, 'w') as fp:
             json.dump(dict, fp)
+        slurmHeaderPreview(True)
 
     else:
         logging.debug('Skipping json as the -json flag = '+str(cl_args.json))
+        verb('No json used, setting cl_args from defaults')
+        setCL_valuesOverride(True)
+        slurmHeaderPreview(True)
 
 
 
@@ -402,7 +455,8 @@ elif cl_args.input and not cl_args.json:
 elif cl_args.json and not cl_args.input:
     jsonToSlurmVariables()
 elif not cl_args.input and not cl_args.json:
-    verb('No json or manual input for SLURM header- using command line values')
+    verb('No json or manual input for SLURM header- using defaults with command line overrides')
+    jsonToSlurmVariables()
     verb(' ')
 else:
     raise ValueError('\x1b[31;1m'+'ERROR:'+'\x1b[0m'+' json and manual input logic tree failure')
