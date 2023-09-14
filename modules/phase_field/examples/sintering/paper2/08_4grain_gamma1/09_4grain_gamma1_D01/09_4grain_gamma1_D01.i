@@ -4,7 +4,7 @@
 # Created Date: Saturday August 19th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Saturday August 19th 2023
+# Last Modified: Thursday September 14th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -390,8 +390,8 @@
   [void_tracker]
     type = FeatureFloodCount
     variable = phi
-    threshold = 0.6
-    connecting_threshold = 0.5 #was 0.2 and worked fine for iso not tensor
+    threshold = 0.1
+    connecting_threshold = 0.09 #was 0.2 and worked fine for iso not tensor
     compute_var_to_feature_map = true
     execute_on = 'initial timestep_end'
   []
@@ -480,15 +480,15 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  end_time = 120
+  end_time = 2500
   steady_state_detection = true
   # num_steps = 2
   # dt = 0.0001
-  dtmax = 500
+  dtmax = 200
   # dt = 0.0001
   [TimeStepper]
     type = IterationAdaptiveDT
-    optimal_iterations = 8 #WAS 6
+    optimal_iterations = 6 #WAS 6
     dt = 0.01
     growth_factor = 1.2
     cutback_factor = 0.8

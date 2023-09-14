@@ -28,7 +28,7 @@ parser.add_argument('--dest','-d', action='store_true', help='''Change the file_
 # Slurm Header Args
 parser.add_argument('--dir-names', action='store_false', help='''SLURM Job Name set to directory names, defaults to true.
                     If false will use .i file names''')
-parser.add_argument('--nodes', type=int, help='SLURM number of nodes to use. Default=1')
+parser.add_argument('--nodes','-n', type=int, help='SLURM number of nodes to use. Default=1')
 parser.add_argument('--tasks', type=int, help='SLURM number of (mpi?) tasks. Default=30')
 parser.add_argument('--cpus-per-task', type=int, help='SLURM number of cpus per task to use. Default=1')
 parser.add_argument('--mem-per-cpu', type=str, help='''SLURM memory per cpu. The default is fairy safe.
