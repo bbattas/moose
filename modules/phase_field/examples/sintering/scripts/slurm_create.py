@@ -20,9 +20,10 @@ parser.add_argument('--verbose','-v', action='store_true', help='Verbose output,
 parser.add_argument('--subdirs','-s', action='store_false', help='Run in all direct subdirectories, default on')
 parser.add_argument('--overwrite','-o', action='store_true', help='Overwrite existing slurm scripts, default off')
 parser.add_argument('--input','-i', action='store_true', help='SLURM header manual inputs. Default=Off')
+parser.add_argument('--inl','--pbs','-p', action='store_true', help='PBS script for INL. Default=Off')
 parser.add_argument('--run','-r', action='store_true', help='SBATCH Submit all the slurm scripts also. Default=Off')
 parser.add_argument('--json','-j', action='store_true', help='Read SLURM header values from SLURM.json, Default=Off')
-parser.add_argument('--dest','-d', action='store_true', help='''Change the file_base in the MOOSE inputs to
+parser.add_argument('--dest','-d', action='store_true', help='''DISABLED: Change the file_base in the MOOSE inputs to
                     match the /blue equivalent with the input.i name as the output name still, Default=Off''')
 
 # Slurm Header Args
@@ -212,74 +213,114 @@ def manualInput():
 # Write the actual slurm script
 def slurmWrite(cwd,inputName):
     slurmList = []
-    # Building the header
-    slurmList.append('#!/bin/bash')
-    slurmList.append('')
-    # Job Name: Directory or Input File
-    if cl_args.dir_names:
-        slurmList.append('#SBATCH --job-name='+cwd.rsplit('/',1)[1])
-    elif cl_args.dir_names == False:
-        slurmList.append('#SBATCH --job-name='+inputName)
-    else:
-        raise ValueError("--dir-names not specified True or False")
-    # Nodes
-    slurmList.append('#SBATCH --nodes='+str(cl_args.nodes))
-    # Tasks per node
-    slurmList.append('#SBATCH --ntasks-per-node='+str(cl_args.tasks))
-    # CPUs per task
-    slurmList.append('#SBATCH --cpus-per-task='+str(cl_args.cpus_per_task))
-    # Memory per CPU
-    slurmList.append('#SBATCH --mem-per-cpu='+cl_args.mem_per_cpu)
-    # Distribution line
-    slurmList.append('#SBATCH --distribution=cyclic:cyclic')
-    # A nice empty line for cleanliness
-    slurmList.append('')
-    # Partition if specified
-    if cl_args.partition==None or cl_args.partition=="None":
-        verb('    No partition specified')
-    else:
-        slurmList.append('#SBATCH --partition='+cl_args.partition)
-    # Time to run in hours
-    slurmList.append('#SBATCH --time='+str(cl_args.time)+':00:00')
-    # Terminal save name
-    slurmList.append('#SBATCH --output=moose_console_%j.out')
-    # Email
-    slurmList.append('#SBATCH --mail-user=bbattas@ufl.edu')
-    slurmList.append('#SBATCH --mail-type=BEGIN,END,FAIL')
-    # Account to run on and burst or not
-    slurmList.append('#SBATCH --account=michael.tonks')
-    if cl_args.burst:
-        verb('    Specifying burst allocation')
-        slurmList.append('#SBATCH --qos=michael.tonks-b')
+    if cl_args.inl == False:
+        # Slurm style
+        # Building the header
+        slurmList.append('#!/bin/bash')
+        slurmList.append('')
+        # Job Name: Directory or Input File
+        if cl_args.dir_names:
+            slurmList.append('#SBATCH --job-name='+cwd.rsplit('/',1)[1])
+        elif cl_args.dir_names == False:
+            slurmList.append('#SBATCH --job-name='+inputName)
+        else:
+            raise ValueError("--dir-names not specified True or False")
+        # Nodes
+        slurmList.append('#SBATCH --nodes='+str(cl_args.nodes))
+        # Tasks per node
+        slurmList.append('#SBATCH --ntasks-per-node='+str(cl_args.tasks))
+        # CPUs per task
+        slurmList.append('#SBATCH --cpus-per-task='+str(cl_args.cpus_per_task))
+        # Memory per CPU
+        slurmList.append('#SBATCH --mem-per-cpu='+cl_args.mem_per_cpu)
+        # Distribution line
+        slurmList.append('#SBATCH --distribution=cyclic:cyclic')
+        # A nice empty line for cleanliness
+        slurmList.append('')
+        # Partition if specified
+        if cl_args.partition==None or cl_args.partition=="None":
+            verb('    No partition specified')
+        else:
+            slurmList.append('#SBATCH --partition='+cl_args.partition)
+        # Time to run in hours
+        slurmList.append('#SBATCH --time='+str(cl_args.time)+':00:00')
+        # Terminal save name
+        slurmList.append('#SBATCH --output=moose_console_%j.out')
+        # Email
+        slurmList.append('#SBATCH --mail-user=bbattas@ufl.edu')
+        slurmList.append('#SBATCH --mail-type=BEGIN,END,FAIL')
+        # Account to run on and burst or not
+        slurmList.append('#SBATCH --account=michael.tonks')
+        if cl_args.burst:
+            verb('    Specifying burst allocation')
+            slurmList.append('#SBATCH --qos=michael.tonks-b')
 
-    # On to the actual job to submit
-    # Define Locations
-    slurmList.append('')
-    slurmList.append('MOOSE='+pf_opt)
-    slurmList.append('OUTPUT='+cwd)
-    # Module loading
-    slurmList.append('')
-    # slurmList.append('module purge')
-    # slurmList.append('module load moose/26-jul-21')
-    # slurmList.append('module load conda')
-    slurmList.append('source ~/.bashrc')
-    slurmList.append('mamba activate moose')
-    # Actually go to the output and run the shit
-    slurmList.append('')
-    slurmList.append('cd $OUTPUT')
-    slurmList.append('mpirun $MOOSE -i $OUTPUT/'+inputName+'.i')
+        # On to the actual job to submit
+        # Define Locations
+        slurmList.append('')
+        slurmList.append('MOOSE='+pf_opt)
+        slurmList.append('OUTPUT='+cwd)
+        # Module loading
+        slurmList.append('')
+        # slurmList.append('module purge')
+        # slurmList.append('module load moose/26-jul-21')
+        # slurmList.append('module load conda')
+        slurmList.append('source ~/.bashrc')
+        slurmList.append('mamba activate moose')
+        # Actually go to the output and run the shit
+        slurmList.append('')
+        slurmList.append('cd $OUTPUT')
+        slurmList.append('mpirun $MOOSE -i $OUTPUT/'+inputName+'.i')
 
-    # Output the slurm script
-    # verb(slurmList)
-    slurmName = 'slurm_' + inputName + '.sh'
-    verb('    Saving slurm script: '+slurmName)
-    with open(slurmName, mode='w') as slurmFile:
-        slurmFile.write('\n'.join(slurmList))
+        # Output the slurm script
+        # verb(slurmList)
+        slurmName = 'slurm_' + inputName + '.sh'
+        verb('    Saving slurm script: '+slurmName)
+        with open(slurmName, mode='w') as slurmFile:
+            slurmFile.write('\n'.join(slurmList))
+    else:
+        # PBS style
+        # Building the header
+        slurmList.append('#!/bin/bash')
+        # Job Name: Directory or Input File
+        if cl_args.dir_names:
+            slurmList.append('#PBS -N '+cwd.rsplit('/',1)[1])
+        elif cl_args.dir_names == False:
+            slurmList.append('#PBS -N '+inputName)
+        else:
+            raise ValueError("--dir-names not specified True or False")
+        # Nodes
+        slurmList.append('#PBS -l select='+str(cl_args.nodes)+':ncpus=48:mpiprocs=48')
+        # Time to run in hours
+        slurmList.append('#PBS -l walltime='+str(cl_args.time)+':0:0')
+        slurmList.append('#PBS -k doe')
+        slurmList.append('#PBS -o terminal_out')
+        slurmList.append('#PBS -j oe')
+        slurmList.append('#PBS -P neams')
+        slurmList.append('#PBS -m abe')
+        slurmList.append('#PBS -M bbattas@ufl.edu')
+        slurmList.append(' ')
+        slurmList.append('cat $PBS_NODEFILE')
+        slurmList.append('source /etc/profile.d/modules.sh')
+        slurmList.append('module load use.moose moose-dev')
+        slurmList.append(' ')
+        slurmList.append('cd $PBS_O_WORKDIR')
+        slurmList.append(' ')
+        slurmList.append('mpirun /home/$USER/projects/moose/modules/phase_field/phase_field-opt -i '+inputName+'.i')
+        # Output the PBS script
+        # verb(slurmList)
+        slurmName = 'pbs_' + inputName + '.sh'
+        verb('    Saving slurm script: '+slurmName)
+        with open(slurmName, mode='w') as slurmFile:
+            slurmFile.write('\n'.join(slurmList))
 
 
 # Preview of the header content of the SLURM script printed to terminal
 # copied from the slurmWrite(), so if the header there changes it needs to here too
 def slurmHeaderPreview(interactive):
+    if cl_args.inl == True:
+        pt('No Preview for PBS currently')
+        return
     if interactive:
         pt(' ')
         pt('\x1B[1m'+'Header Preview: \x1b[0m')
@@ -335,14 +376,24 @@ def slurmHeaderPreview(interactive):
 
 # Run the slurm script in the current directory
 def runSlurm():
-    verb('  Submitting slurm script')
-    # Find slurm script name
-    for file in glob.glob("*.sh"):
-        slurmScriptName = file
-    command = ['sbatch',slurmScriptName]
-    verb('    Command being run is: ' + str(command))
-    # Submit the slurm script
-    subprocess.run(command)
+    if cl_args.inl == False:
+        verb('  Submitting slurm script')
+        # Find slurm script name
+        for file in glob.glob("*.sh"):
+            slurmScriptName = file
+        command = ['sbatch',slurmScriptName]
+        verb('    Command being run is: ' + str(command))
+        # Submit the slurm script
+        subprocess.run(command)
+    else:
+        verb('  Submitting PBS script')
+        # Find slurm script name
+        for file in glob.glob("*.sh"):
+            slurmScriptName = file
+        command = ['qsub',slurmScriptName]
+        verb('    Command being run is: ' + str(command))
+        # Submit the slurm script
+        subprocess.run(command)
 
 
 def setCL_valuesOverride(defaults_tf):
