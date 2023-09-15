@@ -306,7 +306,8 @@ def slurmWrite(cwd,inputName):
         slurmList.append(' ')
         slurmList.append('cd $PBS_O_WORKDIR')
         slurmList.append(' ')
-        slurmList.append('mpirun /home/$USER/projects/moose/modules/phase_field/phase_field-opt -i '+inputName+'.i')
+        # slurmList.append('mpirun /home/$USER/projects/moose/modules/phase_field/phase_field-opt -i '+inputName+'.i')
+        slurmList.append('mpirun /scratch/$USER/moose/modules/phase_field/phase_field-opt -i '+inputName+'.i')
         # Output the PBS script
         # verb(slurmList)
         slurmName = 'pbs_' + inputName + '.sh'
