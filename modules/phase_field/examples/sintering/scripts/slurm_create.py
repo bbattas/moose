@@ -262,11 +262,13 @@ def slurmWrite(cwd,inputName):
         slurmList.append('OUTPUT='+cwd)
         # Module loading
         slurmList.append('')
-        # slurmList.append('module purge')
-        # slurmList.append('module load moose/26-jul-21')
+        slurmList.append('export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77')
+        slurmList.append('module purge')
+        slurmList.append('module load ufrc mkl/2023.2.0 gcc/12.2.0 openmpi/4.1.5 python/3.11 cmake/3.26.4')
         # slurmList.append('module load conda')
-        slurmList.append('source ~/.bashrc')
-        slurmList.append('mamba activate moose')
+        # Mamba Build
+        # slurmList.append('source ~/.bashrc')
+        # slurmList.append('mamba activate moose')
         # Actually go to the output and run the shit
         slurmList.append('')
         slurmList.append('cd $OUTPUT')
