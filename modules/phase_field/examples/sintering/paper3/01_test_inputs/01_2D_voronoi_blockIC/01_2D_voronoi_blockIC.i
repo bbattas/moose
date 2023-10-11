@@ -4,7 +4,7 @@
 # Created Date: Tuesday October 10th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday October 10th 2023
+# Last Modified: Wednesday October 11th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -113,6 +113,17 @@
     variable = phi
     inside = 1
     outside = 0
+  []
+  [BubbleIC]
+    type = MultiSmoothCircleIC
+    variable = phi
+    invalue = 1
+    outvalue = 0
+    numbub = 30
+    radius = 3
+    bubspac = 10
+    block = 0
+    numtries = 10000
   []
 []
 
@@ -419,8 +430,8 @@
   start_time = 0
   # end_time =
   steady_state_detection = true
-  num_steps = 1
-  dt = 0.00001
+  num_steps = 40
+  dt = 0.0001
   # dtmax = 500
   # dt = 0.0001
   # [TimeStepper]
