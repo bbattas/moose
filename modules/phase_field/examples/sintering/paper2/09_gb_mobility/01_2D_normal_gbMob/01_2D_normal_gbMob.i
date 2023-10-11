@@ -430,7 +430,7 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  end_time = 750
+  end_time = 7500
   steady_state_detection = true
   # num_steps = 10
   # dt = 0.0001
