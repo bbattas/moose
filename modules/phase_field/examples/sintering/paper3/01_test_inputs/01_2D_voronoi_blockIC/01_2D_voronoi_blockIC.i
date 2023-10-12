@@ -4,7 +4,7 @@
 # Created Date: Tuesday October 10th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday October 11th 2023
+# Last Modified: Thursday October 12th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -119,11 +119,20 @@
     variable = phi
     invalue = 1
     outvalue = 0
-    numbub = 30
-    radius = 3
+    numbub = 5
+    radius = 6
     bubspac = 10
     block = 0
     numtries = 10000
+  []
+[]
+
+[BCs]
+  [right]
+    type = NeumannBC
+    variable = phi
+    value = 0
+    boundary = right
   []
 []
 
@@ -219,6 +228,20 @@
     property_name = Diff
     material_property_names = 'diffusivity'
     expression = 'diffusivity'
+    outputs = nemesis
+  []
+  [OP_sum]
+    type = ParsedMaterial
+    property_name = OP_sum
+    coupled_variables = 'phi gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
+    expression = 'phi+gr0+gr1+gr2+gr3+gr4+gr5+gr6+gr7'
+    outputs = nemesis
+  []
+  [GR_sum]
+    type = ParsedMaterial
+    property_name = GR_sum
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
+    expression = 'gr0+gr1+gr2+gr3+gr4+gr5+gr6+gr7'
     outputs = nemesis
   []
 []
@@ -401,7 +424,7 @@
   []
   [voronoi]
     type = PolycrystalVoronoi
-    grain_num = 20 # Number of grains
+    grain_num = 10 # Number of grains
     rand_seed = 10
     # int_width = 7 # global param
   []
@@ -430,18 +453,18 @@
   start_time = 0
   # end_time =
   steady_state_detection = true
-  num_steps = 40
-  dt = 0.0001
+  num_steps = 200
+  # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   optimal_iterations = 8 #WAS 6
-  #   dt = 0.01
-  #   growth_factor = 1.2
-  #   cutback_factor = 0.8
-  #   cutback_factor_at_failure = 0.5 #might be different from the curback_factor
-  # []
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    optimal_iterations = 6
+    dt = 0.00002
+    growth_factor = 1.2
+    cutback_factor = 0.8
+    cutback_factor_at_failure = 0.5 #might be different from the curback_factor
+  []
   #[Adaptivity]
   #  refine_fraction = 0.8
   #  coarsen_fraction = 0.05 #minimize this- adds error
