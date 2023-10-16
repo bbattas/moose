@@ -4,8 +4,8 @@
 # Created Date: Tuesday October 10th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday October 12th 2023
-# Modified By: Brandon Battas
+# Last Modified: Monday October 16th 2023
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Testing the IC blocks to create a 2D input file that can be used
@@ -18,8 +18,8 @@
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2
-    nx = 100
-    ny = 80
+    nx = 200
+    ny = 160
     xmin = 0
     xmax = 100
     ymin = 0
@@ -36,7 +36,7 @@
 [GlobalParams]
   op_num = 8
   var_name_base = gr
-  int_width = 4 #particle radius is 100
+  int_width = 2 #particle radius is 100
   # profile = TANH # not used at the moment? only in circleic?
 []
 
@@ -120,7 +120,7 @@
     invalue = 1
     outvalue = 0
     numbub = 5
-    radius = 6
+    radius = 4
     bubspac = 10
     block = 0
     numtries = 10000
@@ -453,7 +453,7 @@
   start_time = 0
   # end_time =
   steady_state_detection = true
-  num_steps = 200
+  num_steps = 300
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
