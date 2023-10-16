@@ -330,3 +330,4 @@ pbs*.sh
 times_files.npy
 pics/
 core.phase_field*
+*.avi
