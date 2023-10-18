@@ -4,8 +4,8 @@
 # Created Date: Tuesday October 10th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday October 16th 2023
-# Modified By: Battas,Brandon Scott
+# Last Modified: Wednesday October 18th 2023
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Testing the IC blocks to create a 2D input file that can be used
@@ -18,10 +18,10 @@
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2
-    nx = 200
+    nx = 180
     ny = 160
     xmin = 0
-    xmax = 100
+    xmax = 90
     ymin = 0
     ymax = 80
   []
@@ -36,7 +36,7 @@
 [GlobalParams]
   op_num = 8
   var_name_base = gr
-  int_width = 2 #particle radius is 100
+  int_width = 4 #particle radius is 100
   # profile = TANH # not used at the moment? only in circleic?
 []
 
@@ -104,35 +104,78 @@
     []
   []
   [VoidIC]
-    type = BoundingBoxIC
-    x1 = 80
-    x2 = 110 #100
-    y1 = -10 #0
-    y2 = 90 #80
+    type = ConstantIC
     block = 1
     variable = phi
-    inside = 1
-    outside = 0
+    value = 1
   []
-  [BubbleIC]
-    type = MultiSmoothCircleIC
-    variable = phi
-    invalue = 1
-    outvalue = 0
-    numbub = 5
-    radius = 4
-    bubspac = 10
-    block = 0
-    numtries = 10000
-  []
+  # [BubbleIC]
+  #   type = MultiSmoothCircleIC
+  #   variable = phi
+  #   invalue = 1
+  #   outvalue = 0
+  #   numbub = 5
+  #   radius = 8 #4
+  #   bubspac = 10
+  #   block = 0
+  #   numtries = 10000
+  # []
 []
 
 [BCs]
-  [right]
+  [phi]
     type = NeumannBC
     variable = phi
     value = 0
-    boundary = right
+    boundary = 'left right top bottom'
+  []
+  [gr0]
+    type = NeumannBC
+    variable = gr0
+    value = 0
+    boundary = 'left right top bottom'
+  []
+  [gr1]
+    type = NeumannBC
+    variable = gr1
+    value = 0
+    boundary = 'left right top bottom'
+  []
+  [gr2]
+    type = NeumannBC
+    variable = gr2
+    value = 0
+    boundary = 'left right top bottom'
+  []
+  [gr3]
+    type = NeumannBC
+    variable = gr3
+    value = 0
+    boundary = 'left right top bottom'
+  []
+  [gr4]
+    type = NeumannBC
+    variable = gr4
+    value = 0
+    boundary = 'left right top bottom'
+  []
+  [gr5]
+    type = NeumannBC
+    variable = gr5
+    value = 0
+    boundary = 'left right top bottom'
+  []
+  [gr6]
+    type = NeumannBC
+    variable = gr6
+    value = 0
+    boundary = 'left right top bottom'
+  []
+  [gr7]
+    type = NeumannBC
+    variable = gr7
+    value = 0
+    boundary = 'left right top bottom'
   []
 []
 
@@ -389,6 +432,11 @@
     section_name = "Root"
     data_type = TOTAL
   []
+  [total_phi]
+    type = ElementAverageValue
+    variable = phi
+    outputs = csv
+  []
   #  [./void_tracker]
   #    type = FeatureFloodCount
   #    variable = phi
@@ -451,9 +499,9 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  # end_time =
+  end_time = 0.006
   steady_state_detection = true
-  num_steps = 300
+  # num_steps = 300
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
