@@ -1,43 +1,44 @@
 ##############################################################################
-# File: 01_2D_voronoi_blockIC.i
-# File Location: /examples/sintering/paper3/01_test_inputs/01_2D_voronoi_blockIC
-# Created Date: Tuesday October 10th 2023
+# File: 03_3grain_gamma1_D1_lowMob.i
+# File Location: /examples/sintering/paper2/09_gb_mobility/03_3grain_gamma1_D1_lowMob
+# Created Date: Friday October 20th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday October 20th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing the IC blocks to create a 2D input file that can be used
-#  to test the interstitial and irradiation additions to the input
-#  1 block uses voronoi IC and then adding voids to that afterward
-#  2 block is just free space on one side of the IC to allow densification
+#  Input 02 but with low gb mobility (1/100th), del*Dgb/Ds = 1, sigma_gb/sigma_s = 1
+#  delta=iw but on scaled D internal value, so backcalc Dgb = 1e6, Ds = 2e7
+#  sigma_gb=sigma_s=sig5tiltgb=9.86 eV/nm2
+#  Coarsened the mesh to 4 elements horizontal across iw (Tonks advice)
+#  100x60x95 had 3m DoFs-> 150(20k/ea), 300(10k/ea)
 ##############################################################################
 
 [Mesh]
   [gmg]
     type = DistributedRectilinearMeshGenerator
-    dim = 2
-    nx = 90
-    ny = 80
+    dim = 3
+    nx = 100
+    ny = 60
+    nz = 95
     xmin = 0
-    xmax = 90
+    xmax = 500
     ymin = 0
-    ymax = 80
+    ymax = 300
+    zmin = 0
+    zmax = 475
   []
-  [subdomains]
-    type = ParsedSubdomainMeshGenerator
-    input = gmg
-    combinatorial_geometry = 'x > 80'
-    block_id = 1
-  []
+  # parallel_type = DISTRIBUTED
+  # uniform_refine = 1
+  # second_order = false
 []
 
 [GlobalParams]
-  op_num = 8
+  op_num = 3
   var_name_base = gr
-  int_width = 6 #particle radius is 100
-  # profile = TANH # not used at the moment? only in circleic?
+  int_width = 20 #particle radius is 100
+  profile = TANH
 []
 
 [Variables]
@@ -51,27 +52,7 @@
   []
   [gr2]
   []
-  [gr3]
-  []
-  [gr4]
-  []
-  [gr5]
-  []
-  [gr6]
-  []
-  [gr7]
-  []
 []
-
-# [Bounds]
-#   [phi_lower]
-#     type = ConstantBoundsAux
-#     bounded_variable = phi
-#     bound_type = lower
-#     bound_value = 0.0
-#     variable = bounds_dummy
-#   []
-# []
 
 [AuxVariables]
   [bnds]
@@ -104,107 +85,48 @@
   #   order = CONSTANT
   #   family = MONOMIAL
   # [../]
-  # [bounds_dummy]
-  #   order = FIRST
-  #   family = LAGRANGE
-  # []
 []
 
 [ICs]
-  [PolycrystalICs]
-    [PolycrystalColoringIC]
-      polycrystal_ic_uo = voronoi
-      block = 0
-    []
-  []
-  [VoidIC]
-    # type = ConstantIC
-    # block = 1
-    # variable = phi
-    # value = 1
-    type = BoundingBoxIC
+  [phi_IC]
+    type = SpecifiedSmoothCircleIC
     variable = phi
-    block = 1
-    inside = 1
-    outside = 0
-    x1 = 80
-    x2 = 100
-    y1 = -10
-    y2 = 90
+    x_positions = '150 350 250'
+    y_positions = '150 150 150'
+    z_positions = '150 150 322.5'
+    radii = '100 100 100'
+    invalue = 0
+    outvalue = 1
   []
-  # [VoidIC2]
-  #   type = ConstantIC
-  #   block = 0
-  #   variable = phi
-  #   value = 1e-4 #0.02
-  # []
-  [BubbleIC]
-    type = MultiSmoothCircleIC
-    variable = phi
-    invalue = 1
-    outvalue = 0.01
-    numbub = 5
-    radius = 8 #4
-    bubspac = 12
-    block = 0
-    numtries = 10000
-  []
-[]
-
-[BCs]
-  [phi]
-    type = NeumannBC
-    variable = phi
-    value = 0
-    boundary = 'left right top bottom'
-  []
-  [gr0]
-    type = NeumannBC
+  [gr0_IC]
+    type = SmoothCircleIC
     variable = gr0
-    value = 0
-    boundary = 'left right top bottom'
+    x1 = 150
+    y1 = 150
+    z1 = 150
+    radius = 100
+    invalue = 1
+    outvalue = 0
   []
-  [gr1]
-    type = NeumannBC
+  [gr1_IC]
+    type = SmoothCircleIC
     variable = gr1
-    value = 0
-    boundary = 'left right top bottom'
+    x1 = 350
+    y1 = 150
+    z1 = 150
+    radius = 100
+    invalue = 1
+    outvalue = 0
   []
-  [gr2]
-    type = NeumannBC
+  [gr2_IC]
+    type = SmoothCircleIC
     variable = gr2
-    value = 0
-    boundary = 'left right top bottom'
-  []
-  [gr3]
-    type = NeumannBC
-    variable = gr3
-    value = 0
-    boundary = 'left right top bottom'
-  []
-  [gr4]
-    type = NeumannBC
-    variable = gr4
-    value = 0
-    boundary = 'left right top bottom'
-  []
-  [gr5]
-    type = NeumannBC
-    variable = gr5
-    value = 0
-    boundary = 'left right top bottom'
-  []
-  [gr6]
-    type = NeumannBC
-    variable = gr6
-    value = 0
-    boundary = 'left right top bottom'
-  []
-  [gr7]
-    type = NeumannBC
-    variable = gr7
-    value = 0
-    boundary = 'left right top bottom'
+    x1 = 250
+    y1 = 150
+    z1 = 322.5
+    radius = 100
+    invalue = 1
+    outvalue = 0
   []
 []
 
@@ -249,8 +171,8 @@
     Q = 2.77
     Em = 3.608
     bulkindex = 1
-    gbindex = -1 # sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = 1e11
+    gbindex = 1e6
+    surfindex = 2e7
   []
   [cv_eq]
     type = UO2CvMaterial
@@ -282,7 +204,7 @@
     constant_names = 'Va'
     constant_expressions = '0.04092'
     expression = 'Va*(hs*rhos + hv*rhov)'
-    outputs = nemesis #exodus
+    outputs = none #exodus
   []
   [L_mat]
     type = DerivativeParsedMaterial
@@ -292,7 +214,7 @@
     constant_names = 'p0'
     constant_expressions = '0.3'
     expression = 'hv:=if(phi<=0.0,0.0,if(phi>=p0,1.0,6*(phi/p0)^5 - 15*(phi/p0)^4 + 10*(phi/p0)^3));
-                hv*Lv + (1-hv)*L'
+                hv*Lv + (1-hv)*(L/100)'
     outputs = none
   []
   [Diff] # Diffusivity output for debugging
@@ -300,20 +222,6 @@
     property_name = Diff
     material_property_names = 'diffusivity'
     expression = 'diffusivity'
-    outputs = nemesis
-  []
-  [OP_sum]
-    type = ParsedMaterial
-    property_name = OP_sum
-    coupled_variables = 'phi gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-    expression = 'phi+gr0+gr1+gr2+gr3+gr4+gr5+gr6+gr7'
-    outputs = nemesis
-  []
-  [GR_sum]
-    type = ParsedMaterial
-    property_name = GR_sum
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-    expression = 'gr0+gr1+gr2+gr3+gr4+gr5+gr6+gr7'
     outputs = nemesis
   []
 []
@@ -347,7 +255,7 @@
   [barrier_phi]
     type = ACBarrierFunction
     variable = phi
-    v = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7' # gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15'
+    v = 'gr0 gr1 gr2' #gr2 gr3'# gr4 gr5'# gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15'
     gamma = gamma
     mob_name = L_mat
   []
@@ -382,7 +290,7 @@
   #    field_display = UNIQUE_REGION
   #    execute_on = 'INITIAL TIMESTEP_END'
   #  [../]
-  #NEW Grain_Tracker related stuff
+  #NEW
   [unique_grains]
     type = FeatureFloodCountAux
     variable = unique_grains
@@ -461,11 +369,6 @@
     section_name = "Root"
     data_type = TOTAL
   []
-  [total_phi]
-    type = ElementAverageValue
-    variable = phi
-    outputs = csv
-  []
   #  [./void_tracker]
   #    type = FeatureFloodCount
   #    variable = phi
@@ -476,35 +379,59 @@
   #  [../]
 []
 
-# [VectorPostprocessors]
-# #  [./voids]
-# #    type = FeatureVolumeVectorPostprocessor
-# #    flood_counter = void_tracker
-# #    execute_on = 'initial timestep_end final'
-# #    output_centroids = false  #was true
-# #    outputs = csv
-# #  [../]
-#  [./vectorMemory]
-#    type = VectorMemoryUsage
-#    mem_units = gigabytes
-#    outputs = csv
-#    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-#  [../]
-# []
+[VectorPostprocessors]
+  [ctrline]
+    type = LineValueSampler
+    variable = phi
+    start_point = '250 0 207.5'
+    end_point = '250 300 207.5'
+    sort_by = y
+    num_points = 31
+    outputs = csv
+  []
+  # #  [./voids]
+  # #    type = FeatureVolumeVectorPostprocessor
+  # #    flood_counter = void_tracker
+  # #    execute_on = 'initial timestep_end final'
+  # #    output_centroids = false  #was true
+  # #    outputs = csv
+  # #  [../]
+  #  [./vectorMemory]
+  #    type = VectorMemoryUsage
+  #    mem_units = gigabytes
+  #    outputs = csv
+  #    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+  #  [../]
+[]
 
 [UserObjects]
+  # [./terminator]  #do i have to specify that this is off so that the control can turn it on?
+  #   type = Terminator
+  #   expression = 'void_tracker = 1'
+  #   execute_on = TIMESTEP_END
+  #   enable = true
+  # [../]
+  [terminator] #do i have to specify that this is off so that the control can turn it on?
+    type = Terminator
+    expression = 'grain_tracker < 3'
+    execute_on = TIMESTEP_END
+    enable = true
+  []
   [grain_tracker]
     type = GrainTracker
     threshold = 0.1 #0.2
     connecting_threshold = 0.09 #0.08
     compute_halo_maps = false #true#false
   []
-  [voronoi]
-    type = PolycrystalVoronoi
-    grain_num = 8 # Number of grains
-    rand_seed = 10
-    # int_width = 7 # global param
-  []
+  # [./circle_IC]
+  #   type = PolycrystalCircles
+  #   # file_name = '../gt4gr.txt'
+  #   read_from_file = true
+  #   execute_on = 'initial'
+  #   threshold = 0.2
+  #   connecting_threshold = 0.08
+  #   coloring_algorithm = jp
+  # [../]
 []
 
 # [Preconditioning]
@@ -518,8 +445,8 @@
   type = Transient
   scheme = bdf2
   solve_type = PJFNK
-  petsc_options_iname = '-pc_type -pc_hypre_type' # -snes_type'
-  petsc_options_value = 'hypre boomeramg' # vinewtonrsls'
+  petsc_options_iname = '-pc_type -pc_hypre_type'
+  petsc_options_value = 'hypre boomeramg'
   # petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap'
   # petsc_options_value = ' asm      lu           2'
   nl_max_its = 20 #40 too large- optimal_iterations is 6
@@ -528,16 +455,16 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  end_time = 2 #0.006
+  end_time = 25000
   steady_state_detection = true
-  # num_steps = 300
-  # dt = 0.00002
-  # dtmax = 500
+  # num_steps = 2
+  # dt = 0.0001
+  dtmax = 200
   # dt = 0.0001
   [TimeStepper]
     type = IterationAdaptiveDT
-    optimal_iterations = 6
-    dt = 0.00002
+    optimal_iterations = 6 #WAS 6
+    dt = 0.01
     growth_factor = 1.2
     cutback_factor = 0.8
     cutback_factor_at_failure = 0.5 #might be different from the curback_factor
@@ -560,8 +487,8 @@
     # interval = 5              # this ExodusII will only output every third time step
   []
   print_linear_residuals = false
-  # [checkpoint]
-  #   type = Checkpoint
-  #   num_files = 3
-  # []
+  [checkpoint]
+    type = Checkpoint
+    num_files = 3
+  []
 []
