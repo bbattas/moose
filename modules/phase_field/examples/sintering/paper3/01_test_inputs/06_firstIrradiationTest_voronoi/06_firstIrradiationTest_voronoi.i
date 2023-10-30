@@ -4,13 +4,13 @@
 # Created Date: Wednesday October 25th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday October 25th 2023
-# Modified By: Brandon Battas
+# Last Modified: Monday October 30th 2023
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Testing the addition of the ODE/Constant irradiation
-#
-#
+#  rhov_avg for pp-ed average of vacancies for recombination
+#  rho_i for the density of interstitials
 #
 ##############################################################################
 
@@ -63,16 +63,6 @@
   []
 []
 
-# [Bounds]
-#   [phi_lower]
-#     type = ConstantBoundsAux
-#     bounded_variable = phi
-#     bound_type = lower
-#     bound_value = 0.0
-#     variable = bounds_dummy
-#   []
-# []
-
 [AuxVariables]
   [bnds]
   []
@@ -104,10 +94,10 @@
   #   order = CONSTANT
   #   family = MONOMIAL
   # [../]
-  # [bounds_dummy]
-  #   order = FIRST
-  #   family = LAGRANGE
-  # []
+  [rhov_avg]
+  []
+  [rho_i]
+  []
 []
 
 [ICs]
@@ -148,6 +138,12 @@
     bubspac = 12
     block = 0
     numtries = 10000
+  []
+  [Rho_i_IC]
+    type = ConstantIC
+    block = 0
+    variable = rho_i
+    value = 1e-4 #0.02
   []
 []
 
@@ -216,6 +212,12 @@
   [f_OU]
     type = ConstantFunction
     value = 2.0
+  []
+  [rhov_avg_func]
+    type = ParsedFunction
+    symbol_names = 'rhov_pp_avg'
+    symbol_values = 'rhov_pp_avg'
+    expression = 'rhov_pp_avg'
   []
 []
 
@@ -295,27 +297,14 @@
                 hv*Lv + (1-hv)*L'
     outputs = none
   []
-  # [Diff] # Diffusivity output for debugging
-  #   type = ParsedMaterial
-  #   property_name = Diff
-  #   material_property_names = 'diffusivity'
-  #   expression = 'diffusivity'
-  #   outputs = nemesis
-  # []
-  # [OP_sum]
-  #   type = ParsedMaterial
-  #   property_name = OP_sum
-  #   coupled_variables = 'phi gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-  #   expression = 'phi+gr0+gr1+gr2+gr3+gr4+gr5+gr6+gr7'
-  #   outputs = nemesis
-  # []
-  # [GR_sum]
-  #   type = ParsedMaterial
-  #   property_name = GR_sum
-  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-  #   expression = 'gr0+gr1+gr2+gr3+gr4+gr5+gr6+gr7'
-  #   outputs = nemesis
-  # []
+  # Irradiation and Interstitials
+  [rho_testing]
+    type = ParsedMaterial
+    property_name = rho_testing
+    material_property_names = 'rhos rhov'
+    expression = 'rhov'
+    outputs = 'nemesis'
+  []
 []
 
 [Modules]
@@ -411,6 +400,20 @@
   #   field_display = HALOS
   #   execute_on = 'initial timestep_end'
   # [../]
+  [rho_i]
+    type = ParsedAux
+    variable = rho_i
+    coupled_variables = rhov_avg
+    constant_names = 'ar'
+    constant_expressions = '0.5'
+    expression = '1 - ar*rhov_avg'
+  []
+  [rhov_avg_kernel]
+    type = FunctionAux
+    variable = rhov_avg
+    function = rhov_avg_func
+    execute_on = 'INITIAL TIMESTEP_BEGIN'
+  []
 []
 
 [Postprocessors]
@@ -474,6 +477,12 @@
   #    compute_var_to_feature_map = true
   #    execute_on = 'initial timestep_end'
   #  [../]
+  [rhov_pp_avg]
+    # type = ElementAverageValue
+    type = ElementAverageMaterialProperty
+    mat_prop = rhov
+    execute_on = 'initial TIMESTEP_BEGIN'
+  []
 []
 
 # [VectorPostprocessors]
@@ -530,7 +539,7 @@
   start_time = 0
   # end_time = 2 #0.006
   steady_state_detection = true
-  num_steps = 3
+  num_steps = 1
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
