@@ -5,7 +5,7 @@
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday October 30th 2023
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Testing the addition of the ODE/Constant irradiation
@@ -98,6 +98,12 @@
   []
   [rho_i]
   []
+  [rhoi_old]
+  []
+  [rho_gen_avg]
+  []
+  [ar_avg]
+  []
 []
 
 [ICs]
@@ -143,7 +149,7 @@
     type = ConstantIC
     block = 0
     variable = rho_i
-    value = 1e-4 #0.02
+    value = 0 #1e-4 #0.02
   []
 []
 
@@ -218,6 +224,12 @@
     symbol_names = 'rhov_pp_avg'
     symbol_values = 'rhov_pp_avg'
     expression = 'rhov_pp_avg'
+  []
+  [rhoi_old_func]
+    type = ParsedFunction
+    symbol_names = 'rhoi_old'
+    symbol_values = 'rhoi_old'
+    expression = 'rhoi_old'
   []
 []
 
@@ -303,6 +315,34 @@
     property_name = rho_testing
     material_property_names = 'rhos rhov'
     expression = 'rhov'
+    outputs = 'nemesis'
+  []
+  # [f_dot]
+  #   type = RandomMaterial
+  #   f_name = f_dot
+  #   noise = noise
+  #   outputs = exodus
+  #   min_value = 0.8e-8
+  #   max_value = 1.2e-8
+  # []
+  [rho_gen]
+    type = ParsedMaterial
+    property_name = rho_gen
+    constant_names = 'Nc Nd f_dot noise'
+    constant_expressions = '2 5 1e-8 1'
+    material_property_names = 'hs'
+    expression = 'f_dot * noise * Nc * Nd * hs'
+    outputs = 'nemesis'
+  []
+  [a_r]
+    type = ParsedMaterial
+    property_name = a_r
+    constant_names = 'Va Z a_0 Di_0 Ei_B kB'
+    constant_expressions = '0.04092 250 0.25 1e13 2 8.617343e-5'
+    material_property_names = 'hs'
+    coupled_variables = 'T'
+    expression = 'Di:=Di_0*exp(-Ei_B/(kB*T));
+                  hs * Va * Z * Di / (a_0^2)'
     outputs = 'nemesis'
   []
 []
@@ -400,18 +440,36 @@
   #   field_display = HALOS
   #   execute_on = 'initial timestep_end'
   # [../]
+  # [rho_i]
+  #   type = ParsedAux
+  #   variable = rho_i
+  #   coupled_variables = 'rhov_avg rhoi_old T phi'
+  #   constant_names = 'Nc Nd f_dot noise Va Z a_0 Di_0 Ei_B kB'
+  #   constant_expressions = '2 5 1e-8 1 0.04092 250 0.25 1e13 2 8.617343e-5'
+  #   expression = 'hm:=phi * phi * phi * (10.0 + phi * (-15.0 + phi * 6.0));
+  #                 Di:=Di_0*exp(-Ei_B/(kB*T));
+  #                 a_r:=hs * Va * Z * Di / (a_0^2);
+  #                 rho_gen:=f_dot * noise * Nc * Nd * hs;
+  #                 rho_gen - a_r*rhov_avg*rhoi_old'
+  # []
   [rho_i]
     type = ParsedAux
     variable = rho_i
-    coupled_variables = rhov_avg
-    constant_names = 'ar'
-    constant_expressions = '0.5'
-    expression = '1 - ar*rhov_avg'
+    coupled_variables = 'rhov_avg rhoi_old'
+    constant_names = 'rho_gen a_r'
+    constant_expressions = '1e-7 8.2e8'
+    expression = 'rhoi_old+ rho_gen - a_r*rhov_avg*rhoi_old'
   []
   [rhov_avg_kernel]
     type = FunctionAux
     variable = rhov_avg
     function = rhov_avg_func
+    execute_on = 'INITIAL TIMESTEP_BEGIN'
+  []
+  [rhoi_old_kernel]
+    type = FunctionAux
+    variable = rhoi_old
+    function = rhoi_old_func
     execute_on = 'INITIAL TIMESTEP_BEGIN'
   []
 []
@@ -483,6 +541,23 @@
     mat_prop = rhov
     execute_on = 'initial TIMESTEP_BEGIN'
   []
+  [rhoi_old]
+    type = ElementAverageValue
+    variable = rho_i
+    execute_on = 'initial TIMESTEP_BEGIN'
+  []
+  # [rho_gen_pp_avg]
+  #   # type = ElementAverageValue
+  #   type = ElementAverageMaterialProperty
+  #   mat_prop = rho_gen
+  #   execute_on = 'initial TIMESTEP_BEGIN'
+  # []
+  # [a_r_pp_avg]
+  #   # type = ElementAverageValue
+  #   type = ElementAverageMaterialProperty
+  #   mat_prop = a_r
+  #   execute_on = 'initial TIMESTEP_BEGIN'
+  # []
 []
 
 # [VectorPostprocessors]
@@ -539,7 +614,7 @@
   start_time = 0
   # end_time = 2 #0.006
   steady_state_detection = true
-  num_steps = 1
+  num_steps = 3
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
