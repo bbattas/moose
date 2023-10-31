@@ -4,8 +4,8 @@
 # Created Date: Wednesday October 25th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday October 30th 2023
-# Modified By: Brandon Battas
+# Last Modified: Tuesday October 31st 2023
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Testing the addition of the ODE/Constant irradiation
@@ -94,16 +94,8 @@
   #   order = CONSTANT
   #   family = MONOMIAL
   # [../]
-  [rhov_avg]
-  []
-  [rho_i]
-  []
-  [rhoi_old]
-  []
-  [rho_gen_avg]
-  []
-  [ar_avg]
-  []
+  # [rhov_avg]
+  # []
 []
 
 [ICs]
@@ -145,12 +137,12 @@
     block = 0
     numtries = 10000
   []
-  [Rho_i_IC]
-    type = ConstantIC
-    block = 0
-    variable = rho_i
-    value = 0 #1e-4 #0.02
-  []
+  # [Rho_i_IC]
+  #   type = ConstantIC
+  #   block = 0
+  #   variable = rho_i
+  #   value = 0 #1e-4 #0.02
+  # []
 []
 
 [BCs]
@@ -225,12 +217,6 @@
     symbol_values = 'rhov_pp_avg'
     expression = 'rhov_pp_avg'
   []
-  [rhoi_old_func]
-    type = ParsedFunction
-    symbol_names = 'rhoi_old'
-    symbol_values = 'rhoi_old'
-    expression = 'rhoi_old'
-  []
 []
 
 [Materials]
@@ -263,7 +249,7 @@
     Q = 2.77
     Em = 3.608
     bulkindex = 1
-    gbindex = -1 # sets the GB D to the LANL MD Value in GPIsoMat
+    gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
     surfindex = 1e11
   []
   [cv_eq]
@@ -325,13 +311,15 @@
   #   min_value = 0.8e-8
   #   max_value = 1.2e-8
   # []
+  # Interstitials
   [rho_gen]
-    type = ParsedMaterial
+    type = DerivativeParsedMaterial
     property_name = rho_gen
+    derivative_order = 1
     constant_names = 'Nc Nd f_dot noise'
     constant_expressions = '2 5 1e-8 1'
     material_property_names = 'hs'
-    expression = 'f_dot * noise * Nc * Nd * hs'
+    expression = 'f_dot * noise * Nc * Nd' # * hs
     outputs = 'nemesis'
   []
   [a_r]
@@ -342,9 +330,31 @@
     material_property_names = 'hs'
     coupled_variables = 'T'
     expression = 'Di:=Di_0*exp(-Ei_B/(kB*T));
-                  hs * Va * Z * Di / (a_0^2)'
+                  Va * Z * Di / (a_0^2)' #hs *
     outputs = 'nemesis'
   []
+  [rho_i_mat]
+    type = DerivativeParsedMaterial
+    property_name = rho_i_mat
+    derivative_order = 2
+    # coupled_variables = ''
+    material_property_names = 'rho_gen a_r'
+    postprocessor_names = 'rhov_pp_avg'
+    expression = 'rho_gen / (a_r * rhov_pp_avg)'
+    outputs = 'nemesis'
+  []
+  # Vacancies
+  # [source]
+  #   type = DerivativeParsedMaterial
+  #   f_name = source
+  #   args = 'phi'
+  #   material_property_names = 'hm(phi) f_dot'
+  #   constant_names = 'X' #defects generated per cascade
+  #   constant_expressions = '3'
+  #   function = '2*hm*f_dot*X'
+  #   derivative_order = 1
+  #   outputs = nemesis
+  # []
 []
 
 [Modules]
@@ -386,6 +396,15 @@
     mob_name = L_mat
     kappa_name = kappa
   []
+  # Irradiation
+  # Source/Generation
+  [source_w]
+    type = MaskedBodyForce
+    variable = w
+    mask = rho_gen
+  []
+  # Recombination/sink
+  # Damage
 []
 
 [AuxKernels]
@@ -452,26 +471,26 @@
   #                 rho_gen:=f_dot * noise * Nc * Nd * hs;
   #                 rho_gen - a_r*rhov_avg*rhoi_old'
   # []
-  [rho_i]
-    type = ParsedAux
-    variable = rho_i
-    coupled_variables = 'rhov_avg rhoi_old'
-    constant_names = 'rho_gen a_r'
-    constant_expressions = '1e-7 8.2e8'
-    expression = 'rhoi_old+ rho_gen - a_r*rhov_avg*rhoi_old'
-  []
-  [rhov_avg_kernel]
-    type = FunctionAux
-    variable = rhov_avg
-    function = rhov_avg_func
-    execute_on = 'INITIAL TIMESTEP_BEGIN'
-  []
-  [rhoi_old_kernel]
-    type = FunctionAux
-    variable = rhoi_old
-    function = rhoi_old_func
-    execute_on = 'INITIAL TIMESTEP_BEGIN'
-  []
+  # [rho_i]
+  #   type = ParsedAux
+  #   variable = rho_i
+  #   coupled_variables = 'rhov_avg rhoi_old'
+  #   constant_names = 'rho_gen a_r'
+  #   constant_expressions = '1e-7 8.2e8'
+  #   expression = 'rhoi_old+ rho_gen - a_r*rhov_avg*rhoi_old'
+  # []
+  # [rhov_avg_kernel]
+  #   type = FunctionAux
+  #   variable = rhov_avg
+  #   function = rhov_avg_func
+  #   execute_on = 'INITIAL TIMESTEP_BEGIN'
+  # []
+  # [rhoi_old_kernel]
+  #   type = FunctionAux
+  #   variable = rhoi_old
+  #   function = rhoi_old_func
+  #   execute_on = 'INITIAL TIMESTEP_BEGIN'
+  # []
 []
 
 [Postprocessors]
@@ -539,11 +558,6 @@
     # type = ElementAverageValue
     type = ElementAverageMaterialProperty
     mat_prop = rhov
-    execute_on = 'initial TIMESTEP_BEGIN'
-  []
-  [rhoi_old]
-    type = ElementAverageValue
-    variable = rho_i
     execute_on = 'initial TIMESTEP_BEGIN'
   []
   # [rho_gen_pp_avg]
