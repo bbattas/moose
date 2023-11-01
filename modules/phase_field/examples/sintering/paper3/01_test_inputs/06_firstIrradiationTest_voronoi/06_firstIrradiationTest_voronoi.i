@@ -4,8 +4,8 @@
 # Created Date: Wednesday October 25th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday October 31st 2023
-# Modified By: Battas,Brandon Scott
+# Last Modified: Wednesday November 1st 2023
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Testing the addition of the ODE/Constant irradiation
@@ -303,6 +303,13 @@
     expression = 'rhov'
     outputs = 'nemesis'
   []
+  [sum_grs]
+    type = ParsedMaterial
+    property_name = sum_grs
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
+    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5 + gr6 + gr7'
+    outputs = 'nemesis'
+  []
   # [f_dot]
   #   type = RandomMaterial
   #   f_name = f_dot
@@ -344,6 +351,16 @@
     outputs = 'nemesis'
   []
   # Vacancies
+  [rho_v_recombRate]
+    type = DerivativeParsedMaterial
+    property_name = rho_v_recombRate
+    coupled_variables = 'w'
+    # additional_derivative_symbols = w
+    material_property_names = 'rho_i_mat a_r rhov'
+    # postprocessor_names = 'rhov_pp_avg'
+    expression = 'a_r * rhov * rho_i_mat'
+    outputs = 'nemesis'
+  []
   # [source]
   #   type = DerivativeParsedMaterial
   #   f_name = source
@@ -404,6 +421,12 @@
     mask = rho_gen
   []
   # Recombination/sink
+  [recombination_w]
+    type = MatReaction
+    variable = w
+    mob_name = rho_v_recombRate
+    # args = rhoi #but its a constant and material not a variable
+  []
   # Damage
 []
 
@@ -542,8 +565,23 @@
     data_type = TOTAL
   []
   [total_phi]
-    type = ElementAverageValue
+    type = ElementIntegralVariablePostprocessor
     variable = phi
+    outputs = csv
+  []
+  [total_rhov]
+    type = ElementIntegralMaterialProperty
+    mat_prop = rhov
+    outputs = csv
+  []
+  [total_rhoi]
+    type = ElementIntegralMaterialProperty
+    mat_prop = rho_i_mat
+    outputs = csv
+  []
+  [total_grs]
+    type = ElementIntegralMaterialProperty
+    mat_prop = sum_grs
     outputs = csv
   []
   #  [./void_tracker]
@@ -626,9 +664,9 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  # end_time = 2 #0.006
+  end_time = 10 #0.006
   steady_state_detection = true
-  num_steps = 3
+  # num_steps = 3
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
