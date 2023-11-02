@@ -1,16 +1,16 @@
 ##############################################################################
-# File: 06_firstIrradiationTest_voronoi.i
-# File Location: /examples/sintering/paper3/01_test_inputs/06_firstIrradiationTest_voronoi
-# Created Date: Wednesday October 25th 2023
+# File: 01_voronoi_noRad.i
+# File Location: /examples/sintering/paper3/03_initial_irradiation_testing/01_voronoi_noRad
+# Created Date: Thursday November 2nd 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday November 2nd 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing the addition of the ODE/Constant irradiation
-#  rhov_avg for pp-ed average of vacancies for recombination
-#  rho_i for the density of interstitials
+#  Same input as 1/2/3 here but this version has no radiation as the baseline
+#
+#
 #
 ##############################################################################
 
@@ -211,12 +211,12 @@
     type = ConstantFunction
     value = 2.0
   []
-  [rhov_avg_func]
-    type = ParsedFunction
-    symbol_names = 'rhov_pp_avg'
-    symbol_values = 'rhov_pp_avg'
-    expression = 'rhov_pp_avg'
-  []
+  # [rhov_avg_func]
+  #   type = ParsedFunction
+  #   symbol_names = 'rhov_pp_avg'
+  #   symbol_values = 'rhov_pp_avg'
+  #   expression = 'rhov_pp_avg'
+  # []
 []
 
 [Materials]
@@ -340,14 +340,21 @@
                   Va * Z * Di / (a_0^2)' #hs *
     outputs = 'nemesis'
   []
-  [rho_i_mat]
+  [combined_rho_vac]
     type = DerivativeParsedMaterial
-    property_name = rho_i_mat
-    derivative_order = 2
+    property_name = combined_rho_vac
+    material_property_names = 'rhov rhos hv(phi)'
+    expression = 'hv*rhov + (1-hv)*rhos'
+    outputs = 'nemesis'
+  []
+  [rho_i_dpm]
+    type = DerivativeParsedMaterial
+    property_name = rho_i_dpm
+    # derivative_order = 0 #2
     # coupled_variables = ''
-    material_property_names = 'rho_gen a_r'
-    postprocessor_names = 'rhov_pp_avg'
-    expression = 'rho_gen / (a_r * rhov_pp_avg)'
+    material_property_names = 'rho_gen a_r hv(phi)'
+    postprocessor_names = 'int_average_rho_vac'
+    expression = 'rho_gen / (a_r * int_average_rho_vac)'
     outputs = 'nemesis'
   []
   # Vacancies
@@ -356,9 +363,9 @@
     property_name = rho_v_recombRate
     coupled_variables = 'w'
     # additional_derivative_symbols = w
-    material_property_names = 'rho_i_mat a_r rhov'
-    # postprocessor_names = 'rhov_pp_avg'
-    expression = 'a_r * rhov * rho_i_mat'
+    material_property_names = 'rho_i_dpm a_r'
+    postprocessor_names = 'int_average_rho_vac'
+    expression = 'a_r * int_average_rho_vac * rho_i_dpm'
     outputs = 'nemesis'
   []
   # [source]
@@ -415,19 +422,19 @@
   []
   # Irradiation
   # Source/Generation
-  [source_w]
-    type = MaskedBodyForce
-    variable = w
-    mask = rho_gen
-  []
-  # Recombination/sink
-  [recombination_w]
-    type = MatReaction
-    variable = w
-    mob_name = rho_v_recombRate
-    # args = rhoi #but its a constant and material not a variable
-  []
-  # Damage
+  # [source_w]
+  #   type = MaskedBodyForce
+  #   variable = w
+  #   mask = rho_gen
+  # []
+  # # Recombination/sink
+  # [recombination_w]
+  #   type = MatReaction
+  #   variable = w
+  #   mob_name = rho_v_recombRate
+  #   # args = rhoi #but its a constant and material not a variable
+  # []
+  # # Damage
 []
 
 [AuxKernels]
@@ -574,9 +581,19 @@
     mat_prop = rhov
     outputs = csv
   []
+  [total_rhos]
+    type = ElementIntegralMaterialProperty
+    mat_prop = rhos
+    outputs = csv
+  []
+  [int_average_rho_vac]
+    type = ElementIntegralMaterialProperty
+    mat_prop = combined_rho_vac
+    outputs = csv
+  []
   [total_rhoi]
     type = ElementIntegralMaterialProperty
-    mat_prop = rho_i_mat
+    mat_prop = rho_i_dpm
     outputs = csv
   []
   [total_grs]
@@ -596,7 +613,13 @@
     # type = ElementAverageValue
     type = ElementAverageMaterialProperty
     mat_prop = rhov
-    execute_on = 'initial TIMESTEP_BEGIN'
+    # execute_on = 'initial TIMESTEP_BEGIN'
+  []
+  [rhos_pp_avg]
+    # type = ElementAverageValue
+    type = ElementAverageMaterialProperty
+    mat_prop = rhos
+    # execute_on = 'initial TIMESTEP_BEGIN'
   []
   # [rho_gen_pp_avg]
   #   # type = ElementAverageValue
@@ -666,7 +689,7 @@
   start_time = 0
   end_time = 10 #0.006
   steady_state_detection = true
-  # num_steps = 3
+  num_steps = 3
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001

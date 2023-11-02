@@ -1,16 +1,16 @@
 ##############################################################################
-# File: 06_firstIrradiationTest_voronoi.i
-# File Location: /examples/sintering/paper3/01_test_inputs/06_firstIrradiationTest_voronoi
-# Created Date: Wednesday October 25th 2023
+# File: 07_rhoi_mat_nan_issue.i
+# File Location: /examples/sintering/paper3/01_test_inputs/07_rhoi_mat_nan_issue
+# Created Date: Thursday November 2nd 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday November 2nd 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing the addition of the ODE/Constant irradiation
-#  rhov_avg for pp-ed average of vacancies for recombination
-#  rho_i for the density of interstitials
+#  Debugging why suddenly the rho_i_mat is displaying only nan in paraview
+#  while the pp average or integral of the value is a normal number???
+#
 #
 ##############################################################################
 
@@ -74,10 +74,6 @@
     order = CONSTANT
     family = MONOMIAL
   []
-  #  [./voids]
-  #    order = CONSTANT
-  #    family = MONOMIAL
-  #  [../]
   [unique_grains]
     order = CONSTANT
     family = MONOMIAL
@@ -86,16 +82,6 @@
     order = CONSTANT
     family = MONOMIAL
   []
-  # [./ghost_regions]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # [../]
-  # [./halos]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # [../]
-  # [rhov_avg]
-  # []
 []
 
 [ICs]
@@ -340,14 +326,14 @@
                   Va * Z * Di / (a_0^2)' #hs *
     outputs = 'nemesis'
   []
-  [rho_i_mat]
+  [rho_i_dpm]
     type = DerivativeParsedMaterial
-    property_name = rho_i_mat
+    property_name = rho_i_dpm
     derivative_order = 2
     # coupled_variables = ''
     material_property_names = 'rho_gen a_r'
     postprocessor_names = 'rhov_pp_avg'
-    expression = 'rho_gen / (a_r * rhov_pp_avg)'
+    expression = 'rho_gen / a_r' # (a_r * rhov_pp_avg)'
     outputs = 'nemesis'
   []
   # Vacancies
@@ -356,9 +342,9 @@
     property_name = rho_v_recombRate
     coupled_variables = 'w'
     # additional_derivative_symbols = w
-    material_property_names = 'rho_i_mat a_r rhov'
+    material_property_names = 'rho_i_dpm a_r rhov'
     # postprocessor_names = 'rhov_pp_avg'
-    expression = 'a_r * rhov * rho_i_mat'
+    expression = 'a_r * rhov * rho_i_dpm'
     outputs = 'nemesis'
   []
   # [source]
@@ -415,18 +401,18 @@
   []
   # Irradiation
   # Source/Generation
-  [source_w]
-    type = MaskedBodyForce
-    variable = w
-    mask = rho_gen
-  []
-  # Recombination/sink
-  [recombination_w]
-    type = MatReaction
-    variable = w
-    mob_name = rho_v_recombRate
-    # args = rhoi #but its a constant and material not a variable
-  []
+  # [source_w]
+  #   type = MaskedBodyForce
+  #   variable = w
+  #   mask = rho_gen
+  # []
+  # # Recombination/sink
+  # [recombination_w]
+  #   type = MatReaction
+  #   variable = w
+  #   mob_name = rho_v_recombRate
+  #   # args = rhoi #but its a constant and material not a variable
+  # []
   # Damage
 []
 
@@ -446,13 +432,6 @@
     variable = OU
     function = f_OU
   []
-  #  [./voids_aux]
-  #    type = FeatureFloodCountAux
-  #    variable = voids
-  #    flood_counter = void_tracker
-  #    field_display = UNIQUE_REGION
-  #    execute_on = 'INITIAL TIMESTEP_END'
-  #  [../]
   #NEW Grain_Tracker related stuff
   [unique_grains]
     type = FeatureFloodCountAux
@@ -468,76 +447,9 @@
     field_display = VARIABLE_COLORING
     execute_on = 'initial timestep_end'
   []
-  # [./ghosted_entities]
-  #   type = FeatureFloodCountAux
-  #   variable = ghost_regions
-  #   flood_counter = grain_tracker
-  #   field_display = GHOSTED_ENTITIES
-  #   execute_on = 'initial timestep_end'
-  # [../]
-  # [./halos]
-  #   type = FeatureFloodCountAux
-  #   variable = halos
-  #   flood_counter = grain_tracker
-  #   field_display = HALOS
-  #   execute_on = 'initial timestep_end'
-  # [../]
-  # [rho_i]
-  #   type = ParsedAux
-  #   variable = rho_i
-  #   coupled_variables = 'rhov_avg rhoi_old T phi'
-  #   constant_names = 'Nc Nd f_dot noise Va Z a_0 Di_0 Ei_B kB'
-  #   constant_expressions = '2 5 1e-8 1 0.04092 250 0.25 1e13 2 8.617343e-5'
-  #   expression = 'hm:=phi * phi * phi * (10.0 + phi * (-15.0 + phi * 6.0));
-  #                 Di:=Di_0*exp(-Ei_B/(kB*T));
-  #                 a_r:=hs * Va * Z * Di / (a_0^2);
-  #                 rho_gen:=f_dot * noise * Nc * Nd * hs;
-  #                 rho_gen - a_r*rhov_avg*rhoi_old'
-  # []
-  # [rho_i]
-  #   type = ParsedAux
-  #   variable = rho_i
-  #   coupled_variables = 'rhov_avg rhoi_old'
-  #   constant_names = 'rho_gen a_r'
-  #   constant_expressions = '1e-7 8.2e8'
-  #   expression = 'rhoi_old+ rho_gen - a_r*rhov_avg*rhoi_old'
-  # []
-  # [rhov_avg_kernel]
-  #   type = FunctionAux
-  #   variable = rhov_avg
-  #   function = rhov_avg_func
-  #   execute_on = 'INITIAL TIMESTEP_BEGIN'
-  # []
-  # [rhoi_old_kernel]
-  #   type = FunctionAux
-  #   variable = rhoi_old
-  #   function = rhoi_old_func
-  #   execute_on = 'INITIAL TIMESTEP_BEGIN'
-  # []
 []
 
 [Postprocessors]
-  # [./memoryAll]
-  #   type = MemoryUsage
-  #   mem_units = megabytes
-  #   outputs = csv
-  #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-  #   report_peak_value = false
-  # [../]
-  # [./memoryPeak]
-  #   type = MemoryUsage
-  #   mem_units = megabytes
-  #   outputs = csv
-  #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-  #   report_peak_value = true
-  # [../]
-  # [./memory1CPU]
-  #   type = MemoryUsage
-  #   mem_units = megabytes
-  #   outputs = csv
-  #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-  #   value_type = max_process
-  # [../]
   [n_DOFs]
     type = NumDOFs
     outputs = csv
@@ -574,9 +486,14 @@
     mat_prop = rhov
     outputs = csv
   []
+  [total_rhos]
+    type = ElementIntegralMaterialProperty
+    mat_prop = rhos
+    outputs = csv
+  []
   [total_rhoi]
     type = ElementIntegralMaterialProperty
-    mat_prop = rho_i_mat
+    mat_prop = rho_i_dpm
     outputs = csv
   []
   [total_grs]
@@ -584,32 +501,12 @@
     mat_prop = sum_grs
     outputs = csv
   []
-  #  [./void_tracker]
-  #    type = FeatureFloodCount
-  #    variable = phi
-  #    threshold = 0.6
-  #    connecting_threshold = 0.5 #was 0.2 and worked fine for iso not tensor
-  #    compute_var_to_feature_map = true
-  #    execute_on = 'initial timestep_end'
-  #  [../]
   [rhov_pp_avg]
     # type = ElementAverageValue
     type = ElementAverageMaterialProperty
     mat_prop = rhov
     execute_on = 'initial TIMESTEP_BEGIN'
   []
-  # [rho_gen_pp_avg]
-  #   # type = ElementAverageValue
-  #   type = ElementAverageMaterialProperty
-  #   mat_prop = rho_gen
-  #   execute_on = 'initial TIMESTEP_BEGIN'
-  # []
-  # [a_r_pp_avg]
-  #   # type = ElementAverageValue
-  #   type = ElementAverageMaterialProperty
-  #   mat_prop = a_r
-  #   execute_on = 'initial TIMESTEP_BEGIN'
-  # []
 []
 
 # [VectorPostprocessors]
@@ -664,9 +561,9 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  end_time = 10 #0.006
+  # end_time = 10 #0.006
   steady_state_detection = true
-  # num_steps = 3
+  num_steps = 4
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
