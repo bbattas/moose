@@ -4,7 +4,7 @@
 # Created Date: Wednesday October 25th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday November 2nd 2023
+# Last Modified: Friday November 3rd 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -340,9 +340,9 @@
                   Va * Z * Di / (a_0^2)' #hs *
     outputs = 'nemesis'
   []
-  [rho_i_mat]
+  [rho_i_dpm]
     type = DerivativeParsedMaterial
-    property_name = rho_i_mat
+    property_name = rho_i_dpm
     derivative_order = 2
     # coupled_variables = ''
     material_property_names = 'rho_gen a_r'
@@ -356,9 +356,9 @@
     property_name = rho_v_recombRate
     coupled_variables = 'w'
     # additional_derivative_symbols = w
-    material_property_names = 'rho_i_mat a_r rhov'
+    material_property_names = 'rho_i_dpm a_r rhov'
     # postprocessor_names = 'rhov_pp_avg'
-    expression = 'a_r * rhov * rho_i_mat'
+    expression = 'a_r * rhov * rho_i_dpm'
     outputs = 'nemesis'
   []
   # [source]
@@ -576,7 +576,7 @@
   []
   [total_rhoi]
     type = ElementIntegralMaterialProperty
-    mat_prop = rho_i_mat
+    mat_prop = rho_i_dpm
     outputs = csv
   []
   [total_grs]
