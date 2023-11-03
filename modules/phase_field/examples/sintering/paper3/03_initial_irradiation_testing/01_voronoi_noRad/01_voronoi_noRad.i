@@ -4,7 +4,7 @@
 # Created Date: Thursday November 2nd 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday November 2nd 2023
+# Last Modified: Friday November 3rd 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -689,7 +689,7 @@
   start_time = 0
   end_time = 10 #0.006
   steady_state_detection = true
-  num_steps = 3
+  # num_steps = 3
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001

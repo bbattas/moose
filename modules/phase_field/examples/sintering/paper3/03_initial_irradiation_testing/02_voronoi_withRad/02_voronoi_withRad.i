@@ -1,10 +1,10 @@
 ##############################################################################
 # File: 02_voronoi_withRad.i
 # File Location: /examples/sintering/paper3/03_initial_irradiation_testing/02_voronoi_withRad
-# Created Date: Thursday November 2nd 2023
+# Created Date: Friday November 3rd 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday November 2nd 2023
+# Last Modified: Friday November 3rd 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -350,11 +350,11 @@
   [rho_i_dpm]
     type = DerivativeParsedMaterial
     property_name = rho_i_dpm
-    derivative_order = 2
+    # derivative_order = 0 #2
     # coupled_variables = ''
-    material_property_names = 'rho_gen a_r'
+    material_property_names = 'rho_gen a_r hv(phi)'
     postprocessor_names = 'int_average_rho_vac'
-    expression = 'rho_gen / (a_r * int_average_rho_vac)'
+    expression = 'rho_gen / (a_r * (int_average_rho_vac + 1e-8))'
     outputs = 'nemesis'
   []
   # Vacancies
@@ -363,11 +363,21 @@
     property_name = rho_v_recombRate
     coupled_variables = 'w'
     # additional_derivative_symbols = w
-    material_property_names = 'rho_i_dpm a_r'
-    postprocessor_names = 'int_average_rho_vac'
-    expression = 'a_r * int_average_rho_vac * rho_i_dpm'
+    material_property_names = 'a_r'
+    postprocessor_names = 'total_rhoi int_average_rho_vac'
+    expression = 'a_r * total_rhoi * int_average_rho_vac'
     outputs = 'nemesis'
   []
+  # [rho_v_recombRate]
+  #   type = DerivativeParsedMaterial
+  #   property_name = rho_v_recombRate
+  #   coupled_variables = 'w'
+  #   # additional_derivative_symbols = w
+  #   material_property_names = 'rho_i_dpm a_r rhov'
+  #   # postprocessor_names = 'rhov_pp_avg'
+  #   expression = 'a_r * rhov * rho_i_dpm'
+  #   outputs = 'nemesis'
+  # []
   # [source]
   #   type = DerivativeParsedMaterial
   #   f_name = source
@@ -613,13 +623,13 @@
     # type = ElementAverageValue
     type = ElementAverageMaterialProperty
     mat_prop = rhov
-    execute_on = 'initial TIMESTEP_BEGIN'
+    # execute_on = 'initial TIMESTEP_BEGIN'
   []
   [rhos_pp_avg]
     # type = ElementAverageValue
     type = ElementAverageMaterialProperty
     mat_prop = rhos
-    execute_on = 'initial TIMESTEP_BEGIN'
+    # execute_on = 'initial TIMESTEP_BEGIN'
   []
   # [rho_gen_pp_avg]
   #   # type = ElementAverageValue
