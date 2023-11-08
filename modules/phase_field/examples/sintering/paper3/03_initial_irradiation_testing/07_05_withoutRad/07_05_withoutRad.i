@@ -1,17 +1,17 @@
 ##############################################################################
-# File: 05_voronoi_withRad_actualHs.i
-# File Location: /examples/sintering/paper3/03_initial_irradiation_testing/05_voronoi_withRad_actualHs/05_voronoi_withRad_actualHs.i
-# Created Date: Tuesday November 7th 2023
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 07_05_withoutRad.i
+# File Location: /examples/sintering/paper3/03_initial_irradiation_testing/07_05_withoutRad
+# Created Date: Wednesday November 8th 2023
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Wednesday November 8th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Same as input 02 but adding the solid phase switching function into the
-#  source term for vacancies and the average/integral of that to the
-#  interstitial source term (volume fraction solid effectively)
-#   Changed integral to average in PPs used in calculations
+#  input 5 comparison without radiation kernels so we can see that theyre working
+#
+#
+#
 ##############################################################################
 
 [Mesh]
@@ -443,19 +443,19 @@
     kappa_name = kappa
   []
   # Irradiation
-  # Source/Generation
-  [source_w]
-    type = MaskedBodyForce
-    variable = w
-    mask = rho_gen_vac
-  []
-  # Recombination/sink
-  [recombination_w]
-    type = MatReaction
-    variable = w
-    mob_name = rho_v_recombRate
-    # args = rhoi #but its a constant and material not a variable
-  []
+  # # Source/Generation
+  # [source_w]
+  #   type = MaskedBodyForce
+  #   variable = w
+  #   mask = rho_gen_vac
+  # []
+  # # Recombination/sink
+  # [recombination_w]
+  #   type = MatReaction
+  #   variable = w
+  #   mob_name = rho_v_recombRate
+  #   # args = rhoi #but its a constant and material not a variable
+  # []
   # Damage
 []
 

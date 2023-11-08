@@ -1,17 +1,17 @@
 ##############################################################################
-# File: 05_voronoi_withRad_actualHs.i
-# File Location: /examples/sintering/paper3/03_initial_irradiation_testing/05_voronoi_withRad_actualHs/05_voronoi_withRad_actualHs.i
-# Created Date: Tuesday November 7th 2023
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 06_voronoi_withRad_intVariableTest.i
+# File Location: /examples/sintering/paper3/03_initial_irradiation_testing/06_voronoi_withRad_intVariableTest
+# Created Date: Wednesday November 8th 2023
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Wednesday November 8th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Same as input 02 but adding the solid phase switching function into the
-#  source term for vacancies and the average/integral of that to the
-#  interstitial source term (volume fraction solid effectively)
-#   Changed integral to average in PPs used in calculations
+#  Input 05 but using a variable for rho_interstitial instead of a material
+#  just as confirmation that its working with the material approach
+#  Noticed the issue with integral PP instead of average, so switched
+#  Currently some issue causing first timestep to fail 0 iterations
 ##############################################################################
 
 [Mesh]
@@ -94,8 +94,21 @@
   #   order = CONSTANT
   #   family = MONOMIAL
   # [../]
-  # [rhov_avg]
-  # []
+  [rhovac_avg]
+    # order = CONSTANT
+    # family = MONOMIAL
+    initial_condition = 5
+  []
+  [rhoint]
+    # order = CONSTANT
+    # family = MONOMIAL
+    initial_condition = 1e-14
+  []
+  [hs_avg]
+    # order = CONSTANT
+    # family = MONOMIAL
+    initial_condition = 0.5
+  []
 []
 
 [ICs]
@@ -217,6 +230,18 @@
   #   symbol_values = 'rhov_pp_avg'
   #   expression = 'rhov_pp_avg'
   # []
+  [rhovac_avg_func]
+    type = ParsedFunction
+    symbol_names = 'average_rho_vac'
+    symbol_values = 'average_rho_vac'
+    expression = 'average_rho_vac'
+  []
+  [hs_avg_func]
+    type = ParsedFunction
+    symbol_names = 'hs_avg_pp'
+    symbol_values = 'hs_avg_pp'
+    expression = 'hs_avg_pp'
+  []
 []
 
 [Materials]
@@ -373,11 +398,11 @@
   [rho_v_recombRate]
     type = DerivativeParsedMaterial
     property_name = rho_v_recombRate
-    coupled_variables = 'w'
+    coupled_variables = 'w rhoint'
     # additional_derivative_symbols = w
-    material_property_names = 'a_r rho_i_dpm'
-    postprocessor_names = 'total_rhoi average_rho_vac'
-    expression = 'a_r * rho_i_dpm * average_rho_vac'
+    material_property_names = 'a_r' #rho_i_dpm
+    postprocessor_names = 'average_rho_vac'
+    expression = 'a_r * rhoint * average_rho_vac'
     outputs = 'nemesis'
   []
   # [rho_v_recombRate]
@@ -447,7 +472,8 @@
   [source_w]
     type = MaskedBodyForce
     variable = w
-    mask = rho_gen_vac
+    mask = hs
+    value = 1e-7
   []
   # Recombination/sink
   [recombination_w]
@@ -543,6 +569,26 @@
   #   function = rhoi_old_func
   #   execute_on = 'INITIAL TIMESTEP_BEGIN'
   # []
+  [rhovac_avg_kernel]
+    type = FunctionAux
+    variable = rhovac_avg
+    function = rhovac_avg_func
+    execute_on = 'INITIAL TIMESTEP_BEGIN'
+  []
+  [hs_avg_kernel]
+    type = FunctionAux
+    variable = hs_avg
+    function = hs_avg_func
+    execute_on = 'INITIAL TIMESTEP_BEGIN'
+  []
+  [rhoint_kernel]
+    type = ParsedAux
+    variable = rhoint
+    coupled_variables = 'rhovac_avg hs_avg'
+    constant_names = 'ar_i src_i'
+    constant_expressions = '820880621 1e-7'
+    expression = 'hs_avg * src_i / (ar_i * rhovac_avg)'
+  []
 []
 
 [Postprocessors]
@@ -622,6 +668,7 @@
     type = ElementAverageMaterialProperty
     mat_prop = combined_rho_vac
     outputs = csv
+    execute_on = 'initial TIMESTEP_BEGIN'
   []
   [total_rhoi]
     type = ElementIntegralMaterialProperty
@@ -653,18 +700,12 @@
     mat_prop = rhos
     # execute_on = 'initial TIMESTEP_BEGIN'
   []
-  # [rho_gen_pp_avg]
-  #   # type = ElementAverageValue
-  #   type = ElementAverageMaterialProperty
-  #   mat_prop = rho_gen
-  #   execute_on = 'initial TIMESTEP_BEGIN'
-  # []
-  # [a_r_pp_avg]
-  #   # type = ElementAverageValue
-  #   type = ElementAverageMaterialProperty
-  #   mat_prop = a_r
-  #   execute_on = 'initial TIMESTEP_BEGIN'
-  # []
+  # For auxvar test
+  [hs_avg_pp]
+    type = ElementAverageMaterialProperty
+    mat_prop = hs
+    execute_on = 'initial TIMESTEP_BEGIN'
+  []
 []
 
 # [VectorPostprocessors]
@@ -721,7 +762,7 @@
   start_time = 0
   end_time = 10 #0.006
   steady_state_detection = true
-  # num_steps = 3
+  num_steps = 3
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
