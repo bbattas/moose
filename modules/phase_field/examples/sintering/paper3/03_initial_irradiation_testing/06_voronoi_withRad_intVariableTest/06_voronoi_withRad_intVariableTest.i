@@ -4,7 +4,7 @@
 # Created Date: Wednesday November 8th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday November 8th 2023
+# Last Modified: Thursday November 9th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -99,7 +99,7 @@
     # family = MONOMIAL
     initial_condition = 5
   []
-  [rhoint]
+  [rhoint_cons]
     # order = CONSTANT
     # family = MONOMIAL
     initial_condition = 1e-14
@@ -398,11 +398,11 @@
   [rho_v_recombRate]
     type = DerivativeParsedMaterial
     property_name = rho_v_recombRate
-    coupled_variables = 'w rhoint'
+    coupled_variables = 'w rhoint_cons'
     # additional_derivative_symbols = w
     material_property_names = 'a_r' #rho_i_dpm
     postprocessor_names = 'average_rho_vac'
-    expression = 'a_r * rhoint * average_rho_vac'
+    expression = 'a_r * rhoint_cons * average_rho_vac'
     outputs = 'nemesis'
   []
   # [rho_v_recombRate]
@@ -581,13 +581,15 @@
     function = hs_avg_func
     execute_on = 'INITIAL TIMESTEP_BEGIN'
   []
-  [rhoint_kernel]
+  [rhoint_cons_kernel]
     type = ParsedAux
-    variable = rhoint
+    variable = rhoint_cons
     coupled_variables = 'rhovac_avg hs_avg'
     constant_names = 'ar_i src_i'
     constant_expressions = '820880621 1e-7'
-    expression = 'hs_avg * src_i / (ar_i * rhovac_avg)'
+    expression = 'hs_avg * src_i / (ar_i * (rhovac_avg + 1e-6))'
+    # expression = 'if(rhovac_avg>0.0,(hs_avg * src_i / (ar_i * rhovac_avg)),0.0)'
+    execute_on = 'INITIAL TIMESTEP_BEGIN'
   []
 []
 
@@ -668,11 +670,16 @@
     type = ElementAverageMaterialProperty
     mat_prop = combined_rho_vac
     outputs = csv
-    execute_on = 'initial TIMESTEP_BEGIN'
+    # execute_on = 'initial TIMESTEP_BEGIN'
   []
   [total_rhoi]
     type = ElementIntegralMaterialProperty
     mat_prop = rho_i_dpm
+    outputs = csv
+  []
+  [total_rhoi_auxvar]
+    type = ElementIntegralVariablePostprocessor
+    variable = rhoint_cons
     outputs = csv
   []
   [total_grs]
@@ -762,7 +769,7 @@
   start_time = 0
   end_time = 10 #0.006
   steady_state_detection = true
-  num_steps = 3
+  # num_steps = 3
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
