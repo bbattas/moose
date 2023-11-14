@@ -1,17 +1,18 @@
 ##############################################################################
-# File: 07_05_withoutRad.i
-# File Location: /examples/sintering/paper3/03_initial_irradiation_testing/07_05_withoutRad
-# Created Date: Wednesday November 8th 2023
+# File: 08_voronoi_withRad_ballisticMixing.i
+# File Location: /examples/sintering/paper3/03_initial_irradiation_testing/08_voronoi_withRad_ballisticMixing
+# Created Date: Tuesday November 14th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Tuesday November 14th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  input 5 comparison without radiation kernels so we can see that theyre working
-#
-#
-#
+#  Testing the third vacancy kernel: matdiffusion for ballistic mixing term
+#  kernel takes the given D and implements ∇⋅D(c,a,b,…)∇u
+#  So for the mixing term we need our D to be a mat that is D_mix * chi_vac
+#  Right now, the mixing is uniform everywhere, with no switching function or noise
+#  Will want to at least have it on a noise function eventually
 ##############################################################################
 
 [Mesh]
@@ -380,6 +381,17 @@
     expression = 'a_r * rho_i_dpm * average_rho_vac'
     outputs = 'nemesis'
   []
+  [rho_v_mixing]
+    type = DerivativeParsedMaterial
+    property_name = rho_v_mixing
+    coupled_variables = 'w'
+    derivative_order = 1
+    constant_names = 'Nc Vc f_dot noise tc Dc'
+    constant_expressions = '2 268 1e-8 1 1e-11 1e12'
+    material_property_names = 'chi'
+    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chi' # * hs
+    outputs = 'nemesis'
+  []
   # [rho_v_recombRate]
   #   type = DerivativeParsedMaterial
   #   property_name = rho_v_recombRate
@@ -443,20 +455,25 @@
     kappa_name = kappa
   []
   # Irradiation
-  # # Source/Generation
-  # [source_w]
-  #   type = MaskedBodyForce
-  #   variable = w
-  #   mask = rho_gen_vac
-  # []
-  # # Recombination/sink
-  # [recombination_w]
-  #   type = MatReaction
-  #   variable = w
-  #   mob_name = rho_v_recombRate
-  #   # args = rhoi #but its a constant and material not a variable
-  # []
-  # Damage
+  # Source/Generation
+  [source_w]
+    type = MaskedBodyForce
+    variable = w
+    mask = rho_gen_vac
+  []
+  # Sink/Recombination
+  [recombination_w]
+    type = MatReaction
+    variable = w
+    mob_name = rho_v_recombRate
+    # args = rhoi #but its a constant and material not a variable
+  []
+  # Damage/Mixing
+  [ballistic_mix_w]
+    type = MatDiffusion
+    variable = w
+    diffusivity = rho_v_mixing
+  []
 []
 
 [AuxKernels]
