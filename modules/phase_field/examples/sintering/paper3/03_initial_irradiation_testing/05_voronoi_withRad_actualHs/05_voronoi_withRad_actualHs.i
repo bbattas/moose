@@ -4,7 +4,7 @@
 # Created Date: Tuesday November 7th 2023
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday November 8th 2023
+# Last Modified: Tuesday November 14th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -625,6 +625,11 @@
   []
   [total_rhoi]
     type = ElementIntegralMaterialProperty
+    mat_prop = rho_i_dpm
+    outputs = csv
+  []
+  [avg_rhoi]
+    type = ElementAverageMaterialProperty
     mat_prop = rho_i_dpm
     outputs = csv
   []
