@@ -1,18 +1,17 @@
 ##############################################################################
-# File: 08_voronoi_withRad_ballisticMixing.i
-# File Location: /examples/sintering/paper3/03_initial_irradiation_testing/08_voronoi_withRad_ballisticMixing
-# Created Date: Tuesday November 14th 2023
+# File: 09_08_ballisticMixing_withNoise.i
+# File Location: /examples/sintering/paper3/03_initial_irradiation_testing/09_08_ballisticMixing_withNoise
+# Created Date: Thursday November 16th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday November 16th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing the third vacancy kernel: matdiffusion for ballistic mixing term
-#  kernel takes the given D and implements ∇⋅D(c,a,b,…)∇u
-#  So for the mixing term we need our D to be a mat that is D_mix * chi_vac
-#  Right now, the mixing is uniform everywhere, with no switching function or noise
-#  Will want to at least have it on a noise function eventually
+#  The ballistic mixing test in 08 was identical to the no radiation case 07?
+#  And 05 07 08 all seemed to have basically identical chempot (w) so im testing
+#  things that might change that, like adding actual noise instead of noise=1
+#
 ##############################################################################
 
 [Mesh]
@@ -319,16 +318,30 @@
   #   min_value = 0.8e-8
   #   max_value = 1.2e-8
   # []
+  [f_dot]
+    type = ParsedMaterial
+    property_name = f_dot
+    material_property_names = 'noise'
+    expression = '1e-8 * noise'
+    outputs = 'nemesis'
+    # RandomMaterial isnt real
+    # type = RandomMaterial
+    # f_name = f_dot
+    # noise = noise
+    # outputs = exodus
+    # min_value = 0.8e-8
+    # max_value = 1.2e-8
+  []
   # Interstitials
   [rho_gen_int]
     type = DerivativeParsedMaterial
     property_name = rho_gen_int
     derivative_order = 1
-    constant_names = 'Nc Nd f_dot noise'
-    constant_expressions = '2 5 1e-8 1'
-    material_property_names = 'hs'
+    constant_names = 'Nc Nd' # f_dot noise'
+    constant_expressions = '2 5' # 1e-8 1'
+    material_property_names = 'hs f_dot'
     postprocessor_names = 'hs_average'
-    expression = 'f_dot * noise * Nc * Nd * hs_average' # * hs
+    expression = 'f_dot * Nc * Nd * hs_average' # * hs # * noise
     outputs = 'nemesis'
   []
   [a_r]
@@ -364,11 +377,11 @@
     type = DerivativeParsedMaterial
     property_name = rho_gen_vac
     derivative_order = 1
-    constant_names = 'Nc Nd f_dot noise'
-    constant_expressions = '2 5 1e-8 1'
-    material_property_names = 'hs'
+    constant_names = 'Nc Nd' # f_dot noise'
+    constant_expressions = '2 5' # 1e-8 1'
+    material_property_names = 'hs f_dot'
     # postprocessor_names = 'hs_average'
-    expression = 'f_dot * noise * Nc * Nd * hs' # * hs
+    expression = 'f_dot * Nc * Nd * hs' # * hs * noise
     outputs = 'nemesis'
   []
   [rho_v_recombRate]
@@ -386,10 +399,10 @@
     property_name = rho_v_mixing
     coupled_variables = 'w'
     derivative_order = 1
-    constant_names = 'Nc Vc f_dot noise tc Dc'
-    constant_expressions = '2 268 1e-8 1 1e-11 1e12'
-    material_property_names = 'chi'
-    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chi' # * hs
+    constant_names = 'Nc Vc tc Dc' #f_dot noise
+    constant_expressions = '2 268 1e-11 1e12' #1e-8 1
+    material_property_names = 'chi f_dot'
+    expression = 'f_dot * Nc * tc * Vc * Dc * chi' # * hs* noise
     outputs = 'nemesis'
   []
   # [rho_v_recombRate]
@@ -687,6 +700,18 @@
   #   mat_prop = a_r
   #   execute_on = 'initial TIMESTEP_BEGIN'
   # []
+  [w_integral_pp]
+    type = ElementIntegralVariablePostprocessor
+    variable = w
+    outputs = csv
+  []
+  [w_avg_pp]
+    type = ElementAverageValue
+    variable = w
+    outputs = csv
+  []
+  [noise_pp]
+    type =
 []
 
 # [VectorPostprocessors]
@@ -717,6 +742,11 @@
     grain_num = 8 # Number of grains
     rand_seed = 10
     # int_width = 7 # global param
+  []
+  [noise]
+    type = ConservedUniformNoise
+    execute_on = 'INITIAL TIMESTEP_BEGIN'
+    allow_duplicate_execution_on_initial = true
   []
 []
 

@@ -4,14 +4,14 @@
 # Created Date: Thursday October 26th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday October 26th 2023
+# Last Modified: Thursday November 16th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
 #  An old input from Ian's Marmot Fork (4 years old) so see some example of
 #  the needed kernels/materials and whatnot for irradiation
-#
-#
+#  Noise is actually much harder to add than i thought?  might check with tonks or ali
+#  or ill just need to write my own material if i want this
 ##############################################################################
 
 [Mesh]
