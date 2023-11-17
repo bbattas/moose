@@ -4,7 +4,7 @@
 # Created Date: Wednesday November 8th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday November 14th 2023
+# Last Modified: Friday November 17th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -670,6 +670,16 @@
   #   mat_prop = a_r
   #   execute_on = 'initial TIMESTEP_BEGIN'
   # []
+  [w_integral_pp]
+    type = ElementIntegralVariablePostprocessor
+    variable = w
+    outputs = csv
+  []
+  [w_avg_pp]
+    type = ElementAverageValue
+    variable = w
+    outputs = csv
+  []
 []
 
 # [VectorPostprocessors]
