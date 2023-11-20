@@ -1,17 +1,17 @@
 ##############################################################################
-# File: 06_voronoi_withRad_intVariableTest.i
-# File Location: /examples/sintering/paper3/03_initial_irradiation_testing/06_voronoi_withRad_intVariableTest
-# Created Date: Wednesday November 8th 2023
+# File: 12_onlySourceTest.i
+# File Location: /examples/sintering/paper3/03_initial_irradiation_testing/12_onlySourceTest
+# Created Date: Monday November 20th 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday November 20th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Input 05 but using a variable for rho_interstitial instead of a material
-#  just as confirmation that its working with the material approach
-#  Noticed the issue with integral PP instead of average, so switched
-#  Currently some issue causing first timestep to fail 0 iterations
+#  Chempot/vacancy rho dont seem to be evolving/changing with the 3 kernels
+#  that are the irradiation ones?  So im testing here if i disable recombination/mixing
+#  and only use the source kernel will the concentration change/vary?
+#
 ##############################################################################
 
 [Mesh]
@@ -94,21 +94,8 @@
   #   order = CONSTANT
   #   family = MONOMIAL
   # [../]
-  [rhovac_avg]
-    # order = CONSTANT
-    # family = MONOMIAL
-    initial_condition = 5
-  []
-  [rhoint_cons]
-    # order = CONSTANT
-    # family = MONOMIAL
-    initial_condition = 1e-14
-  []
-  [hs_avg]
-    # order = CONSTANT
-    # family = MONOMIAL
-    initial_condition = 0.5
-  []
+  # [rhov_avg]
+  # []
 []
 
 [ICs]
@@ -230,18 +217,6 @@
   #   symbol_values = 'rhov_pp_avg'
   #   expression = 'rhov_pp_avg'
   # []
-  [rhovac_avg_func]
-    type = ParsedFunction
-    symbol_names = 'average_rho_vac'
-    symbol_values = 'average_rho_vac'
-    expression = 'average_rho_vac'
-  []
-  [hs_avg_func]
-    type = ParsedFunction
-    symbol_names = 'hs_avg_pp'
-    symbol_values = 'hs_avg_pp'
-    expression = 'hs_avg_pp'
-  []
 []
 
 [Materials]
@@ -398,11 +373,22 @@
   [rho_v_recombRate]
     type = DerivativeParsedMaterial
     property_name = rho_v_recombRate
-    coupled_variables = 'w rhoint_cons'
+    coupled_variables = 'w'
     # additional_derivative_symbols = w
-    material_property_names = 'a_r' #rho_i_dpm
-    postprocessor_names = 'average_rho_vac'
-    expression = 'a_r * rhoint_cons * average_rho_vac'
+    material_property_names = 'a_r rho_i_dpm'
+    postprocessor_names = 'total_rhoi average_rho_vac'
+    expression = 'a_r * rho_i_dpm * average_rho_vac'
+    outputs = 'nemesis'
+  []
+  [rho_v_mixing]
+    type = DerivativeParsedMaterial
+    property_name = rho_v_mixing
+    coupled_variables = 'w'
+    derivative_order = 1
+    constant_names = 'Nc Vc f_dot noise tc Dc'
+    constant_expressions = '2 268 1e-8 1 1e-11 1e12'
+    material_property_names = 'chi'
+    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chi' # * hs
     outputs = 'nemesis'
   []
   # [rho_v_recombRate]
@@ -472,17 +458,21 @@
   [source_w]
     type = MaskedBodyForce
     variable = w
-    mask = hs
-    value = 1e-7
+    mask = rho_gen_vac
   []
-  # Recombination/sink
-  [recombination_w]
-    type = MatReaction
-    variable = w
-    mob_name = rho_v_recombRate
-    # args = rhoi #but its a constant and material not a variable
-  []
-  # Damage
+  # # Sink/Recombination
+  # [recombination_w]
+  #   type = MatReaction
+  #   variable = w
+  #   mob_name = rho_v_recombRate
+  #   # args = rhoi #but its a constant and material not a variable
+  # []
+  # # Damage/Mixing
+  # [ballistic_mix_w]
+  #   type = MatDiffusion
+  #   variable = w
+  #   diffusivity = rho_v_mixing
+  # []
 []
 
 [AuxKernels]
@@ -569,28 +559,6 @@
   #   function = rhoi_old_func
   #   execute_on = 'INITIAL TIMESTEP_BEGIN'
   # []
-  [rhovac_avg_kernel]
-    type = FunctionAux
-    variable = rhovac_avg
-    function = rhovac_avg_func
-    execute_on = 'INITIAL TIMESTEP_BEGIN'
-  []
-  [hs_avg_kernel]
-    type = FunctionAux
-    variable = hs_avg
-    function = hs_avg_func
-    execute_on = 'INITIAL TIMESTEP_BEGIN'
-  []
-  [rhoint_cons_kernel]
-    type = ParsedAux
-    variable = rhoint_cons
-    coupled_variables = 'rhovac_avg hs_avg'
-    constant_names = 'ar_i src_i'
-    constant_expressions = '820880621 1e-7'
-    expression = 'hs_avg * src_i / (ar_i * (rhovac_avg + 1e-6))'
-    # expression = 'if(rhovac_avg>0.0,(hs_avg * src_i / (ar_i * rhovac_avg)),0.0)'
-    execute_on = 'INITIAL TIMESTEP_BEGIN'
-  []
 []
 
 [Postprocessors]
@@ -670,7 +638,6 @@
     type = ElementAverageMaterialProperty
     mat_prop = combined_rho_vac
     outputs = csv
-    # execute_on = 'initial TIMESTEP_BEGIN'
   []
   [total_rhoi]
     type = ElementIntegralMaterialProperty
@@ -680,11 +647,6 @@
   [avg_rhoi]
     type = ElementAverageMaterialProperty
     mat_prop = rho_i_dpm
-    outputs = csv
-  []
-  [total_rhoi_auxvar]
-    type = ElementIntegralVariablePostprocessor
-    variable = rhoint_cons
     outputs = csv
   []
   [total_grs]
@@ -712,12 +674,18 @@
     mat_prop = rhos
     # execute_on = 'initial TIMESTEP_BEGIN'
   []
-  # For auxvar test
-  [hs_avg_pp]
-    type = ElementAverageMaterialProperty
-    mat_prop = hs
-    execute_on = 'initial TIMESTEP_BEGIN'
-  []
+  # [rho_gen_pp_avg]
+  #   # type = ElementAverageValue
+  #   type = ElementAverageMaterialProperty
+  #   mat_prop = rho_gen
+  #   execute_on = 'initial TIMESTEP_BEGIN'
+  # []
+  # [a_r_pp_avg]
+  #   # type = ElementAverageValue
+  #   type = ElementAverageMaterialProperty
+  #   mat_prop = a_r
+  #   execute_on = 'initial TIMESTEP_BEGIN'
+  # []
   [w_integral_pp]
     type = ElementIntegralVariablePostprocessor
     variable = w
@@ -811,7 +779,7 @@
   # nemesis = true
   [nemesis]
     type = Nemesis
-    # interval = 5              # this ExodusII will only output every third time step
+    interval = 5 # this ExodusII will only output every third time step
   []
   print_linear_residuals = false
   # [checkpoint]
