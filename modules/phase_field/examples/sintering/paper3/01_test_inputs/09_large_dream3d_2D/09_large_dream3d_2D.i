@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 08_ebsd_poreTxt_test.i
-# File Location: /examples/sintering/paper3/01_test_inputs/08_ebsd_poreTxt_test
-# Created Date: Thursday November 30th 2023
+# File: 09_large_dream3d_2D.i
+# File Location: /examples/sintering/paper3/01_test_inputs/09_large_dream3d_2D
+# Created Date: Friday December 1st 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday December 1st 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  1 timestep test to check the new postprocessed dream3d input(s) that
-#  have the added phi region and pores in the material
+#  Testing the larger grain size (8um avg) to see how the mesh needs to be sized
+#
 #
 #
 ##############################################################################
@@ -17,14 +17,14 @@
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    filename = example_dream3d_plusVoid.txt
+    filename = test8um_large2D_plusVoid.txt
   []
 []
 
 [GlobalParams]
   op_num = 8
   var_name_base = gr
-  int_width = 4 #particle radius is 100
+  int_width = 2000 #particle radius is 100
   # profile = TANH # not used at the moment? only in circleic?
 []
 
@@ -544,7 +544,7 @@
   start_time = 0
   # end_time = 2 #0.006
   steady_state_detection = true
-  num_steps = 40
+  num_steps = 1
   dt = 0.00001
   # dtmax = 500
   # dt = 0.0001
