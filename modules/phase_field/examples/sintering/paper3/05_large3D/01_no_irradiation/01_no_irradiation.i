@@ -12,6 +12,7 @@
 #  This is the no irradiation case as a baseline for determining the shape
 #  factors in the Kang2004 equation for macroscopic densification
 #  Elements of 250 (.25um) and min grain radius of 2250 nm (2.25 um ish)
+#  ~14m dofs without the irradiation mats/vars, (900=15.5k) (600=23k) (960=14.6k)
 ##############################################################################
 
 [Mesh]
@@ -363,20 +364,20 @@
 []
 
 [Postprocessors]
-  [memoryAll]
-    type = MemoryUsage
-    mem_units = megabytes
-    outputs = csv
-    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-    report_peak_value = false
-  []
-  [memoryPeak]
-    type = MemoryUsage
-    mem_units = megabytes
-    outputs = csv
-    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-    report_peak_value = true
-  []
+  # [memoryAll]
+  #   type = MemoryUsage
+  #   mem_units = megabytes
+  #   outputs = csv
+  #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+  #   report_peak_value = false
+  # []
+  # [memoryPeak]
+  #   type = MemoryUsage
+  #   mem_units = megabytes
+  #   outputs = csv
+  #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+  #   report_peak_value = true
+  # []
   [memory1CPU]
     type = MemoryUsage
     mem_units = megabytes
@@ -428,12 +429,12 @@
     output_centroids = false #was true
     outputs = csv
   []
-  [vectorMemory]
-    type = VectorMemoryUsage
-    mem_units = gigabytes
-    outputs = csv
-    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-  []
+  # [vectorMemory]
+  #   type = VectorMemoryUsage
+  #   mem_units = gigabytes
+  #   outputs = csv
+  #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+  # []
 []
 
 [UserObjects]
@@ -477,9 +478,9 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  # end_time = 10 #0.006
+  end_time = 50000 #0.006
   steady_state_detection = true
-  num_steps = 1
+  # num_steps = 1
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
@@ -506,11 +507,11 @@
   # nemesis = true
   [nemesis]
     type = Nemesis
-    # interval = 5              # this ExodusII will only output every third time step
+    interval = 3 # this ExodusII will only output every third time step
   []
   print_linear_residuals = false
-  # [checkpoint]
-  #   type = Checkpoint
-  #   num_files = 3
-  # []
+  [checkpoint]
+    type = Checkpoint
+    num_files = 3
+  []
 []
