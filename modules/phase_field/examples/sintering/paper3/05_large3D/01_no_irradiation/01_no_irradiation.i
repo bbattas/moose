@@ -4,7 +4,7 @@
 # Created Date: Saturday December 23rd 2023
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Saturday December 23rd 2023
+# Last Modified: Sunday December 24th 2023
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -363,6 +363,27 @@
 []
 
 [Postprocessors]
+  [memoryAll]
+    type = MemoryUsage
+    mem_units = megabytes
+    outputs = csv
+    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+    report_peak_value = false
+  []
+  [memoryPeak]
+    type = MemoryUsage
+    mem_units = megabytes
+    outputs = csv
+    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+    report_peak_value = true
+  []
+  [memory1CPU]
+    type = MemoryUsage
+    mem_units = megabytes
+    outputs = csv
+    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+    value_type = max_process
+  []
   [n_DOFs]
     type = NumDOFs
     outputs = csv
@@ -407,12 +428,12 @@
     output_centroids = false #was true
     outputs = csv
   []
-  #  [./vectorMemory]
-  #    type = VectorMemoryUsage
-  #    mem_units = gigabytes
-  #    outputs = csv
-  #    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-  #  [../]
+  [vectorMemory]
+    type = VectorMemoryUsage
+    mem_units = gigabytes
+    outputs = csv
+    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+  []
 []
 
 [UserObjects]
