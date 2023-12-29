@@ -11,24 +11,7 @@
 #  Large 3D d3d input (25x25x25+5(30) with 79 grains), same as 01 but with
 #  a fission rate of 1e-8
 #  Elements of 250 (.25um) and min grain radius of 2250 nm (2.25 um ish)
-#
-##############################################################################
-
-##############################################################################
-# File: 01_no_irradiation.i
-# File Location: /examples/sintering/paper3/05_large3D/01_no_irradiation
-# Created Date: Saturday December 23rd 2023
-# Author: Brandon Battas (bbattas@ufl.edu)
-# -----
-# Last Modified: Sunday December 24th 2023
-# Modified By: Brandon Battas
-# -----
-# Description:
-#  Large 3D d3d input (25x25x25+5(30) with 79 grains)
-#  This is the no irradiation case as a baseline for determining the shape
-#  factors in the Kang2004 equation for macroscopic densification
-#  Elements of 250 (.25um) and min grain radius of 2250 nm (2.25 um ish)
-#  ~14m dofs without the irradiation mats/vars, (900=15.5k) (600=23k) (960=14.6k)
+#  ~15m dofs, (900=16.7k) (600=25k) (960=15.6k)
 ##############################################################################
 
 [Mesh]
@@ -265,7 +248,7 @@
     material_property_names = 'hs'
     postprocessor_names = 'hs_average'
     expression = 'f_dot * noise * Nc * Nd * hs_average' # * hs
-    outputs = none #'nemesis'
+    outputs = 'nemesis'
   []
   [a_r]
     type = ParsedMaterial
@@ -276,14 +259,14 @@
     coupled_variables = 'T'
     expression = 'Di:=Di_0*exp(-Ei_B/(kB*T));
                   Va * Z * Di / (a_0^2)' #hs *
-    outputs = none #'nemesis'
+    outputs = 'nemesis'
   []
   [combined_rho_vac]
     type = DerivativeParsedMaterial
     property_name = combined_rho_vac
     material_property_names = 'rhov rhos hv(phi)'
     expression = 'hv*rhov + (1-hv)*rhos'
-    outputs = none #'nemesis'
+    outputs = 'nemesis'
   []
   [rho_i_dpm]
     type = DerivativeParsedMaterial
