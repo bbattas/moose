@@ -248,7 +248,7 @@
     material_property_names = 'hs'
     postprocessor_names = 'hs_average'
     expression = 'f_dot * noise * Nc * Nd * hs_average' # * hs
-    outputs = 'nemesis'
+    outputs = none #'nemesis'
   []
   [a_r]
     type = ParsedMaterial
@@ -259,14 +259,14 @@
     coupled_variables = 'T'
     expression = 'Di:=Di_0*exp(-Ei_B/(kB*T));
                   Va * Z * Di / (a_0^2)' #hs *
-    outputs = 'nemesis'
+    outputs = none #'nemesis'
   []
   [combined_rho_vac]
     type = DerivativeParsedMaterial
     property_name = combined_rho_vac
     material_property_names = 'rhov rhos hv(phi)'
     expression = 'hv*rhov + (1-hv)*rhos'
-    outputs = 'nemesis'
+    outputs = none #'nemesis'
   []
   [rho_i_dpm]
     type = DerivativeParsedMaterial
@@ -276,7 +276,7 @@
     material_property_names = 'rho_gen_int a_r'
     postprocessor_names = 'average_rho_vac'
     expression = 'if(average_rho_vac>0.0,(rho_gen_int / (a_r * average_rho_vac)),0.0)'
-    outputs = 'nemesis'
+    outputs = none #'nemesis'
   []
   # Vacancies
   [rho_gen_vac]
@@ -574,7 +574,7 @@
   start_time = 0
   # end_time = 50000 #0.006
   steady_state_detection = true
-  num_steps = 1
+  num_steps = 3
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
