@@ -400,12 +400,20 @@ EBSDReader::indexFromPoint(const Point & p) const
                _minx,
                ", maxx ",
                _maxx,
+               ", dx ",
+               _dx,
+               ", nx ",
+               _nx,
                ", y coord ",
                p(1),
                ", miny ",
                _miny,
                ", maxy ",
-               _maxy);
+               _maxy,
+               ", dy ",
+               _dy,
+               ", ny ",
+               _ny);
 
   if (_mesh_dimension == 3)
   {
