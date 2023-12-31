@@ -397,14 +397,14 @@ EBSDReader::indexFromPoint(const Point & p) const
                "coords ",
                p(0),
                ", minx ",
-               minx,
+               _minx,
                ", maxx ",
-               maxx,
+               _maxx,
                p(1),
                ", miny ",
-               miny,
+               _miny,
                ", maxy ",
-               maxy);
+               _maxy);
 
   if (_mesh_dimension == 3)
   {
