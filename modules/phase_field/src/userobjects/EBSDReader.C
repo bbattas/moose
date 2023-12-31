@@ -400,6 +400,7 @@ EBSDReader::indexFromPoint(const Point & p) const
                name(),
                "coords ",
                p(0),
+               ", ",
                p(1));
 
   if (_mesh_dimension == 3)
@@ -409,9 +410,11 @@ EBSDReader::indexFromPoint(const Point & p) const
     if (p(2) <= _minz || p(2) >= _maxz)
       mooseError("Data points must be on the interior of the mesh elements. In EBSDReader ",
                  name(),
-                 "coords ",
+                 " coords ",
                  p(0),
+                 ", ",
                  p(1),
+                 ", ",
                  p(2));
   }
   else
