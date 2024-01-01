@@ -24,13 +24,13 @@
 [GlobalParams]
   op_num = 8
   var_name_base = gr
-  int_width = 2000 #particle radius is 100
+  # int_width = 2000 #particle radius is 100
   # profile = TANH # not used at the moment? only in circleic?
 []
 
 [Variables]
-  [w]
-  []
+  # [w]
+  # []
   [phi]
   []
   [PolycrystalVariables] #Polycrystal variable generation (30 order parameters)
@@ -96,100 +96,118 @@
   []
 []
 
-# [Materials]
-#   # Free energy coefficients for parabolic curves
-#   [ks]
-#     type = ParsedMaterial
-#     property_name = ks
-#     coupled_variables = 'T'
-#     constant_names = 'a b'
-#     constant_expressions = '-0.0025 157.16'
-#     expression = 'a*T + b'
-#   []
-#   [kv]
-#     type = ParsedMaterial
-#     property_name = kv
-#     material_property_names = 'ks'
-#     expression = '10*ks'
-#   []
-#   # Diffusivity and mobilities
-#   [chiD]
-#     type = GrandPotentialIsoMaterial
-#     f_name = chiD
-#     solid_mobility = L #CHANGED FROM L
-#     void_mobility = Lv
-#     chi = chi
-#     c = phi
-#     T = T
-#     D0 = 8.33e9
-#     GBmob0 = 1.4759e9
-#     Q = 2.77
-#     Em = 3.608
-#     bulkindex = 1
-#     gbindex = -1 # sets the GB D to the LANL MD Value in GPIsoMat
-#     surfindex = 1e11
-#   []
-#   [cv_eq]
-#     type = UO2CvMaterial
-#     f_name = cv_eq
-#     T = T
-#     c = phi
-#     OU = OU
-#     gb_se_csv = '../../../gb_segregation_csv/sigma9_se.csv
-#                  ../../../gb_segregation_csv/sigma11_se.csv'
-#     outputs = 'none'
-#   []
-#   [sintering]
-#     type = GrandPotentialSinteringMaterial
-#     chemical_potential = w
-#     void_op = phi
-#     Temperature = T
-#     surface_energy = 9.86 #19.7
-#     grainboundary_energy = 9.86
-#     void_energy_coefficient = kv
-#     solid_energy_coefficient = ks
-#     solid_energy_model = PARABOLIC
-#     equilibrium_vacancy_concentration = cv_eq
-#   []
-#   # Concentration is only meant for output
-#   [c]
-#     type = ParsedMaterial
-#     property_name = c
-#     material_property_names = 'hs rhos hv rhov'
-#     constant_names = 'Va'
-#     constant_expressions = '0.04092'
-#     expression = 'Va*(hs*rhos + hv*rhov)'
-#     outputs = nemesis #exodus
-#   []
-#   [L_mat]
-#     type = DerivativeParsedMaterial
-#     property_name = L_mat
-#     material_property_names = 'L Lv'
-#     coupled_variables = 'phi'
-#     constant_names = 'p0'
-#     constant_expressions = '0.3'
-#     expression = 'hv:=if(phi<=0.0,0.0,if(phi>=p0,1.0,6*(phi/p0)^5 - 15*(phi/p0)^4 + 10*(phi/p0)^3));
-#                 hv*Lv + (1-hv)*L'
-#     outputs = none
-#   []
-# []
+[Materials]
+  [constants]
+    type = GenericConstantMaterial
+    prop_names = 'kappa L_mat'
+    prop_values = '1    1'
+  []
+  [Copper]
+    type = GBEvolution
+    T = 500 # K
+    wGB = 60 # nm
+    GBmob0 = 2.5e-6 #m^4/(Js) from Schoenfelder 1997
+    Q = 0.23 #Migration energy in eV
+    GBenergy = 0.708 #GB energy in J/m^2
+  []
+  #   # Free energy coefficients for parabolic curves
+  #   [ks]
+  #     type = ParsedMaterial
+  #     property_name = ks
+  #     coupled_variables = 'T'
+  #     constant_names = 'a b'
+  #     constant_expressions = '-0.0025 157.16'
+  #     expression = 'a*T + b'
+  #   []
+  #   [kv]
+  #     type = ParsedMaterial
+  #     property_name = kv
+  #     material_property_names = 'ks'
+  #     expression = '10*ks'
+  #   []
+  #   # Diffusivity and mobilities
+  #   [chiD]
+  #     type = GrandPotentialIsoMaterial
+  #     f_name = chiD
+  #     solid_mobility = L #CHANGED FROM L
+  #     void_mobility = Lv
+  #     chi = chi
+  #     c = phi
+  #     T = T
+  #     D0 = 8.33e9
+  #     GBmob0 = 1.4759e9
+  #     Q = 2.77
+  #     Em = 3.608
+  #     bulkindex = 1
+  #     gbindex = -1 # sets the GB D to the LANL MD Value in GPIsoMat
+  #     surfindex = 1e11
+  #   []
+  #   [cv_eq]
+  #     type = UO2CvMaterial
+  #     f_name = cv_eq
+  #     T = T
+  #     c = phi
+  #     OU = OU
+  #     gb_se_csv = '../../../gb_segregation_csv/sigma9_se.csv
+  #                  ../../../gb_segregation_csv/sigma11_se.csv'
+  #     outputs = 'none'
+  #   []
+  #   [sintering]
+  #     type = GrandPotentialSinteringMaterial
+  #     chemical_potential = w
+  #     void_op = phi
+  #     Temperature = T
+  #     surface_energy = 9.86 #19.7
+  #     grainboundary_energy = 9.86
+  #     void_energy_coefficient = kv
+  #     solid_energy_coefficient = ks
+  #     solid_energy_model = PARABOLIC
+  #     equilibrium_vacancy_concentration = cv_eq
+  #   []
+  #   # Concentration is only meant for output
+  #   [c]
+  #     type = ParsedMaterial
+  #     property_name = c
+  #     material_property_names = 'hs rhos hv rhov'
+  #     constant_names = 'Va'
+  #     constant_expressions = '0.04092'
+  #     expression = 'Va*(hs*rhos + hv*rhov)'
+  #     outputs = nemesis #exodus
+  #   []
+  #   [L_mat]
+  #     type = DerivativeParsedMaterial
+  #     property_name = L_mat
+  #     material_property_names = 'L Lv'
+  #     coupled_variables = 'phi'
+  #     constant_names = 'p0'
+  #     constant_expressions = '0.3'
+  #     expression = 'hv:=if(phi<=0.0,0.0,if(phi>=p0,1.0,6*(phi/p0)^5 - 15*(phi/p0)^4 + 10*(phi/p0)^3));
+  #                 hv*Lv + (1-hv)*L'
+  #     outputs = none
+  #   []
+[]
 
-# [Kernels]
-#   [barrier_phi]
-#     type = ACBarrierFunction
-#     variable = phi
-#     v = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7' # gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15'
-#     gamma = gamma
-#     mob_name = L_mat
-#   []
-#   [kappa_phi]
-#     type = ACKappaFunction
-#     variable = phi
-#     mob_name = L_mat
-#     kappa_name = kappa
-#   []
-# []
 [Kernels]
+  # [barrier_phi]
+  #   type = ACBarrierFunction
+  #   variable = phi
+  #   v = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7' # gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15'
+  #   gamma = gamma
+  #   mob_name = L_mat
+  # []
+  # [kappa_phi]
+  #   type = ACKappaFunction
+  #   variable = phi
+  #   mob_name = L_mat
+  #   kappa_name = kappa
+  # []
+  [cv_gen]
+    type = BodyForce
+    value = 1.25e-3
+    variable = phi
+  []
+  # []
+  # [Kernels]
   [PolycrystalKernel]
   []
 []
@@ -281,11 +299,11 @@
     type = NumDOFs
     outputs = csv
   []
-  [c_total]
-    type = ElementIntegralMaterialProperty
-    mat_prop = c
-    outputs = csv
-  []
+  # [c_total]
+  #   type = ElementIntegralMaterialProperty
+  #   mat_prop = c
+  #   outputs = csv
+  # []
   [nonlinear]
     type = NumNonlinearIterations
     outputs = csv
