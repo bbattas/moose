@@ -419,8 +419,8 @@
     # interval = 5              # this ExodusII will only output every third time step
   []
   print_linear_residuals = false
-  # [checkpoint]
-  #   type = Checkpoint
-  #   num_files = 3
-  # []
+  [checkpoint]
+    type = Checkpoint
+    num_files = 3
+  []
 []
