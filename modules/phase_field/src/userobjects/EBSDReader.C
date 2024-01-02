@@ -63,6 +63,10 @@ EBSDReader::EBSDReader(const InputParameters & params)
 void
 EBSDReader::readFile()
 {
+<<<<<<< HEAD
+=======
+
+>>>>>>> EBSDReader removed recovery skip
   std::string ebsd_filename;
   EBSDMeshGenerator::Geometry geometry;
 
