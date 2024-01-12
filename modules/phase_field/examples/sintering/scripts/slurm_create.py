@@ -258,7 +258,7 @@ def slurmWrite(cwd,inputName):
         # On to the actual job to submit
         # Define Locations
         slurmList.append('')
-        slurmList.append('cat $SLURM_JOB_NODELIST')
+        slurmList.append('echo ${SLURM_JOB_NODELIST}')
         slurmList.append('')
         slurmList.append('MOOSE='+pf_opt)
         slurmList.append('OUTPUT='+cwd)
