@@ -193,6 +193,8 @@
     bulkindex = 1
     gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
     surfindex = 1e11
+    GBwidth = 1.0
+    surf_thickness = 0.5
   []
   [cv_eq]
     type = UO2CvMaterial
