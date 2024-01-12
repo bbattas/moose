@@ -182,7 +182,7 @@ class Server:
                 self.client_connections = []
                 self.startServer()
             else:
-                print 'I could not find your PBS_NODEFILE. Is PBS loaded?'
+                print( 'I could not find your PBS_NODEFILE. Is PBS loaded?')
                 sys.exit(1)
         # If we are not a server, start the single client
         else:
@@ -244,11 +244,11 @@ class Server:
 
         # Cancel server operations if ctrl-c was pressed
         except KeyboardInterrupt:
-            print 'Canceled by user. Wrote log:', self.arguments.outfile[0]
+            print( 'Canceled by user. Wrote log:', self.arguments.outfile[0])
             sys.exit(0)
 
         # Normal exiting procedures
-        print '\n\nAll agents have stopped. Log file saved to:', self.arguments.outfile[0]
+        print( '\n\nAll agents have stopped. Log file saved to:', self.arguments.outfile[0])
         sys.exit(0)
 
     def startClient(self):
@@ -260,10 +260,10 @@ class Server:
         nodes = set(self._PBS_NODEFILE.read().split())
 
         # Print some useful information about our setup
-        print 'Memory Logger running on Host:', self.host, 'Port:', self.port, \
+        print( 'Memory Logger running on Host:', self.host, 'Port:', self.port, \
           '\nNodes:', ', '.join(nodes), \
           '\nSample rate (including stdout):', self.arguments.repeat_rate[-1], 's (use --repeat-rate to adjust)', \
-          '\nRemote agents delaying', self.arguments.pbs_delay[-1], 'second/s before tracking. (use --pbs-delay to adjust)\n'
+          '\nRemote agents delaying', self.arguments.pbs_delay[-1], 'second/s before tracking. (use --pbs-delay to adjust)\n')
 
         # Build our command list based on the PBS_NODEFILE
         command = []
@@ -424,13 +424,13 @@ class Client:
 
             # An agent reported a stop command... so let everyone know where the log was saved, and exit!
             if self.arguments.call_back_host == None:
-                print 'Binary has exited and a log file has been written. You can now attempt to view this file by running' \
+                print( 'Binary has exited and a log file has been written. You can now attempt to view this file by running' \
                   '\nthe memory_logger with either the --plot or --read arguments:\n\n', sys.argv[0], '--plot', self.arguments.outfile[0], \
-                  '\n\nSee --help for additional viewing options.'
+                  '\n\nSee --help for additional viewing options.')
         # Cancel server operations if ctrl-c was pressed
         except KeyboardInterrupt:
             self.logfile.close()
-            print 'Canceled by user. Wrote log:', self.arguments.outfile[0]
+            print( 'Canceled by user. Wrote log:', self.arguments.outfile[0])
             sys.exit(0)
 
         # Everything went smooth.
@@ -520,7 +520,7 @@ class AgentConnector:
         try:
             return pickle.load(t)
         except KeyError:
-            print 'Socket data was not pickled data: ', message
+            print('Socket data was not pickled data: ', message)
         except:
             raise
 
@@ -591,7 +591,7 @@ class Agent:
                 last_entry = float(memory_list[-1][0]) + self.arguments.repeat_rate[-1]
                 self.delta = (GetTime().now - last_entry)
             else:
-                print 'Recovery options detected, but I could not find your previous memory log file.'
+                print( 'Recovery options detected, but I could not find your previous memory log file.')
                 sys.exit(1)
         else:
             self.delta = 0
@@ -761,7 +761,7 @@ class MemoryPlotter:
                 log_file.close()
                 plot_dictionary[log.split('/')[-1:][0]] = memory_list
             else:
-                print 'log not found:', log
+                print('log not found:', log)
                 sys.exit(1)
         return plot_dictionary
 
@@ -769,7 +769,7 @@ class MemoryPlotter:
         try:
             import matplotlib.pyplot as plt
         except ImportError:
-            print 'Error importing matplotlib. Matplotlib not available on this system?'
+            print( 'Error importing matplotlib. Matplotlib not available on this system?')
             sys.exit(1)
         plot_dictionary = self.buildPlots()
         fig = plt.figure()
@@ -817,7 +817,7 @@ class MemoryPlotter:
             try:
                 tmp_zero = decimal.Decimal(value_list[0][0])
             except:
-                print 'Could not parse log file:', plot_name, 'is this a valid memory_logger file?'
+                print('Could not parse log file:', plot_name, 'is this a valid memory_logger file?')
                 sys.exit(1)
 
             # Populate the graph
@@ -896,21 +896,21 @@ class MemoryPlotter:
 
         if self.arguments.stdout and name == 'stdout':
             if self.arguments.no_color != False:
-                print color_codes[line.get_color()]
-            print "stdout -----------------------------------------------------\n"
+                print( color_codes[line.get_color()])
+            print("stdout -----------------------------------------------------\n")
             for id in ind:
-                print self.stdout_msgs[index][id]
+                print( self.stdout_msgs[index][id])
             if self.arguments.no_color != False:
-                print color_codes['RESET']
+                print( color_codes['RESET'])
 
         if self.arguments.pstack and name == 'pstack':
             if self.arguments.no_color != False:
-                print color_codes[line.get_color()]
-            print "pstack -----------------------------------------------------\n"
+                print( color_codes[line.get_color()])
+            print( "pstack -----------------------------------------------------\n")
             for id in ind:
-                print self.pstack_msgs[index][id]
+                print( self.pstack_msgs[index][id])
             if self.arguments.no_color != False:
-                print color_codes['RESET']
+                print( color_codes['RESET'])
 
     def buildAnnotation(self,fig,x,y,msg,c):
         for i in range(len(x)):
@@ -966,7 +966,7 @@ class ReadLog:
         if len(set([x[4] for x in self.sorted_list])) > 1:
             self.use_nodes = True
 
-        print 'Date Stamp' + ' '*int(17) + 'Memory Usage | Percent of MAX memory used: ( ' + str('{:0,.0f}'.format(largest_memory)) + ' K )'
+        print( 'Date Stamp' + ' '*int(17) + 'Memory Usage | Percent of MAX memory used: ( ' + str('{:0,.0f}'.format(largest_memory)) + ' K )')
         for item in self.sorted_list:
             tmp_str = ''
             if decimal.Decimal(item[1]) == largest_memory:
@@ -979,7 +979,7 @@ class ReadLog:
                 tmp_str = self.formatText(largest_memory, item[0], item[1], item[5], item[2], item[3], item[4], GREEN, terminal_width)
             last_memory = item[1]
             sys.stdout.write(tmp_str)
-        print 'Date Stamp' + ' '*int(17) + 'Memory Usage | Percent of MAX memory used: ( ' + str('{:0,.0f}'.format(largest_memory)) + ' K )'
+        print( 'Date Stamp' + ' '*int(17) + 'Memory Usage | Percent of MAX memory used: ( ' + str('{:0,.0f}'.format(largest_memory)) + ' K )')
 
 
     def formatText(self, largest_memory, date, total_memory, node_memory, log, pstack, reporting_host, color_code, terminal_width):
@@ -1055,7 +1055,7 @@ def which(program):
             exe_file = os.path.join(path, program)
             if is_exe(exe_file):
                 return exe_file
-    print 'I could not find the following binary:', program
+    print( 'I could not find the following binary:', program)
     sys.exit(1)
 
 def verifyArgs(args):
@@ -1072,7 +1072,7 @@ def verifyArgs(args):
                            'upper left',
                            'lower left']
     if args.legend not in possible_positions:
-        print 'Invalid legend position requested. Possible values are:\n\t', '\n\t'.join([x for x in possible_positions])
+        print( 'Invalid legend position requested. Possible values are:\n\t', '\n\t'.join([x for x in possible_positions]))
         sys.exit(1)
 
     option_count = 0
@@ -1084,7 +1084,7 @@ def verifyArgs(args):
         option_count += 1
     if option_count != 1 and args.pbs != True:
         if args.call_back_host == None:
-            print 'You must use one of the following: run, read, or plot'
+            print( 'You must use one of the following: run, read, or plot')
             sys.exit(1)
     args.cwd = os.getcwd()
 
@@ -1094,7 +1094,7 @@ def verifyArgs(args):
         if args.run[0].find('--recover') != -1:
             args.recover = True
         if args.run[0].find('~') != -1:
-            print "You must use absolute paths. Python does not understand the '~' path discriptor.\nYou can use environment vairables (eg: $HOME) so long as they are absolute paths."
+            print( "You must use absolute paths. Python does not understand the '~' path discriptor.\nYou can use environment vairables (eg: $HOME) so long as they are absolute paths.")
             sys.exit(1)
 
     if args.outfile == None and args.run:
@@ -1118,7 +1118,7 @@ def verifyArgs(args):
             elif args.debugger == 'gdb':
                 results = which('gdb')
         else:
-            print 'Invalid debugger selected. You must choose between gdb and lldb using the --debugger argument'
+            print( 'Invalid debugger selected. You must choose between gdb and lldb using the --debugger argument')
             sys.exit(1)
     return args
 
@@ -1157,7 +1157,7 @@ def parseArguments(args=None):
     return verifyArgs(parser.parse_args(args))
 
 def lldbImportError():
-    print """
+    print( """
   Unable to import lldb
 
     The Python lldb API is now supplied by Xcode but not
@@ -1174,7 +1174,7 @@ def lldbImportError():
     It may also be necessary to unload the miniconda module.
     If you receive a fatal Python error about PyThreadState
     try using your system's version of Python instead.
-  """
+  """)
 
 if __name__ == '__main__':
     args = parseArguments()
