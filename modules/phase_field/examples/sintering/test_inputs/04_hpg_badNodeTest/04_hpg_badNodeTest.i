@@ -653,8 +653,8 @@
   start_time = 0
   end_time = 10000 #0.006
   # steady_state_detection = true
-  # num_steps = 5
-  dt = 0.0001
+  num_steps = 5
+  # dt = 0.0001
   # dtmax = 0.5
   # dt = 0.0001
   # [TimeStepper]
