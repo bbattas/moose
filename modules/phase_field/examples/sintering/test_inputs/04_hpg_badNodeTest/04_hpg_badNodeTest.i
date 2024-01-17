@@ -4,7 +4,7 @@
 # Created Date: Tuesday January 16th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday January 16th 2024
+# Last Modified: Wednesday January 17th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -548,55 +548,56 @@
   # []
 []
 
-# [Postprocessors]
-#   # [./memoryAll]
-#   #   type = MemoryUsage
-#   #   mem_units = megabytes
-#   #   outputs = csv
-#   #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-#   #   report_peak_value = false
-#   # [../]
-#   # [./memoryPeak]
-#   #   type = MemoryUsage
-#   #   mem_units = megabytes
-#   #   outputs = csv
-#   #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-#   #   report_peak_value = true
-#   # [../]
-#   # [./memory1CPU]
-#   #   type = MemoryUsage
-#   #   mem_units = megabytes
-#   #   outputs = csv
-#   #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-#   #   value_type = max_process
-#   # [../]
-#   [n_DOFs]
-#     type = NumDOFs
-#     outputs = csv
-#   []
-#   [c_total]
-#     type = ElementIntegralMaterialProperty
-#     mat_prop = c
-#     outputs = csv
-#   []
-#   [nonlinear]
-#     type = NumNonlinearIterations
-#     outputs = csv
-#   []
-#   [linear]
-#     type = NumLinearIterations
-#     outputs = csv
-#   []
-#   [residuals]
-#     type = NumResidualEvaluations
-#     outputs = csv
-#   []
-#   [runtime]
-#     type = PerfGraphData
-#     section_name = "Root"
-#     data_type = TOTAL
-#   []
-# []
+[Postprocessors]
+  #   # [./memoryAll]
+  #   #   type = MemoryUsage
+  #   #   mem_units = megabytes
+  #   #   outputs = csv
+  #   #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+  #   #   report_peak_value = false
+  #   # [../]
+  #   # [./memoryPeak]
+  #   #   type = MemoryUsage
+  #   #   mem_units = megabytes
+  #   #   outputs = csv
+  #   #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+  #   #   report_peak_value = true
+  #   # [../]
+  #   # [./memory1CPU]
+  #   #   type = MemoryUsage
+  #   #   mem_units = megabytes
+  #   #   outputs = csv
+  #   #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+  #   #   value_type = max_process
+  #   # [../]
+  #   [n_DOFs]
+  #     type = NumDOFs
+  #     outputs = csv
+  #   []
+  #   [c_total]
+  #     type = ElementIntegralMaterialProperty
+  #     mat_prop = c
+  #     outputs = csv
+  #   []
+  #   [nonlinear]
+  #     type = NumNonlinearIterations
+  #     outputs = csv
+  #   []
+  #   [linear]
+  #     type = NumLinearIterations
+  #     outputs = csv
+  #   []
+  #   [residuals]
+  #     type = NumResidualEvaluations
+  #     outputs = csv
+  #   []
+  [runtime]
+    type = PerfGraphData
+    section_name = "Root"
+    data_type = TOTAL
+    outputs = console
+  []
+[]
 
 # [VectorPostprocessors]
 # #  [./voids]
