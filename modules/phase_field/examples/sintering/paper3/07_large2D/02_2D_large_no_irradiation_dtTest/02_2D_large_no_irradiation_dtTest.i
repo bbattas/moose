@@ -4,7 +4,7 @@
 # Created Date: Wednesday January 17th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday January 17th 2024
+# Last Modified: Friday January 19th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -212,7 +212,7 @@
     chemical_potential = w
     void_op = phi
     Temperature = T
-    surface_energy = 9.86 #19.7
+    surface_energy = 19.7
     grainboundary_energy = 9.86
     void_energy_coefficient = kv
     solid_energy_coefficient = ks
@@ -523,7 +523,7 @@
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 1
+    dt = 2.5
     growth_factor = 1.2
     cutback_factor = 0.8
     cutback_factor_at_failure = 0.5 #might be different from the curback_factor
