@@ -4,8 +4,8 @@
 # Created Date: Wednesday January 17th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday January 19th 2024
-# Modified By: Brandon Battas
+# Last Modified: Monday January 22nd 2024
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Testing the 01 input but trying to make the timestep larger
@@ -523,7 +523,7 @@
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 2.5
+    dt = 5 #2.5
     growth_factor = 1.2
     cutback_factor = 0.8
     cutback_factor_at_failure = 0.5 #might be different from the curback_factor
