@@ -5,7 +5,7 @@
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday January 22nd 2024
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Testing the 01 input but trying to make the timestep larger
@@ -437,6 +437,14 @@
     compute_var_to_feature_map = true
     execute_on = 'initial timestep_end'
   []
+  [grain_tracker_fc]
+    type = FeatureFloodCount
+    variable = unique_grains
+    threshold = 0.5 #0.2
+    connecting_threshold = 0.5 #0.08
+    compute_var_to_feature_map = true
+    execute_on = 'initial timestep_end'
+  []
   [timestep]
     type = TimestepSize
     outputs = csv
@@ -460,7 +468,7 @@
   []
   [grain_sizes]
     type = FeatureVolumeVectorPostprocessor
-    flood_counter = grain_tracker
+    flood_counter = grain_tracker_fc
     execute_on = 'initial timestep_end final'
     output_centroids = false #was true
     outputs = csv
@@ -523,10 +531,10 @@
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 5 #2.5
-    growth_factor = 1.2
-    cutback_factor = 0.8
-    cutback_factor_at_failure = 0.5 #might be different from the curback_factor
+    dt = 10 #5#2.5
+    # growth_factor = 1.2
+    # cutback_factor = 0.8
+    # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
   []
   #[Adaptivity]
   #  refine_fraction = 0.8
