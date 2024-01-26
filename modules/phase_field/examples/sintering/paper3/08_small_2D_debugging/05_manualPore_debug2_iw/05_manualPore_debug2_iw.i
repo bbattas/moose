@@ -1,24 +1,17 @@
 ##############################################################################
-# File: 03_small_2D_manualInternalPore.i
-# File Location: /examples/sintering/paper3/08_small_2D_debugging/03_small_2D_manualInternalPore
-# Created Date: Wednesday January 24th 2024
+# File: 05_manualPore_debug2_iw.i
+# File Location: /examples/sintering/paper3/08_small_2D_debugging/05_manualPore_debug2_iw
+# Created Date: Friday January 26th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday January 25th 2024
+# Last Modified: Friday January 26th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing the EBSD 8um grain 2D input (for debugging of the timestep size and
-#   the internal void interfaces that arent interpolating in the large 2D)
-#  20x20 um with element size of .25 um, and 3 grains total
-#  This is input 02 but with the added internal void done manually with a
-#   smoothcircleIC using the coordinates and radii of the pore (1 pore at 20%
-#   of the area = 1 pore from full 100x100 domain at 0.8% area)
-#  Centers:
-#   [[8.89309397 8.1444245  0.        ]]
-#  Radii:
-#   [5.04626504]
-#  To do multiple phi ICs need to be in seperate blocks, and they both need to be manual
+#  04 (which is 03 just with adaptive mesh and tanh profile specified) but
+#   with trying variations in the IW since the interfaces in 04 seemed to widen
+#   out within the first couple timesteps fine but it wouldnt increase the timestep
+#
 ##############################################################################
 
 [Mesh]
@@ -33,13 +26,14 @@
     block_id = 1
   []
   parallel_type = DISTRIBUTED
+  uniform_refine = 0
 []
 
 [GlobalParams]
   op_num = 3 #10
   var_name_base = gr
   int_width = 1000 #min radius is like 2250, element size of 250
-  # profile = TANH # not used at the moment? only in circleic?
+  profile = TANH # not used at the moment? only in circleic?
 []
 
 [Variables]
@@ -560,7 +554,7 @@
   start_time = 0
   # end_time = 50000 #0.006
   steady_state_detection = true
-  num_steps = 500
+  num_steps = 10
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
@@ -572,12 +566,12 @@
     # cutback_factor = 0.8
     # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
   []
-  #[Adaptivity]
-  #  refine_fraction = 0.8
-  #  coarsen_fraction = 0.05 #minimize this- adds error
-  #  max_h_level = 2 #test a short simulation with 1,2,3,4 for this to see where it stops helping
-  #  initial_adaptivity = 2
-  #[]
+  # [Adaptivity]
+  #   refine_fraction = 0.8
+  #   coarsen_fraction = 0.05 #minimize this- adds error
+  #   max_h_level = 2 #test a short simulation with 1,2,3,4 for this to see where it stops helping
+  #   initial_adaptivity = 2
+  # []
 []
 
 [Outputs]

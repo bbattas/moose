@@ -1,36 +1,23 @@
 ##############################################################################
-# File: 03_small_2D_manualInternalPore.i
-# File Location: /examples/sintering/paper3/08_small_2D_debugging/03_small_2D_manualInternalPore
-# Created Date: Wednesday January 24th 2024
+# File: 06_full_ebsd_input.i
+# File Location: /examples/sintering/paper3/08_small_2D_debugging/06_full_ebsd_input
+# Created Date: Friday January 26th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday January 25th 2024
+# Last Modified: Friday January 26th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing the EBSD 8um grain 2D input (for debugging of the timestep size and
-#   the internal void interfaces that arent interpolating in the large 2D)
-#  20x20 um with element size of .25 um, and 3 grains total
-#  This is input 02 but with the added internal void done manually with a
-#   smoothcircleIC using the coordinates and radii of the pore (1 pore at 20%
-#   of the area = 1 pore from full 100x100 domain at 0.8% area)
-#  Centers:
-#   [[8.89309397 8.1444245  0.        ]]
-#  Radii:
-#   [5.04626504]
-#  To do multiple phi ICs need to be in seperate blocks, and they both need to be manual
+#  Testing the ebsd mesh creating the internal pore also to look at the interface
+#  The interface is garbage for voids especially.
+#
+#
 ##############################################################################
 
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
     filename = ../00_d3d_txt/2D_20x20um_8umavg_allVoids.txt
-  []
-  [subdomain_external]
-    type = ParsedSubdomainMeshGenerator
-    input = ebsd_mesh
-    combinatorial_geometry = 'x > 19000'
-    block_id = 1
   []
   parallel_type = DISTRIBUTED
 []
@@ -86,34 +73,11 @@
       polycrystal_ic_uo = ebsd
     []
   []
-  # [VoidIC]
-  #   type = ReconPhaseVarIC
-  #   ebsd_reader = ebsd_reader
-  #   variable = phi
-  #   phase = 2
-  #   block = 1
-  # []
   [VoidIC]
-    type = BoundingBoxIC
+    type = ReconPhaseVarIC
+    ebsd_reader = ebsd_reader
     variable = phi
-    block = 1
-    inside = 1
-    outside = 0
-    x1 = 20000
-    x2 = 25000
-    y1 = -2000
-    y2 = 22000
-  []
-  [voidIC2]
-    type = SmoothCircleIC
-    variable = phi
-    invalue = 1
-    outvalue = 0
-    radius = 5046.26504
-    x1 = 8893.09397
-    y1 = 8144.4245
-    z1 = 0
-    block = 0
+    phase = 2
   []
 []
 
@@ -560,7 +524,7 @@
   start_time = 0
   # end_time = 50000 #0.006
   steady_state_detection = true
-  num_steps = 500
+  num_steps = 10
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
