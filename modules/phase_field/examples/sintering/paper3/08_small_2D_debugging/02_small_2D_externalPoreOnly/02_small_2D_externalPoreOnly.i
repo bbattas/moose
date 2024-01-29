@@ -4,7 +4,7 @@
 # Created Date: Tuesday January 23rd 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday January 23rd 2024
+# Last Modified: Monday January 29th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -502,12 +502,13 @@
   []
 []
 
-# [Preconditioning]
-#   [./SMP] #slow but good, very slow for 3D (might be another option then)
-#     type = SMP
-#     coupled_groups = 'w,phi'
-#   [../]
-# []
+[Preconditioning]
+  [SMP] #slow but good, very slow for 3D (might be another option then)
+    type = SMP
+    # coupled_groups = 'w,phi'
+    full = true
+  []
+[]
 
 [Executioner]
   type = Transient
@@ -525,7 +526,7 @@
   start_time = 0
   # end_time = 50000 #0.006
   steady_state_detection = true
-  num_steps = 100
+  num_steps = 10
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
@@ -554,7 +555,7 @@
     type = Nemesis
     # interval = 3 # this ExodusII will only output every third time step
   []
-  print_linear_residuals = false
+  print_linear_residuals = true
   # [checkpoint]
   #   type = Checkpoint
   #   num_files = 3
