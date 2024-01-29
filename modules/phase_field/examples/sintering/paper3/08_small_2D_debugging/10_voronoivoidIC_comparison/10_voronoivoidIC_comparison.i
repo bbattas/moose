@@ -1,32 +1,53 @@
 ##############################################################################
-# File: 06_full_ebsd_input.i
-# File Location: /examples/sintering/paper3/08_small_2D_debugging/06_full_ebsd_input
-# Created Date: Friday January 26th 2024
+# File: 10_voronoivoidIC_comparison.i
+# File Location: /examples/sintering/paper3/08_small_2D_debugging/10_voronoivoidIC_comparison
+# Created Date: Monday January 29th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday January 29th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing the ebsd mesh creating the internal pore also to look at the interface
-#  The interface is garbage for voids especially.
+#  Testing a similar input with voronoivoidIC to see how it compares in terms of
+#   timestep cutdown/size
 #
 #
 ##############################################################################
 
 [Mesh]
-  [ebsd_mesh]
-    type = EBSDMeshGenerator
-    filename = ../00_d3d_txt/2D_20x20um_8umavg_allVoids.txt
+  # [ebsd_mesh]
+  #   type = EBSDMeshGenerator
+  #   filename = ../00_d3d_txt/2D_20x20um_8umavg_allVoids.txt
+  # []
+  [gmg]
+    type = DistributedRectilinearMeshGenerator
+    dim = 2
+    nx = 100
+    ny = 80
+    xmin = 0
+    xmax = 25000
+    ymin = 0
+    ymax = 20000
   []
-  parallel_type = DISTRIBUTED
+  [subdomain_external]
+    type = ParsedSubdomainMeshGenerator
+    input = gmg
+    combinatorial_geometry = 'x > 19000'
+    block_id = 1
+  []
+  # parallel_type = DISTRIBUTED
+  # uniform_refine = 0
 []
 
 [GlobalParams]
   op_num = 3 #10
   var_name_base = gr
   int_width = 1000 #min radius is like 2250, element size of 250
-  # profile = TANH # not used at the moment? only in circleic?
+  profile = TANH # not used at the moment? only in circleic?
+  # Voronoi Values
+  radius = 5046
+  bubspac = 1
+  numbub = 1
 []
 
 [Variables]
@@ -61,24 +82,78 @@
     order = CONSTANT
     family = MONOMIAL
   []
-  [ebsd_grains]
-    family = MONOMIAL
-    order = CONSTANT
-  []
+  # [ebsd_grains]
+  #   family = MONOMIAL
+  #   order = CONSTANT
+  # []
 []
 
 [ICs]
   [PolycrystalICs]
-    [PolycrystalColoringIC]
-      polycrystal_ic_uo = ebsd
+    [PolycrystalVoronoiVoidIC]
+      invalue = 1.0
+      outvalue = 0.0
+      polycrystal_ic_uo = voronoi
+      rand_seed = 10
     []
   []
-  [VoidIC]
-    type = ReconPhaseVarIC
-    ebsd_reader = ebsd_reader
+  [bubble_IC]
+    type = PolycrystalVoronoiVoidIC
     variable = phi
-    phase = 2
+    structure_type = voids
+    invalue = 1.0
+    outvalue = 0.0
+    polycrystal_ic_uo = voronoi
+    rand_seed = 10
+    block = 0
   []
+  [VoidIC]
+    type = BoundingBoxIC
+    variable = phi
+    block = 1
+    inside = 1.0
+    outside = 0.0
+    x1 = 20000
+    x2 = 30000
+    y1 = -2000
+    y2 = 22000
+  []
+  # [PolycrystalICs]
+  #   [PolycrystalVoronoiVoidIC]
+  #     invalue = 1.0
+  #     outvalue = 0.0
+  #     polycrystal_ic_uo = voronoi
+  #   []
+  # []
+  # # [VoidIC]
+  # #   type = ReconPhaseVarIC
+  # #   ebsd_reader = ebsd_reader
+  # #   variable = phi
+  # #   phase = 2
+  # #   block = 1
+  # # []
+  # [VoidIC]
+  #   type = BoundingBoxIC
+  #   variable = phi
+  #   block = 1
+  #   inside = 1
+  #   outside = 0.01
+  #   x1 = 20000
+  #   x2 = 30000
+  #   y1 = -2000
+  #   y2 = 22000
+  # []
+  # [voidIC2]
+  #   type = SmoothCircleIC
+  #   variable = phi
+  #   invalue = 1
+  #   outvalue = 0.01
+  #   radius = 5046.26504
+  #   x1 = 8893.09397
+  #   y1 = 8144.4245
+  #   z1 = 0
+  #   block = 0
+  # []
 []
 
 [BCs]
@@ -245,7 +320,7 @@
     property_name = D_mat
     material_property_names = 'diffusivity'
     expression = 'diffusivity'
-    outputs = 'nemesis'
+    outputs = 'none'
   []
   # Irradiation and Interstitials
 []
@@ -349,13 +424,13 @@
     field_display = VARIABLE_COLORING
     execute_on = 'initial timestep_end'
   []
-  [grain_aux]
-    type = EBSDReaderPointDataAux
-    variable = ebsd_grains
-    ebsd_reader = ebsd_reader
-    data_name = 'feature_id'
-    execute_on = 'initial timestep_end'
-  []
+  # [grain_aux]
+  #   type = EBSDReaderPointDataAux
+  #   variable = ebsd_grains
+  #   ebsd_reader = ebsd_reader
+  #   data_name = 'feature_id'
+  #   execute_on = 'initial timestep_end'
+  # []
   # [./ghosted_entities]
   #   type = FeatureFloodCountAux
   #   variable = ghost_regions
@@ -436,88 +511,97 @@
   #   compute_var_to_feature_map = true
   #   execute_on = 'initial timestep_end'
   # []
-  [grain_tracker_fc]
-    type = FeatureFloodCount
-    variable = 'gr0 gr1 gr2'
-    threshold = 0.5 #0.2
-    connecting_threshold = 0.5 #0.08
-    compute_var_to_feature_map = true
-    execute_on = 'initial timestep_end'
-  []
+  # [grain_tracker_fc]
+  #   type = FeatureFloodCount
+  #   variable = 'gr0 gr1 gr2'
+  #   threshold = 0.5 #0.2
+  #   connecting_threshold = 0.5 #0.08
+  #   compute_var_to_feature_map = true
+  #   execute_on = 'initial timestep_end'
+  # []
   [timestep]
     type = TimestepSize
     outputs = csv
   []
 []
 
-[VectorPostprocessors]
-  [voids]
-    type = FeatureVolumeVectorPostprocessor
-    flood_counter = void_tracker
-    execute_on = 'initial timestep_end final'
-    output_centroids = false #was true
-    outputs = csv
-  []
-  # [alt_voids]
-  #   type = FeatureVolumeVectorPostprocessor
-  #   flood_counter = void_tracker_05
-  #   execute_on = 'initial timestep_end final'
-  #   output_centroids = false #was true
-  #   outputs = csv
-  # []
-  [grain_sizes]
-    type = FeatureVolumeVectorPostprocessor
-    flood_counter = grain_tracker_fc
-    execute_on = 'initial timestep_end final'
-    output_centroids = false #was true
-    outputs = csv
-  []
-  # [vectorMemory]
-  #   type = VectorMemoryUsage
-  #   mem_units = gigabytes
-  #   outputs = csv
-  #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-  # []
-[]
+# [VectorPostprocessors]
+#   [voids]
+#     type = FeatureVolumeVectorPostprocessor
+#     flood_counter = void_tracker
+#     execute_on = 'initial timestep_end final'
+#     output_centroids = false #was true
+#     outputs = csv
+#   []
+#   # [alt_voids]
+#   #   type = FeatureVolumeVectorPostprocessor
+#   #   flood_counter = void_tracker_05
+#   #   execute_on = 'initial timestep_end final'
+#   #   output_centroids = false #was true
+#   #   outputs = csv
+#   # []
+#   [grain_sizes]
+#     type = FeatureVolumeVectorPostprocessor
+#     flood_counter = grain_tracker_fc
+#     execute_on = 'initial timestep_end final'
+#     output_centroids = false #was true
+#     outputs = csv
+#   []
+#   # [vectorMemory]
+#   #   type = VectorMemoryUsage
+#   #   mem_units = gigabytes
+#   #   outputs = csv
+#   #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+#   # []
+# []
 
 [UserObjects]
-  [ebsd_reader]
-    type = EBSDReader
-  []
-  [ebsd]
-    type = PolycrystalEBSD
-    # coloring_algorithm = bt
-    ebsd_reader = ebsd_reader
-    enable_var_coloring = true
-    output_adjacency_matrix = true
-    phase = 1
-  []
+  # [ebsd_reader]
+  #   type = EBSDReader
+  # []
+  # [ebsd]
+  #   type = PolycrystalEBSD
+  #   # coloring_algorithm = bt
+  #   ebsd_reader = ebsd_reader
+  #   enable_var_coloring = true
+  #   output_adjacency_matrix = true
+  #   phase = 1
+  # []
   [grain_tracker]
     type = GrainTracker
     threshold = 0.1 #0.2
     connecting_threshold = 0.09 #0.08
     compute_halo_maps = false #true#false
-    verbosity_level = 2
+    verbosity_level = 1
+  []
+  [voronoi]
+    type = PolycrystalVoronoi
+    grain_num = 3 # Number of grains
+    rand_seed = 10
+    # int_width = 7 # global param
   []
 []
 
-# [Preconditioning]
-#   [./SMP] #slow but good, very slow for 3D (might be another option then)
-#     type = SMP
-#     coupled_groups = 'w,phi'
-#   [../]
-# []
+[Preconditioning]
+  [SMP] #slow but good, very slow for 3D (might be another option then)
+    type = SMP
+    full = true
+    # coupled_groups = 'w,phi'
+  []
+[]
 
 [Executioner]
   type = Transient
   scheme = bdf2
   solve_type = PJFNK
-  petsc_options_iname = '-pc_type -pc_hypre_type' # -snes_type'
-  petsc_options_value = 'hypre boomeramg' # vinewtonrsls'
+  petsc_options_iname = '-pc_type -sub_pc_type -pc_factor_levels'
+  petsc_options_value = 'asm ilu 2'
+  # petsc_options_iname = '-pc_type -pc_hypre_type' # -snes_type'
+  # petsc_options_value = 'hypre boomeramg' # vinewtonrsls'
   # petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap'
   # petsc_options_value = ' asm      lu           2'
   nl_max_its = 20 #40 too large- optimal_iterations is 6
-  l_max_its = 30 #if it seems like its using a lot it might still be fine
+  l_max_its = 200 #30 #if it seems like its using a lot it might still be fine
   l_tol = 1e-04
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
@@ -525,23 +609,24 @@
   # end_time = 50000 #0.006
   steady_state_detection = true
   num_steps = 50
+  # automatic_scaling = true
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 100 #5#2.5
+    dt = 50 #5#2.5
     # growth_factor = 1.2
     # cutback_factor = 0.8
     # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
   []
-  #[Adaptivity]
-  #  refine_fraction = 0.8
-  #  coarsen_fraction = 0.05 #minimize this- adds error
-  #  max_h_level = 2 #test a short simulation with 1,2,3,4 for this to see where it stops helping
-  #  initial_adaptivity = 2
-  #[]
+  # [Adaptivity]
+  #   refine_fraction = 0.8
+  #   coarsen_fraction = 0.05 #minimize this- adds error
+  #   max_h_level = 2 #test a short simulation with 1,2,3,4 for this to see where it stops helping
+  #   initial_adaptivity = 2
+  # []
 []
 
 [Outputs]
@@ -553,7 +638,7 @@
     type = Nemesis
     # interval = 3 # this ExodusII will only output every third time step
   []
-  print_linear_residuals = false
+  print_linear_residuals = true
   # [checkpoint]
   #   type = Checkpoint
   #   num_files = 3

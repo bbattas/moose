@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 06_full_ebsd_input.i
-# File Location: /examples/sintering/paper3/08_small_2D_debugging/06_full_ebsd_input
-# Created Date: Friday January 26th 2024
+# File: 08_nonzero_phi_bulk.i
+# File Location: /examples/sintering/paper3/08_small_2D_debugging/08_nonzero_phi_bulk
+# Created Date: Monday January 29th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday January 29th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing the ebsd mesh creating the internal pore also to look at the interface
-#  The interface is garbage for voids especially.
+#  Testing using an outvalue of >0.0 for the void internal (had an issue with
+#   the voronoivoidIC because of this a while back)
 #
 #
 ##############################################################################
@@ -19,14 +19,21 @@
     type = EBSDMeshGenerator
     filename = ../00_d3d_txt/2D_20x20um_8umavg_allVoids.txt
   []
+  [subdomain_external]
+    type = ParsedSubdomainMeshGenerator
+    input = ebsd_mesh
+    combinatorial_geometry = 'x > 19000'
+    block_id = 1
+  []
   parallel_type = DISTRIBUTED
+  uniform_refine = 0
 []
 
 [GlobalParams]
   op_num = 3 #10
   var_name_base = gr
   int_width = 1000 #min radius is like 2250, element size of 250
-  # profile = TANH # not used at the moment? only in circleic?
+  profile = TANH # not used at the moment? only in circleic?
 []
 
 [Variables]
@@ -73,11 +80,34 @@
       polycrystal_ic_uo = ebsd
     []
   []
+  # [VoidIC]
+  #   type = ReconPhaseVarIC
+  #   ebsd_reader = ebsd_reader
+  #   variable = phi
+  #   phase = 2
+  #   block = 1
+  # []
   [VoidIC]
-    type = ReconPhaseVarIC
-    ebsd_reader = ebsd_reader
+    type = BoundingBoxIC
     variable = phi
-    phase = 2
+    block = 1
+    inside = 1
+    outside = 0.01
+    x1 = 20000
+    x2 = 25000
+    y1 = -2000
+    y2 = 22000
+  []
+  [voidIC2]
+    type = SmoothCircleIC
+    variable = phi
+    invalue = 1
+    outvalue = 0.01
+    radius = 5046.26504
+    x1 = 8893.09397
+    y1 = 8144.4245
+    z1 = 0
+    block = 0
   []
 []
 
@@ -502,10 +532,11 @@
 []
 
 # [Preconditioning]
-#   [./SMP] #slow but good, very slow for 3D (might be another option then)
+#   [SMP] #slow but good, very slow for 3D (might be another option then)
 #     type = SMP
-#     coupled_groups = 'w,phi'
-#   [../]
+#     full = true
+#     # coupled_groups = 'w,phi'
+#   []
 # []
 
 [Executioner]
@@ -524,24 +555,24 @@
   start_time = 0
   # end_time = 50000 #0.006
   steady_state_detection = true
-  num_steps = 50
+  num_steps = 10
   # dt = 0.00002
   # dtmax = 500
   # dt = 0.0001
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 100 #5#2.5
+    dt = 25 #5#2.5
     # growth_factor = 1.2
     # cutback_factor = 0.8
     # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
   []
-  #[Adaptivity]
-  #  refine_fraction = 0.8
-  #  coarsen_fraction = 0.05 #minimize this- adds error
-  #  max_h_level = 2 #test a short simulation with 1,2,3,4 for this to see where it stops helping
-  #  initial_adaptivity = 2
-  #[]
+  # [Adaptivity]
+  #   refine_fraction = 0.8
+  #   coarsen_fraction = 0.05 #minimize this- adds error
+  #   max_h_level = 2 #test a short simulation with 1,2,3,4 for this to see where it stops helping
+  #   initial_adaptivity = 2
+  # []
 []
 
 [Outputs]
