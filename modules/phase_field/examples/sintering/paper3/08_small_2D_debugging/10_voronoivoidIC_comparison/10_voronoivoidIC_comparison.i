@@ -32,7 +32,7 @@
   [subdomain_external]
     type = ParsedSubdomainMeshGenerator
     input = gmg
-    combinatorial_geometry = 'x > 19000'
+    combinatorial_geometry = 'x > 20000'
     block_id = 1
   []
   # parallel_type = DISTRIBUTED
@@ -46,8 +46,8 @@
   profile = TANH # not used at the moment? only in circleic?
   # Voronoi Values
   radius = 5046
-  bubspac = 1
-  numbub = 1
+  bubspac = 10
+  numbub = 4
 []
 
 [Variables]
@@ -95,6 +95,7 @@
       outvalue = 0.0
       polycrystal_ic_uo = voronoi
       rand_seed = 10
+      block = 0
     []
   []
   [bubble_IC]
@@ -608,7 +609,7 @@
   start_time = 0
   # end_time = 50000 #0.006
   steady_state_detection = true
-  num_steps = 50
+  num_steps = 1
   # automatic_scaling = true
   # dt = 0.00002
   # dtmax = 500
