@@ -4,7 +4,7 @@
 # Created Date: Tuesday January 30th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday January 30th 2024
+# Last Modified: Wednesday January 31st 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -531,13 +531,13 @@
   []
 []
 
-[Preconditioning]
-  [SMP] #slow but good, very slow for 3D (might be another option then)
-    type = SMP
-    full = true
-    # coupled_groups = 'w,phi'
-  []
-[]
+# [Preconditioning]
+#   [SMP] #slow but good, very slow for 3D (might be another option then)
+#     type = SMP
+#     # full = true
+#     coupled_groups = 'w,phi'
+#   []
+# []
 
 [Executioner]
   type = Transient
@@ -557,7 +557,7 @@
   start_time = 0
   # end_time = 50000 #0.006
   steady_state_detection = true
-  num_steps = 50
+  num_steps = 30
   # automatic_scaling = true
   # dt = 0.00002
   dtmax = 1000
