@@ -254,6 +254,8 @@ def slurmWrite(cwd,inputName):
         if cl_args.burst:
             verb('    Specifying burst allocation')
             slurmList.append('#SBATCH --qos=michael.tonks-b')
+        # Current Exclude List (2/1/24)
+        slurmList.append('#SBATCH --exclude=c0702a-s28,c0702a-s29,c0703a-s18,c0706a-s7,c0709a-s21,c0710a-s28,c0713a-s18,c0713a-s19')
 
         # On to the actual job to submit
         # Define Locations
@@ -370,6 +372,8 @@ def slurmHeaderPreview(interactive):
     if cl_args.burst:
         # verb('    Specifying burst allocation')
         slurmList.append('#SBATCH --qos=michael.tonks-b')
+    # Current Exclude List (2/1/24)
+    slurmList.append('#SBATCH --exclude=c0702a-s28,c0702a-s29,c0703a-s18,c0706a-s7,c0709a-s21,c0710a-s28,c0713a-s18,c0713a-s19')
     pt('\n'.join(slurmList))
     if interactive:
         pt (' ')
