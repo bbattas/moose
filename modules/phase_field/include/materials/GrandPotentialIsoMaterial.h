@@ -37,6 +37,7 @@ protected:
   Real _s_index;
   Real _gb_index;
   Real _b_index;
+  Real _vap_index;
   Real _Dbulk;
 
   const Real _kb;

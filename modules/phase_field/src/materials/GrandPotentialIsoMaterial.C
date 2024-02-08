@@ -21,8 +21,15 @@ GrandPotentialIsoMaterial::validParams()
   params.addRequiredParam<Real>("Em", "Vacancy migration energy in eV");
   params.addRequiredCoupledVar("c", "Vacancy phase variable");
   params.addParam<Real>("surfindex", 1.0, "Surface diffusion index weight");
-  params.addParam<Real>("gbindex", -1.0, "Grain boundary diffusion index weight");
+  params.addParam<Real>("gbindex",
+                        -1.0,
+                        "Grain boundary diffusion index weight"
+                        "(-1 uses LANL GB D)");
   params.addParam<Real>("bulkindex", 1.0, "Bulk diffusion index weight");
+  params.addParam<Real>("vaporindex",
+                        1e-2,
+                        "Vapor transport (void phase) diffusion weight"
+                        "to multiply the bulk D by.");
   // from GPTensorMaterial
   params.addRequiredParam<Real>("int_width",
                                 "The interfacial width in the lengthscale of the problem");
@@ -36,7 +43,7 @@ GrandPotentialIsoMaterial::validParams()
   params.addParam<std::string>("solid_mobility", "L", "Name of grain mobility for solid phase");
   params.addParam<std::string>("void_mobility", "Lv", "Name of void phase mobility");
   params.addParam<Real>("GBwidth",
-                        0.5,
+                        1.0,
                         "Real grain boundary width in units"
                         "of problem (length -> nm)");
   params.addParam<Real>("surf_thickness",
@@ -64,6 +71,7 @@ GrandPotentialIsoMaterial::GrandPotentialIsoMaterial(const InputParameters & par
     _s_index(getParam<Real>("surfindex")),
     _gb_index(getParam<Real>("gbindex")),
     _b_index(getParam<Real>("bulkindex")),
+    _vap_index(getParam<Real>("vaporindex")),
     _kb(8.617343e-5), // Boltzmann constant in eV/K
     _op_num(coupledComponents("v")),
     // From GPTensorMaterial
@@ -93,7 +101,7 @@ GrandPotentialIsoMaterial::GrandPotentialIsoMaterial(const InputParameters & par
   if (_op_num == 0)                          //
     mooseError("Model requires op_num > 0"); //
 
-  _vals.resize(_op_num);                     //
+  _vals.resize(_op_num); //
   for (unsigned int i = 0; i < _op_num; ++i)
   {
     _vals_name[i] = getVar("v", i)->name();
@@ -111,7 +119,7 @@ GrandPotentialIsoMaterial::computeProperties()
     Real c = _c[_qp];  // phi -- void phase
     Real mc = 1.0 - c; // 1 - phi
 
-                       // Calculate Switching Functions
+    // Calculate Switching Functions
     // Make hgb -- gb switching function
     // Maintaining his style of calculation so it remains consistent to the
     // tensor form
@@ -138,7 +146,7 @@ GrandPotentialIsoMaterial::computeProperties()
     // Real dDbulkdc = 0;  //bulk diffusivity is independent of the void phase
     // vapor transport diffusivity -- this is a poor approximation -- temporary
     // Possible it might cause convergence issues if its too low
-    Real Dv = _Dbulk / 1E2;
+    Real Dv = _Dbulk * _vap_index; /// 1E2;
 
     // Dgb -- grain boundary diffusivity
     // Real Dgb = _Dbulk * _gb_index;
