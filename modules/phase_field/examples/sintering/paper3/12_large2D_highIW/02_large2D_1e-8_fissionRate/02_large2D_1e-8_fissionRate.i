@@ -1,6 +1,6 @@
 ##############################################################################
 # File: 02_large2D_1e-8_fissionRate.i
-# File Location: /examples/sintering/paper3/12_large2D_refinedMesh/02_large2D_1e-8_fissionRate
+# File Location: /examples/sintering/paper3/12_large2D_highIW/02_large2D_1e-8_fissionRate
 # Created Date: Saturday February 10th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
@@ -8,7 +8,7 @@
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  NEW Uniform Refine = 1 so x4 DoFs
+#  IW of 2000 instead of 1000 to avoid square pores and not need 4x the elements (for UR=1)
 #  Large 2D with the new petsc options (asm-ilu), WITH irradiation kernels
 #   Fission rate of 1e-8
 #  New IC for pore info manual
@@ -24,7 +24,6 @@
 #
 #  2.1M DoFs so (5(150) ~14k/cpu)
 #  2.3M with irradiation mats (150 ~ 15k/cpu) (180 ~13k/cpu)
-#   UR=1 so x4, so 600 cpus (20 nodes of 30)
 ##############################################################################
 
 [Mesh]
@@ -39,13 +38,13 @@
     block_id = 1
   []
   parallel_type = DISTRIBUTED
-  uniform_refine = 1
+  uniform_refine = 0
 []
 
 [GlobalParams]
   op_num = 10
   var_name_base = gr
-  int_width = 1000 #min radius is like 2250, element size of 250
+  int_width = 2000 #1000 #min radius is like 2250, element size of 250
   profile = TANH # not used at the moment? only in circleic?
 []
 
