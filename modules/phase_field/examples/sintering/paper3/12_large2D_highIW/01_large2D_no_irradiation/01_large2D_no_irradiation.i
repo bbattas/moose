@@ -1,6 +1,6 @@
 ##############################################################################
 # File: 01_large2D_no_irradiation.i
-# File Location: /examples/sintering/paper3/12_large2D_refinedMesh/01_large2D_no_irradiation
+# File Location: /examples/sintering/paper3/12_large2D_highIW/01_large2D_no_irradiation
 # Created Date: Saturday February 10th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
@@ -8,7 +8,7 @@
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  NEW using uniform refine = 1 to avoid square pores
+#  NEW using 2x IW to avoid square pores without needing 4x cpus from UR=1
 #  #  Large 2D with the new petsc options (asm-ilu), without irradiation kernels
 #  New IC for pore info manual
 # 2D_100x100um_8umavg_plusVoid
@@ -23,8 +23,6 @@
 #
 #  2.1M DoFs so (5(150) ~14k/cpu)
 #  2.3M with irradiation mats (150 ~ 15k/cpu) (180 ~13k/cpu)
-#  SO with UR=1, x4 so 600 cpus (20 nodes of 30)
-#
 ##############################################################################
 
 [Mesh]
@@ -39,13 +37,13 @@
     block_id = 1
   []
   parallel_type = DISTRIBUTED
-  uniform_refine = 1
+  uniform_refine = 0
 []
 
 [GlobalParams]
   op_num = 10
   var_name_base = gr
-  int_width = 1000 #min radius is like 2250, element size of 250
+  int_width = 2000 #1000 #min radius is like 2250, element size of 250
   profile = TANH # not used at the moment? only in circleic?
 []
 
