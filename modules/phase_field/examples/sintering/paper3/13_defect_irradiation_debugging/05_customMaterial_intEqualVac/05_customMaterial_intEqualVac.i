@@ -1,17 +1,19 @@
 ##############################################################################
-# File: 04_scalarKernel_int.i
-# File Location: /examples/sintering/paper3/13_defect_irradiation_debugging/04_scalarKernel_int
-# Created Date: Thursday February 15th 2024
+# File: 05_customMaterial_intEqualVac.i
+# File Location: /examples/sintering/paper3/13_defect_irradiation_debugging/05_customMaterial_intEqualVac
+# Created Date: Friday February 16th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday February 16th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Trying the interstitials as a scalar kernel(s) for comparison to the
-#   material approach that doesnt seem to be working well?
-#  Might need line_search = none in executioner to converge
-#
+#  The interstitial density is still inversely related to rhov and at a much
+#   lower OOM with ints as a material or as a scalarkernel
+#  This is an input to test if i make a custom material that tracks the actual
+#   change in the rhov (not just the values used in the materials used to evolve
+#   the chemical potential, but rhov from one timestep to the next) and basically
+#   manually track the interstitials as a material that way
 ##############################################################################
 
 [Mesh]
@@ -43,11 +45,6 @@
   []
   [PolycrystalVariables]
   []
-  [rhoi_scalar]
-    family = SCALAR
-    order = FIRST
-    initial_condition = 0.01
-  []
 []
 
 [AuxVariables]
@@ -76,8 +73,6 @@
   [ebsd_grains]
     family = MONOMIAL
     order = CONSTANT
-  []
-  [rhoi_aux]
   []
 []
 
@@ -196,13 +191,6 @@
     type = ConstantFunction
     value = 2.0
   []
-  [rhoi_func]
-    type = ParsedFunction
-    symbol_names = 'rhoi_scalar_reporter'
-    symbol_values = 'rhoi_scalar_reporter'
-    expression = 'rhoi_scalar_reporter'
-    execute_on = 'INITIAL LINEAR'
-  []
 []
 
 [Materials]
@@ -291,47 +279,6 @@
     expression = 'diffusivity'
     outputs = 'nemesis'
   []
-  [rho_rhoavg_mat]
-    type = ParsedMaterial
-    property_name = rho_rhoavg_mat
-    material_property_names = 'combined_rho_vac'
-    postprocessor_names = 'average_rho_vac'
-    expression = 'combined_rho_vac / average_rho_vac'
-    outputs = 'nemesis'
-  []
-  [pp_mat]
-    type = ParsedMaterial
-    property_name = pp_mat
-    # material_property_names = 'combined_rho_vac'
-    postprocessor_names = 'average_rho_vac'
-    expression = 'average_rho_vac'
-    outputs = 'nemesis'
-  []
-  [hs_mat]
-    type = ParsedMaterial
-    property_name = hs_mat
-    material_property_names = 'hs'
-    # postprocessor_names = 'average_rho_vac'
-    expression = 'hs'
-    outputs = 'nemesis'
-  []
-  [hs_rhov]
-    type = ParsedMaterial
-    property_name = hs_rhov
-    material_property_names = 'hs combined_rho_vac'
-    # postprocessor_names = 'average_rho_vac'
-    expression = 'hs * combined_rho_vac'
-    outputs = 'nemesis'
-  []
-  [hs_rhoi]
-    type = ParsedMaterial
-    property_name = hs_rhoi
-    material_property_names = 'hs'
-    coupled_variables = 'rhoi_aux'
-    # postprocessor_names = 'average_rho_vac'
-    expression = 'hs * rhoi_aux'
-    outputs = 'nemesis'
-  []
   # Irradiation and Interstitials
   # Interstitials
   [rho_gen_int]
@@ -360,29 +307,29 @@
     type = DerivativeParsedMaterial
     property_name = combined_rho_vac
     material_property_names = 'rhov rhos hv(phi)'
-    expression = 'hv*rhov + (1-hv)*rhos' #'(1-hv)*rhos' #
+    expression = 'hv*rhov + (1-hv)*rhos'
     outputs = nemesis #'nemesis'
   []
-  # [rho_i_dpm]
-  #   type = DerivativeParsedMaterial
-  #   property_name = rho_i_dpm
-  #   # derivative_order = 0 #2
-  #   # coupled_variables = ''
-  #   material_property_names = 'rho_gen_int a_r'
-  #   postprocessor_names = 'average_rho_vac hs_average'
-  #   expression = 'if(average_rho_vac>0.0,(rho_gen_int * hs_average / (a_r * average_rho_vac)),0.0)'
-  #   outputs = nemesis #'nemesis'
-  # []
-  # [rho_i_dpm_hs]
-  #   type = DerivativeParsedMaterial
-  #   property_name = rho_i_dpm_hs
-  #   # derivative_order = 0 #2
-  #   # coupled_variables = ''
-  #   material_property_names = 'rho_gen_int a_r hs'
-  #   postprocessor_names = 'average_rho_vac'
-  #   expression = 'if(average_rho_vac>0.0,(rho_gen_int * hs / (a_r * average_rho_vac)),0.0)'
-  #   outputs = nemesis #'nemesis'
-  # []
+  [rho_i_dpm]
+    type = DerivativeParsedMaterial
+    property_name = rho_i_dpm
+    # derivative_order = 0 #2
+    # coupled_variables = ''
+    material_property_names = 'rho_gen_int a_r'
+    postprocessor_names = 'average_rho_vac hs_average'
+    expression = 'if(average_rho_vac>0.0,(rho_gen_int * hs_average / (a_r * average_rho_vac)),0.0)'
+    outputs = nemesis #'nemesis'
+  []
+  [rho_i_dpm_hs]
+    type = DerivativeParsedMaterial
+    property_name = rho_i_dpm_hs
+    # derivative_order = 0 #2
+    # coupled_variables = ''
+    material_property_names = 'rho_gen_int a_r hs'
+    postprocessor_names = 'average_rho_vac'
+    expression = 'if(average_rho_vac>0.0,(rho_gen_int * hs / (a_r * average_rho_vac)),0.0)'
+    outputs = nemesis #'nemesis'
+  []
   # Vacancies
   [rho_gen_vac]
     type = DerivativeParsedMaterial
@@ -398,11 +345,11 @@
   [rho_v_recombRate]
     type = DerivativeParsedMaterial
     property_name = rho_v_recombRate
-    coupled_variables = 'w rhoi_aux'
+    coupled_variables = 'w'
     # additional_derivative_symbols = w
-    material_property_names = 'a_r combined_rho_vac' #rho_i_dpm_hs
+    material_property_names = 'a_r GP_int rho_i_dpm_hs combined_rho_vac'
     # postprocessor_names = 'total_rhoi' # average_rho_vac'
-    expression = 'a_r * rhoi_aux * combined_rho_vac'
+    expression = 'a_r * GP_int * combined_rho_vac'
     outputs = 'nemesis'
   []
   [rho_v_mixing]
@@ -414,6 +361,21 @@
     constant_expressions = '2 268 1e-8 1 1e-11 1e12'
     material_property_names = 'chi'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chi' # * hs
+    outputs = 'nemesis'
+  []
+  # New Material
+  [GP_int]
+    type = GrandPotentialInterstitialMaterial
+    mat_prop = GP_int
+    combined_vac_mat = combined_rho_vac
+    use_old_prop = true
+    outputs = nemesis
+  []
+  [hs_mat]
+    type = ParsedMaterial
+    property_name = hs_mat
+    material_property_names = 'hs'
+    expression = 'hs'
     outputs = 'nemesis'
   []
 []
@@ -469,7 +431,6 @@
     type = MatReaction
     variable = w
     mob_name = rho_v_recombRate
-    args = rhoi_aux
     # args = rhoi #but its a constant and material not a variable
   []
   # # Damage/Mixing
@@ -480,21 +441,14 @@
   # []
 []
 
-[ScalarKernels]
-  [rhoi_scalar_dot]
-    type = ODETimeDerivative
-    variable = rhoi_scalar
+[Controls]
+  [source_on]
+    type = TimePeriod
+    disable_objects = 'Kernels::recombination_w'
+    start_time = '0'
+    end_time = '500'
   []
-  [rhoi_rest]
-    type = ParsedODEKernel
-    # function = '1.25e-3 - 0.5'
-    # Uses - outside since it takes - of the expression to apply it
-    expression = '-(Nc*Nd*f_dot*hs_average - average_rho_vac*rhoi_scalar*a_r_pp)' #hs_rhov_avg
-    variable = rhoi_scalar
-    postprocessors = 'hs_average average_rho_vac a_r_pp hs_rhov_avg'
-    constant_names = 'Nc Nd f_dot'
-    constant_expressions = '2 5 1e-8'
-  []
+
 []
 
 [AuxKernels]
@@ -542,12 +496,20 @@
     data_name = 'feature_id'
     execute_on = 'initial timestep_end'
   []
-  [rhoi_aux]
-    type = FunctionAux
-    variable = rhoi_aux
-    function = rhoi_func
-    execute_on = 'INITIAL LINEAR TIMESTEP_END'
-  []
+  # [./ghosted_entities]
+  #   type = FeatureFloodCountAux
+  #   variable = ghost_regions
+  #   flood_counter = grain_tracker
+  #   field_display = GHOSTED_ENTITIES
+  #   execute_on = 'initial timestep_end'
+  # [../]
+  # [./halos]
+  #   type = FeatureFloodCountAux
+  #   variable = halos
+  #   flood_counter = grain_tracker
+  #   field_display = HALOS
+  #   execute_on = 'initial timestep_end'
+  # [../]
 []
 
 [Postprocessors]
@@ -644,48 +606,24 @@
     outputs = csv
   []
   [total_rhoi]
-    # type = ElementIntegralMaterialProperty
-    # mat_prop = rho_i_dpm
-    type = ElementIntegralVariablePostprocessor
-    variable = rhoi_aux
+    type = ElementIntegralMaterialProperty
+    mat_prop = rho_i_dpm
     outputs = csv
   []
-  # [total_rhoi_scalar]
-  #   # type = ElementIntegralMaterialProperty
-  #   # mat_prop = rho_i_dpm
-  #   type = ElementIntegralVariablePostprocessor
-  #   variable = rhoi_scalar
-  #   outputs = csv
-  # []
+  [total_rhoi_hs]
+    type = ElementIntegralMaterialProperty
+    mat_prop = rho_i_dpm_hs
+    outputs = csv
+  []
   [total_rhov]
     type = ElementIntegralMaterialProperty
     mat_prop = combined_rho_vac
     outputs = csv
   []
-  # Scalar Kernel
-  [rhoi_scalar_reporter]
-    type = ScalarVariable
-    variable = rhoi_scalar
-    execute_on = 'INITIAL LINEAR TIMESTEP_END'
-  []
-  [a_r_pp]
-    type = ElementAverageMaterialProperty
-    mat_prop = a_r
-    outputs = csv
-  []
-  [hs_rhov]
+  # Testing new material
+  [total_test]
     type = ElementIntegralMaterialProperty
-    mat_prop = hs_rhov
-    outputs = csv
-  []
-  [hs_rhoi]
-    type = ElementIntegralMaterialProperty
-    mat_prop = hs_rhoi
-    outputs = csv
-  []
-  [hs_rhov_avg]
-    type = ElementAverageMaterialProperty
-    mat_prop = hs_rhov
+    mat_prop = GP_int
     outputs = csv
   []
 []
@@ -765,13 +703,14 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
+  num_steps = 10
   # end_time = 2e6 #5e6 #0.006
-  num_steps = 20
   steady_state_detection = true
-  # From tonks ode input
-  automatic_scaling = true
-  compute_scaling_once = false
-  line_search = none
+  # num_steps = 30
+  # automatic_scaling = true
+  # dt = 0.00002
+  # dtmax = 1000
+  # dt = 0.0001
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
