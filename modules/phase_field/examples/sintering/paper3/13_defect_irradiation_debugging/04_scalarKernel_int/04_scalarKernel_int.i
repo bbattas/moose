@@ -4,8 +4,8 @@
 # Created Date: Thursday February 15th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday February 16th 2024
-# Modified By: Brandon Battas
+# Last Modified: Monday February 19th 2024
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Trying the interstitials as a scalar kernel(s) for comparison to the
@@ -354,7 +354,7 @@
     coupled_variables = 'T'
     expression = 'Di:=Di_0*exp(-Ei_B/(kB*T));
                   Va * Z * Di / (a_0^2)' #hs *
-    outputs = none #'nemesis'
+    outputs = nemesis #'nemesis'
   []
   [combined_rho_vac]
     type = DerivativeParsedMaterial
@@ -415,6 +415,30 @@
     material_property_names = 'chi'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chi' # * hs
     outputs = 'nemesis'
+  []
+  # Testing output for delta rhov based on the constant version of rhoi
+  [rho_rhov_avg]
+    type = ParsedMaterial
+    property_name = rho_rhov_avg
+    material_property_names = 'combined_rho_vac'
+    postprocessor_names = 'average_rho_vac'
+    expression = '(1 - (combined_rho_vac/average_rho_vac))'
+    outputs = nemesis
+  []
+  [hs_formath]
+    type = ParsedMaterial
+    property_name = hs_formath
+    material_property_names = 'hs'
+    expression = 'hs'
+    outputs = nemesis
+  []
+  [delta_rhov]
+    type = ParsedMaterial
+    property_name = delta_rhov
+    material_property_names = 'combined_rho_vac hs'
+    postprocessor_names = 'average_rho_vac'
+    expression = '10*(1e-8)*hs * (1 - (combined_rho_vac/average_rho_vac))'
+    outputs = nemesis
   []
 []
 
@@ -686,6 +710,11 @@
   [hs_rhov_avg]
     type = ElementAverageMaterialProperty
     mat_prop = hs_rhov
+    outputs = csv
+  []
+  [old_math_deltarhov]
+    type = ElementIntegralMaterialProperty
+    mat_prop = delta_rhov
     outputs = csv
   []
 []

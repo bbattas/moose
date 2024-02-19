@@ -4,8 +4,8 @@
 # Created Date: Friday February 16th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Sunday February 18th 2024
-# Modified By: Brandon Battas
+# Last Modified: Monday February 19th 2024
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  The interstitial density is still inversely related to rhov and at a much
@@ -301,7 +301,7 @@
     coupled_variables = 'T'
     expression = 'Di:=Di_0*exp(-Ei_B/(kB*T));
                   Va * Z * Di / (a_0^2)' #hs *
-    outputs = none #'nemesis'
+    outputs = nemesis #'nemesis'
   []
   [combined_rho_vac]
     type = DerivativeParsedMaterial
@@ -378,6 +378,37 @@
     material_property_names = 'chi'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chi' # * hs
     outputs = 'nemesis'
+  []
+  # Testing output for delta rhov based on the constant version of rhoi
+  [rho_rhov_avg]
+    type = ParsedMaterial
+    property_name = rho_rhov_avg
+    material_property_names = 'combined_rho_vac'
+    postprocessor_names = 'average_rho_vac'
+    expression = '(1 - (combined_rho_vac/average_rho_vac))'
+    outputs = nemesis
+  []
+  [hs_formath]
+    type = ParsedMaterial
+    property_name = hs_formath
+    material_property_names = 'hs'
+    expression = 'hs'
+    outputs = nemesis
+  []
+  [hs_combinedrhovac]
+    type = ParsedMaterial
+    property_name = hs_combinedrhovac
+    material_property_names = 'hs combined_rho_vac'
+    expression = 'hs*combined_rho_vac'
+    outputs = nemesis
+  []
+  [delta_rhov]
+    type = ParsedMaterial
+    property_name = delta_rhov
+    material_property_names = 'combined_rho_vac hs'
+    postprocessor_names = 'average_rho_vac'
+    expression = '10*(1e-8)*hs * (1 - (combined_rho_vac/average_rho_vac))'
+    outputs = nemesis
   []
 []
 
@@ -636,6 +667,21 @@
     mat_prop = hs_mat
     outputs = csv
   []
+  [hs_mat_int]
+    type = ElementIntegralMaterialProperty
+    mat_prop = hs_mat
+    outputs = csv
+  []
+  [old_math_deltarhov]
+    type = ElementIntegralMaterialProperty
+    mat_prop = delta_rhov
+    outputs = csv
+  []
+  [hs_combinedrhovac_int]
+    type = ElementIntegralMaterialProperty
+    mat_prop = hs_combinedrhovac
+    outputs = csv
+  []
 []
 
 [VectorPostprocessors]
@@ -713,7 +759,7 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  num_steps = 10
+  num_steps = 20
   # end_time = 2e6 #5e6 #0.006
   steady_state_detection = true
   # num_steps = 30
@@ -728,7 +774,7 @@
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 1 #100 #2.5
+    dt = 0.01 #100 #2.5
     linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
     # growth_factor = 1.2
     # cutback_factor = 0.8
