@@ -55,7 +55,7 @@ GrandPotentialInterstitialMaterial::computeQpProperties()
     self_old = 0.0; // vacancies;
   // Limit to positive total (no negative interstitial density)
   Real output_val = self_old + vac_change;
-  if (output_val < 0)
+  if ((output_val < 0) || std::isnan(output_val))
     output_val = 0.0;
   _mat_prop[_qp] = output_val;
   // 4.0 / _coupled_mat_prop[_qp]; // This will produce a NaN if evaluated out of order
