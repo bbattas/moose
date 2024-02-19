@@ -4,7 +4,7 @@
 # Created Date: Friday February 16th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday February 16th 2024
+# Last Modified: Sunday February 18th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -330,6 +330,22 @@
     expression = 'if(average_rho_vac>0.0,(rho_gen_int * hs / (a_r * average_rho_vac)),0.0)'
     outputs = nemesis #'nemesis'
   []
+  # New Material
+  [GP_int]
+    type = GrandPotentialInterstitialMaterial
+    mat_prop = GP_int
+    combined_vac_mat = combined_rho_vac
+    use_old_prop = true
+    outputs = nemesis
+  []
+  [hs_mat]
+    type = ParsedMaterial
+    property_name = hs_mat
+    material_property_names = 'hs GP_int'
+    # postprocessor_names = 'rhoint_avg'
+    expression = 'hs * GP_int'
+    outputs = 'nemesis'
+  []
   # Vacancies
   [rho_gen_vac]
     type = DerivativeParsedMaterial
@@ -347,9 +363,9 @@
     property_name = rho_v_recombRate
     coupled_variables = 'w'
     # additional_derivative_symbols = w
-    material_property_names = 'a_r GP_int rho_i_dpm_hs combined_rho_vac'
-    # postprocessor_names = 'total_rhoi' # average_rho_vac'
-    expression = 'a_r * GP_int * combined_rho_vac'
+    material_property_names = 'a_r GP_int rho_i_dpm_hs combined_rho_vac hs'
+    postprocessor_names = 'rhoint_avg hs_mat_avg' # average_rho_vac'
+    expression = 'a_r * hs_mat_avg * combined_rho_vac'
     outputs = 'nemesis'
   []
   [rho_v_mixing]
@@ -361,21 +377,6 @@
     constant_expressions = '2 268 1e-8 1 1e-11 1e12'
     material_property_names = 'chi'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chi' # * hs
-    outputs = 'nemesis'
-  []
-  # New Material
-  [GP_int]
-    type = GrandPotentialInterstitialMaterial
-    mat_prop = GP_int
-    combined_vac_mat = combined_rho_vac
-    use_old_prop = true
-    outputs = nemesis
-  []
-  [hs_mat]
-    type = ParsedMaterial
-    property_name = hs_mat
-    material_property_names = 'hs'
-    expression = 'hs'
     outputs = 'nemesis'
   []
 []
@@ -441,15 +442,14 @@
   # []
 []
 
-[Controls]
-  [source_on]
-    type = TimePeriod
-    disable_objects = 'Kernels::recombination_w'
-    start_time = '0'
-    end_time = '500'
-  []
-
-[]
+# [Controls]
+#   [source_on]
+#     type = TimePeriod
+#     disable_objects = 'Kernels::source_w Kernels::recombination_w '
+#     start_time = '0'
+#     end_time = '500'
+#   []
+# []
 
 [AuxKernels]
   [bnds_aux]
@@ -626,6 +626,16 @@
     mat_prop = GP_int
     outputs = csv
   []
+  [rhoint_avg]
+    type = ElementAverageMaterialProperty
+    mat_prop = GP_int
+    outputs = csv
+  []
+  [hs_mat_avg]
+    type = ElementAverageMaterialProperty
+    mat_prop = hs_mat
+    outputs = csv
+  []
 []
 
 [VectorPostprocessors]
@@ -711,10 +721,14 @@
   # dt = 0.00002
   # dtmax = 1000
   # dt = 0.0001
+  # # From tonks ode input
+  # automatic_scaling = true
+  # compute_scaling_once = false
+  # line_search = none
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 100 #2.5
+    dt = 1 #100 #2.5
     linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
     # growth_factor = 1.2
     # cutback_factor = 0.8
