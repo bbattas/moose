@@ -4,7 +4,7 @@
 # Created Date: Thursday February 22nd 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday February 22nd 2024
+# Last Modified: Friday February 23rd 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -389,7 +389,7 @@
     property_name = rho_gen_vac
     derivative_order = 1
     constant_names = 'Nc Nd f_dot noise'
-    constant_expressions = '2 5 1e-9 1'
+    constant_expressions = '2 5 1e-10 1'
     material_property_names = 'hs'
     # postprocessor_names = 'hs_average'
     expression = 'f_dot * noise * Nc * Nd * hs' # * hs
@@ -411,7 +411,7 @@
     coupled_variables = 'w'
     derivative_order = 1
     constant_names = 'Nc Vc f_dot noise tc Dc'
-    constant_expressions = '2 268 1e-9 1 1e-11 1e12'
+    constant_expressions = '2 268 1e-10 1 1e-11 1e12'
     material_property_names = 'chi'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chi' # * hs
     outputs = 'nemesis'
@@ -496,12 +496,12 @@
     args = rhoi_aux
     # args = rhoi #but its a constant and material not a variable
   []
-  # # Damage/Mixing
-  # [ballistic_mix_w]
-  #   type = MatDiffusion
-  #   variable = w
-  #   diffusivity = rho_v_mixing
-  # []
+  # Damage/Mixing
+  [ballistic_mix_w]
+    type = MatDiffusion
+    variable = w
+    diffusivity = rho_v_mixing
+  []
 []
 
 [ScalarKernels]
@@ -517,7 +517,7 @@
     variable = rhoi_scalar
     postprocessors = 'hs_average average_rho_vac a_r_pp hs_rhov_avg'
     constant_names = 'Nc Nd f_dot'
-    constant_expressions = '2 5 1e-9'
+    constant_expressions = '2 5 1e-10'
   []
 []
 
