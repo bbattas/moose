@@ -1,18 +1,20 @@
 ##############################################################################
-# File: 08_scalarKernel_balancingGenAnn.i
-# File Location: /examples/sintering/paper3/13_defect_irradiation_debugging/08_scalarKernel_balancingGenAnn
-# Created Date: Thursday February 22nd 2024
+# File: 09_scalarKernel_noMix_arrayFR.i
+# File Location: /examples/sintering/paper3/13_defect_irradiation_debugging/09_scalarKernel_noMix_arrayFR
+# Created Date: Tuesday February 27th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday February 27th 2024
+# Last Modified: Wednesday February 28th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Using the scalarkernel version to try balancing the weight of the source term
-#   to see if i can shift the equilibrium so that we dont have phi growth
+#  Messing with array submissions or stochastic tools to vary the fission
+#   rate across a whole range to have the outputs for that
 #
 #
 ##############################################################################
+
+f_dot = 1e-8
 
 [Mesh]
   [ebsd_mesh]
@@ -281,70 +283,21 @@
     constant_expressions = '0.3'
     expression = 'hv:=if(phi<=0.0,0.0,if(phi>=p0,1.0,6*(phi/p0)^5 - 15*(phi/p0)^4 + 10*(phi/p0)^3));
                 hv*Lv + (1-hv)*L'
-    outputs = 'nemesis'
-  []
-  # Testing Outputs
-  [D_mat]
-    type = ParsedMaterial
-    property_name = D_mat
-    material_property_names = 'diffusivity'
-    expression = 'diffusivity'
-    outputs = 'nemesis'
-  []
-  [rho_rhoavg_mat]
-    type = ParsedMaterial
-    property_name = rho_rhoavg_mat
-    material_property_names = 'combined_rho_vac'
-    postprocessor_names = 'average_rho_vac'
-    expression = 'combined_rho_vac / average_rho_vac'
-    outputs = 'nemesis'
-  []
-  [pp_mat]
-    type = ParsedMaterial
-    property_name = pp_mat
-    # material_property_names = 'combined_rho_vac'
-    postprocessor_names = 'average_rho_vac'
-    expression = 'average_rho_vac'
-    outputs = 'nemesis'
-  []
-  [hs_mat]
-    type = ParsedMaterial
-    property_name = hs_mat
-    material_property_names = 'hs'
-    # postprocessor_names = 'average_rho_vac'
-    expression = 'hs'
-    outputs = 'nemesis'
-  []
-  [hs_rhov]
-    type = ParsedMaterial
-    property_name = hs_rhov
-    material_property_names = 'hs combined_rho_vac'
-    # postprocessor_names = 'average_rho_vac'
-    expression = 'hs * combined_rho_vac'
-    outputs = 'nemesis'
-  []
-  [hs_rhoi]
-    type = ParsedMaterial
-    property_name = hs_rhoi
-    material_property_names = 'hs'
-    coupled_variables = 'rhoi_aux'
-    # postprocessor_names = 'average_rho_vac'
-    expression = 'hs * rhoi_aux'
-    outputs = 'nemesis'
+    outputs = none #'nemesis'
   []
   # Irradiation and Interstitials
   # Interstitials
-  [rho_gen_int]
-    type = DerivativeParsedMaterial
-    property_name = rho_gen_int
-    derivative_order = 1
-    constant_names = 'Nc Nd f_dot noise'
-    constant_expressions = '2 5 1e-8 1'
-    material_property_names = 'hs'
-    # postprocessor_names = 'hs_average'
-    expression = 'f_dot * noise * Nc * Nd' #* hs_average' # * hs
-    outputs = nemesis #'nemesis'
-  []
+  # [rho_gen_int]
+  #   type = DerivativeParsedMaterial
+  #   property_name = rho_gen_int
+  #   derivative_order = 1
+  #   constant_names = 'Nc Nd noise f_dot' #f_dot
+  #   constant_expressions = '2 5 1 ${f_dot}'
+  #   material_property_names = 'hs'
+  #   # postprocessor_names = 'hs_average'
+  #   expression = 'f_dot * noise * Nc * Nd' #* hs_average' # * hs
+  #   outputs = none #nemesis #'nemesis'
+  # []
   [a_r]
     type = ParsedMaterial
     property_name = a_r
@@ -354,14 +307,15 @@
     coupled_variables = 'T'
     expression = 'Di:=Di_0*exp(-Ei_B/(kB*T));
                   Va * Z * Di / (a_0^2)' #hs *
-    outputs = nemesis #'nemesis'
+    outputs = none #nemesis #'nemesis'
   []
   [combined_rho_vac]
     type = DerivativeParsedMaterial
     property_name = combined_rho_vac
+    coupled_variables = 'w phi'
     material_property_names = 'rhov rhos hv(phi)'
     expression = 'hv*rhov + (1-hv)*rhos' #'(1-hv)*rhos' #
-    outputs = nemesis #'nemesis'
+    outputs = none #nemesis #'nemesis'
   []
   # [rho_i_dpm]
   #   type = DerivativeParsedMaterial
@@ -388,12 +342,12 @@
     type = DerivativeParsedMaterial
     property_name = rho_gen_vac
     derivative_order = 1
-    constant_names = 'Nc Nd f_dot noise'
-    constant_expressions = '2 5 1e-8 1'
+    constant_names = 'Nc Nd noise f_dot'
+    constant_expressions = '2 5 1 ${f_dot}'
     material_property_names = 'hs'
     # postprocessor_names = 'hs_average'
     expression = 'f_dot * noise * Nc * Nd * hs' # * hs
-    outputs = 'nemesis'
+    outputs = none #'nemesis'
   []
   [rho_v_recombRate]
     type = DerivativeParsedMaterial
@@ -403,42 +357,18 @@
     material_property_names = 'a_r combined_rho_vac hs' #rho_i_dpm_hs
     # postprocessor_names = 'total_rhoi' # average_rho_vac'
     expression = 'a_r * rhoi_aux * combined_rho_vac'
-    outputs = 'nemesis'
+    outputs = none #'nemesis'
   []
   [rho_v_mixing]
     type = DerivativeParsedMaterial
     property_name = rho_v_mixing
     coupled_variables = 'w'
     derivative_order = 1
-    constant_names = 'Nc Vc f_dot noise tc Dc'
-    constant_expressions = '2 268 1e-8 1 1e-11 1e12'
+    constant_names = 'Nc Vc noise tc Dc f_dot'
+    constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
     material_property_names = 'chi'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chi' # * hs
-    outputs = 'nemesis'
-  []
-  # Testing output for delta rhov based on the constant version of rhoi
-  [rho_rhov_avg]
-    type = ParsedMaterial
-    property_name = rho_rhov_avg
-    material_property_names = 'combined_rho_vac'
-    postprocessor_names = 'average_rho_vac'
-    expression = '(1 - (combined_rho_vac/average_rho_vac))'
-    outputs = nemesis
-  []
-  [hs_formath]
-    type = ParsedMaterial
-    property_name = hs_formath
-    material_property_names = 'hs'
-    expression = 'hs'
-    outputs = nemesis
-  []
-  [delta_rhov]
-    type = ParsedMaterial
-    property_name = delta_rhov
-    material_property_names = 'combined_rho_vac hs'
-    postprocessor_names = 'average_rho_vac'
-    expression = '10*(1e-8)*hs * (1 - (combined_rho_vac/average_rho_vac))'
-    outputs = nemesis
+    outputs = none #'nemesis'
   []
 []
 
@@ -515,9 +445,9 @@
     # Uses - outside since it takes - of the expression to apply it
     expression = '-Nc*Nd*f_dot*hs_average + average_rho_vac*rhoi_scalar*a_r_pp' #'average_rho_vac*rhoi_scalar*a_r_pp' #hs_rhov_avg
     variable = rhoi_scalar
-    postprocessors = 'hs_average average_rho_vac a_r_pp hs_rhov_avg'
-    constant_names = 'Nc Nd f_dot'
-    constant_expressions = '2 5 1e-8'
+    postprocessors = 'hs_average average_rho_vac a_r_pp' #hs_rhov_avg
+    constant_names = 'Nc Nd f_dot' # f_dot'
+    constant_expressions = '2 5 ${f_dot}' # 1e-8'
   []
 []
 
@@ -697,29 +627,10 @@
     mat_prop = a_r
     outputs = csv
   []
-  [hs_rhov]
-    type = ElementIntegralMaterialProperty
-    mat_prop = hs_rhov
-    outputs = csv
-  []
-  [hs_rhoi]
-    type = ElementIntegralMaterialProperty
-    mat_prop = hs_rhoi
-    outputs = csv
-  []
-  [hs_rhov_avg]
-    type = ElementAverageMaterialProperty
-    mat_prop = hs_rhov
-    outputs = csv
-  []
-  [old_math_deltarhov]
-    type = ElementIntegralMaterialProperty
-    mat_prop = delta_rhov
-    outputs = csv
-  []
-  [v_recomb_int]
-    type = ElementIntegralMaterialProperty
-    mat_prop = rho_v_recombRate
+  [fdot_x10]
+    type = ElementExtremeMaterialProperty
+    mat_prop = rho_gen_vac
+    value_type = max
     outputs = csv
   []
 []
@@ -799,8 +710,8 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  end_time = 7e6 #5e6 #0.006
-  # num_steps = 20
+  end_time = 2e7 #5e6 #0.006
+  # num_steps = 5
   steady_state_detection = true
   # From tonks ode input
   automatic_scaling = true
@@ -825,13 +736,17 @@
 
 [Outputs]
   perf_graph = false
-  csv = true
+  # csv = true
   exodus = false
   # nemesis = false
-  [nemesis]
-    type = Nemesis
-    # interval = 3 # this ExodusII will only output every third time step
+  [csv]
+    type = CSV
+    file_base = subdir/test_csv
   []
+  # [nemesis]
+  #   type = Nemesis
+  #   # interval = 3 # this ExodusII will only output every third time step
+  # []
   print_linear_residuals = false
   # [checkpoint]
   #   type = Checkpoint
