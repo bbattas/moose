@@ -640,7 +640,7 @@ f_dot = 1e-8
     type = FeatureVolumeVectorPostprocessor
     flood_counter = void_tracker
     execute_on = 'initial timestep_end final'
-    output_centroids = false #was true
+    output_centroids = true #false #was true
     outputs = csv
   []
   # [alt_voids]
@@ -683,6 +683,10 @@ f_dot = 1e-8
     connecting_threshold = 0.09 #0.08
     compute_halo_maps = false #true#false
     verbosity_level = 1
+  []
+  [terminator_2void]
+    type = Terminator
+    expression = 'void_tracker < 2'
   []
 []
 
