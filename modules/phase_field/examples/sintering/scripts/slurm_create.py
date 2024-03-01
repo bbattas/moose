@@ -255,7 +255,7 @@ def slurmWrite(cwd,inputName):
             verb('    Specifying burst allocation')
             slurmList.append('#SBATCH --qos=michael.tonks-b')
         # Current Exclude List (2/1/24)
-        slurmList.append('#SBATCH --exclude=c0702a-s28,c0702a-s29,c0703a-s18,c0706a-s7,c0709a-s21,c0710a-s28,c0713a-s18,c0713a-s19')
+        # slurmList.append('#SBATCH --exclude=c0702a-s28,c0702a-s29,c0703a-s18,c0706a-s7,c0709a-s21,c0710a-s28,c0713a-s18,c0713a-s19')
 
         # On to the actual job to submit
         # Define Locations
@@ -276,7 +276,7 @@ def slurmWrite(cwd,inputName):
         # Actually go to the output and run the shit
         slurmList.append('')
         slurmList.append('cd $OUTPUT')
-        slurmList.append('mpirun $MOOSE -i $OUTPUT/'+inputName+'.i')
+        slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i')
 
         # Output the slurm script
         # verb(slurmList)
