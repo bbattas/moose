@@ -4,7 +4,7 @@
 # Created Date: Tuesday February 27th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday February 28th 2024
+# Last Modified: Friday March 1st 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -684,6 +684,10 @@ f_dot = 1e-8
     compute_halo_maps = false #true#false
     verbosity_level = 1
   []
+  [terminator_2void]
+    type = Terminator
+    expression = 'void_tracker < 2'
+  []
 []
 
 [Preconditioning]
@@ -741,7 +745,8 @@ f_dot = 1e-8
   # nemesis = false
   [csv]
     type = CSV
-    file_base = subdir/test_csv
+    # file_base = subdir/test_csv
+    file_base = fr_${f_dot}_csv/fr_${f_dot}
   []
   # [nemesis]
   #   type = Nemesis
