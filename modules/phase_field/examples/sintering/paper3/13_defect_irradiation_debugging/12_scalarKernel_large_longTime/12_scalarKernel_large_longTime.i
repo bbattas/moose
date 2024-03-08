@@ -4,7 +4,7 @@
 # Created Date: Monday March 4th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday March 4th 2024
+# Last Modified: Friday March 8th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -709,7 +709,7 @@ f_dot = 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
   end_time = 1e8 #5e6 #0.006
-  # num_steps = 0
+  # num_steps = 2
   steady_state_detection = true
   # From tonks ode input
   automatic_scaling = true
@@ -748,8 +748,9 @@ f_dot = 1e-8
     # interval = 3 # this ExodusII will only output every third time step
   []
   print_linear_residuals = false
-  # [checkpoint]
-  #   type = Checkpoint
-  #   num_files = 3
-  # []
+  [checkpoint]
+    type = Checkpoint
+    file_base = fr_${f_dot}_checkpoint
+    num_files = 3
+  []
 []
