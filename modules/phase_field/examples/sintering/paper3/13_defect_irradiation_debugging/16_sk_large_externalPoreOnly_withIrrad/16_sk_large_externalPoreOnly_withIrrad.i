@@ -677,10 +677,10 @@ f_dot = 1e-9
     compute_halo_maps = false #true#false
     verbosity_level = 1
   []
-  [terminator_2void]
-    type = Terminator
-    expression = 'void_tracker < 2'
-  []
+  # [terminator_2void]
+  #   type = Terminator
+  #   expression = 'void_tracker < 2'
+  # []
 []
 
 [Preconditioning]
