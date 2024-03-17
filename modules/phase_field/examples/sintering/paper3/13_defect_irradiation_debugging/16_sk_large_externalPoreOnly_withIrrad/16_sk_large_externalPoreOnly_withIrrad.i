@@ -35,7 +35,7 @@ f_dot = 1e-9
   op_num = 10
   var_name_base = gr
   int_width = 2000 #1000 #min radius is like 2250, element size of 250
-  profile = TANH # not used at the moment? only in circleic?
+  # profile = TANH # not used at the moment? only in circleic?
 []
 
 [Variables]
