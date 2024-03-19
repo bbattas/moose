@@ -14,8 +14,6 @@
 #
 ##############################################################################
 
-
-
 [Mesh]
   [gmg]
     type = DistributedRectilinearMeshGenerator
@@ -443,7 +441,6 @@
     outputs = csv
   []
 []
-
 
 [UserObjects]
   [grain_tracker]
