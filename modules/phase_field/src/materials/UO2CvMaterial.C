@@ -7,21 +7,24 @@ InputParameters
 UO2CvMaterial::validParams()
 {
   InputParameters params = DerivativeParsedMaterialHelper::validParams();
-  params.addClassDescription(
-      "Calculates equilibrium_vacancy_concentration for UO2+/-X "
-      "to use with GrandPotentialSinteringMaterial.");
+  params.addClassDescription("Calculates equilibrium_vacancy_concentration for UO2+/-X "
+                             "to use with GrandPotentialSinteringMaterial.");
   params.addRequiredCoupledVarWithAutoBuild(
       "v", "var_name_base", "op_num", "Array of coupled variables");
   params.addRequiredCoupledVar("T", "Temperature");
   params.addCoupledVar("OU", "Variable of O/U ratio in UO2+/-x");
   params.addRequiredCoupledVar("c", "Void phase order parameter");
   // params.addRequiredParam
-  params.addRequiredParam<std::vector<FileName>>("gb_se_csv",
-                                    "List of .csv file names for the segregation energies.");
-  params.addParam<Real>("gb_conc_max", 0.5, "Maximum value for grain boundary"
-                                            "vacancy concentration");
-  params.addParam<Real>("bulk_conc_max", 0.25, "Maximum value for grain boundary"
-                                            "vacancy concentration");
+  params.addRequiredParam<std::vector<FileName>>(
+      "gb_se_csv", "List of .csv file names for the segregation energies.");
+  params.addParam<Real>("gb_conc_max",
+                        0.5,
+                        "Maximum value for grain boundary"
+                        "vacancy concentration");
+  params.addParam<Real>("bulk_conc_max",
+                        0.25,
+                        "Maximum value for grain boundary"
+                        "vacancy concentration");
   // params.addParam<FileName>("gb2_se_csv",
   //                                   "File name for the 2nd set of segregation energies");
   // params.addParam<FileName>("gb3_se_csv",
@@ -37,20 +40,20 @@ UO2CvMaterial::UO2CvMaterial(const InputParameters & parameters)
     _kb(8.617343e-5), // Boltzmann constant in eV/K
     _op_num(coupledComponents("v")),
     _vals_name(_op_num),
-    _cv_name(getParam<std::string>("f_name")),
+    _cv_name(getParam<std::string>("property_name")),
     _cv_out(declareProperty<Real>(_cv_name)),
     _dcv(_op_num),
     _d2cv(_op_num),
     _gb_csv(getParam<std::vector<FileName>>("gb_se_csv")),
     _gb_max(getParam<Real>("gb_conc_max")),
     _b_max(getParam<Real>("bulk_conc_max"))
-    // _gb2_csv(getParam<FileName>("gb2_se_csv")),
-    // _gb3_csv(getParam<FileName>("gb3_se_csv"))
+// _gb2_csv(getParam<FileName>("gb2_se_csv")),
+// _gb3_csv(getParam<FileName>("gb3_se_csv"))
 {
   if (_op_num == 0)
     mooseError("Model requires op_num > 0");
 
-  _vals.resize(_op_num);//
+  _vals.resize(_op_num); //
   for (unsigned int i = 0; i < _op_num; ++i)
   {
     _vals_name[i] = getVar("v", i)->name();
@@ -64,15 +67,16 @@ UO2CvMaterial::UO2CvMaterial(const InputParameters & parameters)
     }
   }
 
-
   // Read the data from CSV file
   // MAKE SURE THE PATH IS CORRECT
   // Sigma 11 GB Data (trimmed)
-  // MooseUtils::DelimitedFileReader sigma11_reader("/Users/bbattas/projects/marmot/csv_include/sigma11_se.csv");
+  // MooseUtils::DelimitedFileReader
+  // sigma11_reader("/Users/bbattas/projects/marmot/csv_include/sigma11_se.csv");
   // sigma11_reader.read();
   // _sigma11_data = sigma11_reader.getData(1);
   // Sigma 9 GB Data (trimmed)
-  // MooseUtils::DelimitedFileReader sigma9_reader("/Users/bbattas/projects/marmot/csv_include/sigma9_se.csv");
+  // MooseUtils::DelimitedFileReader
+  // sigma9_reader("/Users/bbattas/projects/marmot/csv_include/sigma9_se.csv");
   // sigma9_reader.read();
   // _sigma9_data = sigma9_reader.getData(1);
 
@@ -86,77 +90,98 @@ UO2CvMaterial::UO2CvMaterial(const InputParameters & parameters)
     reader.read();
     _gb_data.push_back(reader.getData(1));
   }
-
-
 }
 
-Real lowT_line(Real plusx, Real T){
-  if (plusx > 0.0) {
+Real
+lowT_line(Real plusx, Real T)
+{
+  if (plusx > 0.0)
+  {
     Real a = -9.92395296e-01;
     Real b = 1.61688991e+00;
     Real c = 8.38156005e-04;
     Real d = 5.78661025e+00;
     Real f = 1.54217248e-02;
     // a,b,c,d,f = [-9.92395296e-01, 1.61688991e+00, 8.38156005e-04, 5.78661025e+00, 1.54217248e-02]
-    Real intercept = d + (a - d)/(std::pow((1 + std::pow((plusx/c),b)),f));
-    Real slope = -3.06712649e-05 * std::pow(log10(plusx),2) - 6.83078465e-04 * log10(plusx) - 1.87719009e-04;
-    return slope*T + intercept;
+    Real intercept = d + (a - d) / (std::pow((1 + std::pow((plusx / c), b)), f));
+    Real slope = -3.06712649e-05 * std::pow(log10(plusx), 2) - 6.83078465e-04 * log10(plusx) -
+                 1.87719009e-04;
+    return slope * T + intercept;
   }
-  else if (plusx == 0.0) {
+  else if (plusx == 0.0)
+  {
     Real intercept = 2.7177198288000017;
     Real slope = -3.126169800000156e-05;
-    return slope*T + intercept;
+    return slope * T + intercept;
   }
-  else { //if (plusx < 0.0)
+  else
+  { // if (plusx < 0.0)
     mooseError("lowT_line cannot use O/U less than 2.0");
   }
 }
 
-Real bulkC(Real OU, Real T){
+Real
+bulkC(Real OU, Real T)
+{
   Real _kb = 8.617343e-5;
   Real plusx = OU - 2.0;
-  if (plusx > 0) {
-    return exp(-lowT_line(0,T)/(_kb*T)) + exp(-lowT_line(plusx,T)/(_kb*T));
+  if (plusx > 0)
+  {
+    return exp(-lowT_line(0, T) / (_kb * T)) + exp(-lowT_line(plusx, T) / (_kb * T));
   }
-  else if (plusx == 0.0) {
-    return exp(-lowT_line(0,T)/(_kb*T));
+  else if (plusx == 0.0)
+  {
+    return exp(-lowT_line(0, T) / (_kb * T));
   }
-  else if (plusx < 0){
-    Real top = log10(exp(-lowT_line(0,T)/(_kb*T)) + exp(-lowT_line(abs(plusx),T)/(_kb*T)));
-    Real mid = log10(exp(-lowT_line(0,T)/(_kb*T)));
-    return pow(10,(mid - (top - mid)));
+  else if (plusx < 0)
+  {
+    Real top =
+        log10(exp(-lowT_line(0, T) / (_kb * T)) + exp(-lowT_line(abs(plusx), T) / (_kb * T)));
+    Real mid = log10(exp(-lowT_line(0, T) / (_kb * T)));
+    return pow(10, (mid - (top - mid)));
   }
-  else {
+  else
+  {
     mooseError("bulkC stoichiometry invalid?");
   }
 }
 
-Real Efv_effective(Real OU, Real T){
+Real
+Efv_effective(Real OU, Real T)
+{
   Real _kb = 8.617343e-5;
-  return - _kb * T * log(bulkC(OU,T));
-  }
+  return -_kb * T * log(bulkC(OU, T));
+}
 
-Real gbC(Real OU, Real T, std::vector<Real> gb_se_data){
+Real
+gbC(Real OU, Real T, std::vector<Real> gb_se_data)
+{
   Real _kb = 8.617343e-5;
   Real Efv_bulk = Efv_effective(OU, T);
   std::vector<Real> bulk_vector(gb_se_data.size());
   std::fill(bulk_vector.begin(), bulk_vector.end(), Efv_bulk);
-  std::transform(gb_se_data.begin( ), gb_se_data.end( ), bulk_vector.begin( ), gb_se_data.begin( ),std::plus<double>( ));
+  std::transform(gb_se_data.begin(),
+                 gb_se_data.end(),
+                 bulk_vector.begin(),
+                 gb_se_data.begin(),
+                 std::plus<double>());
   std::vector<Real> gb_conc_vector = gb_se_data;
-  std::transform(gb_conc_vector.begin(), gb_conc_vector.end(), gb_conc_vector.begin(), [&](double &i){
-        return exp(- i / (_kb * T));
-    });
-  std::transform(gb_conc_vector.begin(), gb_conc_vector.end(), gb_se_data.begin(), gb_conc_vector.begin(),
-    [](auto const& a, auto const& b) {
-      if (b <= 0.0)
-        return 1.0;
-      return a;
-    }
-  );
+  std::transform(gb_conc_vector.begin(),
+                 gb_conc_vector.end(),
+                 gb_conc_vector.begin(),
+                 [&](double & i) { return exp(-i / (_kb * T)); });
+  std::transform(gb_conc_vector.begin(),
+                 gb_conc_vector.end(),
+                 gb_se_data.begin(),
+                 gb_conc_vector.begin(),
+                 [](auto const & a, auto const & b)
+                 {
+                   if (b <= 0.0)
+                     return 1.0;
+                   return a;
+                 });
   return std::accumulate(gb_conc_vector.begin(), gb_conc_vector.end(), 0.0) / gb_conc_vector.size();
 }
-
-
 
 void
 UO2CvMaterial::computeQpProperties()
@@ -168,7 +193,7 @@ UO2CvMaterial::computeQpProperties()
     c_GB += gbC(_OU[_qp], _T[_qp], _gb_data[i]);
   }
   c_GB = c_GB / _gb_csv.size();
-  c_GB = std::min(_gb_max,c_GB);
+  c_GB = std::min(_gb_max, c_GB);
   Real c_B = std::min(bulkC(_OU[_qp], _T[_qp]), _b_max);
 
   Real bounds = 0.0;
@@ -183,12 +208,12 @@ UO2CvMaterial::computeQpProperties()
   // Derivatives wrt OPs
   for (unsigned int i = 0; i < _op_num; ++i)
   {
-    (*_dcv[i])[_qp] = - 16 * (*_vals[i])[_qp] * (c_GB - c_B) * (1.0 - bounds);
+    (*_dcv[i])[_qp] = -16 * (*_vals[i])[_qp] * (c_GB - c_B) * (1.0 - bounds);
     for (unsigned int j = i; j < _op_num; ++j)
     {
       (*_d2cv[i][j])[_qp] = 32 * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (c_GB - c_B);
     }
   }
-  // _cv_out[_qp] = std::accumulate(_gb_data[1].begin(), _gb_data[1].end(), 0.0) / _gb_data[1].size();
-
+  // _cv_out[_qp] = std::accumulate(_gb_data[1].begin(), _gb_data[1].end(), 0.0) /
+  // _gb_data[1].size();
 }
