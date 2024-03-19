@@ -14,7 +14,7 @@
 #
 ##############################################################################
 
-f_dot = 1e-8
+f_dot = 1e-9
 
 [Mesh]
   [ebsd_mesh]
@@ -366,7 +366,7 @@ f_dot = 1e-8
     coupled_variables = 'w'
     derivative_order = 1
     constant_names = 'Nc Vc noise tc Dc f_dot'
-    constant_expressions = '2 268 1 1e-11 1e12 1e-8'
+    constant_expressions = '2 268 1 1e-11 1e12 1e-9'
     material_property_names = 'chi'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chi' # * hs
     outputs = none #'nemesis'
