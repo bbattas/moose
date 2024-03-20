@@ -233,6 +233,7 @@
     bulkindex = 1
     gbindex = 1e6
     surfindex = 1e9
+    surface_energy = 19.7
   []
   [cv_eq]
     type = DerivativeParsedMaterial
