@@ -4,14 +4,15 @@
 # Created Date: Tuesday March 19th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday March 19th 2024
+# Last Modified: Wednesday March 20th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
 #  An example input using voronoivoid IC to generate a grain structure with
 #   bubbles inside as well as an external pore/void region on 1 boundary
-#  The cv_eq is set for UO_2.0 and T=1600K
-#
+#  The cv_eq is set for UO_2.0 and T=1600K, and chiD should work but its
+#   set using the default version instead of my variant so might have missed
+#   something in the conversion
 ##############################################################################
 
 [Mesh]
@@ -36,14 +37,15 @@
 []
 
 [GlobalParams]
-  op_num = 3 #10
+  op_num = 8 #10
   var_name_base = gr
-  int_width = 1000 #min radius is like 2250, element size of 250
-  profile = TANH # not used at the moment? only in circleic?
+  int_width = 1000
+  profile = TANH
   # Voronoi Values
-  radius = 5046
-  bubspac = 10
-  numbub = 4
+  radius = 2000#5046
+  bubspac = 100
+  numbub = 8
+  rand_seed = 14
 []
 
 [Variables]
@@ -90,7 +92,7 @@
       invalue = 1.0
       outvalue = 0.0
       polycrystal_ic_uo = voronoi
-      rand_seed = 10
+      # rand_seed = 12
       block = 0
     []
   []
@@ -101,7 +103,7 @@
     invalue = 1.0
     outvalue = 0.0
     polycrystal_ic_uo = voronoi
-    rand_seed = 10
+    # rand_seed = 12
     block = 0
   []
   [VoidIC]
@@ -142,36 +144,36 @@
     value = 0
     boundary = 'left right top bottom'
   []
-  # [gr3]
-  #   type = NeumannBC
-  #   variable = gr3
-  #   value = 0
-  #   boundary = 'left right top bottom'
-  # []
-  # [gr4]
-  #   type = NeumannBC
-  #   variable = gr4
-  #   value = 0
-  #   boundary = 'left right top bottom'
-  # []
-  # [gr5]
-  #   type = NeumannBC
-  #   variable = gr5
-  #   value = 0
-  #   boundary = 'left right top bottom'
-  # []
-  # [gr6]
-  #   type = NeumannBC
-  #   variable = gr6
-  #   value = 0
-  #   boundary = 'left right top bottom'
-  # []
-  # [gr7]
-  #   type = NeumannBC
-  #   variable = gr7
-  #   value = 0
-  #   boundary = 'left right top bottom'
-  # []
+  [gr3]
+    type = NeumannBC
+    variable = gr3
+    value = 0
+    boundary = 'left right top bottom'
+  []
+  [gr4]
+    type = NeumannBC
+    variable = gr4
+    value = 0
+    boundary = 'left right top bottom'
+  []
+  [gr5]
+    type = NeumannBC
+    variable = gr5
+    value = 0
+    boundary = 'left right top bottom'
+  []
+  [gr6]
+    type = NeumannBC
+    variable = gr6
+    value = 0
+    boundary = 'left right top bottom'
+  []
+  [gr7]
+    type = NeumannBC
+    variable = gr7
+    value = 0
+    boundary = 'left right top bottom'
+  []
   # [gr8]
   #   type = NeumannBC
   #   variable = gr8
@@ -214,8 +216,10 @@
     expression = '10*ks'
   []
   # Diffusivity and mobilities
+  # These two (chiD and cv_eq) are the most likely to have an error as theyre what i changed
+  # but I think they should work
   [chiD]
-    type = GrandPotentialIsoMaterial
+    type = GrandPotentialTensorMaterial
     f_name = chiD
     solid_mobility = L
     void_mobility = Lv
@@ -227,30 +231,21 @@
     Q = 2.77
     Em = 3.608
     bulkindex = 1
-    gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = 1e11
-    GBwidth = 1.0
-    surf_thickness = 0.5
+    gbindex = 1e6
+    surfindex = 1e9
   []
   [cv_eq]
-    type = ParsedMaterial
+    type = DerivativeParsedMaterial
     property_name = cv_eq
-    coupled_variables = 'T'
-    constant_names = 'a b'
-    constant_expressions = '-0.0025 157.16'
-    expression = 'a*T + b'
+    coupled_variables = 'T gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 phi'
+    constant_names = 'kb Ef_b Ef_gb'
+    constant_expressions = '8.617343e-5 2.667701111999999 0.43905412967287266'
+    expression = 'bounds:= gr0^2 + gr1^2 + gr2^2 + gr3^2 + gr4^2 + gr5^2 + gr6^2 + gr7^2 + phi^2;
+                  cB:= exp(-Ef_b / (kb * T));
+                  cGB:= exp(-Ef_gb / (kb * T));
+                  cB + 4 * (cGB - cB) * (1 - bounds)^2'
+    outputs = none
   []
-  # [cv_eq]
-  #   type = ParsedMaterial
-  #   # type = UO2CvMaterial
-  #   # f_name = cv_eq
-  #   # T = T
-  #   # c = phi
-  #   # OU = OU
-  #   # gb_se_csv = '../../../gb_segregation_csv/sigma9_se.csv
-  #   #              ../../../gb_segregation_csv/sigma11_se.csv'
-  #   # outputs = 'none'
-  # []
   [sintering]
     type = GrandPotentialSinteringMaterial
     chemical_potential = w
@@ -290,7 +285,7 @@
   [PhaseField]
     [GrandPotential]
       switching_function_names = 'hv hs'
-      anisotropic = 'false'
+      anisotropic = 'true' #true for GPTensorMat
 
       chemical_potentials = 'w'
       mobilities = 'chiD'
@@ -315,7 +310,7 @@
   [barrier_phi]
     type = ACBarrierFunction
     variable = phi
-    v = 'gr0 gr1 gr2' # gr3 gr4 gr5 gr6 gr7 gr8 gr9' # gr10 gr11 gr12 gr13 gr14 gr15'
+    v = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'# gr8 gr9' # gr10 gr11 gr12 gr13 gr14 gr15'
     gamma = gamma
     mob_name = L_mat
   []
@@ -452,8 +447,8 @@
   []
   [voronoi]
     type = PolycrystalVoronoi
-    grain_num = 3 # Number of grains
-    rand_seed = 10
+    grain_num = 6 # Number of grains
+    # rand_seed = 12
     # int_width = 7 # global param
   []
 []
@@ -492,7 +487,7 @@
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 50 #5#2.5
+    dt = 1
     # growth_factor = 1.2
     # cutback_factor = 0.8
     # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
@@ -514,7 +509,7 @@
     type = Nemesis
     # interval = 3 # this ExodusII will only output every third time step
   []
-  print_linear_residuals = true
+  print_linear_residuals = false
   # [checkpoint]
   #   type = Checkpoint
   #   num_files = 3
