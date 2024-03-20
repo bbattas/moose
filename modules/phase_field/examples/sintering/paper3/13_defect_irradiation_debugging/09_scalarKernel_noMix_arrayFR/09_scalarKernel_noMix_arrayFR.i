@@ -4,7 +4,7 @@
 # Created Date: Tuesday February 27th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday March 1st 2024
+# Last Modified: Wednesday March 20th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -244,7 +244,7 @@ f_dot = 1e-8
   []
   [cv_eq]
     type = UO2CvMaterial
-    f_name = cv_eq
+    property_name = cv_eq
     T = T
     c = phi
     OU = OU

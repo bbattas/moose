@@ -4,7 +4,7 @@
 # Created Date: Wednesday February 28th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday March 19th 2024
+# Last Modified: Wednesday March 20th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -344,7 +344,7 @@ f_dot = 1e-9
     property_name = rho_gen_vac
     derivative_order = 1
     constant_names = 'Nc Nd noise f_dot'
-    constant_expressions = '2 5 1 1e-8'
+    constant_expressions = '2 5 1 ${f_dot}'
     material_property_names = 'hs'
     # postprocessor_names = 'hs_average'
     expression = 'f_dot * noise * Nc * Nd * hs' # * hs
@@ -366,7 +366,7 @@ f_dot = 1e-9
     coupled_variables = 'w'
     derivative_order = 1
     constant_names = 'Nc Vc noise tc Dc f_dot'
-    constant_expressions = '2 268 1 1e-11 1e12 1e-9'
+    constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
     material_property_names = 'chi'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chi' # * hs
     outputs = none #'nemesis'
@@ -448,7 +448,7 @@ f_dot = 1e-9
     variable = rhoi_scalar
     postprocessors = 'hs_average average_rho_vac a_r_pp' #hs_rhov_avg
     constant_names = 'Nc Nd f_dot' # f_dot'
-    constant_expressions = '2 5 1e-8' # 1e-8'
+    constant_expressions = '2 5 ${f_dot}' # 1e-8'
   []
 []
 
@@ -747,7 +747,7 @@ f_dot = 1e-9
   [csv]
     type = CSV
     # file_base = subdir/test_csv
-    file_base = fr_1e-8_csv/fr_1e-8
+    file_base = fr_${f_dot}_csv/fr_${f_dot}
   []
   # [nemesis]
   #   type = Nemesis
