@@ -89,5 +89,8 @@ protected:
   // Test output for diffusivity
   MaterialProperty<Real> & _D_out;
 
+  // Toggle to for the iw based scaling
+  bool _iw_scaling_bool;
+
   // const MooseEnum _iw_scaling;
 };

@@ -50,6 +50,7 @@ GrandPotentialIsoMaterial::validParams()
                         0.5,
                         "Surface diffusion layer thickness"
                         "in units of problem (length -> nm)");
+  params.addParam<bool>("iw_scaling", true, "Enable the iw based scaling for GB and Surface D.");
   // ON OFF for D Scaling
   // MooseEnum iw_scaling("TRUE FALSE", "TRUE"); //ADDED
   // params.addParam<MooseEnum>("iw_scaling", iw_scaling,
@@ -95,7 +96,8 @@ GrandPotentialIsoMaterial::GrandPotentialIsoMaterial(const InputParameters & par
     _GBmob0(getParam<Real>("GBmob0")),
     _Q(getParam<Real>("Q")),
     _vals_name(_op_num),
-    _D_out(declareProperty<Real>("diffusivity"))
+    _D_out(declareProperty<Real>("diffusivity")),
+    _iw_scaling_bool(getParam<bool>("iw_scaling"))
 // _iw_scaling(getParam<MooseEnum>("iw_scaling")) //ADDED
 {
   if (_op_num == 0)                          //
@@ -146,7 +148,7 @@ GrandPotentialIsoMaterial::computeProperties()
     // Real dDbulkdc = 0;  //bulk diffusivity is independent of the void phase
     // vapor transport diffusivity -- this is a poor approximation -- temporary
     // Possible it might cause convergence issues if its too low
-    Real Dv = _Dbulk * _vap_index; /// 1E2;
+    Real Dv = _Dbulk * _vap_index; // 1E-2;
 
     // Dgb -- grain boundary diffusivity
     // Real Dgb = _Dbulk * _gb_index;
@@ -168,12 +170,26 @@ GrandPotentialIsoMaterial::computeProperties()
     // Dsurf -- free surface diffusivity
     Real Dsurf = _Dbulk * _s_index;
 
-    // Calculate scalar diffusivity
-    // Combo -- Using Pierre-Clement's version of iso diffusivity with my 3/2 scale
-    Real newDgb =
-        Dgb * (1.5 * _GBwidth / _int_width) + _Dbulk * (1 - 1.5 * (_GBwidth / _int_width));
-    Real newDsurf = Dsurf * (1.5 * _surf_thickness / _int_width) +
-                    _Dbulk * (1 - 1.5 * (_surf_thickness / _int_width));
+    // Define the variables for interface diffusivities
+    Real newDgb = 0.0;
+    Real newDsurf = 0.0;
+    if (_iw_scaling_bool) // Use the IW scaling factor
+    {
+      // Define Scaling Factor
+      Real gbScale = 1.5 * _GBwidth / _int_width;
+      Real surfScale = 1.5 * _surf_thickness / _int_width;
+      // Apply scaling factor to Dgb and Ds
+      newDgb = Dgb * gbScale + _Dbulk * (1 - gbScale);
+      newDsurf = Dsurf * surfScale + _Dbulk * (1 - surfScale);
+    }
+    else // Dont use iw scaling- just normal iso D
+    {
+      // Set the variable values = the unscaled version
+      newDgb = Dgb;
+      newDsurf = Dsurf;
+    }
+
+    // Calculate the scalar D from the determined components
     // not final- check perpendicular boundary in tonks jupyter notebook for surface version?
     _D[_qp] = (1 - hgb - hsurf) * (hv * Dv + (1 - hv) * _Dbulk) + hgb * newDgb + hsurf * newDsurf;
     _dDdc[_qp] = (1 - hgb - hsurf) * (dhv * Dv - dhv * _Dbulk) -
