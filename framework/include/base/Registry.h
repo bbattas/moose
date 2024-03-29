@@ -10,6 +10,7 @@
 #pragma once
 
 #include "InputParameters.h"
+#include "MooseObject.h"
 
 #include <string>
 #include <vector>
@@ -78,6 +79,8 @@
 
 #define registerDataFilePath() Registry::addDataFilePath(__FILE__)
 
+#define registerRepository(repo_name, repo_url) Registry::addRepository(repo_name, repo_url);
+
 class Factory;
 class ActionFactory;
 class MooseObject;
@@ -114,7 +117,7 @@ struct RegistryEntryBase : public RegistryEntryData
   RegistryEntryBase(const RegistryEntryData & data) : RegistryEntryData(data) {}
   virtual ~RegistryEntryBase() {}
   /// proxy functions
-  virtual std::shared_ptr<MooseObject> build(const InputParameters & parameters) = 0;
+  virtual std::unique_ptr<MooseObject> build(const InputParameters & parameters) = 0;
   virtual std::shared_ptr<Action> buildAction(const InputParameters & parameters) = 0;
   virtual InputParameters buildParameters() = 0;
   /// resolve the name from _classname, _alias, and _name
@@ -133,7 +136,7 @@ template <typename T>
 struct RegistryEntry : public RegistryEntryBase
 {
   RegistryEntry(const RegistryEntryData & data) : RegistryEntryBase(data) {}
-  virtual std::shared_ptr<MooseObject> build(const InputParameters & parameters) override;
+  virtual std::unique_ptr<MooseObject> build(const InputParameters & parameters) override;
   virtual std::shared_ptr<Action> buildAction(const InputParameters & parameters) override;
   virtual InputParameters buildParameters() override;
 };
@@ -199,6 +202,9 @@ public:
   /// register search paths for built-in data files
   static void addDataFilePath(const std::string & path);
 
+  /// register a repository
+  static void addRepository(const std::string & repo_name, const std::string & repo_url);
+
   /// Returns a per-label keyed map of all MooseObjects in the registry.
   static const std::map<std::string, std::vector<std::shared_ptr<RegistryEntryBase>>> & allObjects()
   {
@@ -226,6 +232,9 @@ public:
     return getRegistry()._data_file_paths;
   }
 
+  /// Returns the repository URL associated with \p repo_name
+  static const std::string & getRepositoryURL(const std::string & repo_name);
+
   /// returns the name() for a registered class
   template <typename T>
   static std::string getRegisteredName();
@@ -246,6 +255,8 @@ private:
   std::map<std::string, std::vector<std::shared_ptr<RegistryEntryBase>>> _per_label_actions;
   std::set<std::string> _known_labels;
   std::vector<std::string> _data_file_paths;
+  /// Repository name -> repository URL; used for mooseDocumentedError
+  std::map<std::string, std::string> _repos;
   std::map<std::string, std::string> _type_to_classname;
 };
 
@@ -258,13 +269,12 @@ Registry::getRegisteredName()
 }
 
 template <typename T>
-std::shared_ptr<MooseObject>
+std::unique_ptr<MooseObject>
 RegistryEntry<T>::build(const InputParameters & parameters)
 {
-  if constexpr (!std::is_base_of_v<MooseObject, T>)
-    mooseError("The object to be built is not derived from MooseObject.");
-  else
-    return std::make_shared<T>(parameters);
+  if constexpr (std::is_base_of_v<MooseObject, T>)
+    return std::make_unique<T>(parameters);
+  mooseError("The object to be built is not derived from MooseObject.");
 }
 
 template <typename T>
