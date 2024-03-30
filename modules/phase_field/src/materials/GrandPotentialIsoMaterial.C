@@ -20,7 +20,10 @@ GrandPotentialIsoMaterial::validParams()
       "D0", "Diffusion prefactor for vacancies in m^2/s"); // paper value is nm2/s??????
   params.addRequiredParam<Real>("Em", "Vacancy migration energy in eV");
   params.addRequiredCoupledVar("c", "Vacancy phase variable");
-  params.addParam<Real>("surfindex", 1.0, "Surface diffusion index weight");
+  params.addParam<Real>("surfindex",
+                        -1.0,
+                        "Surface diffusion index weight"
+                        "(-1 uses Ali's 1e-4*Zhou and Olander)");
   params.addParam<Real>("gbindex",
                         -1.0,
                         "Grain boundary diffusion index weight"
@@ -168,7 +171,18 @@ GrandPotentialIsoMaterial::computeProperties()
     // was commented out
 
     // Dsurf -- free surface diffusivity
-    Real Dsurf = _Dbulk * _s_index;
+    Real Dsurf = 0;
+    if (_s_index == -1)
+    {
+      // Using Zhou and Olander values in nm^2/s
+      // Then reduced by 1e-4 as per Ali's recent work
+      // E value is in J/molK so using ideal gas R instead of k_b
+      Dsurf = 5e20 * std::exp(-301248 / 8.314 / _T[_qp]);
+    }
+    else
+    {
+      Dsurf = _Dbulk * _s_index;
+    }
 
     // Define the variables for interface diffusivities
     Real newDgb = 0.0;
