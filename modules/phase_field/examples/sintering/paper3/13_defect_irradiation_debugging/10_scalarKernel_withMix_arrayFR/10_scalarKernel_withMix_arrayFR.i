@@ -4,7 +4,7 @@
 # Created Date: Wednesday February 28th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday March 20th 2024
+# Last Modified: Saturday March 30th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -438,7 +438,7 @@ f_dot = 1e-9
 [ScalarKernels]
   [rhoi_scalar_dot]
     type = ODETimeDerivative
-    variable = rhoi_scalar
+    variable = rhoi_scalar #s
   []
   [rhoi_rest]
     type = ParsedODEKernel
