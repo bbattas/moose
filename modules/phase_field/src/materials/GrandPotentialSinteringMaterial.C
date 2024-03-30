@@ -30,9 +30,15 @@ GrandPotentialSinteringMaterial::validParams()
       "Parabolic solid energy coefficient (energy/volume). Only used for parabolic energy.");
   params.addRequiredParam<MaterialPropertyName>(
       "void_energy_coefficient", "Parabolic void energy coefficient (energy/volume)");
-  params.addParam<Real>("surface_energy", 19.7, "Surface energy in units of problem (energy/area)");
-  params.addParam<Real>(
-      "grainboundary_energy", 9.86, "Grain boundary energy in units of problem (energy/area)");
+  params.addRequiredParam<MaterialPropertyName>(
+      "surface_energy", "Material of surface energy in units of problem (energy/area)");
+  params.addRequiredParam<MaterialPropertyName>(
+      "grainboundary_energy",
+      "Material of grain boundary energy in units of problem (energy/area)");
+  // params.addParam<Real>("surface_energy", 19.7, "Surface energy in units of problem
+  // (energy/area)"); params.addParam<Real>(
+  //     "grainboundary_energy", 9.86, "Grain boundary energy in units of problem
+  //     (energy/area)");
   params.addParam<Real>("int_width", 1, "Interface width in units of problem (length)");
   params.addParam<Real>("surface_switch_value",
                         0.3,
@@ -109,16 +115,18 @@ GrandPotentialSinteringMaterial::GrandPotentialSinteringMaterial(const InputPara
     _hv_over_kVa(declareProperty<Real>("hv_over_kVa")),
     _hs_over_kVa(declareProperty<Real>("hs_over_kVa")),
 
-    _sigma_s(getParam<Real>("surface_energy")),
-    _sigma_gb(getParam<Real>("grainboundary_energy")),
+    // _sigma_s(getParam<Real>("surface_energy")),
+    // _sigma_gb(getParam<Real>("grainboundary_energy")),
+    _sigma_s(getMaterialProperty<Real>("surface_energy")),
+    _sigma_gb(getMaterialProperty<Real>("grainboundary_energy")),
     _int_width(getParam<Real>("int_width")),
     _switch(getParam<Real>("surface_switch_value")),
     _Va(getParam<Real>("atomic_volume")),
     _solid_energy(getParam<MooseEnum>("solid_energy_model")),
-    _mu_s(6.0 * _sigma_s / _int_width),
-    _mu_gb(6.0 * _sigma_gb / _int_width),
-    _kappa_s(0.75 * _sigma_s * _int_width),
-    _kappa_gb(0.75 * _sigma_gb * _int_width),
+    // _mu_s(6.0 * _sigma_s / _int_width),
+    // _mu_gb(6.0 * _sigma_gb / _int_width),
+    // _kappa_s(0.75 * _sigma_s * _int_width),
+    // _kappa_gb(0.75 * _sigma_gb * _int_width),
     _kB(8.617343e-5), // eV/K
     _mass_conservation(getParam<bool>("mass_conservation"))
 {
@@ -321,12 +329,18 @@ GrandPotentialSinteringMaterial::computeQpProperties()
   _d2chidw2[_qp] = _hs[_qp] * d3rhosdw3;
   _d2chidphidw[_qp] = _dhs[_qp] * _d2rhosdw2[_qp];
 
+  // Calculate the gb and s components here now that sigma is a material
+  Real mu_s = 6.0 * _sigma_s[_qp] / _int_width;
+  Real mu_gb = 6.0 * _sigma_gb[_qp] / _int_width;
+  Real kappa_s = 0.75 * _sigma_s[_qp] * _int_width;
+  Real kappa_gb = 0.75 * _sigma_gb[_qp] * _int_width;
+
   // thermodynamic parameters
-  _mu[_qp] = _mu_gb + (_mu_s - _mu_gb) * f;
-  _kappa[_qp] = _kappa_gb + (_kappa_s - _kappa_gb) * f;
-  _dmu[_qp] = (_mu_s - _mu_gb) * df;
-  _dkappa[_qp] = (_kappa_s - _kappa_gb) * df;
-  _d2mu[_qp] = (_mu_s - _mu_gb) * d2f;
-  _d2kappa[_qp] = (_kappa_s - _kappa_gb) * d2f;
+  _mu[_qp] = mu_gb + (mu_s - mu_gb) * f;
+  _kappa[_qp] = kappa_gb + (kappa_s - kappa_gb) * f;
+  _dmu[_qp] = (mu_s - mu_gb) * df;
+  _dkappa[_qp] = (kappa_s - kappa_gb) * df;
+  _d2mu[_qp] = (mu_s - mu_gb) * d2f;
+  _d2kappa[_qp] = (kappa_s - kappa_gb) * d2f;
   _gamma[_qp] = 1.5;
 } // void GrandPotentialSinteringMaterial::computeQpProperties()

@@ -120,10 +120,12 @@ protected:
   MaterialProperty<Real> & _hs_over_kVa;
 
   /// surface energy
-  const Real _sigma_s;
+  // const Real _sigma_s;
+  const MaterialProperty<Real> & _sigma_s;
 
   /// grain boundary energy
-  const Real _sigma_gb;
+  // const Real _sigma_gb;
+  const MaterialProperty<Real> & _sigma_gb;
 
   /// interface width
   const Real _int_width;
@@ -137,17 +139,18 @@ protected:
   /// Type of energy function to use for the solid phase
   const MooseEnum _solid_energy;
 
-  /// mu value on surfaces
-  const Real _mu_s;
+  // Removing these into the actual material due to changing sigma gb and s to materials/variables
+  // /// mu value on surfaces
+  // const Real _mu_s;
 
-  /// mu value on grain boundaries
-  const Real _mu_gb;
+  // /// mu value on grain boundaries
+  // const Real _mu_gb;
 
-  /// kappa value on surfaces
-  const Real _kappa_s;
+  // /// kappa value on surfaces
+  // const Real _kappa_s;
 
-  /// kappa value on grain boundaries
-  const Real _kappa_gb;
+  // /// kappa value on grain boundaries
+  // const Real _kappa_gb;
 
   /// Boltzmann constant
   const Real _kB;
