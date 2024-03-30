@@ -177,7 +177,7 @@ GrandPotentialIsoMaterial::computeProperties()
       // Using Zhou and Olander values in nm^2/s
       // Then reduced by 1e-4 as per Ali's recent work
       // E value is in J/molK so using ideal gas R instead of k_b
-      Dsurf = 5e20 * std::exp(-301248 / 8.314 / _T[_qp]);
+      Dsurf = 1e-4 * 5e20 * std::exp(-301248 / 8.314 / _T[_qp]);
     }
     else
     {
