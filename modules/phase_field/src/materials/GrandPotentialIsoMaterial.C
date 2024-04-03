@@ -50,7 +50,7 @@ GrandPotentialIsoMaterial::validParams()
                         "Real grain boundary width in units"
                         "of problem (length -> nm)");
   params.addParam<Real>("surf_thickness",
-                        0.5,
+                        1.0,
                         "Surface diffusion layer thickness"
                         "in units of problem (length -> nm)");
   params.addParam<bool>("iw_scaling", true, "Enable the iw based scaling for GB and Surface D.");
@@ -132,10 +132,10 @@ GrandPotentialIsoMaterial::computeProperties()
     for (unsigned int i = 0; i < _op_num; ++i)
       for (unsigned int j = i + 1; j < _op_num; ++j)
       {
-        hgb += (*_vals[i])[_qp] * (*_vals[j])[_qp];
-        hgb += (*_vals[j])[_qp] * (*_vals[i])[_qp];
+        hgb += (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp] * (*_vals[i])[_qp];
       }
-    hgb = 8 * hgb; // end result is 16 * gr1^2 * gr2^2
+    hgb = 16 * hgb; // end result is 16 * gr1^2 * gr2^2
+    // Used to be += ij += ji in the loop and x8 at the end, though x2 would be more correct then
 
     // Make hsurf -- free surface switching function
     Real hsurf = 16 * c * c * mc * mc;
@@ -174,10 +174,18 @@ GrandPotentialIsoMaterial::computeProperties()
     Real Dsurf = 0;
     if (_s_index == -1)
     {
-      // Using Zhou and Olander values in nm^2/s
-      // Then reduced by 1e-4 as per Ali's recent work
-      // E value is in J/molK so using ideal gas R instead of k_b
-      Dsurf = 1e-4 * 5e20 * std::exp(-301248 / 8.314 / _T[_qp]);
+      if (_gb_index == -1)
+      {
+        // Use the GB x10 to keep surface > gb
+        Dsurf = Dgb * 10;
+      }
+      else
+      {
+        // Using Zhou and Olander values in nm^2/s
+        // Then reduced by 1e-4 as per Ali's recent work
+        // E value is in J/molK so using ideal gas R instead of k_b
+        Dsurf = 1e-4 * 5e20 * std::exp(-301248 / 8.314 / _T[_qp]);
+      }
     }
     else
     {
