@@ -4,7 +4,7 @@
 # Created Date: Thursday April 4th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday April 4th 2024
+# Last Modified: Friday April 5th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -643,8 +643,8 @@
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
   # end_time = 1e6 #5e6 #0.006
-  num_steps = 25
-  steady_state_detection = true
+  num_steps = 60
+  # steady_state_detection = true
   # # From tonks ode input
   # automatic_scaling = true
   # compute_scaling_once = false
@@ -670,6 +670,7 @@
   perf_graph = false
   csv = true
   exodus = false
+  checkpoint = false
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
   # [csv]

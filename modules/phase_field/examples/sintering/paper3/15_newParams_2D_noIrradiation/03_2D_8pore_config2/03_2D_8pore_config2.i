@@ -4,7 +4,7 @@
 # Created Date: Saturday March 30th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Saturday March 30th 2024
+# Last Modified: Friday April 5th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -12,6 +12,7 @@
 #  Running this as the no irradiation case, for shape factor and to later
 #   compare irradiated cases to this
 #  Using new material properties too!
+#  Fixed the IC phi issue (added z 0 0 0), and set surface energy = gb
 ##############################################################################
 
 # f_dot = 0.0
@@ -108,7 +109,7 @@
     radii = '4548.11 5312.36 4711.77 5240.34 5026.54 5430.06 4389.2  4289.61'
     x_positions = '58015.35 61941.06 74432.15 45472.52 24616.72 18372.46 29933.71 82823.36'
     y_positions = '53348.45 28238.81 75444.65 74557.06 39339.06 78867.79 17592.7  52979.64'
-    z_positions = '0 0 0 0 0'
+    z_positions = '0 0 0 0 0 0 0 0'
     block = 0
   []
 []
@@ -225,12 +226,12 @@
     constant_expressions = '-5.87e-4 1.56 6.24151'
     expression = 'c*(a*T + b)'
   []
-  [surf_e_mat]
-    type = ParsedMaterial
-    property_name = surf_e_mat
-    material_property_names = 'gb_e_mat'
-    expression = '2*gb_e_mat'
-  []
+  # [surf_e_mat]
+  #   type = ParsedMaterial
+  #   property_name = surf_e_mat
+  #   material_property_names = 'gb_e_mat'
+  #   expression = '2*gb_e_mat'
+  # []
   # Diffusivity and mobilities
   [chiD]
     type = GrandPotentialIsoMaterial
@@ -266,7 +267,7 @@
     chemical_potential = w
     void_op = phi
     Temperature = T
-    surface_energy = surf_e_mat #19.7
+    surface_energy = gb_e_mat #surf_e_mat #19.7
     grainboundary_energy = gb_e_mat #9.86
     void_energy_coefficient = kv
     solid_energy_coefficient = ks
