@@ -87,6 +87,7 @@ protected:
   std::vector<NonlinearVariableName> _vals_name;
 
   // Test output for diffusivity
+  std::string _D_out_name;
   MaterialProperty<Real> & _D_out;
 
   // Toggle to for the iw based scaling

@@ -54,6 +54,8 @@ GrandPotentialIsoMaterial::validParams()
                         "Surface diffusion layer thickness"
                         "in units of problem (length -> nm)");
   params.addParam<bool>("iw_scaling", true, "Enable the iw based scaling for GB and Surface D.");
+  params.addParam<std::string>(
+      "D_out_name", "diffusivity", "Name for the D output to be saved to for debugging.");
   // ON OFF for D Scaling
   // MooseEnum iw_scaling("TRUE FALSE", "TRUE"); //ADDED
   // params.addParam<MooseEnum>("iw_scaling", iw_scaling,
@@ -92,14 +94,15 @@ GrandPotentialIsoMaterial::GrandPotentialIsoMaterial(const InputParameters & par
     _int_width(getParam<Real>("int_width")),
     _chi_name(getParam<MaterialPropertyName>("chi")),
     _chi(getMaterialProperty<Real>(_chi_name)),
-    _dchidc(getMaterialPropertyDerivative<Real>("chi", _c_name)),
+    _dchidc(getMaterialPropertyDerivative<Real>(_chi_name, _c_name)),
     _dchideta(_op_num),
     _dchiDdeta(_op_num),
     _GBMobility(getParam<Real>("GBMobility")),
     _GBmob0(getParam<Real>("GBmob0")),
     _Q(getParam<Real>("Q")),
     _vals_name(_op_num),
-    _D_out(declareProperty<Real>("diffusivity")),
+    _D_out_name(getParam<std::string>("D_out_name")),
+    _D_out(declareProperty<Real>(_D_out_name)),
     _iw_scaling_bool(getParam<bool>("iw_scaling"))
 // _iw_scaling(getParam<MooseEnum>("iw_scaling")) //ADDED
 {
