@@ -93,5 +93,8 @@ protected:
   // Toggle to for the iw based scaling
   bool _iw_scaling_bool;
 
+  // Toggle to use interstitial values for GB and surface D
+  bool _interstitials;
+
   // const MooseEnum _iw_scaling;
 };

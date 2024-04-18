@@ -56,6 +56,8 @@ GrandPotentialIsoMaterial::validParams()
   params.addParam<bool>("iw_scaling", true, "Enable the iw based scaling for GB and Surface D.");
   params.addParam<std::string>(
       "D_out_name", "diffusivity", "Name for the D output to be saved to for debugging.");
+  params.addParam<bool>(
+      "interstitials", false, "Build the diffusivity using UO2 interstitial GB/Surface D.");
   // ON OFF for D Scaling
   // MooseEnum iw_scaling("TRUE FALSE", "TRUE"); //ADDED
   // params.addParam<MooseEnum>("iw_scaling", iw_scaling,
@@ -103,7 +105,8 @@ GrandPotentialIsoMaterial::GrandPotentialIsoMaterial(const InputParameters & par
     _vals_name(_op_num),
     _D_out_name(getParam<std::string>("D_out_name")),
     _D_out(declareProperty<Real>(_D_out_name)),
-    _iw_scaling_bool(getParam<bool>("iw_scaling"))
+    _iw_scaling_bool(getParam<bool>("iw_scaling")),
+    _interstitials(getParam<bool>("interstitials"))
 // _iw_scaling(getParam<MooseEnum>("iw_scaling")) //ADDED
 {
   if (_op_num == 0)                          //
@@ -148,53 +151,87 @@ GrandPotentialIsoMaterial::computeProperties()
     Real hv = c * c * c * (10.0 + c * (-15.0 + c * 6.0));
     Real dhv = 30.0 * c * c * (c - 1.0) * (c - 1.0);
 
-    // Caclulate Diffusivities
+    // Caclulate Component Diffusivities
+
     // _Dbulk -- bulk diffusivity
     _Dbulk = _D0 * std::exp(-_Em / _kb / _T[_qp]); // * _b_index
     // Real dDbulkdc = 0;  //bulk diffusivity is independent of the void phase
+
+    // Declare the base GB and Surface D
+    Real Dgb = 0;
+    Real Dsurf = 0;
     // vapor transport diffusivity -- this is a poor approximation -- temporary
     // Possible it might cause convergence issues if its too low
     Real Dv = _Dbulk * _vap_index; // 1E-2;
 
-    // Dgb -- grain boundary diffusivity
-    // Real Dgb = _Dbulk * _gb_index;
-    Real Dgb = 0;
-    if (_gb_index == -1)
+    // Interstitial or default vacancies
+    if (_interstitials) // Interstitial DGB and Dsurf
     {
-      Dgb = 4.74E14 * std::exp(-2.72 / _kb / _T[_qp]);
-    }
-    else
-    {
-      Dgb = _Dbulk * _gb_index;
-    }
-
-    // Real Dgb = 4.74E14 * std::exp(-2.72 / _kb / _T[_qp]);  //Single line option without the
-    // gb_index toggle
-    // Real dDgbdc = 0;  //gb diffusivity is independent of the void phase so this
-    // was commented out
-
-    // Dsurf -- free surface diffusivity
-    Real Dsurf = 0;
-    if (_s_index == -1)
-    {
+      // Dgb -- grain boundary diffusivity
       if (_gb_index == -1)
+      {
+        // Sigma 9 interstitial diffusivity from IECreep (for now)
+        // since our vacancy is closer to 9 than 11 value
+        Dgb = 6.55e13 * std::exp(-2.72 / _kb / _T[_qp]);
+      }
+      else
+      {
+        Dgb = _Dbulk * _gb_index;
+      }
+
+      // Dsurf -- surface diffusivity
+      if (_s_index == -1)
       {
         // Use the GB x10 to keep surface > gb
         Dsurf = Dgb * 10;
       }
       else
       {
-        // Using Zhou and Olander values in nm^2/s
-        // Then reduced by 1e-4 as per Ali's recent work
-        // E value is in J/molK so using ideal gas R instead of k_b
-        Dsurf = 1e-4 * 5e20 * std::exp(-301248 / 8.314 / _T[_qp]);
+        Dsurf = _Dbulk * _s_index;
       }
     }
-    else
+    else // Vacancies (default)
     {
-      Dsurf = _Dbulk * _s_index;
+      // Dgb -- grain boundary diffusivity
+      // Real Dgb = _Dbulk * _gb_index;
+      if (_gb_index == -1)
+      {
+        Dgb = 4.74e14 * std::exp(-2.72 / _kb / _T[_qp]);
+      }
+      else
+      {
+        Dgb = _Dbulk * _gb_index;
+      }
+
+      // Real Dgb = 4.74E14 * std::exp(-2.72 / _kb / _T[_qp]);  //Single line option without the
+      // gb_index toggle
+      // Real dDgbdc = 0;  //gb diffusivity is independent of the void phase so this
+      // was commented out
+
+      // Dsurf -- free surface diffusivity
+
+      if (_s_index == -1)
+      {
+        if (_gb_index == -1)
+        {
+          // Use the GB x10 to keep surface > gb
+          Dsurf = Dgb * 10;
+        }
+        else
+        {
+          // Using Zhou and Olander values in nm^2/s
+          // Then reduced by 1e-4 as per Ali's recent work
+          // E value is in J/molK so using ideal gas R instead of k_b
+          Dsurf = 1e-4 * 5e20 * std::exp(-301248 / 8.314 / _T[_qp]);
+        }
+      }
+      else
+      {
+        Dsurf = _Dbulk * _s_index;
+      }
     }
 
+    // IW SCALING SECTION
     // Define the variables for interface diffusivities
     Real newDgb = 0.0;
     Real newDsurf = 0.0;
@@ -214,6 +251,7 @@ GrandPotentialIsoMaterial::computeProperties()
       newDsurf = Dsurf;
     }
 
+    // BUILD FINAL DIFFUSIVITY
     // Calculate the scalar D from the determined components
     // not final- check perpendicular boundary in tonks jupyter notebook for surface version?
     _D[_qp] = (1 - hgb - hsurf) * (hv * Dv + (1 - hv) * _Dbulk) + hgb * newDgb + hsurf * newDsurf;
