@@ -4,7 +4,7 @@
 # Created Date: Friday April 19th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday April 19th 2024
+# Last Modified: Saturday April 20th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -306,7 +306,7 @@
   #   equilibrium_vacancy_concentration = cv_eq
   # []
   [densificaiton]
-    type = ''
+    type = Gran
   []
   # Concentration is only meant for output
   [c]

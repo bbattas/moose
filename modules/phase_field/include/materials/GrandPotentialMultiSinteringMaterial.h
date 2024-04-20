@@ -15,6 +15,7 @@
 /**
  * This material calculates necessary parameters for the grand potential sintering model.
  * Especially those related to switching functions and thermodynamics.
+ * For irradiation case with vacancies and interstitials
  */
 class GrandPotentialMultiSinteringMaterial : public DerivativeMaterialInterface<Material>
 {
