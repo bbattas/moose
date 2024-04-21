@@ -1,24 +1,24 @@
-#include "GrandPotentialIsoMaterial.h"
+#include "GrandPotentialIsoIntMaterial.h"
 
 // libMesh includes
 #include "libmesh/quadrature.h"
 
-registerMooseObject("PhaseFieldApp", GrandPotentialIsoMaterial);
+registerMooseObject("PhaseFieldApp", GrandPotentialIsoIntMaterial);
 
 InputParameters
-GrandPotentialIsoMaterial::validParams()
+GrandPotentialIsoIntMaterial::validParams()
 {
   // InputParameters params = PolycrystalDiffusivityTensorBase::validParams();
   InputParameters params = Material::validParams();
-  params.addClassDescription("Diffusion and mobility parameters for grand potential model "
-                             "governing equations. Uses a scalar diffusivity");
+  params.addClassDescription("GrandPotentialIsoMaterial but for interstitials, "
+                             "so no thermo params. (copy of Iso at 4-21-24)");
   // From PCDTB
   params.addRequiredCoupledVarWithAutoBuild(
       "v", "var_name_base", "op_num", "Array of coupled variables"); //
   params.addCoupledVar("T", "Temperature variable in Kelvin");
   params.addRequiredParam<Real>(
-      "D0", "Diffusion prefactor for vacancies in m^2/s"); // paper value is nm2/s??????
-  params.addRequiredParam<Real>("Em", "Vacancy migration energy in eV");
+      "D0", "Diffusion prefactor for interstitials in m^2/s"); // paper value is nm2/s??????
+  params.addRequiredParam<Real>("Em", "Interstitial migration energy in eV");
   params.addRequiredCoupledVar("c", "Vacancy phase variable");
   params.addParam<Real>("surfindex",
                         -1.0,
@@ -36,15 +36,16 @@ GrandPotentialIsoMaterial::validParams()
   // from GPTensorMaterial
   params.addRequiredParam<Real>("int_width",
                                 "The interfacial width in the lengthscale of the problem");
-  params.addParam<MaterialPropertyName>("chi", "Coefficient to multiply by D");
-  params.addParam<Real>("GBmob0", 0.0, "Grain boundary mobility prefactor");
-  params.addRequiredParam<Real>("Q", "Grain boundary migration activation energy in eV");
-  params.addParam<Real>(
-      "GBMobility", -1, "GB mobility input that overrides the temperature dependent calculation");
-  params.addParam<std::string>("f_name", "chiD", "Name for the mobility material property");
+  params.addParam<MaterialPropertyName>("chi", "chii", "Coefficient to multiply by D");
+  // params.addParam<Real>("GBmob0", 0.0, "Grain boundary mobility prefactor");
+  // params.addRequiredParam<Real>("Q", "Grain boundary migration activation energy in eV");
+  // params.addParam<Real>(
+  //     "GBMobility", -1, "GB mobility input that overrides the temperature dependent
+  //     calculation");
+  params.addParam<std::string>("f_name", "chiiD", "Name for the mobility material property");
   // params.addRequiredParam<MaterialPropertyName>("surface_energy", "Surface energy of material");
-  params.addParam<std::string>("solid_mobility", "L", "Name of grain mobility for solid phase");
-  params.addParam<std::string>("void_mobility", "Lv", "Name of void phase mobility");
+  // params.addParam<std::string>("solid_mobility", "L", "Name of grain mobility for solid phase");
+  // params.addParam<std::string>("void_mobility", "Lv", "Name of void phase mobility");
   params.addParam<Real>("GBwidth",
                         1.0,
                         "Real grain boundary width in units"
@@ -55,7 +56,7 @@ GrandPotentialIsoMaterial::validParams()
                         "in units of problem (length -> nm)");
   params.addParam<bool>("iw_scaling", true, "Enable the iw based scaling for GB and Surface D.");
   params.addParam<std::string>(
-      "D_out_name", "diffusivity", "Name for the D output to be saved to for debugging.");
+      "D_out_name", "diffusivity_int", "Name for the D output to be saved to for debugging.");
   // params.addParam<bool>(
   //     "interstitials", false, "Build the diffusivity using UO2 interstitial GB/Surface D.");
   // ON OFF for D Scaling
@@ -65,15 +66,15 @@ GrandPotentialIsoMaterial::validParams()
   return params;
 }
 
-GrandPotentialIsoMaterial::GrandPotentialIsoMaterial(const InputParameters & parameters)
+GrandPotentialIsoIntMaterial::GrandPotentialIsoIntMaterial(const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     //  : PolycrystalDiffusivityTensorBase(parameters),
     // From PCDTB  (all but grad_c)
     _T(coupledValue("T")),
     _c(coupledValue("c")),
     _c_name(getVar("c", 0)->name()),
-    _D(declareProperty<Real>("D")),
-    _dDdc(declarePropertyDerivative<Real>("D", _c_name)),
+    _Di(declareProperty<Real>("D_int")),
+    _dDidc(declarePropertyDerivative<Real>("D_int", _c_name)),
     _D0(getParam<Real>("D0")),
     _Em(getParam<Real>("Em")),
     _s_index(getParam<Real>("surfindex")),
@@ -86,10 +87,10 @@ GrandPotentialIsoMaterial::GrandPotentialIsoMaterial(const InputParameters & par
     _D_name(getParam<std::string>("f_name")),
     _chiD(declareProperty<Real>(_D_name)),
     _dchiDdc(declarePropertyDerivative<Real>(_D_name, _c_name)),
-    _Ls_name(getParam<std::string>("solid_mobility")),
-    _Ls(declareProperty<Real>(_Ls_name)),
-    _Lv_name(getParam<std::string>("void_mobility")),
-    _Lv(declareProperty<Real>(_Lv_name)),
+    // _Ls_name(getParam<std::string>("solid_mobility")),
+    // _Ls(declareProperty<Real>(_Ls_name)),
+    // _Lv_name(getParam<std::string>("void_mobility")),
+    // _Lv(declareProperty<Real>(_Lv_name)),
     _GBwidth(getParam<Real>("GBwidth")),
     _surf_thickness(getParam<Real>("surf_thickness")),
     // _sigma_s(getMaterialProperty<Real>("surface_energy")),
@@ -99,9 +100,9 @@ GrandPotentialIsoMaterial::GrandPotentialIsoMaterial(const InputParameters & par
     _dchidc(getMaterialPropertyDerivative<Real>(_chi_name, _c_name)),
     _dchideta(_op_num),
     _dchiDdeta(_op_num),
-    _GBMobility(getParam<Real>("GBMobility")),
-    _GBmob0(getParam<Real>("GBmob0")),
-    _Q(getParam<Real>("Q")),
+    // _GBMobility(getParam<Real>("GBMobility")),
+    // _GBmob0(getParam<Real>("GBmob0")),
+    // _Q(getParam<Real>("Q")),
     _vals_name(_op_num),
     _D_out_name(getParam<std::string>("D_out_name")),
     _D_out(declareProperty<Real>(_D_out_name)),
@@ -123,7 +124,7 @@ GrandPotentialIsoMaterial::GrandPotentialIsoMaterial(const InputParameters & par
 }
 
 void
-GrandPotentialIsoMaterial::computeProperties()
+GrandPotentialIsoIntMaterial::computeProperties()
 {
   for (_qp = 0; _qp < _qrule->n_points(); ++_qp)
   {
@@ -164,38 +165,24 @@ GrandPotentialIsoMaterial::computeProperties()
     // Possible it might cause convergence issues if its too low
     Real Dv = _Dbulk * _vap_index; // 1E-2;
 
+    // Interstitial values only
     // Dgb -- grain boundary diffusivity
-    // Real Dgb = _Dbulk * _gb_index;
     if (_gb_index == -1)
     {
-      Dgb = 4.74e14 * std::exp(-2.72 / _kb / _T[_qp]);
+      // Sigma 9 interstitial diffusivity from IECreep (for now)
+      // since our vacancy is closer to 9 than 11 value
+      Dgb = 6.55e13 * std::exp(-2.72 / _kb / _T[_qp]);
     }
     else
     {
       Dgb = _Dbulk * _gb_index;
     }
 
-    // Real Dgb = 4.74E14 * std::exp(-2.72 / _kb / _T[_qp]);  //Single line option without the
-    // gb_index toggle
-    // Real dDgbdc = 0;  //gb diffusivity is independent of the void phase so this
-    // was commented out
-
-    // Dsurf -- free surface diffusivity
-
+    // Dsurf -- surface diffusivity
     if (_s_index == -1)
     {
-      if (_gb_index == -1)
-      {
-        // Use the GB x10 to keep surface > gb
-        Dsurf = Dgb * 10;
-      }
-      else
-      {
-        // Using Zhou and Olander values in nm^2/s
-        // Then reduced by 1e-4 as per Ali's recent work
-        // E value is in J/molK so using ideal gas R instead of k_b
-        Dsurf = 1e-4 * 5e20 * std::exp(-301248 / 8.314 / _T[_qp]);
-      }
+      // Use the GB x10 to keep surface > gb
+      Dsurf = Dgb * 10;
     }
     else
     {
@@ -225,27 +212,19 @@ GrandPotentialIsoMaterial::computeProperties()
     // BUILD FINAL DIFFUSIVITY
     // Calculate the scalar D from the determined components
     // not final- check perpendicular boundary in tonks jupyter notebook for surface version?
-    _D[_qp] = (1 - hgb - hsurf) * (hv * Dv + (1 - hv) * _Dbulk) + hgb * newDgb + hsurf * newDsurf;
-    _dDdc[_qp] = (1 - hgb - hsurf) * (dhv * Dv - dhv * _Dbulk) -
-                 dhsurfdc * (hv * Dv + (1 - hv) * _Dbulk) + dhsurfdc * newDsurf;
+    _Di[_qp] = (1 - hgb - hsurf) * (hv * Dv + (1 - hv) * _Dbulk) + hgb * newDgb + hsurf * newDsurf;
+    _dDidc[_qp] = (1 - hgb - hsurf) * (dhv * Dv - dhv * _Dbulk) -
+                  dhsurfdc * (hv * Dv + (1 - hv) * _Dbulk) + dhsurfdc * newDsurf;
 
     // Chemical susceptibility * Diffusivity
-    _chiD[_qp] = _D[_qp] * _chi[_qp];
-    _dchiDdc[_qp] = _dDdc[_qp] * _chi[_qp] + _D[_qp] * _dchidc[_qp];
+    _chiD[_qp] = _Di[_qp] * _chi[_qp];
+    _dchiDdc[_qp] = _dDidc[_qp] * _chi[_qp] + _Di[_qp] * _dchidc[_qp];
     for (unsigned int i = 0; i < _op_num; ++i)
-      (*_dchiDdeta[i])[_qp] = _D[_qp] * (*_dchideta[i])[_qp];
+      (*_dchiDdeta[i])[_qp] = _Di[_qp] * (*_dchideta[i])[_qp];
 
     // _Dmag[_qp] = _chiD[_qp].norm();
 
-    Real GBmob;
-    if (_GBMobility < 0)
-      GBmob = _GBmob0 * std::exp(-_Q / (_kb * _T[_qp]));
-    else
-      GBmob = _GBMobility;
-
-    _Ls[_qp] = 4.0 / 3.0 * GBmob / _int_width;
-    _Lv[_qp] = 40 * _Ls[_qp];
     // Test output for Diffusivity
-    _D_out[_qp] = _D[_qp];
+    _D_out[_qp] = _Di[_qp];
   }
 }

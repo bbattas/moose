@@ -1,16 +1,16 @@
 ##############################################################################
-# File: 01_first_test.i
-# File Location: /examples/sintering/paper3/16_newIrradiation_testing/01_first_test
-# Created Date: Friday April 19th 2024
+# File: 02_vacOnly_reference.i
+# File Location: /examples/sintering/paper3/16_newIrradiation_testing/02_vacOnly_reference
+# Created Date: Sunday April 21st 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Sunday April 21st 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  First test input, basically just checking if the material(s) work
-#  GPMultiSinteringMaterial
-#  new additions to GPIsoMat
+#  The reference for this input using only the vacancy version of things
+#   so i can check how things like D and w compare
+#
 #
 ##############################################################################
 
@@ -40,8 +40,6 @@
 
 [Variables]
   [wvac]
-  []
-  [wint]
   []
   [phi]
   []
@@ -211,20 +209,20 @@
     material_property_names = 'ksu'
     expression = '10*ksu'
   []
-  [ksi]
-    type = ParsedMaterial
-    property_name = ksi
-    coupled_variables = 'T'
-    constant_names = 'a b'
-    constant_expressions = '-0.0025 157.16'
-    expression = 'a*T + b'
-  []
-  [kvi]
-    type = ParsedMaterial
-    property_name = kvi
-    material_property_names = 'ksi'
-    expression = '10*ksi'
-  []
+  # [ksi]
+  #   type = ParsedMaterial
+  #   property_name = ksi
+  #   coupled_variables = 'T'
+  #   constant_names = 'a b'
+  #   constant_expressions = '-0.0025 157.16'
+  #   expression = 'a*T + b'
+  # []
+  # [kvi]
+  #   type = ParsedMaterial
+  #   property_name = kvi
+  #   material_property_names = 'ksi'
+  #   expression = '10*ksi'
+  # []
   # New GB and Surface energy as a function of T
   [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
@@ -243,12 +241,12 @@
   #   outputs = nemesis
   # []
   # Diffusivity and mobilities
-  [chiuD]
+  [chiD]
     type = GrandPotentialIsoMaterial
-    f_name = chiuD
+    f_name = chiD
     solid_mobility = L #CHANGED FROM L
     void_mobility = Lv
-    chi = chiu
+    chi = chi
     c = phi
     T = T
     D0 = 8.33e9
@@ -263,22 +261,22 @@
     iw_scaling = true
     D_out_name = vac_diffus
   []
-  [chiiD]
-    type = GrandPotentialIsoIntMaterial
-    f_name = chiiD
-    chi = chii
-    c = phi
-    T = T
-    D0 = 8.33e9
-    Em = 3.608
-    bulkindex = 1
-    gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = -1 #1e11
-    GBwidth = 1.0
-    surf_thickness = 1.0 #0.5
-    iw_scaling = true
-    D_out_name = int_diffus
-  []
+  # [chiiD]
+  #   type = GrandPotentialIsoIntMaterial
+  #   f_name = chiiD
+  #   chi = chii
+  #   c = phi
+  #   T = T
+  #   D0 = 8.33e9
+  #   Em = 3.608
+  #   bulkindex = 1
+  #   gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
+  #   surfindex = -1 #1e11
+  #   GBwidth = 1.0
+  #   surf_thickness = 1.0 #0.5
+  #   iw_scaling = true
+  #   D_out_name = int_diffus
+  # []
   [cv_eq]
     type = UO2CvMaterial
     property_name = cv_eq
@@ -289,53 +287,53 @@
                  ../../../gb_segregation_csv/sigma11_se.csv'
     outputs = 'none'
   []
-  # [sintering]
-  #   type = GrandPotentialSinteringMaterial
-  #   chemical_potential = w
-  #   void_op = phi
-  #   Temperature = T
-  #   surface_energy = gb_e_mat #surf_e_mat #19.7
-  #   grainboundary_energy = gb_e_mat #9.86
-  #   void_energy_coefficient = kv
-  #   solid_energy_coefficient = ks
-  #   solid_energy_model = PARABOLIC
-  #   equilibrium_vacancy_concentration = cv_eq
-  # []
-  [densificaiton]
-    type = GrandPotentialMultiSinteringMaterial
-    chemical_potential_vac = wvac
-    chemical_potential_int = wint
+  [sintering]
+    type = GrandPotentialSinteringMaterial
+    chemical_potential = wvac
     void_op = phi
     Temperature = T
     surface_energy = gb_e_mat #surf_e_mat #19.7
     grainboundary_energy = gb_e_mat #9.86
-    vac_solid_energy_coefficient = ksu
-    int_solid_energy_coefficient = ksi
-    vac_void_energy_coefficient = kvu
-    int_void_energy_coefficient = kvi
-    equilibrium_vacancy_concentration = cv_eq
-    equilibrium_interstitial_concentration = cv_eq
+    void_energy_coefficient = kvu
+    solid_energy_coefficient = ksu
     solid_energy_model = PARABOLIC
+    equilibrium_vacancy_concentration = cv_eq
   []
+  # [densificaiton]
+  #   type = GrandPotentialMultiSinteringMaterial
+  #   chemical_potential_vac = wvac
+  #   chemical_potential_int = wint
+  #   void_op = phi
+  #   Temperature = T
+  #   surface_energy = gb_e_mat #surf_e_mat #19.7
+  #   grainboundary_energy = gb_e_mat #9.86
+  #   vac_solid_energy_coefficient = ksu
+  #   int_solid_energy_coefficient = ksi
+  #   vac_void_energy_coefficient = kvu
+  #   int_void_energy_coefficient = kvi
+  #   equilibrium_vacancy_concentration = cv_eq
+  #   equilibrium_interstitial_concentration = cv_eq
+  #   solid_energy_model = PARABOLIC
+  # []
   # Concentration is only meant for output
   [cvac]
     type = ParsedMaterial
     property_name = cvac
-    material_property_names = 'hs rhosu hv rhovu'
+    material_property_names = 'hs rhos hv rhov'
     constant_names = 'Va'
     constant_expressions = '0.04092'
-    expression = 'Va*(hs*rhosu + hv*rhovu)'
-    outputs = nemesis#none #exodus
+    expression = 'Va*(hs*rhos + hv*rhov)'
+    outputs = nemesis #none #exodus
   []
-  [cint]
-    type = ParsedMaterial
-    property_name = cint
-    material_property_names = 'hs rhosi hv rhovi'
-    constant_names = 'Va'
-    constant_expressions = '0.04092'
-    expression = 'Va*(hs*rhosi + hv*rhovi)'
-    outputs = nemesis#none #exodus
-  []
+  # [cint]
+  #   type = ParsedMaterial
+  #   property_name = cint
+  #   material_property_names = 'hs rhosi hv rhovi'
+  #   constant_names = 'Va'
+  #   constant_expressions = '0.04092'
+  #   expression = 'Va*(hs*rhosi + hv*rhovi)'
+  #   outputs = nemesis#none #exodus
+  # []
   [L_mat]
     type = DerivativeParsedMaterial
     property_name = L_mat
@@ -351,18 +349,18 @@
     type = DerivativeParsedMaterial
     property_name = combined_rho_vac
     coupled_variables = 'wvac phi'
-    material_property_names = 'rhovu rhosu hv(phi)'
-    expression = 'hv*rhovu + (1-hv)*rhosu' #'(1-hv)*rhos' #
+    material_property_names = 'rhov rhos hv(phi)'
+    expression = 'hv*rhov + (1-hv)*rhos' #'(1-hv)*rhos' #
     outputs = nemesis #'nemesis'
   []
-  [combined_rho_int]
-    type = DerivativeParsedMaterial
-    property_name = combined_rho_int
-    coupled_variables = 'wint phi'
-    material_property_names = 'rhovi rhosi hv(phi)'
-    expression = 'hv*rhovi + (1-hv)*rhosi' #'(1-hv)*rhos' #
-    outputs = nemesis #'nemesis'
-  []
+  # [combined_rho_int]
+  #   type = DerivativeParsedMaterial
+  #   property_name = combined_rho_int
+  #   coupled_variables = 'wint phi'
+  #   material_property_names = 'rhovi rhosi hv(phi)'
+  #   expression = 'hv*rhovi + (1-hv)*rhosi' #'(1-hv)*rhos' #
+  #   outputs = nemesis #'nemesis'
+  # []
   [dv_mat]
     type = ParsedMaterial
     property_name = dv_mat
@@ -370,25 +368,25 @@
     expression = 'vac_diffus'
     outputs = nemesis
   []
-  [di_mat]
-    type = ParsedMaterial
-    property_name = di_mat
-    material_property_names = 'int_diffus'
-    expression = 'int_diffus'
-    outputs = nemesis
-  []
+  # [di_mat]
+  #   type = ParsedMaterial
+  #   property_name = di_mat
+  #   material_property_names = 'int_diffus'
+  #   expression = 'int_diffus'
+  #   outputs = nemesis
+  # []
 []
 
 [Modules]
   [PhaseField]
     [GrandPotential]
       switching_function_names = 'hv hs'
-      anisotropic = 'false false'
+      anisotropic = 'false'
 
-      chemical_potentials = 'wvac wint'
-      mobilities = 'chiuD chiiD'
-      susceptibilities = 'chiu chii'
-      free_energies_w = 'rhovu rhosu rhovi rhosi'
+      chemical_potentials = 'wvac'
+      mobilities = 'chiD'
+      susceptibilities = 'chi'
+      free_energies_w = 'rhov rhos'
 
       gamma_gr = gamma
       mobility_name_gr = L_mat
@@ -695,7 +693,7 @@
   [SMP] #slow but good, very slow for 3D (might be another option then)
     type = SMP
     # full = true
-    coupled_groups = 'wvac,wint,phi'
+    coupled_groups = 'wvac,phi'
   []
 []
 
@@ -716,7 +714,7 @@
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
   # end_time = 1e6 #5e6 #0.006
-  num_steps = 2
+  num_steps = 50
   # steady_state_detection = true
   # # From tonks ode input
   # automatic_scaling = true

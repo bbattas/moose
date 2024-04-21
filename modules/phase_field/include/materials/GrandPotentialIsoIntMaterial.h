@@ -9,15 +9,15 @@
 /**
  * Calculates mobilities for grand potential model. The potential mobility (\chi*D)
  * is a scalar, while the Allen Cahn mobilities for the solid and void phases are
- * also scalars.
+ * also scalars.  This is the interstitial version of GPIsoMat (4-21-24)
  */
 // class GrandPotentialIsoMaterial : public PolycrystalDiffusivityTensorBase
-class GrandPotentialIsoMaterial : public DerivativeMaterialInterface<Material>
+class GrandPotentialIsoIntMaterial : public DerivativeMaterialInterface<Material>
 {
 public:
   static InputParameters validParams();
 
-  GrandPotentialIsoMaterial(const InputParameters & parameters);
+  GrandPotentialIsoIntMaterial(const InputParameters & parameters);
 
   //  virtual void computeProperties() override;
 
@@ -29,8 +29,8 @@ protected:
   const VariableValue & _c;
   VariableName _c_name;
 
-  MaterialProperty<Real> & _D;
-  MaterialProperty<Real> & _dDdc;
+  MaterialProperty<Real> & _Di;
+  MaterialProperty<Real> & _dDidc;
 
   Real _D0;
   Real _Em;
@@ -49,13 +49,13 @@ protected:
   MaterialProperty<Real> & _chiD;
   MaterialProperty<Real> & _dchiDdc;
 
-  /// grain boundary mobility
-  std::string _Ls_name;
-  MaterialProperty<Real> & _Ls;
+  // /// grain boundary mobility
+  // std::string _Ls_name;
+  // MaterialProperty<Real> & _Ls;
 
-  /// void mobility
-  std::string _Lv_name;
-  MaterialProperty<Real> & _Lv;
+  // /// void mobility
+  // std::string _Lv_name;
+  // MaterialProperty<Real> & _Lv;
 
   // Actual grain boundary width
   Real _GBwidth;
@@ -79,9 +79,9 @@ protected:
   std::vector<const MaterialProperty<Real> *> _dchideta;
   std::vector<MaterialProperty<Real> *> _dchiDdeta;
 
-  Real _GBMobility;
-  Real _GBmob0;
-  const Real _Q;
+  // Real _GBMobility;
+  // Real _GBmob0;
+  // const Real _Q;
 
   /// solid phase order parameters
   std::vector<NonlinearVariableName> _vals_name;
