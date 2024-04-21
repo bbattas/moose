@@ -306,17 +306,39 @@
   #   equilibrium_vacancy_concentration = cv_eq
   # []
   [densificaiton]
-    type = Gran
+    type = GrandPotentialMultiSinteringMaterial
+    chemical_potential_vac = wvac
+    chemical_potential_int = wint
+    void_op = phi
+    Temperature = T
+    surface_energy = gb_e_mat #surf_e_mat #19.7
+    grainboundary_energy = gb_e_mat #9.86
+    vac_solid_energy_coefficient = ksu
+    int_solid_energy_coefficient = ksi
+    vac_void_energy_coefficient = kvu
+    int_void_energy_coefficient = kvi
+    equilibrium_vacancy_concentration = cv_eq
+    equilibrium_interstitial_concentration = cv_eq
+    solid_energy_model = PARABOLIC
   []
   # Concentration is only meant for output
-  [c]
+  [cvac]
     type = ParsedMaterial
-    property_name = c
-    material_property_names = 'hs rhos hv rhov'
+    property_name = cvac
+    material_property_names = 'hs rhosu hv rhovu'
     constant_names = 'Va'
     constant_expressions = '0.04092'
-    expression = 'Va*(hs*rhos + hv*rhov)'
-    outputs = none #exodus
+    expression = 'Va*(hs*rhosu + hv*rhovu)'
+    outputs = nemesis#none #exodus
+  []
+  [cint]
+    type = ParsedMaterial
+    property_name = cint
+    material_property_names = 'hs rhosi hv rhovi'
+    constant_names = 'Va'
+    constant_expressions = '0.04092'
+    expression = 'Va*(hs*rhosi + hv*rhovi)'
+    outputs = nemesis#none #exodus
   []
   [L_mat]
     type = DerivativeParsedMaterial
@@ -365,12 +387,12 @@
   [PhaseField]
     [GrandPotential]
       switching_function_names = 'hv hs'
-      anisotropic = 'false'
+      anisotropic = 'false false'
 
-      chemical_potentials = 'w'
-      mobilities = 'chiD'
-      susceptibilities = 'chi'
-      free_energies_w = 'rhov rhos'
+      chemical_potentials = 'wvac wint'
+      mobilities = 'chiuD chiiD'
+      susceptibilities = 'chiu chii'
+      free_energies_w = 'rhovu rhosu rhovi rhosi'
 
       gamma_gr = gamma
       mobility_name_gr = L_mat
@@ -513,9 +535,9 @@
     type = NumDOFs
     outputs = csv
   []
-  [c_total]
+  [c_total_vac]
     type = ElementIntegralMaterialProperty
-    mat_prop = c
+    mat_prop = cvac
     outputs = csv
   []
   [nonlinear]
@@ -677,7 +699,7 @@
   [SMP] #slow but good, very slow for 3D (might be another option then)
     type = SMP
     # full = true
-    coupled_groups = 'w,phi'
+    coupled_groups = 'wvac,wint,phi'
   []
 []
 
@@ -698,7 +720,7 @@
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
   # end_time = 1e6 #5e6 #0.006
-  num_steps = 60
+  num_steps = 2
   # steady_state_detection = true
   # # From tonks ode input
   # automatic_scaling = true

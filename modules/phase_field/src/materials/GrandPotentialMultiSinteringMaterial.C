@@ -23,11 +23,10 @@ GrandPotentialMultiSinteringMaterial::validParams()
       "values. Hard coded to only work for 2 mu and the parabolic solution.");
   params.addRequiredCoupledVarWithAutoBuild(
       "etas", "var_name_base", "op_num", "Array of order parameters that describe solid phase");
-  params.addRequiredCoupledVar(
-      "chemical_potentials",
-      "The name of the vacancy and interstitial chemical potential variables");
-  // params.addRequiredCoupledVar("chemical_potential_int",
-  //                              "The name of the interstitial chemical potential variable");
+  params.addRequiredCoupledVar("chemical_potential_vac",
+                               "The name of the vacancy chemical potential variable");
+  params.addRequiredCoupledVar("chemical_potential_int",
+                               "The name of the interstitial chemical potential variable");
   params.addRequiredCoupledVar("void_op", "The name of the void phase order parameter");
   params.addRequiredCoupledVar("Temperature", "Name of the temperature variable with units of K");
   // Parabolic coefficients
