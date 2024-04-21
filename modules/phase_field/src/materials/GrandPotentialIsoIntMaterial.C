@@ -171,7 +171,7 @@ GrandPotentialIsoIntMaterial::computeProperties()
     {
       // Sigma 9 interstitial diffusivity from IECreep (for now)
       // since our vacancy is closer to 9 than 11 value
-      Dgb = 6.55e13 * std::exp(-2.72 / _kb / _T[_qp]);
+      Dgb = 6.55e13 * std::exp(-2.30 / _kb / _T[_qp]);
     }
     else
     {
