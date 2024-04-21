@@ -716,7 +716,7 @@
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
   # end_time = 1e6 #5e6 #0.006
-  num_steps = 2
+  num_steps = 10
   # steady_state_detection = true
   # # From tonks ode input
   # automatic_scaling = true
