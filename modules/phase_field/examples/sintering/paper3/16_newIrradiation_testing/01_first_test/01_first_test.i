@@ -4,7 +4,7 @@
 # Created Date: Friday April 19th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Saturday April 20th 2024
+# Last Modified: Sunday April 21st 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -235,6 +235,9 @@
     expression = 'c*(a*T + b)'
     outputs = nemesis
   []
+  [newtestmat]
+    type =
+  []
   # [surf_e_mat]
   #   type = ParsedMaterial
   #   property_name = surf_e_mat
@@ -263,26 +266,26 @@
     iw_scaling = true
     D_out_name = vac_diffus
   []
-  [chiiD]
-    type = GrandPotentialIsoMaterial
-    f_name = chiiD
-    solid_mobility = L #CHANGED FROM L
-    void_mobility = Lv
-    chi = chii
-    c = phi
-    T = T
-    D0 = 8.33e9
-    GBmob0 = 3.42828e10 # nm4/eVs #1.4759e9 # new value from Tonks/PC/Jake GG Paper
-    Q = 3.01 #2.77 # new value from Tonks/PC/Jake GG Paper
-    Em = 3.608
-    bulkindex = 1
-    gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = -1 #1e11
-    GBwidth = 1.0
-    surf_thickness = 1.0 #0.5
-    iw_scaling = true
-    D_out_name = int_diffus
-  []
+  # [chiiD]
+  #   type = GrandPotentialIsoMaterial
+  #   f_name = chiiD
+  #   solid_mobility = L #CHANGED FROM L
+  #   void_mobility = Lv
+  #   chi = chii
+  #   c = phi
+  #   T = T
+  #   D0 = 8.33e9
+  #   GBmob0 = 3.42828e10 # nm4/eVs #1.4759e9 # new value from Tonks/PC/Jake GG Paper
+  #   Q = 3.01 #2.77 # new value from Tonks/PC/Jake GG Paper
+  #   Em = 3.608
+  #   bulkindex = 1
+  #   gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
+  #   surfindex = -1 #1e11
+  #   GBwidth = 1.0
+  #   surf_thickness = 1.0 #0.5
+  #   iw_scaling = true
+  #   D_out_name = int_diffus
+  # []
   [cv_eq]
     type = UO2CvMaterial
     property_name = cv_eq
