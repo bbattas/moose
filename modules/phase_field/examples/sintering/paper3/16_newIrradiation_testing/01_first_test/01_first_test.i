@@ -4,7 +4,7 @@
 # Created Date: Friday April 19th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Sunday April 21st 2024
+# Last Modified: Monday April 22nd 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -42,6 +42,7 @@
   [wvac]
   []
   [wint]
+    scaling = 1e12 #1e8 #1e10
   []
   [phi]
   []
@@ -187,7 +188,7 @@
 [Functions]
   [f_T]
     type = ConstantFunction
-    value = 1600
+    value = 1200#1600
   []
   [f_OU]
     type = ConstantFunction
@@ -197,34 +198,39 @@
 
 [Materials]
   # Free energy coefficients for parabolic curves
-  [ksu]
-    type = ParsedMaterial
-    property_name = ksu
-    coupled_variables = 'T'
-    constant_names = 'a b'
-    constant_expressions = '-0.0025 157.16'
-    expression = 'a*T + b'
+  [k_constants]
+    type = GenericConstantMaterial
+    prop_names = 'ksu kvu ksi kvi'
+    prop_values = '26.8 26.8 3.6e21 3.6e21'#'26.8 26.8 3.6e21 3.6e21'#154.16 154.16
   []
-  [kvu]
-    type = ParsedMaterial
-    property_name = kvu
-    material_property_names = 'ksu'
-    expression = '10*ksu'
-  []
-  [ksi]
-    type = ParsedMaterial
-    property_name = ksi
-    coupled_variables = 'T'
-    constant_names = 'a b'
-    constant_expressions = '-0.0025 157.16'
-    expression = 'a*T + b'
-  []
-  [kvi]
-    type = ParsedMaterial
-    property_name = kvi
-    material_property_names = 'ksi'
-    expression = '10*ksi'
-  []
+  # [ksu]
+  #   type = ParsedMaterial
+  #   property_name = ksu
+  #   coupled_variables = 'T'
+  #   constant_names = 'a b'
+  #   constant_expressions = '-0.0025 157.16'
+  #   expression = 'a*T + b'
+  # []
+  # [kvu]
+  #   type = ParsedMaterial
+  #   property_name = kvu
+  #   material_property_names = 'ksu'
+  #   expression = '10*ksu'
+  # []
+  # [ksi]
+  #   type = ParsedMaterial
+  #   property_name = ksi
+  #   coupled_variables = 'T'
+  #   constant_names = 'a b'
+  #   constant_expressions = '-0.0025 157.16'
+  #   expression = 'a*T + b'
+  # []
+  # [kvi]
+  #   type = ParsedMaterial
+  #   property_name = kvi
+  #   material_property_names = 'ksi'
+  #   expression = '10*ksi'
+  # []
   # New GB and Surface energy as a function of T
   [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
@@ -287,7 +293,19 @@
     OU = OU
     gb_se_csv = '../../../gb_segregation_csv/sigma9_se.csv
                  ../../../gb_segregation_csv/sigma11_se.csv'
-    outputs = 'none'
+    outputs = 'nemesis'
+  []
+  [ci_eq]
+    type = DerivativeParsedMaterial
+    property_name = ci_eq
+    coupled_variables = 'gr0 gr1 gr2 phi T wint'
+    # material_property_names = 'rhovi rhosi hv(phi)'
+    constant_names = 'cb cgb'
+    constant_expressions = '4e-30 2e-12'
+    #ballparked for Efi_b=7eV and from the plot of sigma9 in IECreep
+    expression = 'lam:=gr0^2 + gr1^2 + gr2^2 + phi^2;
+                  cb + 4 * (cgb - cb) * (1-lam)^2'
+    outputs = nemesis #'nemesis'
   []
   # [sintering]
   #   type = GrandPotentialSinteringMaterial
@@ -314,7 +332,7 @@
     vac_void_energy_coefficient = kvu
     int_void_energy_coefficient = kvi
     equilibrium_vacancy_concentration = cv_eq
-    equilibrium_interstitial_concentration = cv_eq
+    equilibrium_interstitial_concentration = ci_eq
     solid_energy_model = PARABOLIC
   []
   # Concentration is only meant for output
@@ -598,23 +616,24 @@
     variable = phi
     outputs = csv
   []
-  # [total_rhoi]
-  #   # type = ElementIntegralMaterialProperty
-  #   # mat_prop = rho_i_dpm
-  #   type = ElementIntegralVariablePostprocessor
-  #   variable = rhoi_aux
-  #   outputs = csv
-  # []
-  # [total_rhoi_scalar]
-  #   # type = ElementIntegralMaterialProperty
-  #   # mat_prop = rho_i_dpm
-  #   type = ElementIntegralVariablePostprocessor
-  #   variable = rhoi_scalar
-  #   outputs = csv
-  # []
+  [avg_rhov]
+    type = ElementAverageMaterialProperty
+    mat_prop = combined_rho_vac
+    outputs = csv
+  []
+  [avg_rhoi]
+    type = ElementAverageMaterialProperty
+    mat_prop = combined_rho_int
+    outputs = csv
+  []
   [total_rhov]
     type = ElementIntegralMaterialProperty
     mat_prop = combined_rho_vac
+    outputs = csv
+  []
+  [total_rhoi]
+    type = ElementIntegralMaterialProperty
+    mat_prop = combined_rho_int
     outputs = csv
   []
   # # Scalar Kernel
@@ -715,8 +734,8 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  # end_time = 1e6 #5e6 #0.006
-  num_steps = 10
+  end_time = 200000#1e6 #5e6 #0.006
+  # num_steps = 20
   # steady_state_detection = true
   # # From tonks ode input
   # automatic_scaling = true
@@ -765,3 +784,6 @@
   # []
 []
 
+[Debug]
+  show_var_residual_norms = true
+[]
