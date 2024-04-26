@@ -1,21 +1,21 @@
 ##############################################################################
-# File: 03_noIrradiation.i
-# File Location: /examples/sintering/paper3/16_newIrradiation_testing/03_noIrradiation
+# File: 04_fr1e-8_allKernels.i
+# File Location: /examples/sintering/paper3/16_newIrradiation_testing/04_fr1e-8_allKernels
 # Created Date: Wednesday April 24th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday April 25th 2024
+# Last Modified: Friday April 26th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Test input for all the new stuff without the irradiation kernels
+#  Test input for all the new stuff WITH the irradiation kernels as per ians stuff
 #  Parabolic constants are ians old values from irradiation (26.8 3.6e21)
 #  Concentrations for int manually taken from sigma 9 plot in IECreep Paper
 #   and bulk is using ians efv of 6.9 eV
-#  vacancy conc is using my material still (similar to 11/9 avg)
+#  vacancy conc is using my material bulk with the irradiated gb 9 value
 ##############################################################################
 
-# f_dot = 0.0
+f_dot = 1e-8
 
 [Mesh]
   [ebsd_mesh]
@@ -46,15 +46,9 @@
     scaling = 1e12 #1e8 #1e10
   []
   [phi]
-    # scaling = 10
   []
   [PolycrystalVariables]
   []
-  # [rhoi_scalar]
-  #   family = SCALAR
-  #   order = FIRST
-  #   initial_condition = 0.0001 #0.05 #0.01
-  # []
 []
 
 [AuxVariables]
@@ -84,8 +78,6 @@
     family = MONOMIAL
     order = CONSTANT
   []
-  # [rhoi_aux]
-  # []
 []
 
 [ICs]
@@ -277,8 +269,8 @@
     chi = chii
     c = phi
     T = T
-    D0 = 8.33e9 #1e13 #Ian's irradiation paper (Matzke 1987)
-    Em = 3.608 #2 #Ian's irradiation paper (Matzke 1987)
+    D0 = 1e13 #Ian's irradiation paper (Matzke 1987)
+    Em = 2 #Ian's irradiation paper (Matzke 1987)
     bulkindex = 1
     gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
     surfindex = -1 #1e11
@@ -287,15 +279,27 @@
     iw_scaling = true
     D_out_name = int_diffus
   []
+  # [cv_eq]
+  #   type = UO2CvMaterial
+  #   property_name = cv_eq
+  #   T = T
+  #   c = phi
+  #   OU = OU
+  #   gb_se_csv = '../../../gb_segregation_csv/sigma9_se.csv
+  #                ../../../gb_segregation_csv/sigma11_se.csv'
+  #   outputs = 'none'
+  # []
   [cv_eq]
-    type = UO2CvMaterial
+    type = DerivativeParsedMaterial
     property_name = cv_eq
-    T = T
-    c = phi
-    OU = OU
-    gb_se_csv = '../../../gb_segregation_csv/sigma9_se.csv
-                 ../../../gb_segregation_csv/sigma11_se.csv'
-    outputs = 'none'
+    coupled_variables = 'gr0 gr1 gr2 phi T wvac'
+    # material_property_names = 'rhovi rhosi hv(phi)'
+    constant_names = 'cb cgb'
+    constant_expressions = '5.542e-12 5.679e-09' #approximated from plots and my mat
+    #ballparked for my bulk and from the plot of sigma9 in IECreep
+    expression = 'lam:=gr0^2 + gr1^2 + gr2^2 + phi^2;
+                  cb + 4 * (cgb - cb) * (1-lam)^2'
+    outputs = none #'nemesis'
   []
   [ci_eq]
     type = DerivativeParsedMaterial
@@ -303,7 +307,7 @@
     coupled_variables = 'gr0 gr1 gr2 phi T wint'
     # material_property_names = 'rhovi rhosi hv(phi)'
     constant_names = 'cb cgb'
-    constant_expressions = '1.050e-29 5.043e-12' #approximated from plots and ians 6.9ev efi
+    constant_expressions = '1.050e-29 5.878e-04' #approximated from plots and ians 6.9ev efi
     #ballparked for Efi_b=6.9eV and from the plot of sigma9 in IECreep
     expression = 'lam:=gr0^2 + gr1^2 + gr2^2 + phi^2;
                   cb + 4 * (cgb - cb) * (1-lam)^2'
@@ -415,6 +419,60 @@
     expression = 'combined_rho_int - (hs * ci_eq + hv * cvi_eq) / Va'
     outputs = nemesis
   []
+  # Irradiation materials
+  [a_r]
+    type = ParsedMaterial
+    property_name = a_r
+    constant_names = 'Va Z a_0 Di_0 Ei_B kB'
+    constant_expressions = '0.04092 250 0.25 1e13 2 8.617343e-5'
+    material_property_names = 'hs'
+    coupled_variables = 'T'
+    expression = 'Di:=Di_0*exp(-Ei_B/(kB*T));
+                  Va * Z * Di / (a_0^2)' #hs *
+    outputs = none #nemesis #'nemesis'
+  []
+  [rho_gen]
+    type = DerivativeParsedMaterial
+    property_name = rho_gen
+    coupled_variables = 'phi'
+    derivative_order = 1
+    constant_names = 'Nc Nd noise f_dot'
+    constant_expressions = '2 5 1 ${f_dot}'
+    material_property_names = 'hs'
+    expression = 'f_dot * noise * Nc * Nd * hs'
+    outputs = none #'nemesis'
+  []
+  [rho_recomb] #Possibly off on GB?
+    type = DerivativeParsedMaterial
+    property_name = rho_recomb
+    coupled_variables = 'wvac wint'
+    # additional_derivative_symbols = w
+    material_property_names = 'a_r combined_rho_vac combined_rho_int'
+    expression = 'a_r * combined_rho_vac * combined_rho_int'
+    outputs = none #'nemesis'
+  []
+  [rho_mixing_vac]
+    type = DerivativeParsedMaterial
+    property_name = rho_mixing_vac
+    coupled_variables = 'wvac'
+    derivative_order = 1
+    constant_names = 'Nc Vc noise tc Dc f_dot'
+    constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
+    material_property_names = 'chiu'
+    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chiu' # * hs
+    outputs = none #'nemesis'
+  []
+  [rho_mixing_int]
+    type = DerivativeParsedMaterial
+    property_name = rho_mixing_int
+    coupled_variables = 'wint'
+    derivative_order = 1
+    constant_names = 'Nc Vc noise tc Dc f_dot'
+    constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
+    material_property_names = 'chii'
+    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chii' # * hs
+    outputs = none #'nemesis'
+  []
 []
 
 [Modules]
@@ -443,6 +501,7 @@
 []
 
 [Kernels]
+  # Dont need these two if surface and gb energy are equal
   [barrier_phi]
     type = ACBarrierFunction
     variable = phi
@@ -456,45 +515,43 @@
     mob_name = L_mat
     kappa_name = kappa
   []
-  # # Irradiation
-  # # Source/Generation
-  # [source_w]
-  #   type = MaskedBodyForce
-  #   variable = w
-  #   mask = rho_gen_vac
-  # []
-  # # Sink/Recombination
-  # [recombination_w]
-  #   type = MatReaction
-  #   variable = w
-  #   mob_name = rho_v_recombRate
-  #   args = 'rhoi_aux'
-  #   # args = rhoi #but its a constant and material not a variable
-  # []
-  # # Damage/Mixing
-  # [ballistic_mix_w]
-  #   type = MatDiffusion
-  #   variable = w
-  #   diffusivity = rho_v_mixing
-  # []
+  # Irradiation
+  # Source/Generation
+  [source_vac]
+    type = MaskedBodyForce
+    variable = wvac
+    mask = rho_gen
+  []
+  [source_int]
+    type = MaskedBodyForce
+    variable = wint
+    mask = rho_gen
+  []
+  # Sink/Recombination
+  [recombination_vac]
+    type = MatReaction
+    variable = wvac
+    mob_name = rho_recomb
+    args = 'wint'
+  []
+  [recombination_int]
+    type = MatReaction
+    variable = wint
+    mob_name = rho_recomb
+    args = 'wvac'
+  []
+  # Damage/Mixing
+  [ballistic_mix_vac]
+    type = MatDiffusion
+    variable = wvac
+    diffusivity = rho_mixing_vac
+  []
+  [ballistic_mix_int]
+    type = MatDiffusion
+    variable = wint
+    diffusivity = rho_mixing_int
+  []
 []
-
-# [ScalarKernels]
-#   [rhoi_scalar_dot]
-#     type = ODETimeDerivative
-#     variable = rhoi_scalar
-#   []
-#   [rhoi_rest]
-#     type = ParsedODEKernel
-#     # function = '1.25e-3 - 0.5'
-#     # Uses - outside since it takes - of the expression to apply it
-#     expression = '-Nc*Nd*f_dot*hs_average + average_rho_vac*rhoi_scalar*a_r_pp' #'average_rho_vac*rhoi_scalar*a_r_pp' #hs_rhov_avg
-#     variable = rhoi_scalar
-#     postprocessors = 'hs_average average_rho_vac a_r_pp' #hs_rhov_avg
-#     constant_names = 'Nc Nd f_dot' # f_dot'
-#     constant_expressions = '2 5 ${f_dot}' # 1e-8'
-#   []
-# []
 
 [AuxKernels]
   [bnds_aux]
@@ -733,8 +790,8 @@
 [Preconditioning]
   [SMP] #slow but good, very slow for 3D (might be another option then)
     type = SMP
-    full = true
-    # coupled_groups = 'wvac,wint,phi'
+    # full = true
+    coupled_groups = 'wvac,wint,phi'
   []
 []
 
@@ -742,20 +799,20 @@
   type = Transient
   scheme = bdf2
   solve_type = PJFNK
-  petsc_options_iname = '-pc_type -sub_pc_type -pc_factor_levels'
-  petsc_options_value = 'asm ilu 2'
+  # petsc_options_iname = '-pc_type -sub_pc_type -pc_factor_levels'
+  # petsc_options_value = 'asm ilu 2'
   # petsc_options_iname = '-pc_type -pc_hypre_type' # -snes_type'
   # petsc_options_value = 'hypre boomeramg' # vinewtonrsls'
-  # petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap'
-  # petsc_options_value = ' asm      lu           2'
+  petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap'
+  petsc_options_value = ' asm      lu           2'
   nl_max_its = 12 #20 #40 too large- optimal_iterations is 6
-  l_max_its = 200 #30 #if it seems like its using a lot it might still be fine
+  l_max_its = 30 #200 #30 #if it seems like its using a lot it might still be fine
   l_tol = 1e-04
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  # end_time = 1e7 #5e6 #0.006
-  num_steps = 25
+  end_time = 1e10 #5e6 #0.006
+  # num_steps = 20
   # steady_state_detection = true
   # # From tonks ode input
   # automatic_scaling = true
@@ -765,7 +822,7 @@
     type = IterationAdaptiveDT
     optimal_iterations = 6
     dt = 100 #2.5
-    linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+    # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
     # growth_factor = 1.2
     # cutback_factor = 0.8
     # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
@@ -780,28 +837,28 @@
 
 [Outputs]
   perf_graph = false
-  csv = true
+  # csv = true
   exodus = false
-  checkpoint = false
+  # checkpoint = true
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
-  # [csv]
-  #   type = CSV
-  #   # file_base = 02_2D_8pore_config1_csv/02_2D_8pore_config1
-  #   # time_step_interval = 3
-  # []
+  [csv]
+    type = CSV
+    # file_base = 02_2D_8pore_config1_csv/02_2D_8pore_config1
+    time_step_interval = 3
+  []
   [nemesis]
     type = Nemesis
     # file_base = 02_2D_8pore_config1_nemesis/02_2D_8pore_config1_nemesis
     # interval = 3 # this ExodusII will only output every third time step
-    # time_step_interval = 3
+    time_step_interval = 3
   []
   print_linear_residuals = false
-  # [checkpoint]
-  #   type = Checkpoint
-  #   file_base = 02_2D_8pore_config1_checkpoint
-  #   num_files = 5
-  # []
+  [checkpoint]
+    type = Checkpoint
+    # file_base = 02_2D_8pore_config1_checkpoint
+    num_files = 5
+  []
 []
 
 # [Debug]

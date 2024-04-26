@@ -4,7 +4,7 @@
 # Created Date: Wednesday April 24th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday April 25th 2024
+# Last Modified: Friday April 26th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -277,8 +277,8 @@
     chi = chii
     c = phi
     T = T
-    D0 = 8.33e9 #1e13 #Ian's irradiation paper (Matzke 1987)
-    Em = 3.608 #2 #Ian's irradiation paper (Matzke 1987)
+    D0 = 1e13 #8.33e9 #1e13 #Ian's irradiation paper (Matzke 1987)
+    Em = 2 #2 #Ian's irradiation paper (Matzke 1987)
     bulkindex = 1
     gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
     surfindex = -1 #1e11
@@ -733,8 +733,8 @@
 [Preconditioning]
   [SMP] #slow but good, very slow for 3D (might be another option then)
     type = SMP
-    full = true
-    # coupled_groups = 'wvac,wint,phi'
+    # full = true
+    coupled_groups = 'wvac,wint,phi'
   []
 []
 
@@ -742,20 +742,22 @@
   type = Transient
   scheme = bdf2
   solve_type = PJFNK
-  petsc_options_iname = '-pc_type -sub_pc_type -pc_factor_levels'
-  petsc_options_value = 'asm ilu 2'
+  # petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -ksp_gmres_restart -sub_ksp_type -pc_factor_levels'
+  # petsc_options_value = ' asm      ilu          2               31                 preonly       4'
+  # petsc_options_iname = '-pc_type -sub_pc_type -pc_factor_levels'
+  # petsc_options_value = 'asm ilu 2'
   # petsc_options_iname = '-pc_type -pc_hypre_type' # -snes_type'
   # petsc_options_value = 'hypre boomeramg' # vinewtonrsls'
-  # petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap'
-  # petsc_options_value = ' asm      lu           2'
+  petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap'
+  petsc_options_value = ' asm      lu           2'
   nl_max_its = 12 #20 #40 too large- optimal_iterations is 6
-  l_max_its = 200 #30 #if it seems like its using a lot it might still be fine
+  l_max_its = 30 #200 #30 #if it seems like its using a lot it might still be fine
   l_tol = 1e-04
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  # end_time = 1e7 #5e6 #0.006
-  num_steps = 25
+  end_time = 1e10 #1e7 #5e6 #0.006
+  # num_steps = 50
   # steady_state_detection = true
   # # From tonks ode input
   # automatic_scaling = true
@@ -765,7 +767,7 @@
     type = IterationAdaptiveDT
     optimal_iterations = 6
     dt = 100 #2.5
-    linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+    # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
     # growth_factor = 1.2
     # cutback_factor = 0.8
     # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
@@ -780,28 +782,28 @@
 
 [Outputs]
   perf_graph = false
-  csv = true
+  # csv = true
   exodus = false
-  checkpoint = false
+  # checkpoint = true
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
-  # [csv]
-  #   type = CSV
-  #   # file_base = 02_2D_8pore_config1_csv/02_2D_8pore_config1
-  #   # time_step_interval = 3
-  # []
+  [csv]
+    type = CSV
+    # file_base = 02_2D_8pore_config1_csv/02_2D_8pore_config1
+    time_step_interval = 3
+  []
   [nemesis]
     type = Nemesis
     # file_base = 02_2D_8pore_config1_nemesis/02_2D_8pore_config1_nemesis
     # interval = 3 # this ExodusII will only output every third time step
-    # time_step_interval = 3
+    time_step_interval = 3
   []
   print_linear_residuals = false
-  # [checkpoint]
-  #   type = Checkpoint
-  #   file_base = 02_2D_8pore_config1_checkpoint
-  #   num_files = 5
-  # []
+  [checkpoint]
+    type = Checkpoint
+    # file_base = 02_2D_8pore_config1_checkpoint
+    num_files = 5
+  []
 []
 
 # [Debug]
