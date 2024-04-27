@@ -537,8 +537,8 @@ f_dot = 1e-8
     type = MatReaction
     variable = wvac
     mob_name = rho_recomb
-    #args = 'wint'
-    coupled_variables = 'wint, phi, gr0, gr1, gr2'
+    args = 'wint'
+    coupled_variables = 'phi, gr0, gr1, gr2'
   []
   [recombination_int]
     type = MatReaction
