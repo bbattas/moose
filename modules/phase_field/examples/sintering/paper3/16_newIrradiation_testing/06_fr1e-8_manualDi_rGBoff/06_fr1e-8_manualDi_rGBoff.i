@@ -537,15 +537,15 @@ f_dot = 1e-8
     type = MatReaction
     variable = wvac
     mob_name = rho_recomb
-    args = 'wint, phi, gr0, gr1, gr2'
-    #coupled_variables = 'phi, gr0, gr1, gr2'
+    args = 'wint' # phi gr0 gr1 gr2'
+    coupled_variables = 'phi gr0 gr1 gr2'
   []
   [recombination_int]
     type = MatReaction
     variable = wint
     mob_name = rho_recomb
-    args = 'wvac, phi, gr0, gr1, gr2'
-    #coupled_variables = 'wvac, phi, gr0, gr1, gr2'
+    args = 'wvac phi gr0 gr1 gr2'
+    #coupled_variables = 'wvac phi gr0 gr1 gr2'
   []
   # Damage/Mixing
   [ballistic_mix_vac]
