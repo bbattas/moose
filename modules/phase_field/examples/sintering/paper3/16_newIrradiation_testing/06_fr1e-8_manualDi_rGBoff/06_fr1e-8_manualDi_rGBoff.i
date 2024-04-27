@@ -296,7 +296,7 @@ f_dot = 1e-8
     type = DerivativeParsedMaterial
     property_name = cv_eq
     coupled_variables = 'gr0 gr1 gr2 phi T wvac'
-    # material_property_names = 'rhovi rhosi hv(phi)'
+    # material_property_names = 'rhovi(vac) rhosi hv(phi)'
     constant_names = 'cb cgb'
     constant_expressions = '5.542e-12 5.679e-09' #approximated from plots and my mat
     #ballparked for my bulk and from the plot of sigma9 in IECreep
@@ -308,7 +308,7 @@ f_dot = 1e-8
     type = DerivativeParsedMaterial
     property_name = ci_eq
     coupled_variables = 'gr0 gr1 gr2 phi T wint'
-    # material_property_names = 'rhovi rhosi hv(phi)'
+    # material_property_names = 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
     constant_expressions = '1.050e-29 5.878e-04' #approximated from plots and ians 6.9ev efi
     #ballparked for Efi_b=6.9eV and from the plot of sigma9 in IECreep
@@ -378,7 +378,7 @@ f_dot = 1e-8
     type = DerivativeParsedMaterial
     property_name = combined_rho_vac
     coupled_variables = 'wvac phi'
-    material_property_names = 'rhovu rhosu hv(phi)'
+    material_property_names = 'rhovu(wvac) rhosu(wvac) hv(phi)'
     expression = 'hv*rhovu + (1-hv)*rhosu' #'(1-hv)*rhos' #
     outputs = none #'nemesis'
   []
@@ -386,7 +386,7 @@ f_dot = 1e-8
     type = DerivativeParsedMaterial
     property_name = combined_rho_int
     coupled_variables = 'wint phi'
-    material_property_names = 'rhovi rhosi hv(phi)'
+    material_property_names = 'rhovi(wint) rhosi(wint) hv(phi)'
     expression = 'hv*rhovi + (1-hv)*rhosi' #'(1-hv)*rhos' #
     outputs = none #'nemesis'
   []
@@ -428,7 +428,7 @@ f_dot = 1e-8
     property_name = a_r
     constant_names = 'Va Z a_0 Di_0 Ei_B kB'
     constant_expressions = '0.04092 250 0.25 1e13 2 8.617343e-5'
-    material_property_names = 'hs'
+    # material_property_names = 'hs(phi)'
     coupled_variables = 'T'
     expression = 'Di:=Di_0*exp(-Ei_B/(kB*T));
                   Va * Z * Di / (a_0^2)' #hs *
@@ -441,7 +441,7 @@ f_dot = 1e-8
     derivative_order = 1
     constant_names = 'Nc Nd noise f_dot'
     constant_expressions = '2 5 1 ${f_dot}'
-    material_property_names = 'hs'
+    material_property_names = 'hs(phi)'
     expression = 'f_dot * noise * Nc * Nd * hs'
     outputs = none #'nemesis'
   []
@@ -450,7 +450,7 @@ f_dot = 1e-8
     property_name = rho_recomb
     coupled_variables = 'wvac wint gr0 gr1 gr2 phi'
     # additional_derivative_symbols = w
-    material_property_names = 'a_r combined_rho_vac combined_rho_int'
+    material_property_names = 'a_r combined_rho_vac(wvac,phi) combined_rho_int(wint,phi)'
     expression = 'lamgb:=gr0^2 + gr1^2 + gr2^2 + phi^2;
                   nothgb:=1 - (4 * (1-lamgb)^2);
                   a_r * combined_rho_vac * combined_rho_int * nothgb'
@@ -463,7 +463,7 @@ f_dot = 1e-8
     derivative_order = 1
     constant_names = 'Nc Vc noise tc Dc f_dot'
     constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
-    material_property_names = 'chiu'
+    material_property_names = 'chiu(phi,wvac)'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chiu' # * hs
     outputs = none #'nemesis'
   []
@@ -474,7 +474,7 @@ f_dot = 1e-8
     derivative_order = 1
     constant_names = 'Nc Vc noise tc Dc f_dot'
     constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
-    material_property_names = 'chii'
+    material_property_names = 'chii(phi,wint)'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chii' # * hs
     outputs = none #'nemesis'
   []
