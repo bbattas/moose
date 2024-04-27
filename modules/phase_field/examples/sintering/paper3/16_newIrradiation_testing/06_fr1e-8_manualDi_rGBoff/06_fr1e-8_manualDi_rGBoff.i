@@ -526,19 +526,21 @@ f_dot = 1e-8
     type = MaskedBodyForce
     variable = wvac
     mask = rho_gen
+    coupled_variables = 'phi'
   []
   [source_int]
     type = MaskedBodyForce
     variable = wint
     mask = rho_gen
+    coupled_variables = 'phi'
   []
   # Sink/Recombination
   [recombination_vac]
     type = MatReaction
     variable = wvac
     mob_name = rho_recomb
-    args = 'wint' # phi gr0 gr1 gr2'
-    coupled_variables = 'phi gr0 gr1 gr2'
+    args = 'wint phi gr0 gr1 gr2'
+    #coupled_variables = 'phi gr0 gr1 gr2'
   []
   [recombination_int]
     type = MatReaction
