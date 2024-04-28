@@ -11,7 +11,7 @@
 # 06 but only generation and ann kernels on with 1e-10 fission rate and using
 #  a uniform refine of 1 to see if the finer mesh helps
 #  Input 05 but manual Di with gb 1 OOM x bulk and surface 2 OOM to avoid the
-#   gb possibly being less than the bulk
+#   gb possibly being less than the bulk  and starting dt of 10 instead of 100
 #
 #  Test input for all the new stuff WITH the irradiation kernels as per ians stuff
 #  Parabolic constants are ians old values from irradiation (26.8 3.6e21)
@@ -832,7 +832,7 @@ f_dot = 1e-10
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 100 #2.5
+    dt = 10 #2.5
     # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
     # growth_factor = 1.2
     # cutback_factor = 0.8
