@@ -169,9 +169,11 @@ GrandPotentialIsoIntMaterial::computeProperties()
     // Dgb -- grain boundary diffusivity
     if (_gb_index == -1)
     {
-      // Sigma 9 interstitial diffusivity from IECreep (for now)
-      // since our vacancy is closer to 9 than 11 value
-      Dgb = 6.55e13 * std::exp(-2.30 / _kb / _T[_qp]);
+      // // Sigma 9 interstitial diffusivity from IECreep (for now)
+      // // since our vacancy is closer to 9 than 11 value
+      // Dgb = 6.55e13 * std::exp(-2.30 / _kb / _T[_qp]);
+      // New average of LANL sigma9 and sigma 11 my fit to it
+      Dgb = 6.0157e11 * std::exp(-1.5521 / _kb / _T[_qp]);
     }
     else
     {
