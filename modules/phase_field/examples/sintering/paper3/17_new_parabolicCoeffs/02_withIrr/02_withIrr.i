@@ -4,8 +4,8 @@
 # Created Date: Friday May 3rd 2024
 # Author: bbattas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday May 3rd 2024
-# Modified By: bbattas
+# Last Modified: Sunday May 5th 2024
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Testing the new parabolic coefficients
@@ -780,14 +780,14 @@ ks_int = 4.829e4
     end_time = 1e6
     execute_on = 'INITIAL TIMESTEP_END'
   []
-  [irr_newdt]
-    type = TimePeriod
-    enable_objects = 'TimeStepper::tstepper1'
-    disable_objects = 'TimeStepper::tstepper2'
-    start_time = 0
-    end_time = 1e6
-    execute_on = 'INITIAL TIMESTEP_END'
-  []
+  # [irr_newdt]
+  #   type = TimePeriod
+  #   enable_objects = 'TimeStepper::tstepper1'
+  #   disable_objects = 'TimeStepper::tstepper2'
+  #   start_time = 0
+  #   end_time = 1e6
+  #   execute_on = 'INITIAL TIMESTEP_END'
+  # []
 []
 
 [Preconditioning]
@@ -806,8 +806,8 @@ ks_int = 4.829e4
   # petsc_options_value = 'asm ilu 2'
   # petsc_options_iname = '-pc_type -pc_hypre_type' # -snes_type'
   # petsc_options_value = 'hypre boomeramg' # vinewtonrsls'
-  petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap'
-  petsc_options_value = ' asm      lu           2'
+  petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -pc_factor_levels'
+  petsc_options_value = ' asm      lu           3                2'
   nl_max_its = 12 #20 #40 too large- optimal_iterations is 6
   l_max_its = 60 #200 #30 #200 #30 #if it seems like its using a lot it might still be fine
   l_tol = 1e-04
@@ -821,24 +821,33 @@ ks_int = 4.829e4
   automatic_scaling = true
   compute_scaling_once = false
   # line_search = none
-  [TimeSteppers]
-    [tstepper1]
-      type = IterationAdaptiveDT
-      optimal_iterations = 6
-      dt = 100 #2.5
-      # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
-    []
-    [tstepper2]
-      type = IterationAdaptiveDT
-      optimal_iterations = 6
-      reset_dt = true
-      dt = 100 #2.5
-      # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
-    []
-    # growth_factor = 1.2
-    # cutback_factor = 0.8
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    optimal_iterations = 6
+    dt = 100 #2.5
+    # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+    growth_factor = 1.8
+    cutback_factor = 0.5
     # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
   []
+  # [TimeSteppers]
+  #   [tstepper1]
+  #     type = IterationAdaptiveDT
+  #     optimal_iterations = 6
+  #     dt = 100 #2.5
+  #     # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+  #   []
+  #   [tstepper2]
+  #     type = IterationAdaptiveDT
+  #     optimal_iterations = 6
+  #     reset_dt = true
+  #     dt = 100 #2.5
+  #     # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+  #   []
+  #   # growth_factor = 1.2
+  #   # cutback_factor = 0.8
+  #   # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
+  # []
   # [Adaptivity]
   #   refine_fraction = 0.8
   #   coarsen_fraction = 0.05 #minimize this- adds error
