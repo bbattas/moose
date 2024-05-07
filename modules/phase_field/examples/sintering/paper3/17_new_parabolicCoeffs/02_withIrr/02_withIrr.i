@@ -4,7 +4,7 @@
 # Created Date: Friday May 3rd 2024
 # Author: bbattas (bbattas@ufl.edu)
 # -----
-# Last Modified: Sunday May 5th 2024
+# Last Modified: Monday May 6th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -14,9 +14,9 @@
 #   for c=ceq = bulk/gb/5%gb95%bulk(vol)
 ##############################################################################
 
-f_dot = 1e-9
-ks_vac = 3.285e1
-ks_int = 4.829e4
+f_dot = 1e-8
+ks_vac = 3.285e1 #1.549e5 #
+ks_int = 4.829e4 #1.966e11 #
 
 [Mesh]
   [ebsd_mesh]
@@ -272,9 +272,9 @@ ks_int = 4.829e4
     constant_expressions = '8.098e-02 2.654e-09' #Irradiation
     # constant_expressions = '5.542e-12 3.000e-04' #No Irradiation- mine
     # constant_expressions = '1.378e-06 3.000e-04' #No Irradiation- LANL
-    expression = 'lam:=gr0^2 + gr1^2 + gr2^2 + phi^2;
+    expression = 'lam:=gr0^2 + gr1^2 + gr2^2;
                   cb + 4 * (cgb - cb) * (1-lam)^2'
-    outputs = none #'nemesis'
+    outputs = none #'nemesis' # + phi^2
   []
   [ci_eq]
     type = DerivativeParsedMaterial
@@ -285,9 +285,9 @@ ks_int = 4.829e4
     constant_expressions = '7.477e-09 1.046e-03' #Irradiation
     # constant_expressions = '1.050e-29 2.571e-10' #No Irradiation- Mine
     # constant_expressions = '5.837e-37 2.571e-10' #No Irradiation- LANL
-    expression = 'lam:=gr0^2 + gr1^2 + gr2^2 + phi^2;
+    expression = 'lam:=gr0^2 + gr1^2 + gr2^2;
                   cb + 4 * (cgb - cb) * (1-lam)^2'
-    outputs = none #'nemesis'
+    outputs = none #'nemesis' #+ phi^2
   []
   # [sintering]
   #   type = GrandPotentialSinteringMaterial
@@ -354,7 +354,7 @@ ks_int = 4.829e4
     derivative_order = 2
     material_property_names = 'rhovu(wvac) rhosu(wvac) hv(phi)'
     expression = 'hv*rhovu + (1-hv)*rhosu' #'(1-hv)*rhos' #
-    outputs = none #'nemesis'
+    outputs = nemesis #'nemesis'
   []
   [combined_rho_int]
     type = DerivativeParsedMaterial
@@ -363,7 +363,7 @@ ks_int = 4.829e4
     derivative_order = 2
     material_property_names = 'rhovi(wint) rhosi(wint) hv(phi)'
     expression = 'hv*rhovi + (1-hv)*rhosi' #'(1-hv)*rhos' #
-    outputs = none #'nemesis'
+    outputs = nemesis #'nemesis'
   []
   [dv_mat]
     type = ParsedMaterial
@@ -401,11 +401,12 @@ ks_int = 4.829e4
   [a_r]
     type = ParsedMaterial
     property_name = a_r
-    constant_names = 'Va Z a_0 kB' # Di_0 Ei_B'
-    constant_expressions = '0.04092 250 0.25 8.617343e-5' #1e13 2
-    material_property_names = 'int_diffus(phi)'
-    coupled_variables = 'phi'
-    expression = 'Va * Z * int_diffus / (a_0^2)' #hs *
+    constant_names = 'Va Z a_0 kB Di_0 Ei_B' # Di_0 Ei_B'
+    constant_expressions = '0.04092 250 0.25 8.617343e-5 4.0767e11 4.08453089' #1e13 2
+    material_property_names = 'int_diffus(phi) hs(phi)'
+    coupled_variables = 'phi T'
+    expression = 'dint:=Di_0 * exp(-Ei_B / (kB * T));
+    hs * Va * Z * dint / (a_0^2)' #'0.5 * Va * hs'
     outputs = nemesis #nemesis #'nemesis'
   []
   [rho_gen]
@@ -422,21 +423,22 @@ ks_int = 4.829e4
   [rho_recomb] #This one is off on GB?
     type = DerivativeParsedMaterial
     property_name = rho_recomb
-    coupled_variables = 'wvac wint gr0 gr1 gr2 phi'
-    derivative_order = 1
+    coupled_variables = 'wvac wint phi' #gr0 gr1 gr2
+    derivative_order = 2
     # additional_derivative_symbols = w
     material_property_names = 'a_r(phi) combined_rho_vac(wvac,phi) combined_rho_int(wint,phi)'
-    expression = 'lamgb:=gr0^2 + gr1^2 + gr2^2 + phi^2;
-                  nothgb:=1 - (4 * (1-lamgb)^2);
-                  out:=a_r * combined_rho_vac * combined_rho_int * nothgb;
-                  if(out>0.0,out,0.0)' #
+    # expression = 'lamgb:=gr0^2 + gr1^2 + gr2^2 + phi^2;
+    #               nothgb:=1 - (4 * (1-lamgb)^2);
+    #               out:=a_r * combined_rho_vac * combined_rho_int * nothgb;
+    #               if(out>0.0,out,0.0)' #
+    expression = 'a_r * combined_rho_vac * combined_rho_int'
     outputs = nemesis #'nemesis'
   []
   [rho_mixing_vac]
     type = DerivativeParsedMaterial
     property_name = rho_mixing_vac
     coupled_variables = 'wvac'
-    derivative_order = 1
+    derivative_order = 2
     constant_names = 'Nc Vc noise tc Dc f_dot'
     constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
     material_property_names = 'chiu(phi,wvac)'
@@ -447,12 +449,21 @@ ks_int = 4.829e4
     type = DerivativeParsedMaterial
     property_name = rho_mixing_int
     coupled_variables = 'wint'
-    derivative_order = 1
+    derivative_order = 2
     constant_names = 'Nc Vc noise tc Dc f_dot'
     constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
     material_property_names = 'chii(phi,wint)'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chii' # * hs
     outputs = nemesis #'nemesis'
+  []
+  [change_vac]
+    type = DerivativeParsedMaterial
+    property_name = change_vac
+    coupled_variables = 'wvac wint phi' #gr0 gr1 gr2
+    derivative_order = 2
+    material_property_names = 'rho_gen(phi) rho_recomb(wvac,wint,phi)'
+    expression = 'rho_gen - rho_recomb' #hs *
+    outputs = nemesis #nemesis #'nemesis'
   []
 []
 
@@ -501,41 +512,41 @@ ks_int = 4.829e4
   [source_vac]
     type = MaskedBodyForce
     variable = wvac
-    mask = rho_gen
-    coupled_variables = 'phi'
+    mask = rho_gen #change_vac #rho_gen
+    coupled_variables = 'phi' # wint'
   []
   [source_int]
     type = MaskedBodyForce
     variable = wint
-    mask = rho_gen
-    coupled_variables = 'phi'
+    mask = rho_gen #change_vac #rho_gen
+    coupled_variables = 'phi' # wvac'
   []
   # Sink/Recombination
   [recombination_vac]
     type = MatReaction
     variable = wvac
     mob_name = rho_recomb
-    args = 'wint phi gr0 gr1 gr2'
+    args = 'wint phi' # gr0 gr1 gr2'
     #coupled_variables = 'phi gr0 gr1 gr2'
   []
   [recombination_int]
     type = MatReaction
     variable = wint
     mob_name = rho_recomb
-    args = 'wvac phi gr0 gr1 gr2'
+    args = 'wvac phi' # gr0 gr1 gr2'
     #coupled_variables = 'wvac phi gr0 gr1 gr2'
   []
-  # # Damage/Mixing
-  # [ballistic_mix_vac]
-  #   type = MatDiffusion
-  #   variable = wvac
-  #   diffusivity = rho_mixing_vac
-  # []
-  # [ballistic_mix_int]
-  #   type = MatDiffusion
-  #   variable = wint
-  #   diffusivity = rho_mixing_int
-  # []
+  # Damage/Mixing
+  [ballistic_mix_vac]
+    type = MatDiffusion
+    variable = wvac
+    diffusivity = rho_mixing_vac
+  []
+  [ballistic_mix_int]
+    type = MatDiffusion
+    variable = wint
+    diffusivity = rho_mixing_int
+  []
 []
 
 [AuxKernels]
@@ -775,19 +786,22 @@ ks_int = 4.829e4
 [Controls]
   [irr_kernels]
     type = TimePeriod
-    disable_objects = 'Kernels::source_vac Kernels::source_int Kernels::recombination_vac Kernels::recombination_int'
+    disable_objects = 'Kernels::source_vac Kernels::source_int
+    Kernels::recombination_vac Kernels::recombination_int
+    Kernels::ballistic_mix_vac Kernels::ballistic_mix_int'
+    # disable_objects = 'Kernels::recombination_vac Kernels::recombination_int'
     start_time = 0
     end_time = 1e6
     execute_on = 'INITIAL TIMESTEP_END'
   []
-  # [irr_newdt]
-  #   type = TimePeriod
-  #   enable_objects = 'TimeStepper::tstepper1'
-  #   disable_objects = 'TimeStepper::tstepper2'
-  #   start_time = 0
-  #   end_time = 1e6
-  #   execute_on = 'INITIAL TIMESTEP_END'
-  # []
+  [irr_newdt]
+    type = TimePeriod
+    enable_objects = 'TimeStepper::tstepper1'
+    disable_objects = 'TimeStepper::tstepper2'
+    start_time = 0
+    end_time = 1e6
+    execute_on = 'INITIAL TIMESTEP_END'
+  []
 []
 
 [Preconditioning]
@@ -806,48 +820,45 @@ ks_int = 4.829e4
   # petsc_options_value = 'asm ilu 2'
   # petsc_options_iname = '-pc_type -pc_hypre_type' # -snes_type'
   # petsc_options_value = 'hypre boomeramg' # vinewtonrsls'
-  petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -pc_factor_levels'
-  petsc_options_value = ' asm      lu           3                2'
-  nl_max_its = 12 #20 #40 too large- optimal_iterations is 6
+  petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -sub_pc_factor_shift_type'
+  petsc_options_value = ' asm      lu           3                nonzero'
+  nl_max_its = 20 #12 #20 #40 too large- optimal_iterations is 6
   l_max_its = 60 #200 #30 #200 #30 #if it seems like its using a lot it might still be fine
   l_tol = 1e-04
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
   # end_time = 1e10 #5e6 #0.006
-  num_steps = 20
+  num_steps = 100
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
   compute_scaling_once = false
-  # line_search = none
-  [TimeStepper]
-    type = IterationAdaptiveDT
-    optimal_iterations = 6
-    dt = 100 #2.5
-    # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
-    growth_factor = 1.8
-    cutback_factor = 0.5
-    # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
-  []
-  # [TimeSteppers]
-  #   [tstepper1]
-  #     type = IterationAdaptiveDT
-  #     optimal_iterations = 6
-  #     dt = 100 #2.5
-  #     # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
-  #   []
-  #   [tstepper2]
-  #     type = IterationAdaptiveDT
-  #     optimal_iterations = 6
-  #     reset_dt = true
-  #     dt = 100 #2.5
-  #     # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
-  #   []
-  #   # growth_factor = 1.2
-  #   # cutback_factor = 0.8
+  line_search = none
+  # [TimeStepper]
+  #   type = IterationAdaptiveDT
+  #   optimal_iterations = 6
+  #   dt = 100 #2.5
+  #   # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+  #   # growth_factor = 1.8
+  #   # cutback_factor = 0.5
   #   # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
   # []
+  [TimeSteppers]
+    [tstepper1]
+      type = IterationAdaptiveDT
+      optimal_iterations = 6
+      dt = 100 #2.5
+      # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+    []
+    [tstepper2]
+      type = IterationAdaptiveDT
+      optimal_iterations = 6
+      reset_dt = true
+      dt = 100 #2.5
+      # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+    []
+  []
   # [Adaptivity]
   #   refine_fraction = 0.8
   #   coarsen_fraction = 0.05 #minimize this- adds error
@@ -861,7 +872,7 @@ ks_int = 4.829e4
   csv = true
   exodus = false
   checkpoint = false
-  file_base = vol_ceq/vol_ceq
+  file_base = laterAllIrr_lineOff/laterAllIrr_lineOff
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
   # [csv]
