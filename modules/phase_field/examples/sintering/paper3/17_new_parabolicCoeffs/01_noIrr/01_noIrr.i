@@ -4,8 +4,8 @@
 # Created Date: Thursday May 2nd 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday May 3rd 2024
-# Modified By: bbattas
+# Last Modified: Saturday May 11th 2024
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Testing the new parabolic coefficients
@@ -15,8 +15,8 @@
 ##############################################################################
 
 f_dot = 1e-8
-ks_vac = 1.834e06
-ks_int = 4.330e36
+ks_vac = 1.549e5
+ks_int = 1.966e11
 
 [Mesh]
   [ebsd_mesh]
@@ -821,7 +821,7 @@ ks_int = 4.330e36
   csv = true
   exodus = false
   checkpoint = false
-  file_base = bulk_ceq/bulk_ceq
+  file_base = comparison/comparison #vol_ceq/vol_ceq
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
   # [csv]

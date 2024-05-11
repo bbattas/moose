@@ -4,7 +4,7 @@
 # Created Date: Friday May 3rd 2024
 # Author: bbattas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday May 6th 2024
+# Last Modified: Saturday May 11th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -791,7 +791,7 @@ ks_int = 4.829e4 #1.966e11 #
     Kernels::ballistic_mix_vac Kernels::ballistic_mix_int'
     # disable_objects = 'Kernels::recombination_vac Kernels::recombination_int'
     start_time = 0
-    end_time = 1e6
+    end_time = 1e10 #1e6
     execute_on = 'INITIAL TIMESTEP_END'
   []
   [irr_newdt]
@@ -799,7 +799,7 @@ ks_int = 4.829e4 #1.966e11 #
     enable_objects = 'TimeStepper::tstepper1'
     disable_objects = 'TimeStepper::tstepper2'
     start_time = 0
-    end_time = 1e6
+    end_time = 1e10
     execute_on = 'INITIAL TIMESTEP_END'
   []
 []
@@ -828,8 +828,8 @@ ks_int = 4.829e4 #1.966e11 #
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  # end_time = 1e10 #5e6 #0.006
-  num_steps = 100
+  end_time = 1e10 #1e10 #5e6 #0.006
+  # num_steps = 100
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
@@ -872,7 +872,7 @@ ks_int = 4.829e4 #1.966e11 #
   csv = true
   exodus = false
   checkpoint = false
-  file_base = laterAllIrr_lineOff/laterAllIrr_lineOff
+  file_base = noIrr_long/noIrr_long
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
   # [csv]
@@ -886,7 +886,7 @@ ks_int = 4.829e4 #1.966e11 #
     # interval = 3 # this ExodusII will only output every third time step
     # time_step_interval = 3
   []
-  print_linear_residuals = true
+  print_linear_residuals = false
   # [checkpoint]
   #   type = Checkpoint
   #   # file_base = 02_2D_8pore_config1_checkpoint
@@ -894,6 +894,6 @@ ks_int = 4.829e4 #1.966e11 #
   # []
 []
 
-[Debug]
-  show_var_residual_norms = true
-[]
+# [Debug]
+#   show_var_residual_norms = true
+# []
