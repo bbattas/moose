@@ -173,6 +173,11 @@ GrandPotentialIsoMaterial::computeProperties()
       // New Vacancy value- My fit average of sigma11 and sigma9
       Dgb = 1.2465e11 * std::exp(-1.5984 / _kb / _T[_qp]);
     }
+    else if (_gb_index == -2)
+    {
+      // Older Galvin value
+      Dgb = 4.74e14 * std::exp(-2.72 / _kb / _T[_qp]);
+    }
     else
     {
       Dgb = _Dbulk * _gb_index;
