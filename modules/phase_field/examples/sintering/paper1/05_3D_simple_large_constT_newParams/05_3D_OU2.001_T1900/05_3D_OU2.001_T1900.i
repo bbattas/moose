@@ -503,7 +503,7 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  end_time = 2000 #800
+  end_time = 10000 #800
   # num_steps = 20
   [TimeStepper]
     type = IterationAdaptiveDT
