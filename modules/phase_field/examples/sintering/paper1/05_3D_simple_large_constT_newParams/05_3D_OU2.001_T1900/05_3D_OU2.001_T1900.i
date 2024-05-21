@@ -4,7 +4,7 @@
 # Created Date: Monday April 1st 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday April 1st 2024
+# Last Modified: Tuesday May 21st 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -227,8 +227,8 @@
     Q = 3.01 #2.77 # new value from Tonks/PC/Jake GG Paper
     Em = 3.608
     bulkindex = 1
-    gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = -1 #1e11
+    gbindex = -2 # -1 sets the GB D to the LANL MD Value in GPIsoMat
+    surfindex = 1e11
     GBwidth = 1.0
     surf_thickness = 0.5
     iw_scaling = true
