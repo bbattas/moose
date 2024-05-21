@@ -4,7 +4,7 @@
 # Created Date: Friday May 17th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday May 20th 2024
+# Last Modified: Tuesday May 21st 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -676,7 +676,7 @@ ks_int = 1.966e11 #4.829e4 #
   # nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
   # end_time = 1e10 #1e10 #5e6 #0.006
-  num_steps = 5000
+  num_steps = 5
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
@@ -719,7 +719,7 @@ ks_int = 1.966e11 #4.829e4 #
   csv = true
   exodus = false
   checkpoint = false
-  file_base = test31/test31
+  file_base = subdirOut/subdirOut
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
   # [csv]
