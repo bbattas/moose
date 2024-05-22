@@ -4,18 +4,32 @@
 Upcoming MOOSE related training in chronological order:
 !style-end!
 
-- [ART/NEAMS M&S Molten Salt Reactors @PHYSOR24 (2024 April 21)](more_detail/PHYSOR_MS_2024_04_21.md)
-- [ART/NEAMS M&S Pebble Bed Reactors @PHYSOR24 (2024 April 21)](more_detail/PHYSOR_PB_2024_04_21.md)
 - [MOOSE Framework Fundamentals (2024 June 4-6, Idaho Falls)](more_detail/MOOSE_2024_06_04-06_IF.md)
 - [MOOSE Framework Fundamentals (2024 October 15-17, University of Illinois Urbana-Champaign)](more_detail/MOOSE_2024_10_15-17_UIUC.md)
 
-Past Training:
+# Conferences
+
+!style! halign=left
+Upcoming MOOSE related Conferences:
+!style-end!
+
+- MOOSE Conference (2025 March 10-14, Idaho Falls) - Registration link coming soon.
+
+#### Past Training:
+
+- ART/NEAMS M&S Molten Salt Reactors @PHYSOR24 (2024 April 21)
+
+- ART/NEAMS M&S Pebble Bed Reactors @PHYSOR24 (2024 April 21)
+
+- ART/NEAMS M&S Molten Salt Reactors @PHYSOR24 (2024 April 21)
+
+- ART/NEAMS M&S Pebble Bed Reactors @PHYSOR24 (2024 April 21)
 
 - MOOSE Framework Fundamentals (2024 April 2-4, Oregon State University)
 
 - MOOSE Solid Mechanics Workshop (2024 March 11-12, Duke University)
 
-- BISON Fuels Performance (2024 January 18-19, MIT)
+- [BISON](https://mooseframework.inl.gov/bison) Fuels Performance (2024 January 18-19, MIT)
 
 - MOOSE Framework Fundamentals (2024 January 16-17, MIT)
 
@@ -30,3 +44,5 @@ Past Training:
 
 - Reactor Meshing Workshop (2023 May 16, virtual)
 - MOOSE Framework (2022 June)
+
+#### Past Conferences

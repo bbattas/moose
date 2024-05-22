@@ -41,7 +41,7 @@ gamma=${U}
     type = MassMatrix
     variable = p
     matrix_tags = 'mass'
-    density = ${fparse -gamma - mu}
+    density = ${fparse -1/(gamma + mu)}
   []
   [momentum_advection]
     type = INSADMomentumAdvection
@@ -69,12 +69,14 @@ gamma=${U}
     type = ADVectorFunctionDirichletBC
     variable = vel
     boundary = 'bottom right left'
+    preset = true
   []
   [lid]
     type = ADVectorFunctionDirichletBC
     variable = vel
     boundary = 'top'
     function_x = 'lid_function'
+    preset = true
   []
 []
 
@@ -120,15 +122,15 @@ gamma=${U}
     []
       [u]
         vars = 'vel'
-        # petsc_options = '-ksp_converged_reason'
-        petsc_options_iname = '-pc_type -ksp_type -ksp_rtol -ksp_gmres_restart -ksp_pc_side'
-        petsc_options_value = 'lu       gmres     1e-2      300                right'
+        petsc_options = '-ksp_converged_reason'
+        petsc_options_iname = '-pc_type -ksp_type -ksp_rtol -ksp_gmres_restart -ksp_pc_side -pc_factor_mat_solver_type'
+        petsc_options_value = 'ilu      gmres     1e-2      300                right        strumpack'
       []
       [p]
         vars = 'p'
         petsc_options = '-ksp_converged_reason'
         petsc_options_iname = '-ksp_type -ksp_gmres_restart -ksp_rtol -pc_type -ksp_pc_side'
-        petsc_options_value = 'gmres    300                 1e-2      lu       right'
+        petsc_options_value = 'gmres     300                1e-2      ilu      right'
       []
   []
 []
