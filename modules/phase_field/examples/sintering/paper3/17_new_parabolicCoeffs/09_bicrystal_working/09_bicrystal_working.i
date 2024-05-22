@@ -4,7 +4,7 @@
 # Created Date: Tuesday May 21st 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday May 21st 2024
+# Last Modified: Wednesday May 22nd 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -14,9 +14,14 @@
 #  5-11 are theq ks, 1-4 are irradiated "eq" ks
 ##############################################################################
 
+oname = test01
 f_dot = 1e-8
+# Thermal
 ks_vac = 1.549e5 #3.285e1 #
 ks_int = 1.966e11 #4.829e4 #
+# Irradiation
+# ks_vac = 3.285e1
+# ks_int = 4.829e4
 
 [Mesh]
   [gmg]
@@ -59,6 +64,14 @@ ks_int = 1.966e11 #4.829e4 #
   [bnds]
   []
   [T]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [cv_aux]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [ci_aux]
     order = CONSTANT
     family = MONOMIAL
   []
@@ -135,7 +148,7 @@ ks_int = 1.966e11 #4.829e4 #
     constant_names = 'a b c'
     constant_expressions = '-5.87e-4 1.56 6.24151'
     expression = 'c*(a*T + b)'
-    outputs = nemesis
+    outputs = none
   []
   # [surf_e_mat]
   #   type = ParsedMaterial
@@ -231,7 +244,7 @@ ks_int = 1.966e11 #4.829e4 #
     constant_names = 'Va'
     constant_expressions = '0.04092'
     expression = 'Va*(hs*rhosu + hv*rhovu)'
-    outputs = nemesis #none #exodus
+    outputs = exodus #none #exodus
   []
   [cint]
     type = ParsedMaterial
@@ -240,7 +253,7 @@ ks_int = 1.966e11 #4.829e4 #
     constant_names = 'Va'
     constant_expressions = '0.04092'
     expression = 'Va*(hs*rhosi + hv*rhovi)'
-    outputs = nemesis #none #exodus
+    outputs = exodus #none #exodus
   []
   [L_mat]
     type = DerivativeParsedMaterial
@@ -286,22 +299,24 @@ ks_int = 1.966e11 #4.829e4 #
     outputs = none
   []
   [rhov_dev]
-    type = ParsedMaterial
+    type = DerivativeParsedMaterial
     property_name = rhov_dev
-    material_property_names = 'combined_rho_vac hs hv cv_eq'
+    coupled_variables = 'wvac phi'
+    material_property_names = 'combined_rho_vac(wvac,phi) hs(phi) hv(phi) cv_eq(wvac,phi)'
     constant_names = 'cvv_eq Va'
     constant_expressions = '1.0 0.04092'
     expression = 'combined_rho_vac - (hs * cv_eq + hv * cvv_eq) / Va'
-    outputs = nemesis
+    outputs = none
   []
   [rhoi_dev]
-    type = ParsedMaterial
+    type = DerivativeParsedMaterial
     property_name = rhoi_dev
-    material_property_names = 'combined_rho_int hs hv ci_eq'
+    coupled_variables = 'wint phi'
+    material_property_names = 'combined_rho_int(wint,phi) hs(phi) hv(phi) ci_eq(wint,phi)'
     constant_names = 'cvi_eq Va'
     constant_expressions = '0.0 0.04092'
     expression = 'combined_rho_int - (hs * ci_eq + hv * cvi_eq) / Va'
-    outputs = nemesis
+    outputs = none
   []
   # Irradiation materials
   [a_r]
@@ -313,7 +328,7 @@ ks_int = 1.966e11 #4.829e4 #
     coupled_variables = 'phi T'
     expression = 'dint:=Di_0 * exp(-Ei_B / (kB * T));
                   hs * Va * Z * dint / (a_0^2)' #'0.5 * Va * hs'
-    outputs = nemesis #nemesis #'nemesis'
+    outputs = exodus #nemesis #'nemesis'
   []
   [rho_gen]
     type = DerivativeParsedMaterial
@@ -324,7 +339,7 @@ ks_int = 1.966e11 #4.829e4 #
     constant_expressions = '2 5 1 ${f_dot}'
     material_property_names = 'hs(phi)'
     expression = 'f_dot * noise * Nc * Nd * hs'
-    outputs = nemesis #'nemesis'
+    outputs = exodus #'nemesis'
   []
   [rho_recomb] #This one is off on GB?
     type = DerivativeParsedMaterial
@@ -339,10 +354,9 @@ ks_int = 1.966e11 #4.829e4 #
     #               if(out>0.0,out,0.0)' #
     # expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
     #               if(out>0.0,0.0-out,0.0)'
-    expression = 'hgb:=16*gr0*gr0*gr1*gr1;
-                  out:=(1-hgb)*a_r * combined_rho_vac * combined_rho_int;
+    expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
                   if(out>=0.0,0.0-out,0.0)'
-    outputs = nemesis #'nemesis'
+    outputs = exodus #'nemesis'
   []
   [rho_mixing_vac]
     type = DerivativeParsedMaterial
@@ -353,7 +367,7 @@ ks_int = 1.966e11 #4.829e4 #
     constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
     material_property_names = 'chiu(phi,wvac)'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chiu' # * hs
-    outputs = nemesis #'nemesis'
+    outputs = exodus #'nemesis'
   []
   [rho_mixing_int]
     type = DerivativeParsedMaterial
@@ -364,16 +378,16 @@ ks_int = 1.966e11 #4.829e4 #
     constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
     material_property_names = 'chii(phi,wint)'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chii' # * hs
-    outputs = nemesis #'nemesis'
+    outputs = exodus #'nemesis'
   []
   [change_vac]
-    type = DerivativeParsedMaterial
+    type = ParsedMaterial
     property_name = change_vac
     coupled_variables = 'wvac wint phi' #gr0 gr1 gr2
-    derivative_order = 2
+    # derivative_order = 2
     material_property_names = 'rho_gen(phi) rho_recomb(wvac,wint,phi)'
     expression = 'rho_gen + rho_recomb' #hs * was - but recomb - needs + instead
-    outputs = nemesis #nemesis #'nemesis'
+    outputs = exodus #nemesis #'nemesis'
   []
 []
 
@@ -482,6 +496,17 @@ ks_int = 1.966e11 #4.829e4 #
     variable = T
     function = f_T
   []
+  # Mat to auxvar for point PPs
+  [cv_aux]
+    type = MaterialRealAux
+    variable = cv_aux
+    property = cvac
+  []
+  [ci_aux]
+    type = MaterialRealAux
+    variable = ci_aux
+    property = cint
+  []
 []
 
 [Postprocessors]
@@ -573,6 +598,27 @@ ks_int = 1.966e11 #4.829e4 #
     mat_prop = combined_rho_int
     outputs = csv
   []
+  # line based PPs
+  [cv_b]
+    type = PointValue
+    point = '100 0.5 0'
+    variable = cv_aux
+  []
+  [ci_b]
+    type = PointValue
+    point = '100 0.5 0'
+    variable = ci_aux
+  []
+  [cv_GB]
+    type = PointValue
+    point = '10000 0.5 0'
+    variable = cv_aux
+  []
+  [ci_GB]
+    type = PointValue
+    point = '10000 0.5 0'
+    variable = ci_aux
+  []
 []
 
 # [Controls]
@@ -622,7 +668,7 @@ ks_int = 1.966e11 #4.829e4 #
   # nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
   # end_time = 1e10 #1e10 #5e6 #0.006
-  num_steps = 5
+  num_steps = 5 #00
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
@@ -663,9 +709,9 @@ ks_int = 1.966e11 #4.829e4 #
 [Outputs]
   perf_graph = false
   csv = true
-  exodus = false
+  exodus = true
   checkpoint = false
-  file_base = subdirOut/subdirOut
+  file_base = ${oname}/${oname}
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
   # [csv]
@@ -673,12 +719,12 @@ ks_int = 1.966e11 #4.829e4 #
   #   # file_base = 02_2D_8pore_config1_csv/02_2D_8pore_config1
   #   time_step_interval = 3
   # []
-  [nemesis]
-    type = Nemesis
-    # file_base = 02_2D_8pore_config1_nemesis/02_2D_8pore_config1_nemesis
-    # interval = 3 # this ExodusII will only output every third time step
-    # time_step_interval = 3
-  []
+  # [nemesis]
+  #   type = Nemesis
+  #   # file_base = 02_2D_8pore_config1_nemesis/02_2D_8pore_config1_nemesis
+  #   # interval = 3 # this ExodusII will only output every third time step
+  #   # time_step_interval = 3
+  # []
   print_linear_residuals = false
   # [checkpoint]
   #   type = Checkpoint

@@ -4,7 +4,7 @@
 # Created Date: Tuesday March 19th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday May 21st 2024
+# Last Modified: Wednesday May 22nd 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -66,7 +66,7 @@
   csv = true
   exodus = false
   checkpoint = false
-  file_base = subdirTest/subdirTest
+  file_base = subdirTest3/subdirTest
   [nemesis]
     type = Nemesis
   []
