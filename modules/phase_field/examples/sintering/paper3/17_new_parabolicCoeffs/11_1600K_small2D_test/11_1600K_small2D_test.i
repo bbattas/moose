@@ -1,48 +1,48 @@
 ##############################################################################
-# File: 09_bicrystal_working.i
-# File Location: /examples/sintering/paper3/17_new_parabolicCoeffs/09_bicrystal_working
-# Created Date: Tuesday May 21st 2024
+# File: 11_1600K_small2D_test.i
+# File Location: /examples/sintering/paper3/17_new_parabolicCoeffs/11_1600K_small2D_test
+# Created Date: Thursday May 23rd 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday May 23rd 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Psuedo-1D input of two adjacent grain OPs to look at recombination and
-#   whatnot to test how to change/evolve defect concentrations
-#  Doing lots of variations will take notes in daily stuff, search for input name
-#  5-11 are theq ks, 1-4 are irradiated "eq" ks
+#  Arbitrary test to see what the new values and whatnot do just taking a stab
+#   at a longer run of the simple 2D 1 pore input
+#
+#
 ##############################################################################
 
-oname = test01
-f_dot = 1e-8
+# oname =
+f_dot = 0 #1e-8
 # Thermal
-ks_vac = 1.549e5 #3.285e1 #
-ks_int = 1.549e3 #1.966e11 #4.829e4 #
+ks_vac = 1.302e7 #4
+ks_int = 1.302e7 #1.092e9
 # # Irradiation
-# ks_vac = 3.285e1
-# ks_int = 4.829e4
-# # Irradiation GB
-# ks_vac = 9.521e5 #9.521e8
-# ks_int = 2.415e3
+# ks_vac = 5.753e3
+# ks_int = 1.116e7
+# # Thermal GB
+# ks_vac = 6.569e2
+# ks_int = 5.461e7
 
 [Mesh]
-  [gmg]
-    type = DistributedRectilinearMeshGenerator
-    dim = 2
-    xmin = 0
-    ymin = 0
-    xmax = 20000
-    ymax = 1 #20000
-    nx = 80
-    ny = 1 #80
+  [ebsd_mesh]
+    type = EBSDMeshGenerator
+    filename = ../../13_defect_irradiation_debugging/00_d3d_txt/2D_20x20um_8umavg_allVoids.txt
+  []
+  [subdomain_external]
+    type = ParsedSubdomainMeshGenerator
+    input = ebsd_mesh
+    combinatorial_geometry = 'x > 19000'
+    block_id = 1
   []
   parallel_type = DISTRIBUTED
   uniform_refine = 0
 []
 
 [GlobalParams]
-  op_num = 2
+  op_num = 3
   var_name_base = gr
   int_width = 2000 #1000 #min radius is like 2250, element size of 250
   # profile = TANH # not used at the moment? only in circleic?
@@ -52,16 +52,16 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
   [wvac]
   []
   [wint]
-    # initial_condition = 5
+    # initial_condition = 1 #5
   []
   [phi]
   []
-  # [PolycrystalVariables]
+  [PolycrystalVariables]
+  []
+  # [gr0]
   # []
-  [gr0]
-  []
-  [gr1]
-  []
+  # [gr1]
+  # []
 []
 
 [AuxVariables]
@@ -71,41 +71,51 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     order = CONSTANT
     family = MONOMIAL
   []
-  [cv_aux]
+  [voids]
     order = CONSTANT
     family = MONOMIAL
   []
-  [ci_aux]
+  [unique_grains]
     order = CONSTANT
     family = MONOMIAL
+  []
+  [var_indices]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [ebsd_grains]
+    family = MONOMIAL
+    order = CONSTANT
   []
 []
 
 [ICs]
-  [gr0_IC]
-    type = BoundingBoxIC
-    variable = gr0
-    x1 = -5000
-    y1 = -5000
-    x2 = 10000
-    y2 = 25000
-    inside = 1
-    outside = 0
-  []
-  [gr1_IC]
-    type = BoundingBoxIC
-    variable = gr1
-    x1 = 10000
-    y1 = -5000
-    x2 = 25000
-    y2 = 25000
-    inside = 1
-    outside = 0
+  [PolycrystalICs]
+    [PolycrystalColoringIC]
+      polycrystal_ic_uo = ebsd
+    []
   []
   [VoidIC]
-    type = ConstantIC
+    type = BoundingBoxIC
     variable = phi
-    value = 0 #0.001
+    block = 1
+    inside = 1
+    outside = 0.01
+    x1 = 20000
+    x2 = 35000
+    y1 = -2000
+    y2 = 22000
+  []
+  [voidIC2]
+    type = SmoothCircleIC
+    variable = phi
+    invalue = 1
+    outvalue = 0.01
+    radius = 5046.26504
+    x1 = 8893.09397
+    y1 = 8144.4245
+    z1 = 0
+    block = 0
   []
 []
 
@@ -114,26 +124,32 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     type = NeumannBC
     variable = phi
     value = 0
-    boundary = 'left right' # top bottom'
+    boundary = 'left right top bottom'
   []
   [gr0]
     type = NeumannBC
     variable = gr0
     value = 0
-    boundary = 'left right' # top bottom'
+    boundary = 'left right top bottom'
   []
   [gr1]
     type = NeumannBC
     variable = gr1
     value = 0
-    boundary = 'left right' # top bottom'
+    boundary = 'left right top bottom'
+  []
+  [gr2]
+    type = NeumannBC
+    variable = gr2
+    value = 0
+    boundary = 'left right top bottom'
   []
 []
 
 [Functions]
   [f_T]
     type = ConstantFunction
-    value = 1200 #1600
+    value = 1600
   []
 []
 
@@ -204,9 +220,8 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     coupled_variables = 'gr0 gr1 phi T wvac'
     # material_property_names = 'rhovi(vac) rhosi hv(phi)'
     constant_names = 'cb cgb'
-    # constant_expressions = '8.098e-02 2.654e-09' #Irradiation
-    # constant_expressions = '5.542e-12 3.000e-04' #No Irradiation- mine
-    constant_expressions = '1.378e-06 3.000e-04' #No Irradiation- LANL
+    # constant_expressions = '3.877e-04 4.347e-03' #Irradiation
+    constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
     expression = 'lam:=16 * gr0^2 * gr1^2;
                   cgb * lam + (1 - lam)*cb'
     outputs = none #'nemesis' # + phi^2
@@ -217,9 +232,32 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     coupled_variables = 'gr0 gr1 phi T wint'
     # material_property_names = 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
-    # constant_expressions = '7.477e-09 1.046e-03' #Irradiation
-    # constant_expressions = '1.050e-29 2.571e-10' #No Irradiation- Mine
-    constant_expressions = '5.837e-37 2.571e-10' #No Irradiation- LANL
+    # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
+    constant_expressions = '1.667e-32 6.170e-08' #No Irradiation- LANL
+    expression = 'lam:=16 * gr0^2 * gr1^2;
+                  cgb * lam + (1 - lam)*cb'
+    outputs = none #'nemesis' #+ phi^2
+  []
+  [cv_irr]
+    type = DerivativeParsedMaterial
+    property_name = cv_irr
+    coupled_variables = 'gr0 gr1 phi T wvac'
+    # material_property_names = 'rhovi(vac) rhosi hv(phi)'
+    constant_names = 'cb cgb'
+    constant_expressions = '3.877e-04 4.347e-03' #Irradiation
+    # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
+    expression = 'lam:=16 * gr0^2 * gr1^2;
+                  cgb * lam + (1 - lam)*cb'
+    outputs = none #'nemesis' # + phi^2
+  []
+  [ci_irr]
+    type = DerivativeParsedMaterial
+    property_name = ci_irr
+    coupled_variables = 'gr0 gr1 phi T wint'
+    # material_property_names = 'rhovi(wint) rhosi(wint) hv(phi)'
+    constant_names = 'cb cgb'
+    constant_expressions = '7.258e-09 5.900e-06' #Irradiation
+    # constant_expressions = '1.667e-32 6.170e-08' #No Irradiation- LANL
     expression = 'lam:=16 * gr0^2 * gr1^2;
                   cgb * lam + (1 - lam)*cb'
     outputs = none #'nemesis' #+ phi^2
@@ -248,7 +286,7 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     constant_names = 'Va'
     constant_expressions = '0.04092'
     expression = 'Va*(hs*rhosu + hv*rhovu)'
-    outputs = exodus #none #exodus
+    outputs = nemesis #none #exodus
   []
   [cint]
     type = ParsedMaterial
@@ -257,7 +295,7 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     constant_names = 'Va'
     constant_expressions = '0.04092'
     expression = 'Va*(hs*rhosi + hv*rhovi)'
-    outputs = exodus #none #exodus
+    outputs = nemesis #none #exodus
   []
   [L_mat]
     type = DerivativeParsedMaterial
@@ -288,40 +326,60 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     expression = 'hv*rhovi + (1-hv)*rhosi' #'(1-hv)*rhos' #
     outputs = none #'nemesis'
   []
-  [dv_mat]
-    type = ParsedMaterial
-    property_name = dv_mat
-    material_property_names = 'vac_diffus'
-    expression = 'vac_diffus'
-    outputs = none
-  []
-  [di_mat]
-    type = ParsedMaterial
-    property_name = di_mat
-    material_property_names = 'int_diffus'
-    expression = 'int_diffus'
-    outputs = none
-  []
-  [rhov_dev]
-    type = DerivativeParsedMaterial
-    property_name = rhov_dev
-    coupled_variables = 'wvac phi'
-    material_property_names = 'combined_rho_vac(wvac,phi) hs(phi) hv(phi) cv_eq(wvac,phi)'
-    constant_names = 'cvv_eq Va'
-    constant_expressions = '1.0 0.04092'
-    expression = 'combined_rho_vac - (hs * cv_eq + hv * cvv_eq) / Va'
-    outputs = none
-  []
-  [rhoi_dev]
-    type = DerivativeParsedMaterial
-    property_name = rhoi_dev
-    coupled_variables = 'wint phi'
-    material_property_names = 'combined_rho_int(wint,phi) hs(phi) hv(phi) ci_eq(wint,phi)'
-    constant_names = 'cvi_eq Va'
-    constant_expressions = '0.0 0.04092'
-    expression = 'combined_rho_int - (hs * ci_eq + hv * cvi_eq) / Va'
-    outputs = none
-  []
+  # [dv_mat]
+  #   type = ParsedMaterial
+  #   property_name = dv_mat
+  #   material_property_names = 'vac_diffus'
+  #   expression = 'vac_diffus'
+  #   outputs = none
+  # []
+  # [di_mat]
+  #   type = ParsedMaterial
+  #   property_name = di_mat
+  #   material_property_names = 'int_diffus'
+  #   expression = 'int_diffus'
+  #   outputs = none
+  # []
+  # [rhov_dev]
+  #   type = DerivativeParsedMaterial
+  #   property_name = rhov_dev
+  #   coupled_variables = 'wvac phi'
+  #   material_property_names = 'combined_rho_vac(wvac,phi) hs(phi) hv(phi) cv_eq(wvac,phi)'
+  #   constant_names = 'cvv_eq Va'
+  #   constant_expressions = '1.0 0.04092'
+  #   expression = 'combined_rho_vac - (hs * cv_eq + hv * cvv_eq) / Va'
+  #   outputs = none
+  # []
+  # [rhoi_dev]
+  #   type = DerivativeParsedMaterial
+  #   property_name = rhoi_dev
+  #   coupled_variables = 'wint phi'
+  #   material_property_names = 'combined_rho_int(wint,phi) hs(phi) hv(phi) ci_eq(wint,phi)'
+  #   constant_names = 'cvi_eq Va'
+  #   constant_expressions = '0.0 0.04092'
+  #   expression = 'combined_rho_int - (hs * ci_eq + hv * cvi_eq) / Va'
+  #   outputs = none
+  # []
+  # [rhov_dev_irr]
+  #   type = DerivativeParsedMaterial
+  #   property_name = rhov_dev_irr
+  #   coupled_variables = 'wvac phi'
+  #   material_property_names = 'combined_rho_vac(wvac,phi) hs(phi) hv(phi) cv_irr(wvac,phi)'
+  #   constant_names = 'cvv_eq Va'
+  #   constant_expressions = '1.0 0.04092'
+  #   expression = 'combined_rho_vac - (hs * cv_irr + hv * cvv_eq) / Va'
+  #   outputs = none
+  # []
+  # [rhoi_dev_irr]
+  #   type = DerivativeParsedMaterial
+  #   property_name = rhoi_dev_irr
+  #   coupled_variables = 'wint phi'
+  #   material_property_names = 'combined_rho_int(wint,phi) hs(phi) hv(phi) ci_irr(wint,phi)'
+  #   constant_names = 'cvi_eq Va'
+  #   constant_expressions = '0.0 0.04092'
+  #   expression = 'combined_rho_int - (hs * ci_irr + hv * cvi_eq) / Va'
+  #   outputs = none
+  # []
   # Irradiation materials
   [a_r]
     type = ParsedMaterial
@@ -332,7 +390,7 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     coupled_variables = 'phi T'
     expression = 'dint:=Di_0 * exp(-Ei_B / (kB * T));
                   hs * Va * Z * dint / (a_0^2)' #'0.5 * Va * hs'
-    outputs = exodus #nemesis #'nemesis'
+    outputs = none #nemesis #nemesis #'nemesis'
   []
   [rho_gen]
     type = DerivativeParsedMaterial
@@ -343,24 +401,18 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     constant_expressions = '2 5 1 ${f_dot}'
     material_property_names = 'hs(phi)'
     expression = 'f_dot * noise * Nc * Nd * hs'
-    outputs = exodus #'nemesis'
+    outputs = nemesis #'nemesis'
   []
   [rho_recomb] #This one is off on GB?
     type = DerivativeParsedMaterial
     property_name = rho_recomb
-    coupled_variables = 'wvac wint phi gr0 gr1' #gr0 gr1 gr2
+    coupled_variables = 'wvac wint phi' # gr0 gr1' #gr0 gr1 gr2
     derivative_order = 2
     # additional_derivative_symbols = w # combined_rho_vac combined_rho_int
     material_property_names = 'a_r(phi) combined_rho_vac(wvac,phi) combined_rho_int(wint,phi)'
-    # expression = 'lamgb:=gr0^2 + gr1^2 + gr2^2 + phi^2;
-    #               nothgb:=1 - (4 * (1-lamgb)^2);
-    #               out:=a_r * combined_rho_vac * combined_rho_int * nothgb;
-    #               if(out>0.0,out,0.0)' #
-    # expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
-    #               if(out>0.0,0.0-out,0.0)'
     expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
-                  if(out>=0.0,0.0-out,0.0)'
-    outputs = exodus #'nemesis'
+                  if(out>0.0,0.0-out,0.0)'
+    outputs = nemesis #'nemesis'
   []
   [rho_mixing_vac]
     type = DerivativeParsedMaterial
@@ -371,7 +423,7 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
     material_property_names = 'chiu(phi,wvac)'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chiu' # * hs
-    outputs = exodus #'nemesis'
+    outputs = none #nemesis #'nemesis'
   []
   [rho_mixing_int]
     type = DerivativeParsedMaterial
@@ -382,7 +434,7 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
     material_property_names = 'chii(phi,wint)'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chii' # * hs
-    outputs = exodus #'nemesis'
+    outputs = none #nemesis #'nemesis'
   []
   [change_vac]
     type = ParsedMaterial
@@ -391,37 +443,37 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     # derivative_order = 2
     material_property_names = 'rho_gen(phi) rho_recomb(wvac,wint,phi)'
     expression = 'rho_gen + rho_recomb' #hs * was - but recomb - needs + instead
-    outputs = exodus #nemesis #'nemesis'
+    outputs = nemesis #nemesis #'nemesis'
   []
-  [extra_gen]
-    type = DerivativeParsedMaterial
-    property_name = extra_gen
-    coupled_variables = 'phi gr0 gr1'
-    derivative_order = 1
-    constant_names = 'Nc Nd noise f_dot'
-    constant_expressions = '2 5 1 ${f_dot}'
-    material_property_names = 'hs(phi) hgb'
-    expression = '5*f_dot * noise * Nc * Nd * (hs + 10 * hgb)'
-    outputs = none #'nemesis'
-  []
-  [extra_genB]
-    type = DerivativeParsedMaterial
-    property_name = extra_genB
-    coupled_variables = 'phi gr0 gr1'
-    derivative_order = 1
-    constant_names = 'Nc Nd noise f_dot'
-    constant_expressions = '2 5 1 ${f_dot}'
-    material_property_names = 'hs(phi) hgb'
-    expression = '10*f_dot * noise * Nc * Nd * (hs - hgb)'
-    outputs = none #'nemesis'
-  []
-  [hgb]
-    type = ParsedMaterial
-    property_name = hgb
-    coupled_variables = 'phi gr0 gr1'
-    expression = '16 * gr0^2 * gr1^2'
-    outputs = exodus
-  []
+  # [extra_gen]
+  #   type = DerivativeParsedMaterial
+  #   property_name = extra_gen
+  #   coupled_variables = 'phi gr0 gr1'
+  #   derivative_order = 1
+  #   constant_names = 'Nc Nd noise f_dot'
+  #   constant_expressions = '2 5 1 ${f_dot}'
+  #   material_property_names = 'hs(phi) hgb'
+  #   expression = '5*f_dot * noise * Nc * Nd * (hs + 10 * hgb)'
+  #   outputs = none #'nemesis'
+  # []
+  # [extra_genB]
+  #   type = DerivativeParsedMaterial
+  #   property_name = extra_genB
+  #   coupled_variables = 'phi gr0 gr1'
+  #   derivative_order = 1
+  #   constant_names = 'Nc Nd noise f_dot'
+  #   constant_expressions = '2 5 1 ${f_dot}'
+  #   material_property_names = 'hs(phi) hgb'
+  #   expression = '20*f_dot * noise * Nc * Nd * (hs - hgb)'
+  #   outputs = none #'nemesis'
+  # []
+  # [hgb]
+  #   type = ParsedMaterial
+  #   property_name = hgb
+  #   coupled_variables = 'phi gr0 gr1'
+  #   expression = '16 * gr0^2 * gr1^2'
+  #   outputs = none
+  # []
 []
 
 [Modules]
@@ -493,30 +545,30 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     args = 'wvac phi' # gr0 gr1 gr2'
     #coupled_variables = 'wvac phi gr0 gr1 gr2'
   []
-  # # Damage/Mixing
-  # [ballistic_mix_vac]
-  #   type = MatDiffusion
-  #   variable = wvac
-  #   diffusivity = rho_mixing_vac
-  # []
-  # [ballistic_mix_int]
-  #   type = MatDiffusion
-  #   variable = wint
-  #   diffusivity = rho_mixing_int
-  # []
-  # EXTRA
-  [extra_source_vac]
-    type = MaskedBodyForce
+  # Damage/Mixing
+  [ballistic_mix_vac]
+    type = MatDiffusion
     variable = wvac
-    mask = extra_genB #change_vac #rho_gen
-    coupled_variables = 'phi' # wint'
+    diffusivity = rho_mixing_vac
   []
-  [extra_source_int]
-    type = MaskedBodyForce
+  [ballistic_mix_int]
+    type = MatDiffusion
     variable = wint
-    mask = extra_gen #change_vac #rho_gen
-    coupled_variables = 'phi' # wvac'
+    diffusivity = rho_mixing_int
   []
+  # # EXTRA
+  # [extra_source_vac]
+  #   type = MaskedBodyForce
+  #   variable = wvac
+  #   mask = extra_genB #change_vac #rho_gen
+  #   coupled_variables = 'phi' # wint'
+  # []
+  # [extra_source_int]
+  #   type = MaskedBodyForce
+  #   variable = wint
+  #   mask = extra_gen #change_vac #rho_gen
+  #   coupled_variables = 'phi' # wvac'
+  # []
 []
 
 [AuxKernels]
@@ -530,16 +582,34 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     variable = T
     function = f_T
   []
-  # Mat to auxvar for point PPs
-  [cv_aux]
-    type = MaterialRealAux
-    variable = cv_aux
-    property = cvac
+  [voids_aux]
+    type = FeatureFloodCountAux
+    variable = voids
+    flood_counter = void_tracker
+    field_display = UNIQUE_REGION
+    execute_on = 'INITIAL TIMESTEP_END'
   []
-  [ci_aux]
-    type = MaterialRealAux
-    variable = ci_aux
-    property = cint
+  #NEW Grain_Tracker related stuff
+  [unique_grains]
+    type = FeatureFloodCountAux
+    variable = unique_grains
+    flood_counter = grain_tracker
+    field_display = UNIQUE_REGION
+    execute_on = 'initial timestep_end'
+  []
+  [var_indices]
+    type = FeatureFloodCountAux
+    variable = var_indices
+    flood_counter = grain_tracker
+    field_display = VARIABLE_COLORING
+    execute_on = 'initial timestep_end'
+  []
+  [grain_aux]
+    type = EBSDReaderPointDataAux
+    variable = ebsd_grains
+    ebsd_reader = ebsd_reader
+    data_name = 'feature_id'
+    execute_on = 'initial timestep_end'
   []
 []
 
@@ -595,6 +665,23 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     type = TimestepSize
     outputs = csv
   []
+  # FFC
+  [void_tracker]
+    type = FeatureFloodCount
+    variable = phi
+    threshold = 0.5 # 0.1 #0.2
+    connecting_threshold = 0.5 #0.09 #0.08
+    compute_var_to_feature_map = true
+    execute_on = 'initial timestep_end'
+  []
+  [grain_tracker_fc]
+    type = FeatureFloodCount
+    variable = 'gr0 gr1 gr2' # gr3 gr4 gr5 gr6 gr7 gr8 gr9' #'gr0 gr1 gr2'
+    threshold = 0.5 #0.2
+    connecting_threshold = 0.5 #0.08
+    compute_var_to_feature_map = true
+    execute_on = 'initial timestep_end'
+  []
   # # Irradiation PPs Used in Materials
   # [hs_average]
   #   type = ElementAverageMaterialProperty
@@ -632,58 +719,92 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     mat_prop = combined_rho_int
     outputs = csv
   []
-  # line based PPs
-  [cv_b]
-    type = PointValue
-    point = '100 0.5 0'
-    variable = cv_aux
+[]
+
+[VectorPostprocessors]
+  [voids]
+    type = FeatureVolumeVectorPostprocessor
+    flood_counter = void_tracker
+    execute_on = 'initial timestep_end final'
+    output_centroids = true #false #was true
+    outputs = csv
   []
-  [ci_b]
-    type = PointValue
-    point = '100 0.5 0'
-    variable = ci_aux
+  # [alt_voids]
+  #   type = FeatureVolumeVectorPostprocessor
+  #   flood_counter = void_tracker_05
+  #   execute_on = 'initial timestep_end final'
+  #   output_centroids = false #was true
+  #   outputs = csv
+  # []
+  [grain_sizes]
+    type = FeatureVolumeVectorPostprocessor
+    flood_counter = grain_tracker_fc
+    execute_on = 'initial timestep_end final'
+    output_centroids = false #was true
+    outputs = csv
   []
-  [cv_GB]
-    type = PointValue
-    point = '10000 0.5 0'
-    variable = cv_aux
-  []
-  [ci_GB]
-    type = PointValue
-    point = '10000 0.5 0'
-    variable = ci_aux
-  []
+  # [vectorMemory]
+  #   type = VectorMemoryUsage
+  #   mem_units = gigabytes
+  #   outputs = csv
+  #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+  # []
 []
 
 [Controls]
-  [extraGen]
-    type = TimePeriod
-    disable_objects = 'Kernels::source_vac Kernels::source_int
-    Kernels::recombination_vac Kernels::recombination_int'
-    # Kernels::ballistic_mix_vac Kernels::ballistic_mix_int'
-    enable_objects = 'Kernels::extra_source_int Kernels::extra_source_vac'
-    start_time = 0
-    end_time = 1e5
-    execute_on = 'INITIAL TIMESTEP_END'
-  []
-  # [irr_kernels]
+  # [extraGen]
   #   type = TimePeriod
-  #   # disable_objects = 'Kernels::source_vac Kernels::source_int
-  #   # Kernels::recombination_vac Kernels::recombination_int
+  #   disable_objects = 'Kernels::source_vac Kernels::source_int
+  #   Kernels::recombination_vac Kernels::recombination_int'
   #   # Kernels::ballistic_mix_vac Kernels::ballistic_mix_int'
-  #   enable_objects = 'Kernels::source_vac Kernels::source_int'
-  #   disable_objects = 'Kernels::recombination_vac Kernels::recombination_int'
+  #   enable_objects = 'Kernels::extra_source_int Kernels::extra_source_vac'
   #   start_time = 0
-  #   end_time = 1e5 #1e6
+  #   end_time = 2000
   #   execute_on = 'INITIAL TIMESTEP_END'
   # []
-  [irr_newdt]
-    type = TimePeriod
-    enable_objects = 'TimeStepper::tstepper1'
-    disable_objects = 'TimeStepper::tstepper2'
-    start_time = 0
-    end_time = 1e5
-    execute_on = 'INITIAL TIMESTEP_END'
+  # # [irr_kernels]
+  # #   type = TimePeriod
+  # #   # disable_objects = 'Kernels::source_vac Kernels::source_int
+  # #   # Kernels::recombination_vac Kernels::recombination_int
+  # #   # Kernels::ballistic_mix_vac Kernels::ballistic_mix_int'
+  # #   enable_objects = 'Kernels::source_vac Kernels::source_int'
+  # #   disable_objects = 'Kernels::recombination_vac Kernels::recombination_int'
+  # #   start_time = 0
+  # #   end_time = 1e5 #1e6
+  # #   execute_on = 'INITIAL TIMESTEP_END'
+  # # []
+  # [irr_newdt]
+  #   type = TimePeriod
+  #   enable_objects = 'TimeStepper::tstepper1'
+  #   disable_objects = 'TimeStepper::tstepper2'
+  #   start_time = 0
+  #   end_time = 1e5
+  #   execute_on = 'INITIAL TIMESTEP_END'
+  # []
+[]
+
+[UserObjects]
+  [ebsd_reader]
+    type = EBSDReader
+  []
+  [ebsd]
+    type = PolycrystalEBSD
+    # coloring_algorithm = bt
+    ebsd_reader = ebsd_reader
+    enable_var_coloring = true
+    output_adjacency_matrix = true
+    phase = 1
+  []
+  [grain_tracker]
+    type = GrainTracker
+    threshold = 0.1 #0.2
+    connecting_threshold = 0.09 #0.08
+    compute_halo_maps = false #true#false
+    verbosity_level = 1
+  []
+  [terminator_2void]
+    type = Terminator
+    expression = 'void_tracker < 2'
   []
 []
 
@@ -711,37 +832,37 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
   nl_rel_tol = 1e-8 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  # end_time = 1e10 #1e10 #5e6 #0.006
-  num_steps = 300 #00
+  end_time = 1e6 #1e10 #5e6 #0.006
+  # num_steps = 20 #00
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
   compute_scaling_once = false
   line_search = none
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   optimal_iterations = 6
-  #   dt = 10 #2.5
-  #   # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
-  #   # growth_factor = 1.8
-  #   # cutback_factor = 0.5
-  #   # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
-  # []
-  [TimeSteppers]
-    [tstepper1]
-      type = IterationAdaptiveDT
-      optimal_iterations = 6
-      dt = 10 #2.5
-      # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
-    []
-    [tstepper2]
-      type = IterationAdaptiveDT
-      optimal_iterations = 6
-      reset_dt = true
-      dt = 10 #2.5
-      # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
-    []
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    optimal_iterations = 6
+    dt = 10 #2.5
+    # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+    # growth_factor = 1.8
+    # cutback_factor = 0.5
+    # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
   []
+  # [TimeSteppers]
+  #   [tstepper1]
+  #     type = IterationAdaptiveDT
+  #     optimal_iterations = 6
+  #     dt = 10 #2.5
+  #     # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+  #   []
+  #   [tstepper2]
+  #     type = IterationAdaptiveDT
+  #     optimal_iterations = 6
+  #     reset_dt = true
+  #     dt = 10 #2.5
+  #     # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+  #   []
+  # []
   # [Adaptivity]
   #   refine_fraction = 0.8
   #   coarsen_fraction = 0.05 #minimize this- adds error
@@ -753,9 +874,9 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
 [Outputs]
   perf_graph = false
   csv = true
-  exodus = true
+  exodus = false
   checkpoint = false
-  file_base = ${oname}/${oname}
+  file_base = fr_${f_dot}/fr_${f_dot}
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
   # [csv]
@@ -763,12 +884,12 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
   #   # file_base = 02_2D_8pore_config1_csv/02_2D_8pore_config1
   #   time_step_interval = 3
   # []
-  # [nemesis]
-  #   type = Nemesis
-  #   # file_base = 02_2D_8pore_config1_nemesis/02_2D_8pore_config1_nemesis
-  #   # interval = 3 # this ExodusII will only output every third time step
-  #   # time_step_interval = 3
-  # []
+  [nemesis]
+    type = Nemesis
+    # file_base = 02_2D_8pore_config1_nemesis/02_2D_8pore_config1_nemesis
+    # interval = 3 # this ExodusII will only output every third time step
+    # time_step_interval = 3
+  []
   print_linear_residuals = false
   # [checkpoint]
   #   type = Checkpoint

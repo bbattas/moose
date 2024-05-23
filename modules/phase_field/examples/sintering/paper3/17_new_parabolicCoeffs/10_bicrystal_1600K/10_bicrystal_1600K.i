@@ -1,30 +1,32 @@
 ##############################################################################
-# File: 09_bicrystal_working.i
-# File Location: /examples/sintering/paper3/17_new_parabolicCoeffs/09_bicrystal_working
-# Created Date: Tuesday May 21st 2024
+# File: 10_bicrystal_1600K.i
+# File Location: /examples/sintering/paper3/17_new_parabolicCoeffs/10_bicrystal_1600K
+# Created Date: Thursday May 23rd 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday May 23rd 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
+#  Using 1600K parameters here to see what they do
+#  Not sure if thats worth it since concs are basically the same with and without
+#   irradiation based on LANL stuff?  Not sure well see much/any acceleration?
 #  Psuedo-1D input of two adjacent grain OPs to look at recombination and
 #   whatnot to test how to change/evolve defect concentrations
-#  Doing lots of variations will take notes in daily stuff, search for input name
-#  5-11 are theq ks, 1-4 are irradiated "eq" ks
+#
 ##############################################################################
 
-oname = test01
+oname = test03
 f_dot = 1e-8
 # Thermal
-ks_vac = 1.549e5 #3.285e1 #
-ks_int = 1.549e3 #1.966e11 #4.829e4 #
+ks_vac = 1.302e7 #4
+ks_int = 1.302e7 #1.092e9
 # # Irradiation
-# ks_vac = 3.285e1
-# ks_int = 4.829e4
-# # Irradiation GB
-# ks_vac = 9.521e5 #9.521e8
-# ks_int = 2.415e3
+# ks_vac = 5.753e3
+# ks_int = 1.116e7
+# # Thermal GB
+# ks_vac = 6.569e2
+# ks_int = 5.461e7
 
 [Mesh]
   [gmg]
@@ -52,7 +54,7 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
   [wvac]
   []
   [wint]
-    # initial_condition = 5
+    # initial_condition = 1 #5
   []
   [phi]
   []
@@ -133,7 +135,7 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
 [Functions]
   [f_T]
     type = ConstantFunction
-    value = 1200 #1600
+    value = 1600
   []
 []
 
@@ -204,9 +206,8 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     coupled_variables = 'gr0 gr1 phi T wvac'
     # material_property_names = 'rhovi(vac) rhosi hv(phi)'
     constant_names = 'cb cgb'
-    # constant_expressions = '8.098e-02 2.654e-09' #Irradiation
-    # constant_expressions = '5.542e-12 3.000e-04' #No Irradiation- mine
-    constant_expressions = '1.378e-06 3.000e-04' #No Irradiation- LANL
+    # constant_expressions = '3.877e-04 4.347e-03' #Irradiation
+    constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
     expression = 'lam:=16 * gr0^2 * gr1^2;
                   cgb * lam + (1 - lam)*cb'
     outputs = none #'nemesis' # + phi^2
@@ -217,9 +218,32 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     coupled_variables = 'gr0 gr1 phi T wint'
     # material_property_names = 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
-    # constant_expressions = '7.477e-09 1.046e-03' #Irradiation
-    # constant_expressions = '1.050e-29 2.571e-10' #No Irradiation- Mine
-    constant_expressions = '5.837e-37 2.571e-10' #No Irradiation- LANL
+    # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
+    constant_expressions = '1.667e-32 6.170e-08' #No Irradiation- LANL
+    expression = 'lam:=16 * gr0^2 * gr1^2;
+                  cgb * lam + (1 - lam)*cb'
+    outputs = none #'nemesis' #+ phi^2
+  []
+  [cv_irr]
+    type = DerivativeParsedMaterial
+    property_name = cv_irr
+    coupled_variables = 'gr0 gr1 phi T wvac'
+    # material_property_names = 'rhovi(vac) rhosi hv(phi)'
+    constant_names = 'cb cgb'
+    constant_expressions = '3.877e-04 4.347e-03' #Irradiation
+    # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
+    expression = 'lam:=16 * gr0^2 * gr1^2;
+                  cgb * lam + (1 - lam)*cb'
+    outputs = none #'nemesis' # + phi^2
+  []
+  [ci_irr]
+    type = DerivativeParsedMaterial
+    property_name = ci_irr
+    coupled_variables = 'gr0 gr1 phi T wint'
+    # material_property_names = 'rhovi(wint) rhosi(wint) hv(phi)'
+    constant_names = 'cb cgb'
+    constant_expressions = '7.258e-09 5.900e-06' #Irradiation
+    # constant_expressions = '1.667e-32 6.170e-08' #No Irradiation- LANL
     expression = 'lam:=16 * gr0^2 * gr1^2;
                   cgb * lam + (1 - lam)*cb'
     outputs = none #'nemesis' #+ phi^2
@@ -322,6 +346,26 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     expression = 'combined_rho_int - (hs * ci_eq + hv * cvi_eq) / Va'
     outputs = none
   []
+  [rhov_dev_irr]
+    type = DerivativeParsedMaterial
+    property_name = rhov_dev_irr
+    coupled_variables = 'wvac phi'
+    material_property_names = 'combined_rho_vac(wvac,phi) hs(phi) hv(phi) cv_irr(wvac,phi)'
+    constant_names = 'cvv_eq Va'
+    constant_expressions = '1.0 0.04092'
+    expression = 'combined_rho_vac - (hs * cv_irr + hv * cvv_eq) / Va'
+    outputs = none
+  []
+  [rhoi_dev_irr]
+    type = DerivativeParsedMaterial
+    property_name = rhoi_dev_irr
+    coupled_variables = 'wint phi'
+    material_property_names = 'combined_rho_int(wint,phi) hs(phi) hv(phi) ci_irr(wint,phi)'
+    constant_names = 'cvi_eq Va'
+    constant_expressions = '0.0 0.04092'
+    expression = 'combined_rho_int - (hs * ci_irr + hv * cvi_eq) / Va'
+    outputs = none
+  []
   # Irradiation materials
   [a_r]
     type = ParsedMaterial
@@ -359,7 +403,21 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     # expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
     #               if(out>0.0,0.0-out,0.0)'
     expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
-                  if(out>=0.0,0.0-out,0.0)'
+                  if(out>0.0,0.0-10*out,0.0)'
+    outputs = exodus #'nemesis'
+  []
+  [rho_recomb2] #This one is off on GB?
+    type = DerivativeParsedMaterial
+    property_name = rho_recomb2
+    coupled_variables = 'wvac wint phi gr0 gr1' #gr0 gr1 gr2
+    derivative_order = 2
+    # additional_derivative_symbols = w # combined_rho_vac combined_rho_int
+    material_property_names = 'a_r(phi) combined_rho_vac(wvac,phi) combined_rho_int(wint,phi) rhov_dev_irr(wvac,phi) rhoi_dev_irr(wint,phi)'
+    # constant_names = 'cvv cvi Va'
+    # constant_expressions = '1.0 0.0 0.04092'
+    # # combined_rho_vac - (hs * cv_eq + hv * cvv_eq) / Va
+    expression = 'out:=a_r * rhov_dev_irr * rhoi_dev_irr;
+                  if(out>0.0,0.0-100*out,0.0)'
     outputs = exodus #'nemesis'
   []
   [rho_mixing_vac]
@@ -412,7 +470,7 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     constant_names = 'Nc Nd noise f_dot'
     constant_expressions = '2 5 1 ${f_dot}'
     material_property_names = 'hs(phi) hgb'
-    expression = '10*f_dot * noise * Nc * Nd * (hs - hgb)'
+    expression = '20*f_dot * noise * Nc * Nd * (hs - hgb)'
     outputs = none #'nemesis'
   []
   [hgb]
@@ -493,30 +551,30 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
     args = 'wvac phi' # gr0 gr1 gr2'
     #coupled_variables = 'wvac phi gr0 gr1 gr2'
   []
-  # # Damage/Mixing
-  # [ballistic_mix_vac]
-  #   type = MatDiffusion
-  #   variable = wvac
-  #   diffusivity = rho_mixing_vac
-  # []
-  # [ballistic_mix_int]
-  #   type = MatDiffusion
-  #   variable = wint
-  #   diffusivity = rho_mixing_int
-  # []
-  # EXTRA
-  [extra_source_vac]
-    type = MaskedBodyForce
+  # Damage/Mixing
+  [ballistic_mix_vac]
+    type = MatDiffusion
     variable = wvac
-    mask = extra_genB #change_vac #rho_gen
-    coupled_variables = 'phi' # wint'
+    diffusivity = rho_mixing_vac
   []
-  [extra_source_int]
-    type = MaskedBodyForce
+  [ballistic_mix_int]
+    type = MatDiffusion
     variable = wint
-    mask = extra_gen #change_vac #rho_gen
-    coupled_variables = 'phi' # wvac'
+    diffusivity = rho_mixing_int
   []
+  # # EXTRA
+  # [extra_source_vac]
+  #   type = MaskedBodyForce
+  #   variable = wvac
+  #   mask = extra_genB #change_vac #rho_gen
+  #   coupled_variables = 'phi' # wint'
+  # []
+  # [extra_source_int]
+  #   type = MaskedBodyForce
+  #   variable = wint
+  #   mask = extra_gen #change_vac #rho_gen
+  #   coupled_variables = 'phi' # wvac'
+  # []
 []
 
 [AuxKernels]
@@ -656,35 +714,35 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
 []
 
 [Controls]
-  [extraGen]
-    type = TimePeriod
-    disable_objects = 'Kernels::source_vac Kernels::source_int
-    Kernels::recombination_vac Kernels::recombination_int'
-    # Kernels::ballistic_mix_vac Kernels::ballistic_mix_int'
-    enable_objects = 'Kernels::extra_source_int Kernels::extra_source_vac'
-    start_time = 0
-    end_time = 1e5
-    execute_on = 'INITIAL TIMESTEP_END'
-  []
-  # [irr_kernels]
+  # [extraGen]
   #   type = TimePeriod
-  #   # disable_objects = 'Kernels::source_vac Kernels::source_int
-  #   # Kernels::recombination_vac Kernels::recombination_int
+  #   disable_objects = 'Kernels::source_vac Kernels::source_int
+  #   Kernels::recombination_vac Kernels::recombination_int'
   #   # Kernels::ballistic_mix_vac Kernels::ballistic_mix_int'
-  #   enable_objects = 'Kernels::source_vac Kernels::source_int'
-  #   disable_objects = 'Kernels::recombination_vac Kernels::recombination_int'
+  #   enable_objects = 'Kernels::extra_source_int Kernels::extra_source_vac'
   #   start_time = 0
-  #   end_time = 1e5 #1e6
+  #   end_time = 2000
   #   execute_on = 'INITIAL TIMESTEP_END'
   # []
-  [irr_newdt]
-    type = TimePeriod
-    enable_objects = 'TimeStepper::tstepper1'
-    disable_objects = 'TimeStepper::tstepper2'
-    start_time = 0
-    end_time = 1e5
-    execute_on = 'INITIAL TIMESTEP_END'
-  []
+  # # [irr_kernels]
+  # #   type = TimePeriod
+  # #   # disable_objects = 'Kernels::source_vac Kernels::source_int
+  # #   # Kernels::recombination_vac Kernels::recombination_int
+  # #   # Kernels::ballistic_mix_vac Kernels::ballistic_mix_int'
+  # #   enable_objects = 'Kernels::source_vac Kernels::source_int'
+  # #   disable_objects = 'Kernels::recombination_vac Kernels::recombination_int'
+  # #   start_time = 0
+  # #   end_time = 1e5 #1e6
+  # #   execute_on = 'INITIAL TIMESTEP_END'
+  # # []
+  # [irr_newdt]
+  #   type = TimePeriod
+  #   enable_objects = 'TimeStepper::tstepper1'
+  #   disable_objects = 'TimeStepper::tstepper2'
+  #   start_time = 0
+  #   end_time = 1e5
+  #   execute_on = 'INITIAL TIMESTEP_END'
+  # []
 []
 
 [Preconditioning]
@@ -718,30 +776,30 @@ ks_int = 1.549e3 #1.966e11 #4.829e4 #
   automatic_scaling = true
   compute_scaling_once = false
   line_search = none
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   optimal_iterations = 6
-  #   dt = 10 #2.5
-  #   # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
-  #   # growth_factor = 1.8
-  #   # cutback_factor = 0.5
-  #   # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
-  # []
-  [TimeSteppers]
-    [tstepper1]
-      type = IterationAdaptiveDT
-      optimal_iterations = 6
-      dt = 10 #2.5
-      # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
-    []
-    [tstepper2]
-      type = IterationAdaptiveDT
-      optimal_iterations = 6
-      reset_dt = true
-      dt = 10 #2.5
-      # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
-    []
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    optimal_iterations = 6
+    dt = 10 #2.5
+    # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+    # growth_factor = 1.8
+    # cutback_factor = 0.5
+    # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
   []
+  # [TimeSteppers]
+  #   [tstepper1]
+  #     type = IterationAdaptiveDT
+  #     optimal_iterations = 6
+  #     dt = 10 #2.5
+  #     # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+  #   []
+  #   [tstepper2]
+  #     type = IterationAdaptiveDT
+  #     optimal_iterations = 6
+  #     reset_dt = true
+  #     dt = 10 #2.5
+  #     # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+  #   []
+  # []
   # [Adaptivity]
   #   refine_fraction = 0.8
   #   coarsen_fraction = 0.05 #minimize this- adds error

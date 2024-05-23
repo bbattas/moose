@@ -55,20 +55,19 @@
   petsc_options_value = 'hypre'
 []
 
-# [Outputs]
-#   # exodus = true
-#   nemesis = true
-#   file_base = subdirTest/subdirTest
-# []
-
 [Outputs]
-  perf_graph = false
-  csv = true
-  exodus = false
-  checkpoint = false
-  file_base = subdirTest3/subdirTest
-  [nemesis]
-    type = Nemesis
-  []
-  print_linear_residuals = false
+  exodus = true
+  file_base = subdirTest/subdirTest
 []
+
+# [Outputs]
+#   perf_graph = false
+#   csv = true
+#   exodus = false
+#   checkpoint = false
+#   file_base = subdirTest4/subdirTest
+#   [nemesis]
+#     type = Nemesis
+#   []
+#   print_linear_residuals = false
+# []
