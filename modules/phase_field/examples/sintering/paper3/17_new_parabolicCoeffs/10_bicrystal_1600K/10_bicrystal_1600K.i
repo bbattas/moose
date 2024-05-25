@@ -4,7 +4,7 @@
 # Created Date: Thursday May 23rd 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday May 23rd 2024
+# Last Modified: Friday May 24th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -19,8 +19,8 @@
 oname = test03
 f_dot = 1e-8
 # Thermal
-ks_vac = 1.302e7 #4
-ks_int = 1.302e7 #1.092e9
+ks_vac = 1.302e11 #4
+ks_int = 1.302e11 #1.092e9
 # # Irradiation
 # ks_vac = 5.753e3
 # ks_int = 1.116e7
@@ -403,7 +403,7 @@ ks_int = 1.302e7 #1.092e9
     # expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
     #               if(out>0.0,0.0-out,0.0)'
     expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
-                  if(out>0.0,0.0-10*out,0.0)'
+                  if(out>0.0,0.0-out,0.0)'
     outputs = exodus #'nemesis'
   []
   [rho_recomb2] #This one is off on GB?

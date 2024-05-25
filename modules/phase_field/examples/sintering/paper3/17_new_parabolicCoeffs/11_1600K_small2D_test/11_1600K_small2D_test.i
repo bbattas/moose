@@ -4,27 +4,30 @@
 # Created Date: Thursday May 23rd 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday May 23rd 2024
+# Last Modified: Saturday May 25th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
 #  Arbitrary test to see what the new values and whatnot do just taking a stab
 #   at a longer run of the simple 2D 1 pore input
-#
+#  Used 1.302e7 for first k, then cut to 1.302e5
 #
 ##############################################################################
 
 # oname =
-f_dot = 0 #1e-8
-# Thermal
-ks_vac = 1.302e7 #4
-ks_int = 1.302e7 #1.092e9
+f_dot = 1e-8
+# # Thermal
+ks_vac = 1.302e4 #5 #4
+ks_int = 1.092e9 #1.302e5 #1.092e9
 # # Irradiation
 # ks_vac = 5.753e3
 # ks_int = 1.116e7
 # # Thermal GB
 # ks_vac = 6.569e2
 # ks_int = 5.461e7
+# # Irradiation GB
+# ks_vac = 7.751e2
+# ks_int = 5.711e5
 
 [Mesh]
   [ebsd_mesh]
@@ -217,51 +220,49 @@ ks_int = 1.302e7 #1.092e9
   [cv_eq]
     type = DerivativeParsedMaterial
     property_name = cv_eq
-    coupled_variables = 'gr0 gr1 phi T wvac'
-    # material_property_names = 'rhovi(vac) rhosi hv(phi)'
+    coupled_variables = 'gr0 gr1 gr2 phi T wvac'
+    material_property_names = 'hgb(phi,gr0,gr1,gr2)' #'rhovi(vac) rhosi hv(phi)'
     constant_names = 'cb cgb'
     # constant_expressions = '3.877e-04 4.347e-03' #Irradiation
     constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
-    expression = 'lam:=16 * gr0^2 * gr1^2;
-                  cgb * lam + (1 - lam)*cb'
+    expression = 'cgb * hgb + (1 - hgb)*cb'
     outputs = none #'nemesis' # + phi^2
   []
   [ci_eq]
     type = DerivativeParsedMaterial
     property_name = ci_eq
-    coupled_variables = 'gr0 gr1 phi T wint'
-    # material_property_names = 'rhovi(wint) rhosi(wint) hv(phi)'
+    coupled_variables = 'gr0 gr1 gr2 phi T wint'
+    material_property_names = 'hgb(phi,gr0,gr1,gr2)' # 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
     # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
     constant_expressions = '1.667e-32 6.170e-08' #No Irradiation- LANL
-    expression = 'lam:=16 * gr0^2 * gr1^2;
-                  cgb * lam + (1 - lam)*cb'
+    expression = 'cgb * hgb + (1 - hgb)*cb'
     outputs = none #'nemesis' #+ phi^2
   []
-  [cv_irr]
-    type = DerivativeParsedMaterial
-    property_name = cv_irr
-    coupled_variables = 'gr0 gr1 phi T wvac'
-    # material_property_names = 'rhovi(vac) rhosi hv(phi)'
-    constant_names = 'cb cgb'
-    constant_expressions = '3.877e-04 4.347e-03' #Irradiation
-    # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
-    expression = 'lam:=16 * gr0^2 * gr1^2;
-                  cgb * lam + (1 - lam)*cb'
-    outputs = none #'nemesis' # + phi^2
-  []
-  [ci_irr]
-    type = DerivativeParsedMaterial
-    property_name = ci_irr
-    coupled_variables = 'gr0 gr1 phi T wint'
-    # material_property_names = 'rhovi(wint) rhosi(wint) hv(phi)'
-    constant_names = 'cb cgb'
-    constant_expressions = '7.258e-09 5.900e-06' #Irradiation
-    # constant_expressions = '1.667e-32 6.170e-08' #No Irradiation- LANL
-    expression = 'lam:=16 * gr0^2 * gr1^2;
-                  cgb * lam + (1 - lam)*cb'
-    outputs = none #'nemesis' #+ phi^2
-  []
+  # [cv_irr]
+  #   type = DerivativeParsedMaterial
+  #   property_name = cv_irr
+  #   coupled_variables = 'gr0 gr1 gr2 phi T wvac'
+  #   # material_property_names = 'rhovi(vac) rhosi hv(phi)'
+  #   constant_names = 'cb cgb'
+  #   constant_expressions = '3.877e-04 4.347e-03' #Irradiation
+  #   # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
+  #   expression = 'lam:=16 * gr0^2 * gr1^2 * gr2^2;
+  #                 cgb * lam + (1 - lam)*cb'
+  #   outputs = none #'nemesis' # + phi^2
+  # []
+  # [ci_irr]
+  #   type = DerivativeParsedMaterial
+  #   property_name = ci_irr
+  #   coupled_variables = 'gr0 gr1 gr2 phi T wint'
+  #   # material_property_names = 'rhovi(wint) rhosi(wint) hv(phi)'
+  #   constant_names = 'cb cgb'
+  #   constant_expressions = '7.258e-09 5.900e-06' #Irradiation
+  #   # constant_expressions = '1.667e-32 6.170e-08' #No Irradiation- LANL
+  #   expression = 'lam:=16 * gr0^2 * gr1^2 * gr2^2;
+  #                 cgb * lam + (1 - lam)*cb'
+  #   outputs = none #'nemesis' #+ phi^2
+  # []
   [densificaiton]
     type = GrandPotentialMultiSinteringMaterial
     chemical_potential_vac = wvac
@@ -467,13 +468,13 @@ ks_int = 1.302e7 #1.092e9
   #   expression = '20*f_dot * noise * Nc * Nd * (hs - hgb)'
   #   outputs = none #'nemesis'
   # []
-  # [hgb]
-  #   type = ParsedMaterial
-  #   property_name = hgb
-  #   coupled_variables = 'phi gr0 gr1'
-  #   expression = '16 * gr0^2 * gr1^2'
-  #   outputs = none
-  # []
+  [hgb]
+    type = DerivativeParsedMaterial
+    property_name = hgb
+    coupled_variables = 'phi gr0 gr1 gr2'
+    expression = '16 * ( (gr0 * gr1)^2 + (gr0 * gr2)^2 + (gr1 * gr2)^2)'
+    outputs = none
+  []
 []
 
 [Modules]
@@ -876,7 +877,7 @@ ks_int = 1.302e7 #1.092e9
   csv = true
   exodus = false
   checkpoint = false
-  file_base = fr_${f_dot}/fr_${f_dot}
+  file_base = fr_${f_dot}_k/fr_${f_dot}_k
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
   # [csv]
