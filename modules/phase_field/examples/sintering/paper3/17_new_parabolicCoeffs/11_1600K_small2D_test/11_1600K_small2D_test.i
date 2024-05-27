@@ -4,7 +4,7 @@
 # Created Date: Thursday May 23rd 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Saturday May 25th 2024
+# Last Modified: Monday May 27th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -16,18 +16,18 @@
 
 # oname =
 f_dot = 1e-8
-# # Thermal
-ks_vac = 1.302e4 #5 #4
-ks_int = 1.092e9 #1.302e5 #1.092e9
+# # # Thermal
+# ks_vac = 1.302e4 #5 #4
+# ks_int = 1.092e9 #1.302e5 #1.092e9
 # # Irradiation
 # ks_vac = 5.753e3
 # ks_int = 1.116e7
 # # Thermal GB
 # ks_vac = 6.569e2
 # ks_int = 5.461e7
-# # Irradiation GB
-# ks_vac = 7.751e2
-# ks_int = 5.711e5
+# Irradiation GB
+ks_vac = 7.751e2
+ks_int = 5.711e5
 
 [Mesh]
   [ebsd_mesh]
@@ -388,10 +388,11 @@ ks_int = 1.092e9 #1.302e5 #1.092e9
     constant_names = 'Va Z a_0 kB Di_0 Ei_B' # Di_0 Ei_B'
     constant_expressions = '0.04092 250 0.25 8.617343e-5 4.0767e11 4.08453089' #1e13 2
     material_property_names = 'int_diffus(phi) hs(phi)'
-    coupled_variables = 'phi T'
+    coupled_variables = 'phi T gr0 gr1 gr2'
     expression = 'dint:=Di_0 * exp(-Ei_B / (kB * T));
-                  hs * Va * Z * dint / (a_0^2)' #'0.5 * Va * hs'
-    outputs = none #nemesis #nemesis #'nemesis'
+                  htj:=27*( (phi*gr0*gr1) * (phi*gr0*gr2) * (phi*gr1*gr2) * (gr0*gr1*gr2));
+                  (hs + 10*htj) * Va * Z * dint / (a_0^2)' #'0.5 * Va * hs'
+    outputs = nemesis #nemesis #nemesis #'nemesis'
   []
   [rho_gen]
     type = DerivativeParsedMaterial
@@ -877,7 +878,7 @@ ks_int = 1.092e9 #1.302e5 #1.092e9
   csv = true
   exodus = false
   checkpoint = false
-  file_base = fr_${f_dot}_k/fr_${f_dot}_k
+  file_base = fr_${f_dot}_kIrrGB_10TJR/fr_${f_dot}_kIrrGB_10TJR
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
   # [csv]
