@@ -4,7 +4,7 @@
 # Created Date: Thursday May 23rd 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday May 27th 2024
+# Last Modified: Tuesday May 28th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -390,9 +390,10 @@ ks_int = 5.711e5
     material_property_names = 'int_diffus(phi) hs(phi)'
     coupled_variables = 'phi T gr0 gr1 gr2'
     expression = 'dint:=Di_0 * exp(-Ei_B / (kB * T));
-                  htj:=27*( (phi*gr0*gr1) * (phi*gr0*gr2) * (phi*gr1*gr2) * (gr0*gr1*gr2));
-                  (hs + 10*htj) * Va * Z * dint / (a_0^2)' #'0.5 * Va * hs'
-    outputs = nemesis #nemesis #nemesis #'nemesis'
+                  hs * Va * Z * dint / (a_0^2)'
+    # htj:=27*( (phi*gr0*gr1) * (phi*gr0*gr2) * (phi*gr1*gr2) * (gr0*gr1*gr2));
+    # (hs + 10*htj) * Va * Z * dint / (a_0^2)' #'0.5 * Va * hs'
+    outputs = none #nemesis #nemesis #'nemesis'
   []
   [rho_gen]
     type = DerivativeParsedMaterial
@@ -413,7 +414,7 @@ ks_int = 5.711e5
     # additional_derivative_symbols = w # combined_rho_vac combined_rho_int
     material_property_names = 'a_r(phi) combined_rho_vac(wvac,phi) combined_rho_int(wint,phi)'
     expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
-                  if(out>0.0,0.0-out,0.0)'
+                  if(out>0.0,0.0-100*out,0.0)'
     outputs = nemesis #'nemesis'
   []
   [rho_mixing_vac]
@@ -878,7 +879,7 @@ ks_int = 5.711e5
   csv = true
   exodus = false
   checkpoint = false
-  file_base = fr_${f_dot}_kIrrGB_10TJR/fr_${f_dot}_kIrrGB_10TJR
+  file_base = fr_${f_dot}_kIrrGB_100R/fr_${f_dot}_kIrrGB_100R
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
   # [csv]
