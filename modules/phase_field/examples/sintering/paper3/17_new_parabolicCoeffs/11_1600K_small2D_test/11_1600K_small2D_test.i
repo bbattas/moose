@@ -4,7 +4,7 @@
 # Created Date: Thursday May 23rd 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday May 28th 2024
+# Last Modified: Wednesday May 29th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -414,7 +414,7 @@ ks_int = 5.711e5
     # additional_derivative_symbols = w # combined_rho_vac combined_rho_int
     material_property_names = 'a_r(phi) combined_rho_vac(wvac,phi) combined_rho_int(wint,phi)'
     expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
-                  if(out>0.0,0.0-100*out,0.0)'
+                  if(out>0.0,0.0-1000*out,0.0)'
     outputs = nemesis #'nemesis'
   []
   [rho_mixing_vac]
@@ -879,7 +879,7 @@ ks_int = 5.711e5
   csv = true
   exodus = false
   checkpoint = false
-  file_base = fr_${f_dot}_kIrrGB_100R/fr_${f_dot}_kIrrGB_100R
+  file_base = fr_${f_dot}_kIrrGB_1000R/fr_${f_dot}_kIrrGB_1000R
   # nemesis = false
   # fr_1.00e-10_csv/fr_1.00e-10
   # [csv]
