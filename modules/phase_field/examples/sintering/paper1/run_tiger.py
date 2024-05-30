@@ -15,14 +15,23 @@ parser.add_argument('--time','-t', action='store_true',
 parser.add_argument('--skip','-s', action='store_true',
                             help='''In the time_file_make use the skip flag '''
                             '''to skip last file/timestep(s), default off''')
+parser.add_argument('--max_xy','-x',type=float,required=True,
+                            help='''Max x&y for the 1/4 hull assuming center of symmetry is '''
+                            '''[max_xy,max_xy,max_z], Required, Default=None''')
+parser.add_argument('--max_z','-z',type=float,default=None,
+                            help='''Max z for the 1/4 hull assuming center of symmetry is '''
+                            '''[max_xy,max_xy,max_z], Required for 3D, Default=None''')
 cl_args = parser.parse_args()
 
 
 
-print('\x1b[31;1m'+'WARNING:'+'\x1b[0m'+
-      ' Currently the dimensions for the inputs for the quarter hull math need to be manually '+
-      'entered in the TIGER script!  Make sure you did this before running each size of input!!!')
+# print('\x1b[31;1m'+'WARNING:'+'\x1b[0m'+
+#       ' Currently the dimensions for the inputs for the quarter hull math need to be manually '+
+#       'entered in the TIGER script!  Make sure you did this before running each size of input!!!')
 
+if cl_args.dim == 3:
+    if cl_args.max_z == None:
+        raise ValueError('For 3D, --max_z/-z is required!')
 
 working_dir = os.getcwd()
 #os.chdir(working_dir)
@@ -46,8 +55,8 @@ full_3d = os.path.abspath(os.path.expanduser('~/projects/TIGER/TEMP_parallel_3d_
 time_command = ['python',full_time,str(cl_args.cpus)]
 if cl_args.skip:
     time_command.append('skip')
-area_command = ['python',full_2d,str(cl_args.cpus)]
-vol_command = ['python',full_3d,str(cl_args.cpus)]
+area_command = ['python',full_2d,'-n',str(cl_args.cpus),'-x',str(cl_args.max_xy)]
+vol_command = ['python',full_3d,'-n',str(cl_args.cpus),'-x',str(cl_args.max_xy),'-z',str(cl_args.max_z)]
 
 print('Commands being run: ')
 if cl_args.time:
@@ -82,5 +91,5 @@ print("Done")
 print(" ")
 print('\x1b[31;1m'+'WARNING:'+'\x1b[0m'+
       ' Currently the dimensions for the inputs for the quarter hull math need to be manually '+
-      'entered in the TIGER script!  Hopefully you did this before running each size of input!!!')
+      'specified in the command line flags for this script!  Remember there are two sizes of inputs...')
 print(" ")
