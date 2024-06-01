@@ -1,17 +1,17 @@
 ##############################################################################
-# File: 01_2D_1pore_fr_0.i
-# File Location: /examples/sintering/paper3/18_newCeq/01_2D_1pore_fr_0
-# Created Date: Thursday May 30th 2024
+# File: 04_asm_ilu_partial.i
+# File Location: /examples/sintering/paper3/18_newCeq/03_2D_large_fr_0_testing/04_asm_ilu_partial
+# Created Date: Saturday June 1st 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Saturday June 1st 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing stuff with the no irradiation for new large 2D IC (20 pores 6%vol)
+#  ASM ILU with partial preconditioner
 #
-#  Using the 5% GB volume version of parabolic coeffs for 1600K
-#  1,735,929 DoFs
+#
+#
 ##############################################################################
 
 f_dot = 0
@@ -25,7 +25,7 @@ ks_int = 1.092e9
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    filename = ../00_d3d_txt/2D_100x100um_8umavg_20pore.txt
+    filename = ../../00_d3d_txt/2D_100x100um_8umavg_20pore.txt
   []
   [subdomain_external]
     type = ParsedSubdomainMeshGenerator
@@ -703,8 +703,8 @@ ks_int = 1.092e9
 [Preconditioning]
   [SMP] #slow but good, very slow for 3D (might be another option then)
     type = SMP
-    full = true
-    # coupled_groups = 'wvac,wint,phi'
+    # full = true
+    coupled_groups = 'wvac,wint,phi'
   []
 []
 
@@ -712,14 +712,14 @@ ks_int = 1.092e9
   type = Transient
   scheme = bdf2
   solve_type = PJFNK
-  # petsc_options_iname = '-pc_type -sub_pc_type -pc_factor_levels'
-  # petsc_options_value = 'asm ilu 2'
+  petsc_options_iname = '-pc_type -sub_pc_type -pc_factor_levels'
+  petsc_options_value = 'asm ilu 2'
   # petsc_options_iname = '-pc_type -pc_hypre_type' # -snes_type'
   # petsc_options_value = 'hypre boomeramg' # vinewtonrsls'
-  petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -sub_pc_factor_shift_type'
-  petsc_options_value = ' asm      lu           2                nonzero'
-  nl_max_its = 30 #12 #20 #40 too large- optimal_iterations is 6
-  l_max_its = 60 #200 #30 #200 #30 #if it seems like its using a lot it might still be fine
+  # petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -sub_pc_factor_shift_type'
+  # petsc_options_value = ' asm      lu           2                nonzero'
+  nl_max_its = 20 #30 #12 #20 #40 too large- optimal_iterations is 6
+  l_max_its = 200 #60 #200 #30 #200 #30 #if it seems like its using a lot it might still be fine
   l_tol = 1e-06 #4
   nl_rel_tol = 1e-8 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
@@ -735,7 +735,7 @@ ks_int = 1.092e9
     type = IterationAdaptiveDT
     optimal_iterations = 6
     dt = 10 #2.5
-    # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
+    linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
     # growth_factor = 1.8
     # cutback_factor = 0.5
     # cutback_factor_at_failure = 0.5 #might be different from the curback_factor
@@ -791,5 +791,7 @@ ks_int = 1.092e9
 []
 
 # [Debug]
+#   show_var_residual_norms = true
+# []ebug]
 #   show_var_residual_norms = true
 # []

@@ -1,17 +1,17 @@
 ##############################################################################
-# File: 01_2D_1pore_fr_0.i
-# File Location: /examples/sintering/paper3/18_newCeq/01_2D_1pore_fr_0
-# Created Date: Thursday May 30th 2024
+# File: 02_asm_lu_partial.i
+# File Location: /examples/sintering/paper3/18_newCeq/03_2D_large_fr_0_testing/02_asm_lu_partial
+# Created Date: Saturday June 1st 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Saturday June 1st 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing stuff with the no irradiation for new large 2D IC (20 pores 6%vol)
+#  Testing new large 2D IC- asm lu partial preconditioner
 #
-#  Using the 5% GB volume version of parabolic coeffs for 1600K
-#  1,735,929 DoFs
+#
+#
 ##############################################################################
 
 f_dot = 0
@@ -25,7 +25,7 @@ ks_int = 1.092e9
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    filename = ../00_d3d_txt/2D_100x100um_8umavg_20pore.txt
+    filename = ../../00_d3d_txt/2D_100x100um_8umavg_20pore.txt
   []
   [subdomain_external]
     type = ParsedSubdomainMeshGenerator
@@ -703,8 +703,8 @@ ks_int = 1.092e9
 [Preconditioning]
   [SMP] #slow but good, very slow for 3D (might be another option then)
     type = SMP
-    full = true
-    # coupled_groups = 'wvac,wint,phi'
+    # full = true
+    coupled_groups = 'wvac,wint,phi'
   []
 []
 

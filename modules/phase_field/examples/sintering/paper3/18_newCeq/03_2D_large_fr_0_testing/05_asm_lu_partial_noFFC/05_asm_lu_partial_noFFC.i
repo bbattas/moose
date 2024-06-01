@@ -1,17 +1,17 @@
 ##############################################################################
-# File: 01_2D_1pore_fr_0.i
-# File Location: /examples/sintering/paper3/18_newCeq/01_2D_1pore_fr_0
-# Created Date: Thursday May 30th 2024
+# File: 05_asm_lu_partial_noFFC.i
+# File Location: /examples/sintering/paper3/18_newCeq/03_2D_large_fr_0_testing/05_asm_lu_partial_noFFC
+# Created Date: Saturday June 1st 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Saturday June 1st 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing stuff with the no irradiation for new large 2D IC (20 pores 6%vol)
+#  Checking the output if i disable the grain and void FFCs
+#  ASM LU partial preconditioner
 #
-#  Using the 5% GB volume version of parabolic coeffs for 1600K
-#  1,735,929 DoFs
+#
 ##############################################################################
 
 f_dot = 0
@@ -25,7 +25,7 @@ ks_int = 1.092e9
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    filename = ../00_d3d_txt/2D_100x100um_8umavg_20pore.txt
+    filename = ../../00_d3d_txt/2D_100x100um_8umavg_20pore.txt
   []
   [subdomain_external]
     type = ParsedSubdomainMeshGenerator
@@ -62,22 +62,22 @@ ks_int = 1.092e9
     order = CONSTANT
     family = MONOMIAL
   []
-  [voids]
-    order = CONSTANT
-    family = MONOMIAL
-  []
+  # [voids]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
   [unique_grains]
     order = CONSTANT
     family = MONOMIAL
   []
-  [var_indices]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [ebsd_grains]
-    family = MONOMIAL
-    order = CONSTANT
-  []
+  # [var_indices]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [ebsd_grains]
+  #   family = MONOMIAL
+  #   order = CONSTANT
+  # []
 []
 
 [ICs]
@@ -474,13 +474,13 @@ ks_int = 1.092e9
     variable = T
     function = f_T
   []
-  [voids_aux]
-    type = FeatureFloodCountAux
-    variable = voids
-    flood_counter = void_tracker
-    field_display = UNIQUE_REGION
-    execute_on = 'INITIAL TIMESTEP_END'
-  []
+  # [voids_aux]
+  #   type = FeatureFloodCountAux
+  #   variable = voids
+  #   flood_counter = void_tracker
+  #   field_display = UNIQUE_REGION
+  #   execute_on = 'INITIAL TIMESTEP_END'
+  # []
   #NEW Grain_Tracker related stuff
   [unique_grains]
     type = FeatureFloodCountAux
@@ -558,22 +558,22 @@ ks_int = 1.092e9
     outputs = csv
   []
   # FFC
-  [void_tracker]
-    type = FeatureFloodCount
-    variable = phi
-    threshold = 0.5 # 0.1 #0.2
-    connecting_threshold = 0.5 #0.09 #0.08
-    compute_var_to_feature_map = true
-    execute_on = 'initial timestep_end'
-  []
-  [grain_tracker_fc]
-    type = FeatureFloodCount
-    variable = 'gr0 gr1 gr2 gr3 gr4 gr5' # gr3 gr4 gr5 gr6 gr7 gr8 gr9' #'gr0 gr1 gr2'
-    threshold = 0.5 #0.2
-    connecting_threshold = 0.5 #0.08
-    compute_var_to_feature_map = true
-    execute_on = 'initial timestep_end'
-  []
+  # [void_tracker]
+  #   type = FeatureFloodCount
+  #   variable = phi
+  #   threshold = 0.5 # 0.1 #0.2
+  #   connecting_threshold = 0.5 #0.09 #0.08
+  #   compute_var_to_feature_map = true
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [grain_tracker_fc]
+  #   type = FeatureFloodCount
+  #   variable = 'gr0 gr1 gr2 gr3 gr4 gr5' # gr3 gr4 gr5 gr6 gr7 gr8 gr9' #'gr0 gr1 gr2'
+  #   threshold = 0.5 #0.2
+  #   connecting_threshold = 0.5 #0.08
+  #   compute_var_to_feature_map = true
+  #   execute_on = 'initial timestep_end'
+  # []
   # # Irradiation PPs Used in Materials
   # [hs_average]
   #   type = ElementAverageMaterialProperty
@@ -613,35 +613,35 @@ ks_int = 1.092e9
   []
 []
 
-[VectorPostprocessors]
-  [voids]
-    type = FeatureVolumeVectorPostprocessor
-    flood_counter = void_tracker
-    execute_on = 'initial timestep_end final'
-    output_centroids = true #false #was true
-    outputs = csv
-  []
-  # [alt_voids]
-  #   type = FeatureVolumeVectorPostprocessor
-  #   flood_counter = void_tracker_05
-  #   execute_on = 'initial timestep_end final'
-  #   output_centroids = false #was true
-  #   outputs = csv
-  # []
-  [grain_sizes]
-    type = FeatureVolumeVectorPostprocessor
-    flood_counter = grain_tracker_fc
-    execute_on = 'initial timestep_end final'
-    output_centroids = false #was true
-    outputs = csv
-  []
-  # [vectorMemory]
-  #   type = VectorMemoryUsage
-  #   mem_units = gigabytes
-  #   outputs = csv
-  #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-  # []
-[]
+# [VectorPostprocessors]
+#   [voids]
+#     type = FeatureVolumeVectorPostprocessor
+#     flood_counter = void_tracker
+#     execute_on = 'initial timestep_end final'
+#     output_centroids = true #false #was true
+#     outputs = csv
+#   []
+#   # [alt_voids]
+#   #   type = FeatureVolumeVectorPostprocessor
+#   #   flood_counter = void_tracker_05
+#   #   execute_on = 'initial timestep_end final'
+#   #   output_centroids = false #was true
+#   #   outputs = csv
+#   # []
+#   [grain_sizes]
+#     type = FeatureVolumeVectorPostprocessor
+#     flood_counter = grain_tracker_fc
+#     execute_on = 'initial timestep_end final'
+#     output_centroids = false #was true
+#     outputs = csv
+#   []
+#   # [vectorMemory]
+#   #   type = VectorMemoryUsage
+#   #   mem_units = gigabytes
+#   #   outputs = csv
+#   #   execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+#   # []
+# []
 
 # [Controls]
 #   # [extraGen]
@@ -694,17 +694,17 @@ ks_int = 1.092e9
     compute_halo_maps = false #true#false
     verbosity_level = 1
   []
-  [terminator_2void]
-    type = Terminator
-    expression = 'void_tracker < 2'
-  []
+  # [terminator_2void]
+  #   type = Terminator
+  #   expression = 'void_tracker < 2'
+  # []
 []
 
 [Preconditioning]
   [SMP] #slow but good, very slow for 3D (might be another option then)
     type = SMP
-    full = true
-    # coupled_groups = 'wvac,wint,phi'
+    # full = true
+    coupled_groups = 'wvac,wint,phi'
   []
 []
 
