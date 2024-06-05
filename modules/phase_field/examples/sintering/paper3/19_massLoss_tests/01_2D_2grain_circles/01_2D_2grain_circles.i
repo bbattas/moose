@@ -5,7 +5,7 @@
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Tuesday June 4th 2024
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Concerned about mass loss (seen in cv integral for example) as GG happens.
@@ -775,7 +775,7 @@
   nl_rel_tol = 1e-8 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  end_time = 5 #1e10 #5e6 #0.006
+  end_time = 100 #1e10 #5e6 #0.006
   # num_steps = 3 #00
   # steady_state_detection = true
   # # From tonks ode input
