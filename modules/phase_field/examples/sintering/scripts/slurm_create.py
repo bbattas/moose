@@ -39,6 +39,7 @@ parser.add_argument('--burst','-b', action='store_true', help='SLURM run as a bu
 parser.add_argument('--time','-t', type=int, help='''SLURM number of hours to run, on the default partitions
                     of [hpg-default, hpg2-compute, bigmem] burst limit is 96, while regular limit is 744 (31 days).
                     Default=72 hours''')
+parser.add_argument('--args','-c', type=str, help='Extra CL arguments at the end. Default=NONE')
 cl_args = parser.parse_args()
 
 # Defaults for the variables
@@ -276,7 +277,10 @@ def slurmWrite(cwd,inputName):
         # Actually go to the output and run the shit
         slurmList.append('')
         slurmList.append('cd $OUTPUT')
-        slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i')
+        if cl_args.args == None:
+            slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i')
+        else:
+            slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i '+str(cl_args.args))
 
         # Output the slurm script
         # verb(slurmList)
