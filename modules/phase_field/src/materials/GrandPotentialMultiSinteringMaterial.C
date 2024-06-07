@@ -67,8 +67,10 @@ GrandPotentialMultiSinteringMaterial::validParams()
   params.addParam<MooseEnum>("solid_energy_model",
                              solid_energy_model,
                              "Type of energy function to use for the solid phase.");
-  params.addParam<bool>(
-      "mass_conservation", false, "imposing strict mass conservation formulation");
+  params.addParam<bool>("mass_conservation",
+                        false,
+                        "imposing strict mass conservation formulation (multiplies chi by Va for "
+                        "output to use in chiDVa)");
   return params;
 }
 // Will be using u for vacancies and i for interstitials since v and s are already void and solid
@@ -190,9 +192,9 @@ GrandPotentialMultiSinteringMaterial::GrandPotentialMultiSinteringMaterial(
     mooseError("GrandPotentialMultiSinteringMaterial: strict mass conservation is currently only "
                "applicable to parabolic free energy");
 
-  if (_mass_conservation)
-    mooseError(
-        "GrandPotentialMultiSinteringMaterial: strict mass conservation is currently disabled");
+  // if (_mass_conservation)
+  //   mooseError(
+  //       "GrandPotentialMultiSinteringMaterial: strict mass conservation is currently disabled");
 
   for (unsigned int i = 0; i < _neta; ++i)
   {
@@ -331,18 +333,18 @@ GrandPotentialMultiSinteringMaterial::computeQpProperties()
         }
       }
       break;
-    }       // case 0; // PARABOLIC
+    } // case 0; // PARABOLIC
     case 1: // DILUTE
     {
       mooseError("Cannot run Dilute");
       break;
-    }       // case 1: // DILUTE
+    } // case 1: // DILUTE
     case 2: // IDEAL
     {
       mooseError("Cannot run Ideal");
       break;
     } // case 2: // IDEAL
-  }   // switch (_solid_energy)
+  } // switch (_solid_energy)
 
   // Calculate the susceptibility
   // Vacancy susceptibility
@@ -359,6 +361,26 @@ GrandPotentialMultiSinteringMaterial::computeQpProperties()
   _d2chiidphi2[_qp] = _d2hs[_qp] * _drhosidw[_qp] + _d2hv[_qp] * _drhovidw[_qp];
   _d2chiidw2[_qp] = _hs[_qp] * d3rhosidw3;
   _d2chiidphidw[_qp] = _dhs[_qp] * _d2rhosidw2[_qp];
+
+  // Mass Conservation: Multiply chi*Va (no SusceptibilityTimeDeriv,
+  //  and need chi*D to be chi*D*Va for c evolution)
+  if (_mass_conservation)
+  {
+    // Vacancy susceptibility
+    _chiu[_qp] *= _Va;
+    _dchiudphi[_qp] *= _Va;
+    _dchiudw[_qp] *= _Va;
+    _d2chiudphi2[_qp] *= _Va;
+    _d2chiudw2[_qp] *= _Va;
+    _d2chiudphidw[_qp] *= _Va;
+    // Interstitial susceptibility
+    _chii[_qp] *= _Va;
+    _dchiidphi[_qp] *= _Va;
+    _dchiidw[_qp] *= _Va;
+    _d2chiidphi2[_qp] *= _Va;
+    _d2chiidw2[_qp] *= _Va;
+    _d2chiidphidw[_qp] *= _Va;
+  }
 
   // Calculate the gb and s components here now that sigma is a material
   Real mu_s = 6.0 * _sigma_s[_qp] / _int_width;
