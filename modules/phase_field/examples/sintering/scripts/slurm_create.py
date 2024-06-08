@@ -25,6 +25,8 @@ parser.add_argument('--run','-r', action='store_true', help='SBATCH Submit all t
 parser.add_argument('--json','-j', action='store_true', help='Read SLURM header values from SLURM.json, Default=Off')
 parser.add_argument('--dest','-d', action='store_true', help='''DISABLED: Change the file_base in the MOOSE inputs to
                     match the /blue equivalent with the input.i name as the output name still, Default=Off''')
+parser.add_argument('--force','-f', action='store_true', help='''Use mpirun with an exclude list instead of '''
+                    '''srun --mpi=pmix_v3 to work around some nodes just failing again/still''')
 
 # Slurm Header Args
 parser.add_argument('--dir-names', action='store_false', help='''SLURM Job Name set to directory names, defaults to true.
@@ -255,8 +257,11 @@ def slurmWrite(cwd,inputName):
         if cl_args.burst:
             verb('    Specifying burst allocation')
             slurmList.append('#SBATCH --qos=michael.tonks-b')
-        # Current Exclude List (2/1/24)
+        # Old Exclude List (2/1/24)
         # slurmList.append('#SBATCH --exclude=c0702a-s28,c0702a-s29,c0703a-s18,c0706a-s7,c0709a-s21,c0710a-s28,c0713a-s18,c0713a-s19')
+        # Current Problem Nodes (6/7/24)
+        if cl_args.force:
+            slurmList.append('#SBATCH --exclude=c0701a-s30,c0703a-s18,c0706a-s18,c0707a-s21')
 
         # On to the actual job to submit
         # Define Locations
@@ -277,10 +282,16 @@ def slurmWrite(cwd,inputName):
         # Actually go to the output and run the shit
         slurmList.append('')
         slurmList.append('cd $OUTPUT')
-        if cl_args.args == None:
-            slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i')
+        if cl_args.force:
+            if cl_args.args == None:
+                slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i')
+            else:
+                slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i '+str(cl_args.args))
         else:
-            slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i '+str(cl_args.args))
+            if cl_args.args == None:
+                slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i')
+            else:
+                slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i '+str(cl_args.args))
 
         # Output the slurm script
         # verb(slurmList)
