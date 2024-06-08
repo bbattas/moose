@@ -4,7 +4,7 @@
 # Created Date: Sunday March 31st 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday May 21st 2024
+# Last Modified: Saturday June 8th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -468,7 +468,7 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  end_time = 80000
+  end_time = 1e6
   # num_steps = 20
   [TimeStepper]
     type = IterationAdaptiveDT
