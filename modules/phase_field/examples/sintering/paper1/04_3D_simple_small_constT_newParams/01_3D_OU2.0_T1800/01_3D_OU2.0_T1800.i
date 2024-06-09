@@ -4,24 +4,24 @@
 # Created Date: Monday April 1st 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday May 21st 2024
+# Last Modified: Sunday June 9th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
 #  Retesting old inputs from paper 1 with the corrected 3 values:
 #   GB energy
 #   GB Mobility
-#   Lower surface D (NOPE!!)
-#  Has 560k DoFs roughly, so 30~18.6k 45~12.4k
+#  New coarser mesh
+#  Has 80k/640k DoFs, so ~60 cpus
 ##############################################################################
 
 [Mesh]
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 3
-    nx = 50
-    ny = 50
-    nz = 35
+    nx = 25
+    ny = 25
+    nz = 18
     xmin = 0
     xmax = 1000
     ymin = 0
@@ -36,7 +36,7 @@
 [GlobalParams]
   op_num = 4
   var_name_base = gr
-  int_width = 35 #min particle radius is 4000
+  int_width = 100 #min particle radius is 4000
   profile = TANH
 []
 
@@ -503,7 +503,7 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  end_time = 1000 #7
+  end_time = 4000 #7
   # num_steps = 20
   [TimeStepper]
     type = IterationAdaptiveDT
@@ -516,8 +516,8 @@
   [Adaptivity]
     refine_fraction = 0.8
     coarsen_fraction = 0.05 #minimize this- adds error
-    max_h_level = 2 #test a short simulation with 1,2,3,4 for this to see where it stops helping
-    initial_adaptivity = 2
+    max_h_level = 1 #test a short simulation with 1,2,3,4 for this to see where it stops helping
+    initial_adaptivity = 1
   []
 []
 
