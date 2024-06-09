@@ -1,16 +1,16 @@
 ##############################################################################
-# File: 14_3D_small_hypre_memory.i
-# File Location: /examples/sintering/paper1/01_new_petsc_test/14_3D_small_hypre_memory
-# Created Date: Saturday June 8th 2024
+# File: 15_3D_small_newMesh.i
+# File Location: /examples/sintering/paper1/01_new_petsc_test/15_3D_small_newMesh
+# Created Date: Sunday June 9th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Sunday June 9th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Small 3D OU 2.0 T 1800K testing petsc solve stuff
-#  Using automatic scaling
-#  Looking at the memory use in all the forms i can
+#  Checking the DoFs and whatnot for a new coarser mesh for 3D input
+#
+#
 #
 ##############################################################################
 
@@ -18,9 +18,9 @@
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 3
-    nx = 50
-    ny = 50
-    nz = 35
+    nx = 25
+    ny = 25
+    nz = 18
     xmin = 0
     xmax = 1000
     ymin = 0
@@ -29,13 +29,13 @@
     zmax = 692
   []
   parallel_type = DISTRIBUTED
-  uniform_refine = 1
+  uniform_refine = 0
 []
 
 [GlobalParams]
   op_num = 4
   var_name_base = gr
-  int_width = 35 #min particle radius is 4000
+  int_width = 100 #min particle radius is 4000
   profile = TANH
 []
 
