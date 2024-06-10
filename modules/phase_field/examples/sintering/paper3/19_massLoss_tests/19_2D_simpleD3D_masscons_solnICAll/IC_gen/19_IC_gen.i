@@ -4,7 +4,7 @@
 # Created Date: Sunday June 9th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Sunday June 9th 2024
+# Last Modified: Monday June 10th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -154,8 +154,8 @@ ks_int = 1.092e9
   # Free energy coefficients for parabolic curves
   [k_constants]
     type = GenericConstantMaterial
-    prop_names = 'ksu kvu ksi kvi Va'
-    prop_values = '${ks_vac} ${ks_vac} ${ks_int} ${ks_int} 0.04092' #'26.8 26.8 3.6e21 3.6e21'#154.16 154.16
+    prop_names = 'ksu kvu ksi kvi'
+    prop_values = '${ks_vac} ${ks_vac} ${ks_int} ${ks_int}' #'26.8 26.8 3.6e21 3.6e21'#154.16 154.16
   []
   # New GB and Surface energy as a function of T
   [gb_e_mat] # eV/nm^2
@@ -215,6 +215,7 @@ ks_int = 1.092e9
     type = DerivativeParsedMaterial
     property_name = cv_eq
     coupled_variables = 'gr0 gr1 gr2 phi T wvac'
+    derivative_order = 2
     material_property_names = 'hgb(phi,gr0,gr1,gr2)' #'rhovi(vac) rhosi hv(phi)'
     constant_names = 'cb cgb'
     # constant_expressions = '3.877e-04 4.347e-03' #Irradiation
@@ -226,6 +227,7 @@ ks_int = 1.092e9
     type = DerivativeParsedMaterial
     property_name = ci_eq
     coupled_variables = 'gr0 gr1 gr2 phi T wint'
+    derivative_order = 2
     material_property_names = 'hgb(phi,gr0,gr1,gr2)' # 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
     # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
@@ -359,14 +361,21 @@ ks_int = 1.092e9
     type = DerivativeParsedMaterial
     property_name = hgb
     coupled_variables = 'phi gr0 gr1 gr2'
+    derivative_order = 2
     expression = '16 * ( (gr0 * gr1)^2 + (gr0 * gr2)^2 + (gr1 * gr2)^2)'
     outputs = none
   []
   # MASS CONSERVATION
+  [c_constants]
+    type = GenericConstantMaterial
+    prop_names = 'cvieq_mask Va' #cvueq_mask
+    prop_values = '0.0 0.04092' #1.0 - use hv for that instead
+  []
   [hoverk_vu]
     type = DerivativeParsedMaterial
     property_name = hoverk_vu
     coupled_variables = 'phi gr0 gr1 gr2'
+    derivative_order = 2
     material_property_names = 'hv(phi) Va kvu'
     expression = 'hv / Va / kvu'
   []
@@ -374,6 +383,7 @@ ks_int = 1.092e9
     type = DerivativeParsedMaterial
     property_name = hoverk_su
     coupled_variables = 'phi gr0 gr1 gr2'
+    derivative_order = 2
     material_property_names = 'hs(phi) Va ksu'
     expression = 'hs / Va / ksu'
   []
@@ -381,6 +391,7 @@ ks_int = 1.092e9
     type = DerivativeParsedMaterial
     property_name = hoverk_vi
     coupled_variables = 'phi gr0 gr1 gr2'
+    derivative_order = 2
     material_property_names = 'hv(phi) Va kvi'
     expression = 'hv / Va / kvi'
   []
@@ -388,34 +399,37 @@ ks_int = 1.092e9
     type = DerivativeParsedMaterial
     property_name = hoverk_si
     coupled_variables = 'phi gr0 gr1 gr2'
+    derivative_order = 2
     material_property_names = 'hs(phi) Va ksi'
     expression = 'hs / Va / ksi'
   []
-  [cvueq_mask] # We assume vacancy concentration in void phase = 1.0
-    type = DerivativeParsedMaterial
-    property_name = cvueq_mask
-    coupled_variables = 'phi gr0 gr1 gr2'
-    material_property_names = 'hv(phi)' # cv_eq(phi,gr0,gr1,gr2)'
-    expression = 'hv * 1.0' #* cv_eq'
-  []
+  # [cvueq_mask] # We assume vacancy concentration in void phase = 1.0
+  #   type = DerivativeParsedMaterial
+  #   property_name = cvueq_mask
+  #   coupled_variables = 'phi gr0 gr1 gr2'
+  #   material_property_names = 'hv(phi)' # cv_eq(phi,gr0,gr1,gr2)'
+  #   expression = 'hv * 1.0' #* cv_eq'
+  # []
   [csueq_mask]
     type = DerivativeParsedMaterial
     property_name = csueq_mask
     coupled_variables = 'phi gr0 gr1 gr2'
+    derivative_order = 2
     material_property_names = 'hs(phi) cv_eq(phi,gr0,gr1,gr2)'
     expression = 'hs * cv_eq'
   []
-  [cvieq_mask] # We assume no interstitials in void phase (cvi_eq = 0.0)
-    type = DerivativeParsedMaterial
-    property_name = cvieq_mask
-    coupled_variables = 'phi gr0 gr1 gr2'
-    material_property_names = 'hv(phi)' # ci_eq(phi,gr0,gr1,gr2)'
-    expression = 'hv * 0.0' # * ci_eq'
-  []
+  # [cvieq_mask] # We assume no interstitials in void phase (cvi_eq = 0.0)
+  #   type = DerivativeParsedMaterial
+  #   property_name = cvieq_mask
+  #   coupled_variables = 'phi gr0 gr1 gr2'
+  #   material_property_names = 'hv(phi)' # ci_eq(phi,gr0,gr1,gr2)'
+  #   expression = 'hv * 0.0' # * ci_eq'
+  # []
   [csieq_mask]
     type = DerivativeParsedMaterial
     property_name = csieq_mask
     coupled_variables = 'phi gr0 gr1 gr2'
+    derivative_order = 2
     material_property_names = 'hs(phi) ci_eq(phi,gr0,gr1,gr2)'
     expression = 'hs * ci_eq'
   []
@@ -446,7 +460,7 @@ ks_int = 1.092e9
       # mass_conservation = true
       # concentrations = 'cv_cons ci_cons'
       # hj_over_kVa = 'hoverk_vu hoverk_su hoverk_vi hoverk_si'
-      # hj_c_min = 'cvueq_mask csueq_mask cvieq_mask csieq_mask'
+      # hj_c_min = 'hv csueq_mask cvieq_mask csieq_mask'
     []
   []
 []
@@ -745,7 +759,7 @@ ks_int = 1.092e9
   nl_rel_tol = 1e-8 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  end_time = 10 #1e10 #5e6 #0.006
+  end_time = 10000 #1e10 #5e6 #0.006
   # num_steps = 1 #00
   # steady_state_detection = true
   # # From tonks ode input
@@ -755,7 +769,7 @@ ks_int = 1.092e9
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 0.001 #10 #2.5
+    dt = 10 #10 #2.5
     # linear_iteration_ratio = 1e5 #needed with large linear number for asmilu
     # growth_factor = 1.8
     # cutback_factor = 0.5
@@ -782,7 +796,7 @@ ks_int = 1.092e9
   #   # interval = 3 # this ExodusII will only output every third time step
   #   # time_step_interval = 3
   # []
-  print_linear_residuals = false
+  print_linear_residuals = true
   # [checkpoint]
   #   type = Checkpoint
   #   # file_base = 02_2D_8pore_config1_checkpoint
