@@ -472,6 +472,13 @@ EBSDReader::getNodeToPhaseWeightMap() const
   return _node_to_phase_weight_map;
 }
 
+// Custom creation for c column(s)
+const std::map<dof_id_type, std::vector<Real>> &
+EBSDReader::getNodeToCustomWeightMap() const
+{
+  return _node_to_custom_weight_map;
+}
+
 unsigned int
 EBSDReader::getGlobalID(unsigned int feature_id) const
 {
@@ -508,6 +515,8 @@ EBSDReader::buildNodeWeightMaps()
     // Initialize map entries for current node
     _node_to_grain_weight_map[node_id].assign(getGrainNum(), 0.0);
     _node_to_phase_weight_map[node_id].assign(getPhaseNum(), 0.0);
+    // Custom one for each extra column added
+    _node_to_custom_weight_map[node_id].assign(_custom_columns, 0.0); // Initialize
 
     // Loop through element indices associated with the current node and record weighted eta value
     // in new map
@@ -533,6 +542,9 @@ EBSDReader::buildNodeWeightMaps()
         // Calculate eta value and add to map
         _node_to_grain_weight_map[node_id][global_id] += 1.0 / n_elems;
         _node_to_phase_weight_map[node_id][d._phase] += 1.0 / n_elems;
+        // Record custom weight for all _custom_columns if _custom_columns > 0
+        for (unsigned int i = 0; i < _custom_columns; ++i)
+          _node_to_custom_weight_map[node_id][i] += d._custom[i] / n_elems; // Record custom weight
       }
     }
   }

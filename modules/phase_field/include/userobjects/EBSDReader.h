@@ -115,6 +115,12 @@ public:
    */
   const std::map<dof_id_type, std::vector<Real>> & getNodeToPhaseWeightMap() const;
 
+  /**
+   * Returns a map consisting of the node index followd by
+   * a vector of all custom column weights for that node. Needed by ???
+   */
+  const std::map<dof_id_type, std::vector<Real>> & getNodeToCustomWeightMap() const;
+
   /// Maps need to be updated when the mesh changes
   void meshChanged();
 
@@ -154,6 +160,9 @@ protected:
 
   /// Map of phase weights per node
   std::map<dof_id_type, std::vector<Real>> _node_to_phase_weight_map;
+
+  /// Map of custom (C) weights per node
+  std::map<dof_id_type, std::vector<Real>> _node_to_custom_weight_map;
 
   /// current timestep. Maps are only rebuild on mesh change during time step zero
   const int & _time_step;
