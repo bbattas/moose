@@ -4,8 +4,8 @@
 # Created Date: Monday June 24th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday June 26th 2024
-# Modified By: Brandon Battas
+# Last Modified: Thursday June 27th 2024
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Testing with a larger pore to figure out why its getting really gnarly
@@ -33,7 +33,8 @@ f_dot = 1e-8
     combinatorial_geometry = 'x > 20000'
     block_id = 1
   []
-  uniform_refine = 1
+  uniform_refine = 2
+  # second_order = true
 []
 
 [GlobalParams]
@@ -51,8 +52,10 @@ f_dot = 1e-8
   []
   [wint]
     initial_condition = 0
+    # order = SECOND
   []
   [cint_var]
+    # order = SECOND
   []
   [gr0]
   []
@@ -268,7 +271,9 @@ f_dot = 1e-8
     property_name = hgb
     # derivative_order = 2
     coupled_variables = 'gr0 gr1'
-    expression = '16 * ( (gr0 * gr1)^2 )' #+ (gr0 * etad0)^2 + (gr1 * etad0)^2)
+    expression = '16 * ( (gr0 * gr1)^2 )'
+    # expression = 'hg:=16 * ( (gr0 * gr1)^2 );
+    #               if(hg>1e-8,hg,0.0)' #+ (gr0 * etad0)^2 + (gr1 * etad0)^2)
     # expression = '4*(1 - (gr0^2 + gr1^2 + etad0^2))^2'
     outputs = exodus
   []
@@ -711,7 +716,7 @@ f_dot = 1e-8
   csv = true
   exodus = true
   checkpoint = false
-  file_base = 29_cMC_base
+  file_base = 29_cMC_h2
 []
 
 # [Debug]
