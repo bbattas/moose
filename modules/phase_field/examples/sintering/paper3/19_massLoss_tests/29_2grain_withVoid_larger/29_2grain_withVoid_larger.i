@@ -4,7 +4,7 @@
 # Created Date: Monday June 24th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday June 25th 2024
+# Last Modified: Wednesday June 26th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -270,7 +270,25 @@ f_dot = 1e-8
     coupled_variables = 'gr0 gr1'
     expression = '16 * ( (gr0 * gr1)^2 )' #+ (gr0 * etad0)^2 + (gr1 * etad0)^2)
     # expression = '4*(1 - (gr0^2 + gr1^2 + etad0^2))^2'
-    outputs = none
+    outputs = exodus
+  []
+  [hgb2]
+    type = ParsedMaterial
+    property_name = hgb2
+    # derivative_order = 2
+    coupled_variables = 'gr0 gr1'
+    # expression = '16 * ( (gr0 * gr1)^2 )' #+ (gr0 * etad0)^2 + (gr1 * etad0)^2)
+    expression = '4*(1 - (gr0^2 + gr1^2))^2'
+    outputs = exodus
+  []
+  [hgb3]
+    type = ParsedMaterial
+    property_name = hgb3
+    # derivative_order = 2
+    coupled_variables = 'gr0 gr1 phi'
+    # expression = '16 * ( (gr0 * gr1)^2 )' #+ (gr0 * etad0)^2 + (gr1 * etad0)^2)
+    expression = '4*(1 - (gr0^2 + gr1^2 + phi^2))^2'
+    outputs = exodus
   []
   [L_mat]
     type = DerivativeParsedMaterial
@@ -353,7 +371,7 @@ f_dot = 1e-8
     # constant_expressions = '3.877e-04 4.347e-03' #Irradiation
     constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
     expression = 'cgb * hgb + (1 - hgb)*cb'
-    outputs = none #'nemesis' # + phi^2
+    outputs = exodus #'nemesis' # + phi^2
   []
   [ci_eq]
     type = DerivativeParsedMaterial
@@ -365,7 +383,7 @@ f_dot = 1e-8
     # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
     constant_expressions = '1.667e-32 6.170e-08' #No Irradiation- LANL
     expression = 'cgb * hgb + (1 - hgb)*cb'
-    outputs = none #'nemesis' #+ phi^2
+    outputs = exodus #'nemesis' #+ phi^2
   []
   [cvac]
     type = ParsedMaterial
@@ -390,6 +408,7 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hv(phi) Va kvu'
     expression = 'hv / (Va * kvu)'
+    outputs = exodus
   []
   [hoverk_su]
     type = DerivativeParsedMaterial
@@ -398,6 +417,7 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hs(phi) Va ksu'
     expression = 'hs / (Va * ksu)'
+    outputs = exodus
   []
   [hoverk_vi]
     type = DerivativeParsedMaterial
@@ -406,6 +426,7 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hv(phi) Va kvi'
     expression = 'hv / (Va * kvi)'
+    outputs = exodus
   []
   [hoverk_si]
     type = DerivativeParsedMaterial
@@ -414,6 +435,7 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hs(phi) Va ksi'
     expression = 'hs / (Va * ksi)'
+    outputs = exodus
   []
   # h*ceq Masks
   [cvueq_mask] # cvueq_mask = hv*1
@@ -423,6 +445,7 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hv(phi)'
     expression = 'hv * 1'
+    outputs = exodus
   []
   [csueq_mask]
     type = DerivativeParsedMaterial
@@ -431,6 +454,7 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hs(phi) cv_eq(phi,gr0,gr1)'
     expression = 'hs * cv_eq'
+    outputs = exodus
   []
   [cvieq_mask] # cvieq_mask = hv*0
     type = DerivativeParsedMaterial
@@ -439,6 +463,7 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hv(phi)'
     expression = 'hv * 0.0'
+    outputs = exodus
   []
   [csieq_mask]
     type = DerivativeParsedMaterial
@@ -447,6 +472,7 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hs(phi) ci_eq(phi,gr0,gr1)'
     expression = 'hs * ci_eq'
+    outputs = exodus
   []
   # IRRADIATION
   [combined_rho_vac]
