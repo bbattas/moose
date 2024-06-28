@@ -4,7 +4,7 @@
 # Created Date: Monday June 24th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday June 27th 2024
+# Last Modified: Friday June 28th 2024
 # Modified By: Battas,Brandon Scott
 # -----
 # Description:
@@ -57,6 +57,8 @@ f_dot = 1e-8
   [cint_var]
     # order = SECOND
   []
+  [cint_alt]
+  []
   [gr0]
   []
   [gr1]
@@ -101,6 +103,22 @@ f_dot = 1e-8
   [ci_IC_R]
     type = SmoothCircleIC
     variable = cint_var
+    x1 = 30000
+    y1 = 7500
+    radius = 5000
+    invalue = 0
+    outvalue = 1.667e-32 #7.258e-09
+    block = 1
+  []
+  [cialt_IC_L]
+    type = FunctionIC
+    variable = cint_alt
+    function = ic_func_ciGB
+    block = 0
+  []
+  [cialt_IC_R]
+    type = SmoothCircleIC
+    variable = cint_alt
     x1 = 30000
     y1 = 7500
     radius = 5000
@@ -203,6 +221,18 @@ f_dot = 1e-8
 []
 
 [Kernels]
+  #Concentration
+  [c_dot]
+    type = TimeDerivative
+    variable = cint_alt
+  []
+  [Diffusion]
+    type = MatDiffusion
+    variable = cint_alt
+    v = wint
+    diffusivity = chiiD
+    args = 'gr0 gr1 phi'
+  []
   # # Irradiation
   # # Source/Generation
   # [source_vac]
@@ -255,7 +285,7 @@ f_dot = 1e-8
     type = GenericConstantMaterial
     prop_names = 'ksu kvu ksi kvi' # Using the GB based values (lowest of mine)
     # prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
-    prop_values = '6.569e2 6.569e2 5.461e7 5.461e7' # No Irradiation
+    prop_values = '6.569e2 6.569e2 6.569e2 6.569e2' # 5.461e7 5.461e7' # No Irradiation
   []
   [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
@@ -430,7 +460,7 @@ f_dot = 1e-8
     coupled_variables = 'phi gr0 gr1'
     derivative_order = 2
     material_property_names = 'hv(phi) Va kvi'
-    expression = 'hv / (Va * kvi)'
+    expression = '0' #'hv / (Va * kvi)'
     outputs = exodus
   []
   [hoverk_si]
@@ -439,7 +469,7 @@ f_dot = 1e-8
     coupled_variables = 'phi gr0 gr1'
     derivative_order = 2
     material_property_names = 'hs(phi) Va ksi'
-    expression = 'hs / (Va * ksi)'
+    expression = '0' #'hs / (Va * ksi)'
     outputs = exodus
   []
   # h*ceq Masks
@@ -467,7 +497,7 @@ f_dot = 1e-8
     coupled_variables = 'phi gr0 gr1'
     derivative_order = 2
     material_property_names = 'hv(phi)'
-    expression = 'hv * 0.0'
+    expression = '0' #'hv * 0.0'
     outputs = exodus
   []
   [csieq_mask]
@@ -476,7 +506,7 @@ f_dot = 1e-8
     coupled_variables = 'phi gr0 gr1'
     derivative_order = 2
     material_property_names = 'hs(phi) ci_eq(phi,gr0,gr1)'
-    expression = 'hs * ci_eq'
+    expression = '0' #'hs * ci_eq'
     outputs = exodus
   []
   # IRRADIATION
@@ -610,11 +640,25 @@ f_dot = 1e-8
     expression = 'hv*rhovi'
     outputs = exodus
   []
+  [chiu_out]
+    type = ParsedMaterial
+    property_name = chiu_out
+    material_property_names = 'chiu'
+    expression = 'chiu'
+    outputs = exodus
+  []
   [chii_out]
     type = ParsedMaterial
     property_name = chii_out
     material_property_names = 'chii'
     expression = 'chii'
+    outputs = exodus
+  []
+  [chiuD_out]
+    type = ParsedMaterial
+    property_name = chiuD_out
+    material_property_names = 'chiuD'
+    expression = 'chiuD'
     outputs = exodus
   []
   [chiiD_out]
@@ -698,7 +742,7 @@ f_dot = 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   start_time = 0
   end_time = 1e5
-  num_steps = 60
+  num_steps = 50
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
@@ -716,7 +760,7 @@ f_dot = 1e-8
   csv = true
   exodus = true
   checkpoint = false
-  file_base = 29_cMC_h2
+  file_base = 29_cMC_h2alt_lowki
 []
 
 # [Debug]
