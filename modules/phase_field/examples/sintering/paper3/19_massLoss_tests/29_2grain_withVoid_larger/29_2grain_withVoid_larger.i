@@ -5,7 +5,7 @@
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday June 28th 2024
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Testing with a larger pore to figure out why its getting really gnarly
@@ -57,8 +57,6 @@ f_dot = 1e-8
   [cint_var]
     # order = SECOND
   []
-  [cint_alt]
-  []
   [gr0]
   []
   [gr1]
@@ -103,22 +101,6 @@ f_dot = 1e-8
   [ci_IC_R]
     type = SmoothCircleIC
     variable = cint_var
-    x1 = 30000
-    y1 = 7500
-    radius = 5000
-    invalue = 0
-    outvalue = 1.667e-32 #7.258e-09
-    block = 1
-  []
-  [cialt_IC_L]
-    type = FunctionIC
-    variable = cint_alt
-    function = ic_func_ciGB
-    block = 0
-  []
-  [cialt_IC_R]
-    type = SmoothCircleIC
-    variable = cint_alt
     x1 = 30000
     y1 = 7500
     radius = 5000
@@ -221,18 +203,18 @@ f_dot = 1e-8
 []
 
 [Kernels]
-  #Concentration
-  [c_dot]
-    type = TimeDerivative
-    variable = cint_alt
-  []
-  [Diffusion]
-    type = MatDiffusion
-    variable = cint_alt
-    v = wint
-    diffusivity = chiiD
-    args = 'gr0 gr1 phi'
-  []
+  # #Concentration
+  # [c_dot]
+  #   type = TimeDerivative
+  #   variable = cint_alt
+  # []
+  # [Diffusion]
+  #   type = MatDiffusion
+  #   variable = cint_alt
+  #   v = wint
+  #   diffusivity = chiiD
+  #   args = 'gr0 gr1 phi'
+  # []
   # # Irradiation
   # # Source/Generation
   # [source_vac]
@@ -285,7 +267,7 @@ f_dot = 1e-8
     type = GenericConstantMaterial
     prop_names = 'ksu kvu ksi kvi' # Using the GB based values (lowest of mine)
     # prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
-    prop_values = '6.569e2 6.569e2 6.569e2 6.569e2' # 5.461e7 5.461e7' # No Irradiation
+    prop_values = '6.569e2 6.569e2 5.461e7 5.461e7' # No Irradiation
   []
   [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
@@ -305,7 +287,7 @@ f_dot = 1e-8
     # expression = 'hg:=16 * ( (gr0 * gr1)^2 );
     #               if(hg>1e-8,hg,0.0)' #+ (gr0 * etad0)^2 + (gr1 * etad0)^2)
     # expression = '4*(1 - (gr0^2 + gr1^2 + etad0^2))^2'
-    outputs = exodus
+    # outputs = exodus
   []
   [hgb2]
     type = ParsedMaterial
@@ -314,7 +296,7 @@ f_dot = 1e-8
     coupled_variables = 'gr0 gr1'
     # expression = '16 * ( (gr0 * gr1)^2 )' #+ (gr0 * etad0)^2 + (gr1 * etad0)^2)
     expression = '4*(1 - (gr0^2 + gr1^2))^2'
-    outputs = exodus
+    # outputs = exodus
   []
   [hgb3]
     type = ParsedMaterial
@@ -323,7 +305,7 @@ f_dot = 1e-8
     coupled_variables = 'gr0 gr1 phi'
     # expression = '16 * ( (gr0 * gr1)^2 )' #+ (gr0 * etad0)^2 + (gr1 * etad0)^2)
     expression = '4*(1 - (gr0^2 + gr1^2 + phi^2))^2'
-    outputs = exodus
+    # outputs = exodus
   []
   [L_mat]
     type = DerivativeParsedMaterial
@@ -443,7 +425,7 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hv(phi) Va kvu'
     expression = 'hv / (Va * kvu)'
-    outputs = exodus
+    # outputs = exodus
   []
   [hoverk_su]
     type = DerivativeParsedMaterial
@@ -452,7 +434,7 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hs(phi) Va ksu'
     expression = 'hs / (Va * ksu)'
-    outputs = exodus
+    # outputs = exodus
   []
   [hoverk_vi]
     type = DerivativeParsedMaterial
@@ -460,8 +442,8 @@ f_dot = 1e-8
     coupled_variables = 'phi gr0 gr1'
     derivative_order = 2
     material_property_names = 'hv(phi) Va kvi'
-    expression = '0' #'hv / (Va * kvi)'
-    outputs = exodus
+    expression = 'hv / (Va * kvi)'
+    # outputs = exodus
   []
   [hoverk_si]
     type = DerivativeParsedMaterial
@@ -469,8 +451,8 @@ f_dot = 1e-8
     coupled_variables = 'phi gr0 gr1'
     derivative_order = 2
     material_property_names = 'hs(phi) Va ksi'
-    expression = '0' #'hs / (Va * ksi)'
-    outputs = exodus
+    expression = 'hs / (Va * ksi)'
+    # outputs = exodus
   []
   # h*ceq Masks
   [cvueq_mask] # cvueq_mask = hv*1
@@ -479,8 +461,8 @@ f_dot = 1e-8
     coupled_variables = 'phi gr0 gr1'
     derivative_order = 2
     material_property_names = 'hv(phi)'
-    expression = 'hv * 1'
-    outputs = exodus
+    expression = 'hv'
+    # outputs = exodus
   []
   [csueq_mask]
     type = DerivativeParsedMaterial
@@ -489,7 +471,7 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hs(phi) cv_eq(phi,gr0,gr1)'
     expression = 'hs * cv_eq'
-    outputs = exodus
+    # outputs = exodus
   []
   [cvieq_mask] # cvieq_mask = hv*0
     type = DerivativeParsedMaterial
@@ -498,7 +480,7 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hv(phi)'
     expression = '0' #'hv * 0.0'
-    outputs = exodus
+    # outputs = exodus
   []
   [csieq_mask]
     type = DerivativeParsedMaterial
@@ -506,8 +488,8 @@ f_dot = 1e-8
     coupled_variables = 'phi gr0 gr1'
     derivative_order = 2
     material_property_names = 'hs(phi) ci_eq(phi,gr0,gr1)'
-    expression = '0' #'hs * ci_eq'
-    outputs = exodus
+    expression = 'hs * ci_eq'
+    # outputs = exodus
   []
   # IRRADIATION
   [combined_rho_vac]
@@ -559,7 +541,7 @@ f_dot = 1e-8
     material_property_names = 'a_r(phi,gr0,gr1) combined_rho_vac(wvac,phi,gr0,gr1) combined_rho_int(wint,phi,gr0,gr1) Va'
     expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
                   if(out>0.0,0.0-0.01*out*Va,0.0)'
-    outputs = exodus
+    outputs = none
   []
   [rho_mixing_vac]
     type = DerivativeParsedMaterial
@@ -598,34 +580,34 @@ f_dot = 1e-8
     expression = 'hs'
     outputs = exodus
   []
-  [rhosi_out]
-    type = ParsedMaterial
-    property_name = rhosi_out
-    material_property_names = 'hs rhosi hv rhovi Va'
-    expression = 'rhosi'
-    outputs = exodus
-  []
-  [rhovi_out]
-    type = ParsedMaterial
-    property_name = rhovi_out
-    material_property_names = 'hs rhosi hv rhovi Va'
-    expression = 'rhovi'
-    outputs = exodus
-  []
-  [rhosu_out]
-    type = ParsedMaterial
-    property_name = rhosu_out
-    material_property_names = 'hs rhosu hv rhovu Va'
-    expression = 'rhosu'
-    outputs = exodus
-  []
-  [rhovu_out]
-    type = ParsedMaterial
-    property_name = rhovu_out
-    material_property_names = 'hs rhosu hv rhovu Va'
-    expression = 'rhovu'
-    outputs = exodus
-  []
+  # [rhosi_out]
+  #   type = ParsedMaterial
+  #   property_name = rhosi_out
+  #   material_property_names = 'hs rhosi hv rhovi Va'
+  #   expression = 'rhosi'
+  #   outputs = exodus
+  # []
+  # [rhovi_out]
+  #   type = ParsedMaterial
+  #   property_name = rhovi_out
+  #   material_property_names = 'hs rhosi hv rhovi Va'
+  #   expression = 'rhovi'
+  #   outputs = exodus
+  # []
+  # [rhosu_out]
+  #   type = ParsedMaterial
+  #   property_name = rhosu_out
+  #   material_property_names = 'hs rhosu hv rhovu Va'
+  #   expression = 'rhosu'
+  #   outputs = exodus
+  # []
+  # [rhovu_out]
+  #   type = ParsedMaterial
+  #   property_name = rhovu_out
+  #   material_property_names = 'hs rhosu hv rhovu Va'
+  #   expression = 'rhovu'
+  #   outputs = exodus
+  # []
   [hsrhosi]
     type = ParsedMaterial
     property_name = hsrhosi
@@ -741,8 +723,8 @@ f_dot = 1e-8
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   start_time = 0
-  end_time = 1e5
-  num_steps = 50
+  end_time = 1e4
+  # num_steps = 50
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
@@ -760,7 +742,7 @@ f_dot = 1e-8
   csv = true
   exodus = true
   checkpoint = false
-  file_base = 29_cMC_h2alt_lowki
+  file_base = 29_cMC_h2alt_baseki
 []
 
 # [Debug]
