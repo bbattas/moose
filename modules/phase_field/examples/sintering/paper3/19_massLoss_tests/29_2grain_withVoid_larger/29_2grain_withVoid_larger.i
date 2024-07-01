@@ -4,7 +4,7 @@
 # Created Date: Monday June 24th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday June 28th 2024
+# Last Modified: Sunday June 30th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -14,7 +14,7 @@
 #
 ##############################################################################
 
-f_dot = 1e-8
+# f_dot = 1e-8
 
 [Mesh]
   [gmg]
@@ -48,15 +48,15 @@ f_dot = 1e-8
   [wvac]
     initial_condition = 0
   []
-  [cvac_var]
-  []
+  # [cvac_var]
+  # []
   [wint]
     initial_condition = 0
     # order = SECOND
   []
-  [cint_var]
-    # order = SECOND
-  []
+  # [cint_var]
+  #   # order = SECOND
+  # []
   [gr0]
   []
   [gr1]
@@ -74,40 +74,40 @@ f_dot = 1e-8
 []
 
 [ICs]
-  # C Vac
-  [cv_IC_L]
-    type = FunctionIC
-    variable = cvac_var
-    function = ic_func_cvGB
-    block = 0
-  []
-  [cv_IC_R]
-    type = SmoothCircleIC
-    variable = cvac_var
-    x1 = 30000
-    y1 = 7500
-    radius = 5000
-    invalue = 1
-    outvalue = 2.424e-06 #3.877e-04
-    block = 1
-  []
-  # C Int
-  [ci_IC_L]
-    type = FunctionIC
-    variable = cint_var
-    function = ic_func_ciGB
-    block = 0
-  []
-  [ci_IC_R]
-    type = SmoothCircleIC
-    variable = cint_var
-    x1 = 30000
-    y1 = 7500
-    radius = 5000
-    invalue = 0
-    outvalue = 1.667e-32 #7.258e-09
-    block = 1
-  []
+  # # C Vac
+  # [cv_IC_L]
+  #   type = FunctionIC
+  #   variable = cvac_var
+  #   function = ic_func_cvGB
+  #   block = 0
+  # []
+  # [cv_IC_R]
+  #   type = SmoothCircleIC
+  #   variable = cvac_var
+  #   x1 = 30000
+  #   y1 = 7500
+  #   radius = 5000
+  #   invalue = 1
+  #   outvalue = 2.424e-06 #3.877e-04
+  #   block = 1
+  # []
+  # # C Int
+  # [ci_IC_L]
+  #   type = FunctionIC
+  #   variable = cint_var
+  #   function = ic_func_ciGB
+  #   block = 0
+  # []
+  # [ci_IC_R]
+  #   type = SmoothCircleIC
+  #   variable = cint_var
+  #   x1 = 30000
+  #   y1 = 7500
+  #   radius = 5000
+  #   invalue = 1.667e-32#0
+  #   outvalue = 1.667e-32 #7.258e-09
+  #   block = 1
+  # []
   # Grains
   [gr0_IC]
     type = FunctionIC
@@ -166,7 +166,7 @@ f_dot = 1e-8
   [ic_func_ciGB]
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r cb cgb'
-    symbol_values = '2000 -5000 7500 15000 1.667e-32 6.170e-08' #7.258e-09 5.900e-06' # irr
+    symbol_values = '2000 -5000 7500 15000 1.667e-8 6.170e-08' #7.258e-09 5.900e-06' # irr
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
     cb + (cgb - cb)*16*((1-0.5*(1.0-tanh((r-d)/iw))) * (0.5*(1.0-tanh((r-d)/iw))))^2'
   []
@@ -194,7 +194,7 @@ f_dot = 1e-8
       gamma_grxop = gamma
       free_energies_op = 'omegav omegas' #empty when no phi'omegaa omegab'
       # Mass Conservation
-      mass_conservation = true
+      mass_conservation = false
       concentrations = 'cvac_var cint_var'
       hj_over_kVa = 'hoverk_vu hoverk_su hoverk_vi hoverk_si' #'hv_over_kVa hs_over_kVa' #
       hj_c_min = 'cvueq_mask csueq_mask cvieq_mask csieq_mask' #cvueq_mask=hv*1 'hv_c_min hs_c_min' #
@@ -376,7 +376,7 @@ f_dot = 1e-8
     equilibrium_vacancy_concentration = cv_eq
     equilibrium_interstitial_concentration = ci_eq
     solid_energy_model = PARABOLIC
-    mass_conservation = true
+    mass_conservation = false
   []
   [cv_eq]
     type = DerivativeParsedMaterial
@@ -398,7 +398,7 @@ f_dot = 1e-8
     material_property_names = 'hgb(phi,gr0,gr1)' # 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
     # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
-    constant_expressions = '1.667e-32 6.170e-08' #No Irradiation- LANL
+    constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
     expression = 'cgb * hgb + (1 - hgb)*cb'
     outputs = exodus #'nemesis' #+ phi^2
   []
@@ -491,80 +491,80 @@ f_dot = 1e-8
     expression = 'hs * ci_eq'
     # outputs = exodus
   []
-  # IRRADIATION
-  [combined_rho_vac]
-    type = DerivativeParsedMaterial
-    property_name = combined_rho_vac
-    coupled_variables = 'wvac phi gr0 gr1'
-    derivative_order = 2
-    material_property_names = 'rhovu(wvac,gr0,gr1) rhosu(wvac,gr0,gr1) hv(phi) hs(phi)'
-    expression = 'hv*rhovu + hs*rhosu'
-    outputs = none #'nemesis'
-  []
-  [combined_rho_int]
-    type = DerivativeParsedMaterial
-    property_name = combined_rho_int
-    coupled_variables = 'wint phi gr0 gr1'
-    derivative_order = 2
-    material_property_names = 'rhovi(wint,gr0,gr1) rhosi(wint,gr0,gr1) hv(phi) hs(phi)'
-    expression = 'hv*rhovi + hs*rhosi' #'(1-hv)*rhos' #
-    outputs = none #'nemesis'
-  []
-  [a_r]
-    type = ParsedMaterial
-    property_name = a_r
-    coupled_variables = 'phi T gr0 gr1'
-    constant_names = 'Va Z a_0 kB Di_0 Ei_B' # Di_0 Ei_B'
-    constant_expressions = '0.04092 250 0.25 8.617343e-5 4.0767e11 4.08453089' #1e13 2
-    material_property_names = 'hs(phi)'
-    expression = 'dint:=Di_0 * exp(-Ei_B / (kB * T));
-                  hs * Va * Z * dint / (a_0^2)'
-    outputs = none
-  []
-  [rho_gen]
-    type = DerivativeParsedMaterial
-    property_name = rho_gen
-    coupled_variables = 'phi'
-    derivative_order = 1
-    constant_names = 'Nc Nd noise f_dot'
-    constant_expressions = '2 5 1 ${f_dot}'
-    material_property_names = 'hs(phi) Va'
-    expression = 'f_dot * noise * Nc * Nd * hs * Va'
-    outputs = none
-  []
-  [rho_recomb]
-    type = DerivativeParsedMaterial
-    property_name = rho_recomb
-    coupled_variables = 'wvac wint phi gr0 gr1'
-    derivative_order = 2
-    # additional_derivative_symbols = w # combined_rho_vac combined_rho_int
-    material_property_names = 'a_r(phi,gr0,gr1) combined_rho_vac(wvac,phi,gr0,gr1) combined_rho_int(wint,phi,gr0,gr1) Va'
-    expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
-                  if(out>0.0,0.0-0.01*out*Va,0.0)'
-    outputs = none
-  []
-  [rho_mixing_vac]
-    type = DerivativeParsedMaterial
-    property_name = rho_mixing_vac
-    coupled_variables = 'wvac'
-    derivative_order = 2
-    constant_names = 'Nc Vc noise tc Dc f_dot'
-    constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
-    material_property_names = 'chiu(phi,wvac)'
-    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chiu' # * hs
-    outputs = none
-  []
-  [rho_mixing_int]
-    type = DerivativeParsedMaterial
-    property_name = rho_mixing_int
-    coupled_variables = 'wint'
-    derivative_order = 2
-    constant_names = 'Nc Vc noise tc Dc f_dot'
-    constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
-    material_property_names = 'chii(phi,wint)'
-    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chii' # * hs
-    outputs = none
-  []
+  # # IRRADIATION
+  # [combined_rho_vac]
+  #   type = DerivativeParsedMaterial
+  #   property_name = combined_rho_vac
+  #   coupled_variables = 'wvac phi gr0 gr1'
+  #   derivative_order = 2
+  #   material_property_names = 'rhovu(wvac,gr0,gr1) rhosu(wvac,gr0,gr1) hv(phi) hs(phi)'
+  #   expression = 'hv*rhovu + hs*rhosu'
+  #   outputs = none #'nemesis'
+  # []
+  # [combined_rho_int]
+  #   type = DerivativeParsedMaterial
+  #   property_name = combined_rho_int
+  #   coupled_variables = 'wint phi gr0 gr1'
+  #   derivative_order = 2
+  #   material_property_names = 'rhovi(wint,gr0,gr1) rhosi(wint,gr0,gr1) hv(phi) hs(phi)'
+  #   expression = 'hv*rhovi + hs*rhosi' #'(1-hv)*rhos' #
+  #   outputs = none #'nemesis'
+  # []
+  # [a_r]
+  #   type = ParsedMaterial
+  #   property_name = a_r
+  #   coupled_variables = 'phi T gr0 gr1'
+  #   constant_names = 'Va Z a_0 kB Di_0 Ei_B' # Di_0 Ei_B'
+  #   constant_expressions = '0.04092 250 0.25 8.617343e-5 4.0767e11 4.08453089' #1e13 2
+  #   material_property_names = 'hs(phi)'
+  #   expression = 'dint:=Di_0 * exp(-Ei_B / (kB * T));
+  #                 hs * Va * Z * dint / (a_0^2)'
+  #   outputs = none
+  # []
+  # [rho_gen]
+  #   type = DerivativeParsedMaterial
+  #   property_name = rho_gen
+  #   coupled_variables = 'phi'
+  #   derivative_order = 1
+  #   constant_names = 'Nc Nd noise f_dot'
+  #   constant_expressions = '2 5 1 ${f_dot}'
+  #   material_property_names = 'hs(phi) Va'
+  #   expression = 'f_dot * noise * Nc * Nd * hs * Va'
+  #   outputs = none
+  # []
+  # [rho_recomb]
+  #   type = DerivativeParsedMaterial
+  #   property_name = rho_recomb
+  #   coupled_variables = 'wvac wint phi gr0 gr1'
+  #   derivative_order = 2
+  #   # additional_derivative_symbols = w # combined_rho_vac combined_rho_int
+  #   material_property_names = 'a_r(phi,gr0,gr1) combined_rho_vac(wvac,phi,gr0,gr1) combined_rho_int(wint,phi,gr0,gr1) Va'
+  #   expression = 'out:=a_r * combined_rho_vac * combined_rho_int;
+  #                 if(out>0.0,0.0-0.01*out*Va,0.0)'
+  #   outputs = none
+  # []
+  # [rho_mixing_vac]
+  #   type = DerivativeParsedMaterial
+  #   property_name = rho_mixing_vac
+  #   coupled_variables = 'wvac'
+  #   derivative_order = 2
+  #   constant_names = 'Nc Vc noise tc Dc f_dot'
+  #   constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
+  #   material_property_names = 'chiu(phi,wvac)'
+  #   expression = 'f_dot * noise * Nc * tc * Vc * Dc * chiu' # * hs
+  #   outputs = none
+  # []
+  # [rho_mixing_int]
+  #   type = DerivativeParsedMaterial
+  #   property_name = rho_mixing_int
+  #   coupled_variables = 'wint'
+  #   derivative_order = 2
+  #   constant_names = 'Nc Vc noise tc Dc f_dot'
+  #   constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
+  #   material_property_names = 'chii(phi,wint)'
+  #   expression = 'f_dot * noise * Nc * tc * Vc * Dc * chii' # * hs
+  #   outputs = none
+  # []
   # EXTRA
   [hvoid]
     type = ParsedMaterial
@@ -650,17 +650,31 @@ f_dot = 1e-8
     expression = 'chiiD'
     outputs = exodus
   []
+  [hoverki]
+    type = ParsedMaterial
+    property_name = hoverki
+    material_property_names = 'hoverk_si hoverk_vi csieq_mask cvieq_mask'
+    expression = 'hoverk_si + hoverk_vi'
+    outputs = exodus
+  []
+  [cimask]
+    type = ParsedMaterial
+    property_name = cimask
+    material_property_names = 'hoverk_si hoverk_vi csieq_mask cvieq_mask'
+    expression = 'csieq_mask + cvieq_mask'
+    outputs = exodus
+  []
 []
 
 [Postprocessors]
-  [cv_var_total]
-    type = ElementIntegralVariablePostprocessor
-    variable = cvac_var
-  []
-  [ci_var_total]
-    type = ElementIntegralVariablePostprocessor
-    variable = cint_var
-  []
+  # [cv_var_total]
+  #   type = ElementIntegralVariablePostprocessor
+  #   variable = cvac_var
+  # []
+  # [ci_var_total]
+  #   type = ElementIntegralVariablePostprocessor
+  #   variable = cint_var
+  # []
   [wvac_total]
     type = ElementIntegralVariablePostprocessor
     variable = wvac
@@ -723,7 +737,7 @@ f_dot = 1e-8
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   start_time = 0
-  end_time = 1e4
+  end_time = 1e6
   # num_steps = 50
   # steady_state_detection = true
   # # From tonks ode input
@@ -742,7 +756,7 @@ f_dot = 1e-8
   csv = true
   exodus = true
   checkpoint = false
-  file_base = 29_cMC_h2alt_baseki
+  file_base = 29_cNMC_baseki_bulkvoide-32ci
 []
 
 # [Debug]
