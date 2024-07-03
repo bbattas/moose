@@ -67,6 +67,7 @@ associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
   registerSyntax("RigidBodyMultiKernelAction", "Kernels/RigidBodyMultiKernel");
   registerSyntax("Tricrystal2CircleGrainsICAction", "ICs/PolycrystalICs/Tricrystal2CircleGrainsIC");
   registerSyntax("GrandPotentialKernelAction", "Modules/PhaseField/GrandPotential");
+  registerSyntax("GrandPotentialKernelActionAlt", "Modules/PhaseField/GrandPotentialAlt");
 }
 
 void
