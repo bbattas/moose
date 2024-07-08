@@ -1,16 +1,16 @@
 ##############################################################################
-# File: 01_manualKernels_simple.i
-# File Location: /examples/sintering/paper3/20_newGPKernelAction/01_manualKernels_simple
-# Created Date: Monday July 1st 2024
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 03_manualKernels_equal_iPore0.i
+# File Location: /examples/sintering/paper3/20_newGPKernelAction/03_manualKernels_equal_iPore0
+# Created Date: Friday July 5th 2024
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday July 4th 2024
+# Last Modified: Friday July 5th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Manually defining all the kernels used in the mass conservation approach
-#   for two phases and two chemical potentials
-#  Using the simple input structure with a curved GB and 1 circular pore
+#  All int values equal to vacancy ones BUT using 0 for c in the pore instead of 1
+#  cvieq_mask and ci_ic circe in value both to 0, and GPMultiSinteringMat back to 0
+#
 #
 ##############################################################################
 
@@ -95,7 +95,7 @@
   [ci_IC_L]
     type = FunctionIC
     variable = cint_var
-    function = ic_func_ciGB
+    function = ic_func_cvGB #ic_func_ciGB
     block = 0
   []
   [ci_IC_R]
@@ -104,8 +104,8 @@
     x1 = 30000
     y1 = 7500
     radius = 5000
-    invalue = 0
-    outvalue = 1.667e-32 #7.258e-09
+    invalue = 0.0 #0
+    outvalue = 2.424e-06 #1.667e-32 #7.258e-09
     block = 1
   []
   # Grains
@@ -306,7 +306,7 @@
     type = MatDiffusion
     variable = cint_var
     v = wint # in action its 'wvac wint' ?
-    diffusivity = chiiD
+    diffusivity = chiuD #chiiD
     args = 'phi gr0 gr1 wvac wint'
   []
   # Chemical Potential Vacancies
@@ -314,7 +314,7 @@
     type = MatReaction
     variable = wvac
     v = cvac_var # in action its 'cvac_var cint_var' ?
-    mob_name = -1
+    mob_name = '-1'
   []
   [MR_wvac_hoverk_vu]
     type = MatReaction
@@ -345,7 +345,7 @@
     type = MatReaction
     variable = wint
     v = cint_var # in action its 'cvac_var cint_var' ?
-    mob_name = -1
+    mob_name = '-1'
   []
   [MR_wint_hoverk_vi]
     type = MatReaction
@@ -376,14 +376,14 @@
 [Materials]
   [consts]
     type = GenericConstantMaterial
-    prop_names = 'Va ' #cvieq_mask cvueq_mask csieq_mask csueq_mask'
-    prop_values = '0.04092 ' #0.0 0.0 0.0 0.0'
+    prop_names = 'Va negOverVa' #cvieq_mask cvueq_mask csieq_mask csueq_mask'
+    prop_values = '0.04092 -24.4379' #0.0 0.0 0.0 0.0'
   []
   [k_constants]
     type = GenericConstantMaterial
     prop_names = 'ksu kvu ksi kvi' # Using the GB based values (lowest of mine)
     # prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
-    prop_values = '6.569e2 6.569e2 5.461e7 5.461e7' # No Irradiation
+    prop_values = '6.569e2 6.569e2 6.569e2 6.569e2' # 5.461e7 5.461e7' # No Irradiation
   []
   [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
@@ -436,22 +436,22 @@
     iw_scaling = true
     D_out_name = vac_diffus
   []
-  [chiiD]
-    type = GrandPotentialIsoIntMaterial
-    f_name = chiiD
-    chi = chii
-    c = phi
-    T = T
-    D0 = 4.0767e11 #1e13 #Ian's irradiation paper (Matzke 1987)
-    Em = 4.08453089 #2 #Ian's irradiation paper (Matzke 1987)
-    bulkindex = 1
-    gbindex = -1 #10 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = -1 #100 #1e11
-    GBwidth = 1.0
-    surf_thickness = 1.0 #0.5
-    iw_scaling = true
-    D_out_name = int_diffus
-  []
+  # [chiiD]
+  #   type = GrandPotentialIsoIntMaterial
+  #   f_name = chiiD
+  #   chi = chii
+  #   c = phi
+  #   T = T
+  #   D0 = 4.0767e11 #1e13 #Ian's irradiation paper (Matzke 1987)
+  #   Em = 4.08453089 #2 #Ian's irradiation paper (Matzke 1987)
+  #   bulkindex = 1
+  #   gbindex = -1 #10 # -1 sets the GB D to the LANL MD Value in GPIsoMat
+  #   surfindex = -1 #100 #1e11
+  #   GBwidth = 1.0
+  #   surf_thickness = 1.0 #0.5
+  #   iw_scaling = true
+  #   D_out_name = int_diffus
+  # []
   # [cons_mob]
   #   type = DerivativeParsedMaterial
   #   property_name = cons_mob
@@ -496,7 +496,8 @@
     material_property_names = 'hgb(phi,gr0,gr1)' # 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
     # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
-    constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
+    # constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
+    constant_expressions = '2.424e-06 5.130e-03' #No Irradiation VACANCY- LANL
     expression = 'cgb * hgb + (1 - hgb)*cb'
     outputs = none #'nemesis' #+ phi^2
   []
@@ -577,7 +578,7 @@
     coupled_variables = 'phi gr0 gr1'
     derivative_order = 2
     material_property_names = 'hv(phi)'
-    expression = '0' #'hv * 0.0'
+    expression = '0.0' #'0' #'hv * 0.0'
     # outputs = exodus
   []
   [csieq_mask]
@@ -590,6 +591,41 @@
     # outputs = exodus
   []
   # EXTRA
+  [omegas_out]
+    type = ParsedMaterial
+    property_name = omegas_out
+    material_property_names = 'omegas'
+    expression = 'omegas'
+    outputs = exodus
+  []
+  [omegav_out]
+    type = ParsedMaterial
+    property_name = omegav_out
+    material_property_names = 'omegav'
+    expression = 'omegav'
+    outputs = exodus
+  []
+  [cv_eq_out]
+    type = ParsedMaterial
+    property_name = cv_eq_out
+    material_property_names = 'cv_eq'
+    expression = 'cv_eq'
+    outputs = exodus
+  []
+  [ci_eq_out]
+    type = ParsedMaterial
+    property_name = ci_eq_out
+    material_property_names = 'ci_eq'
+    expression = 'ci_eq'
+    outputs = exodus
+  []
+  [hgb_out]
+    type = ParsedMaterial
+    property_name = hgb_out
+    material_property_names = 'hgb'
+    expression = 'hgb'
+    outputs = exodus
+  []
   [hvoid]
     type = ParsedMaterial
     property_name = hvoid
@@ -618,6 +654,20 @@
     expression = 'hv*rhovi'
     outputs = exodus
   []
+  [hsrhosu]
+    type = ParsedMaterial
+    property_name = hsrhosu
+    material_property_names = 'hs rhosu hv rhovu Va'
+    expression = 'hs*rhosu'
+    outputs = exodus
+  []
+  [hvrhovu]
+    type = ParsedMaterial
+    property_name = hvrhovu
+    material_property_names = 'hs rhosu hv rhovu Va'
+    expression = 'hv*rhovu'
+    outputs = exodus
+  []
   [chiu_out]
     type = ParsedMaterial
     property_name = chiu_out
@@ -625,13 +675,13 @@
     expression = 'chiu'
     outputs = exodus
   []
-  [chii_out]
-    type = ParsedMaterial
-    property_name = chii_out
-    material_property_names = 'chii'
-    expression = 'chii'
-    outputs = exodus
-  []
+  # [chii_out]
+  #   type = ParsedMaterial
+  #   property_name = chii_out
+  #   material_property_names = 'chii'
+  #   expression = 'chii'
+  #   outputs = exodus
+  # []
   [chiuD_out]
     type = ParsedMaterial
     property_name = chiuD_out
@@ -639,11 +689,39 @@
     expression = 'chiuD'
     outputs = exodus
   []
-  [chiiD_out]
+  # [chiiD_out]
+  #   type = ParsedMaterial
+  #   property_name = chiiD_out
+  #   material_property_names = 'chiiD'
+  #   expression = 'chiiD'
+  #   outputs = exodus
+  # []
+  [hoverk_u]
     type = ParsedMaterial
-    property_name = chiiD_out
-    material_property_names = 'chiiD'
-    expression = 'chiiD'
+    property_name = hoverk_u
+    material_property_names = 'hoverk_vu hoverk_su'
+    expression = 'hoverk_vu + hoverk_su'
+    outputs = exodus
+  []
+  [hoverk_i]
+    type = ParsedMaterial
+    property_name = hoverk_i
+    material_property_names = 'hoverk_vi hoverk_si'
+    expression = 'hoverk_vi + hoverk_si'
+    outputs = exodus
+  []
+  [cmask_u]
+    type = ParsedMaterial
+    property_name = cmask_u
+    material_property_names = 'cvueq_mask csueq_mask'
+    expression = 'cvueq_mask + csueq_mask'
+    outputs = exodus
+  []
+  [cmask_i]
+    type = ParsedMaterial
+    property_name = cmask_i
+    material_property_names = 'cvieq_mask csieq_mask'
+    expression = 'cvieq_mask + csieq_mask'
     outputs = exodus
   []
 []

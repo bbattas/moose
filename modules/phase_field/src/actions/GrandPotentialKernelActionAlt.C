@@ -153,7 +153,7 @@ GrandPotentialKernelActionAlt::act()
   all_etas.insert(all_etas.end(), etas.begin(), etas.end());
   all_etas.insert(all_etas.end(), grs.begin(), grs.end());
 
-  std::vector<std::string> all_vars; // vector of all variables
+  std::vector<std::string> all_vars; // vector of all variables (other, grains, chempots)
   all_vars.reserve(n_etas + n_grs + n_w);
   all_vars.insert(all_vars.end(), all_etas.begin(), all_etas.end());
   all_vars.insert(all_vars.end(), w_names.begin(), w_names.end());
@@ -183,14 +183,14 @@ GrandPotentialKernelActionAlt::act()
   {
     var_name = all_etas[i];
     // Distinguish between grains and the additional order parameters
-    if (i < n_etas) // First part of list is grain variables
+    if (i < n_etas) // First part of list is additional order parameters
     {
       kappa = kappa_op;
       mob_name = op_mob;
       Fj_names.resize(Fj_op.size());
       Fj_names = Fj_op;
     }
-    else // Second part of list is additional order parameters
+    else // Second part of list is the grain order parameters
     {
       kappa = kappa_gr;
       mob_name = gr_mob;
@@ -206,7 +206,7 @@ GrandPotentialKernelActionAlt::act()
     {
       if (i != j)
       {
-        v2[op] = all_etas[j];
+        v2[op] = all_etas[j]; // list of other OPs for coupled vars
         if (j < n_etas)
           gam[op] = gamma_op;
         else
@@ -298,12 +298,12 @@ GrandPotentialKernelActionAlt::act()
       kernel_name = "MatDif_" + w_names[i];
       if (aniso.get(i))
       {
-        params.set<std::vector<VariableName>>("args") = v1;
+        params.set<std::vector<VariableName>>("args") = v1; // phi grs
         _problem->addKernel("MatAnisoDiffusion", kernel_name, params);
       }
       else
       {
-        params.set<std::vector<VariableName>>("args") = v0;
+        params.set<std::vector<VariableName>>("args") = v0; // phi grs chempots
         _problem->addKernel("MatDiffusion", kernel_name, params);
       }
     }
