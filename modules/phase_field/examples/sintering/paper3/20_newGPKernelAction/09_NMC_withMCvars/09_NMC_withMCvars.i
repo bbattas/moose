@@ -1,20 +1,20 @@
 ##############################################################################
-# File: 06_noExtraConsKernels_hk_cmask.i
-# File Location: /examples/sintering/paper3/20_newGPKernelAction/06_noExtraConsKernels_hk_cmask
-# Created Date: Monday July 8th 2024
-# Author: Brandon Battas (bbattas@ufl.edu)
+# File: 09_NMC_withMCvars.i
+# File Location: /examples/sintering/paper3/20_newGPKernelAction/09_NMC_withMCvars
+# Created Date: Tuesday July 9th 2024
+# Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Tuesday July 9th 2024
 # Modified By: Battas,Brandon Scott
 # -----
 # Description:
-#  All int values equal to vacancy ones BUT using 0 for c in the pore instead of 1
-#  Based on input 03
-#
-#  Testing setting all the mass cons materials (hoverk and cmask) to 0, or weil
-#   just disabling those kernels first
-#  RESULTS: Did not solve!
+#  Interstitials all the same as vacancies except ceq=0 in the pore instead of 1
+#  Using NMC solve for chempot but keeping the cv/ci-var and their kernels to
+#   see how those evolve compared to the material version without making chempot
+#   a function of the cvars?
 ##############################################################################
+
+
 
 # f_dot = 1e-8
 
@@ -311,75 +311,153 @@
     diffusivity = chiuD #chiiD
     args = 'phi gr0 gr1 wvac wint'
   []
-  # Chemical Potential Vacancies
-  [MR_c_wvac]
-    type = MatReaction
+  # # Chemical Potential Vacancies
+  # [MR_c_wvac]
+  #   type = MatReaction
+  #   variable = wvac
+  #   v = cvac_var # in action its 'cvac_var cint_var' ?
+  #   mob_name = -1
+  # []
+  # [MR_wvac_hoverk_vu]
+  #   type = MatReaction
+  #   variable = wvac
+  #   args = 'phi gr0 gr1'
+  #   mob_name = hoverk_vu
+  # []
+  # [MBD_wvac_cvueq_mask]
+  #   type = MaskedBodyForce
+  #   variable = wvac
+  #   mask = cvueq_mask
+  #   coupled_variables = 'phi gr0 gr1'
+  # []
+  # [MR_wvac_hoverk_su]
+  #   type = MatReaction
+  #   variable = wvac
+  #   args = 'phi gr0 gr1'
+  #   mob_name = hoverk_su
+  # []
+  # [MBD_wvac_csueq_mask]
+  #   type = MaskedBodyForce
+  #   variable = wvac
+  #   mask = csueq_mask
+  #   coupled_variables = 'phi gr0 gr1'
+  # []
+  # # Chemical Potential Interstitials
+  # [MR_c_wint]
+  #   type = MatReaction
+  #   variable = wint
+  #   v = cint_var # in action its 'cvac_var cint_var' ?
+  #   mob_name = -1
+  # []
+  # [MR_wint_hoverk_vi]
+  #   type = MatReaction
+  #   variable = wint
+  #   args = 'phi gr0 gr1'
+  #   mob_name = hoverk_vi
+  # []
+  # [MBD_wint_cvieq_mask]
+  #   type = MaskedBodyForce
+  #   variable = wint
+  #   mask = cvieq_mask
+  #   coupled_variables = 'phi gr0 gr1'
+  # []
+  # [MR_wint_hoverk_si]
+  #   type = MatReaction
+  #   variable = wint
+  #   args = 'phi gr0 gr1'
+  #   mob_name = hoverk_si
+  # []
+  # [MBD_wint_csieq_mask]
+  #   type = MaskedBodyForce
+  #   variable = wint
+  #   mask = csieq_mask
+  #   coupled_variables = 'phi gr0 gr1'
+  # []
+  #
+  # NO MASS CONSERVATION
+  # VACANCY Chemical Potential
+  [ChiDt_wvac]
+    type = SusceptibilityTimeDerivative
     variable = wvac
-    v = cvac_var # in action its 'cvac_var cint_var' ?
-    mob_name = '-1'
+    f_name = chiu
+    coupled_variables = 'phi gr0 gr1 wvac wint' #wint #not sure it needs wint since theyre independent?
   []
-  [MR_wvac_hoverk_vu]
-    type = MatReaction
+  [MatDif_wvac]
+    type = MatDiffusion
     variable = wvac
-    args = 'phi gr0 gr1'
-    mob_name = hoverk_vu
+    diffusivity = chiuD
+    args = 'phi gr0 gr1 wvac wint' #wint#not sure it needs wint since theyre independent?
   []
-  [MBD_wvac_cvueq_mask]
-    type = MaskedBodyForce
+  # CoupledSwitchingTimeDerivitives
+  [Coupled_wvac_phi]
+    type = CoupledSwitchingTimeDerivative
     variable = wvac
-    mask = cvueq_mask
-    coupled_variables = 'phi gr0 gr1'
+    v = 'phi'
+    coupled_variables = 'phi gr0 gr1 wvac' #wint
+    hj_names = 'hv hs'
+    Fj_names = 'rhovu rhosu'
   []
-  [MR_wvac_hoverk_su]
-    type = MatReaction
+  [Coupled_wvac_gr0]
+    type = CoupledSwitchingTimeDerivative
     variable = wvac
-    args = 'phi gr0 gr1'
-    mob_name = hoverk_su
+    v = 'gr0'
+    coupled_variables = 'phi gr0 gr1 wvac' #wint
+    hj_names = 'hv hs'
+    Fj_names = 'rhovu rhosu'
   []
-  [MBD_wvac_csueq_mask]
-    type = MaskedBodyForce
+  [Coupled_wvac_gr1]
+    type = CoupledSwitchingTimeDerivative
     variable = wvac
-    mask = csueq_mask
-    coupled_variables = 'phi gr0 gr1'
+    v = 'gr1'
+    coupled_variables = 'phi gr0 gr1 wvac' #wint
+    hj_names = 'hv hs'
+    Fj_names = 'rhovu rhosu'
   []
-  # Chemical Potential Interstitials
-  [MR_c_wint]
-    type = MatReaction
+  # INTERSTITIAL Chemical Potential
+  [ChiDt_wint]
+    type = SusceptibilityTimeDerivative
     variable = wint
-    v = cint_var # in action its 'cvac_var cint_var' ?
-    mob_name = '-1'
+    f_name = chiu #USING VACANCY VALUE STILL
+    coupled_variables = 'phi gr0 gr1 wvac wint' #wint #not sure it needs wint since theyre independent?
   []
-  [MR_wint_hoverk_vi]
-    type = MatReaction
+  [MatDif_wint]
+    type = MatDiffusion
     variable = wint
-    args = 'phi gr0 gr1'
-    mob_name = hoverk_vi
+    diffusivity = chiuD #USING VACANCY VALUE STILL
+    args = 'phi gr0 gr1 wvac wint' #wint#not sure it needs wint since theyre independent?
   []
-  [MBD_wint_cvieq_mask]
-    type = MaskedBodyForce
+  # CoupledSwitchingTimeDerivitives
+  [Coupled_wint_phi]
+    type = CoupledSwitchingTimeDerivative
     variable = wint
-    mask = cvieq_mask
-    coupled_variables = 'phi gr0 gr1'
+    v = 'phi'
+    coupled_variables = 'phi gr0 gr1 wint' #wint
+    hj_names = 'hv hs'
+    Fj_names = 'rhovi rhosi'
   []
-  [MR_wint_hoverk_si]
-    type = MatReaction
+  [Coupled_wint_gr0]
+    type = CoupledSwitchingTimeDerivative
     variable = wint
-    args = 'phi gr0 gr1'
-    mob_name = hoverk_si
+    v = 'gr0'
+    coupled_variables = 'phi gr0 gr1 wint' #wint
+    hj_names = 'hv hs'
+    Fj_names = 'rhovi rhosi'
   []
-  [MBD_wint_csieq_mask]
-    type = MaskedBodyForce
+  [Coupled_wint_gr1]
+    type = CoupledSwitchingTimeDerivative
     variable = wint
-    mask = csieq_mask
-    coupled_variables = 'phi gr0 gr1'
+    v = 'gr1'
+    coupled_variables = 'phi gr0 gr1 wint' #wint
+    hj_names = 'hv hs'
+    Fj_names = 'rhovi rhosi'
   []
 []
 
 [Materials]
   [consts]
     type = GenericConstantMaterial
-    prop_names = 'Va negOverVa' #cvieq_mask cvueq_mask csieq_mask csueq_mask'
-    prop_values = '0.04092 -24.4379' #0.0 0.0 0.0 0.0'
+    prop_names = 'Va ' #cvieq_mask cvueq_mask csieq_mask csueq_mask'
+    prop_values = '0.04092 ' #0.0 0.0 0.0 0.0'
   []
   [k_constants]
     type = GenericConstantMaterial
@@ -476,7 +554,7 @@
     equilibrium_vacancy_concentration = cv_eq
     equilibrium_interstitial_concentration = ci_eq
     solid_energy_model = PARABOLIC
-    mass_conservation = true
+    mass_conservation = false
   []
   [cv_eq]
     type = DerivativeParsedMaterial
@@ -518,85 +596,80 @@
     outputs = exodus
   []
   # CONSERVATION
-  [cons_consts]
-    type = GenericConstantMaterial
-    prop_names = 'hoverk_vu hoverk_su hoverk_vi hoverk_si cvueq_mask csueq_mask cvieq_mask csieq_mask'
-    prop_values = '0.0 0.0 0.0 0.0    0.0 0.0 0.0 0.0'
+  # h / (V*k)
+  [hoverk_vu]
+    type = DerivativeParsedMaterial
+    property_name = hoverk_vu
+    coupled_variables = 'phi gr0 gr1'
+    derivative_order = 2
+    material_property_names = 'hv(phi) Va kvu'
+    expression = 'hv / (Va * kvu)'
+    # outputs = exodus
   []
-  # # h / (V*k)
-  # [hoverk_vu]
-  #   type = DerivativeParsedMaterial
-  #   property_name = hoverk_vu
-  #   coupled_variables = 'phi gr0 gr1'
-  #   derivative_order = 2
-  #   material_property_names = 'hv(phi) Va kvu'
-  #   expression = 'hv / (Va * kvu)'
-  #   # outputs = exodus
-  # []
-  # [hoverk_su]
-  #   type = DerivativeParsedMaterial
-  #   property_name = hoverk_su
-  #   coupled_variables = 'phi gr0 gr1'
-  #   derivative_order = 2
-  #   material_property_names = 'hs(phi) Va ksu'
-  #   expression = 'hs / (Va * ksu)'
-  #   # outputs = exodus
-  # []
-  # [hoverk_vi]
-  #   type = DerivativeParsedMaterial
-  #   property_name = hoverk_vi
-  #   coupled_variables = 'phi gr0 gr1'
-  #   derivative_order = 2
-  #   material_property_names = 'hv(phi) Va kvi'
-  #   expression = 'hv / (Va * kvi)'
-  #   # outputs = exodus
-  # []
-  # [hoverk_si]
-  #   type = DerivativeParsedMaterial
-  #   property_name = hoverk_si
-  #   coupled_variables = 'phi gr0 gr1'
-  #   derivative_order = 2
-  #   material_property_names = 'hs(phi) Va ksi'
-  #   expression = 'hs / (Va * ksi)'
-  #   # outputs = exodus
-  # []
-  # # h*ceq Masks
-  # [cvueq_mask] # cvueq_mask = hv*1
-  #   type = DerivativeParsedMaterial
-  #   property_name = cvueq_mask
-  #   coupled_variables = 'phi gr0 gr1'
-  #   derivative_order = 2
-  #   material_property_names = 'hv(phi)'
-  #   expression = 'hv'
-  #   # outputs = exodus
-  # []
-  # [csueq_mask]
-  #   type = DerivativeParsedMaterial
-  #   property_name = csueq_mask
-  #   coupled_variables = 'phi gr0 gr1'
-  #   derivative_order = 2
-  #   material_property_names = 'hs(phi) cv_eq(phi,gr0,gr1)'
-  #   expression = 'hs * cv_eq'
-  #   # outputs = exodus
-  # []
-  # [cvieq_mask] # cvieq_mask = hv*0
-  #   type = DerivativeParsedMaterial
-  #   property_name = cvieq_mask
-  #   coupled_variables = 'phi gr0 gr1'
-  #   derivative_order = 2
-  #   material_property_names = 'hv(phi)'
-  #   expression = '0.0' #'0' #'hv * 0.0'
-  #   # outputs = exodus
-  # []
-  # [csieq_mask]
-  #   type = DerivativeParsedMaterial
-  #   property_name = csieq_mask
-  #   coupled_variables = 'phi gr0 gr1'
-  #   derivative_order = 2
-  #   material_property_names = 'hs(phi) ci_eq(phi,gr0,gr1)'
-  #   expression = 'hs * ci_eq'
-  #   # outputs = exodus
-  # []
+  [hoverk_su]
+    type = DerivativeParsedMaterial
+    property_name = hoverk_su
+    coupled_variables = 'phi gr0 gr1'
+    derivative_order = 2
+    material_property_names = 'hs(phi) Va ksu'
+    expression = 'hs / (Va * ksu)'
+    # outputs = exodus
+  []
+  [hoverk_vi]
+    type = DerivativeParsedMaterial
+    property_name = hoverk_vi
+    coupled_variables = 'phi gr0 gr1'
+    derivative_order = 2
+    material_property_names = 'hv(phi) Va kvi'
+    expression = 'hv / (Va * kvi)'
+    # outputs = exodus
+  []
+  [hoverk_si]
+    type = DerivativeParsedMaterial
+    property_name = hoverk_si
+    coupled_variables = 'phi gr0 gr1'
+    derivative_order = 2
+    material_property_names = 'hs(phi) Va ksi'
+    expression = 'hs / (Va * ksi)'
+    # outputs = exodus
+  []
+  # h*ceq Masks
+  [cvueq_mask] # cvueq_mask = hv*1
+    type = DerivativeParsedMaterial
+    property_name = cvueq_mask
+    coupled_variables = 'phi gr0 gr1'
+    derivative_order = 2
+    material_property_names = 'hv(phi)'
+    expression = 'hv'
+    # outputs = exodus
+  []
+  [csueq_mask]
+    type = DerivativeParsedMaterial
+    property_name = csueq_mask
+    coupled_variables = 'phi gr0 gr1'
+    derivative_order = 2
+    material_property_names = 'hs(phi) cv_eq(phi,gr0,gr1)'
+    expression = 'hs * cv_eq'
+    # outputs = exodus
+  []
+  [cvieq_mask] # cvieq_mask = hv*0
+    type = DerivativeParsedMaterial
+    property_name = cvieq_mask
+    coupled_variables = 'phi gr0 gr1'
+    derivative_order = 2
+    material_property_names = 'hv(phi)'
+    expression = '0.0' #'0' #'hv * 0.0'
+    # outputs = exodus
+  []
+  [csieq_mask]
+    type = DerivativeParsedMaterial
+    property_name = csieq_mask
+    coupled_variables = 'phi gr0 gr1'
+    derivative_order = 2
+    material_property_names = 'hs(phi) ci_eq(phi,gr0,gr1)'
+    expression = 'hs * ci_eq'
+    # outputs = exodus
+  []
   # EXTRA
   [omegas_out]
     type = ParsedMaterial

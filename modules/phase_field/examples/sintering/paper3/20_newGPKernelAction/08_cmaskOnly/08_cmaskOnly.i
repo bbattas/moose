@@ -4,8 +4,8 @@
 # Created Date: Monday July 8th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday July 8th 2024
-# Modified By: Brandon Battas
+# Last Modified: Tuesday July 9th 2024
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Testing MC where hoverkVa are all 0 but the cmasks are set correctly
@@ -813,7 +813,7 @@
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 0.001
+    dt = 1e4#0.001
   []
 []
 
