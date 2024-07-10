@@ -4,7 +4,7 @@
 # Created Date: Tuesday July 9th 2024
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday July 9th 2024
+# Last Modified: Wednesday July 10th 2024
 # Modified By: Battas,Brandon Scott
 # -----
 # Description:
@@ -14,6 +14,8 @@
 #   a function of the cvars?
 #
 #  Testing with a constant uniform D so that chiuD = bulk value only for cvars
+#
+#  DOES NOT WORK!!! Cvars dont evolve like this!
 ##############################################################################
 
 # f_dot = 1e-8
@@ -457,7 +459,7 @@
   [consts]
     type = GenericConstantMaterial
     prop_names = 'Va chiuDalt' #cvieq_mask cvueq_mask csieq_mask csueq_mask'
-    prop_values = '0.04092 7.3e-6' #0.0 0.0 0.0 0.0'
+    prop_values = '0.04092 1.5e3'#7.3e-6' #0.0 0.0 0.0 0.0'
   []
   [k_constants]
     type = GenericConstantMaterial
@@ -877,7 +879,7 @@
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   start_time = 0
-  end_time = 1e5
+  end_time = 1e7
   # num_steps = 3
   # steady_state_detection = true
   # # From tonks ode input
