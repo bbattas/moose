@@ -8,7 +8,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--cpus','-n',type=int,default=2,
                     help='Number of CPUs to run on (Default=2)')
-parser.add_argument('--dim','-d',type=int,default=2, choices=[2,3],
+parser.add_argument('--dim','-d',type=int,default=2, choices=[2,3,0],
                     help='Dimensions for the calculation (Default=2)')
 parser.add_argument('--time','-t', action='store_true',
                             help='Run time_file_make script, default off')
