@@ -4,8 +4,8 @@
 # Created Date: Tuesday July 9th 2024
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday July 10th 2024
-# Modified By: Battas,Brandon Scott
+# Last Modified: Thursday July 11th 2024
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Testing a higher Ds to see if that makes this weird concentration rippling
@@ -20,7 +20,7 @@
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2
-    nx = 60
+    nx = 80
     ny = 30
     xmin = 0
     xmax = 40000

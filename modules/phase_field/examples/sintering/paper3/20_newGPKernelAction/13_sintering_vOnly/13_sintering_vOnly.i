@@ -4,8 +4,8 @@
 # Created Date: Tuesday July 9th 2024
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday July 10th 2024
-# Modified By: Battas,Brandon Scott
+# Last Modified: Thursday July 11th 2024
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  There was some odd behaviour on the solid-void interface even for vacancies
@@ -20,7 +20,7 @@
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2
-    nx = 60
+    nx = 80
     ny = 30
     xmin = 0
     xmax = 40000
@@ -376,8 +376,8 @@
 [Materials]
   [consts]
     type = GenericConstantMaterial
-    prop_names = 'Va negOverVa' #cvieq_mask cvueq_mask csieq_mask csueq_mask'
-    prop_values = '0.04092 -24.4379' #0.0 0.0 0.0 0.0'
+    prop_names = 'Va negOverVa negone' #cvieq_mask cvueq_mask csieq_mask csueq_mask'
+    prop_values = '0.04092 -24.4379 -1' #0.0 0.0 0.0 0.0'
   []
   [k_constants]
     type = GenericConstantMaterial
