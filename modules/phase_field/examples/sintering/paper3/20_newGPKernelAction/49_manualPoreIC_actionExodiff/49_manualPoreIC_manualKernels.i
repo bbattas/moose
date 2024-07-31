@@ -1,6 +1,6 @@
 ##############################################################################
-# File: 47_actionKernels.i
-# File Location: /examples/sintering/paper3/20_newGPKernelAction/47_action_exodiff
+# File: 49_manualPoreIC_manualKernels.i
+# File Location: /examples/sintering/paper3/20_newGPKernelAction/49_manualPoreIC_actionExodiff
 # Created Date: Tuesday July 30th 2024
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
@@ -8,11 +8,13 @@
 # Modified By: Battas,Brandon Scott
 # -----
 # Description:
-#  Action kernel input for an exodiff comparison to the manual version with my
-#  changes to the action here
-#  Input 45 basically
+#  Manual kernel version of second attempt at the exodiff test for my new action
+#   since last wasnt the same so im trying with the better IC here
+#
 #
 ##############################################################################
+
+
 
 # f_dot = 1e-8
 # cvic = 500
@@ -34,19 +36,19 @@
     combinatorial_geometry = 'x > 20000'
     block_id = 1
   []
-  [subdomain_botright]
-    type = ParsedSubdomainMeshGenerator
-    input = subdomain_right
-    combinatorial_geometry = 'y < 7500'
-    block_id = 2
-    excluded_subdomains = 0
-  []
+  # [subdomain_botright]
+  #   type = ParsedSubdomainMeshGenerator
+  #   input = subdomain_right
+  #   combinatorial_geometry = 'y < 7500'
+  #   block_id = 2
+  #   excluded_subdomains = 0
+  # []
   uniform_refine = 2
   # second_order = true
 []
 
 [GlobalParams]
-  profile = TANH
+  # profile = TANH #Not needed since its all function ICs
   int_width = 1000
   op_num = 2
   var_name_base = gr
@@ -87,80 +89,31 @@
     function = ic_func_cvGB
     block = 0
   []
-  [cv_IC_TR]
-    type = SmoothCircleIC
+  [cv_IC_R]
+    type = FunctionIC
     variable = cvac_var
-    x1 = 30000
-    y1 = 6500 #7500
-    radius = 5000
-    invalue = 1
-    outvalue = 2.424e-06 #3.877e-04
+    function = ic_func_cvPore
     block = 1
-    int_width = 500
   []
-  [cv_IC_BR]
-    type = SmoothCircleIC
-    variable = cvac_var
-    x1 = 30000
-    y1 = 8500 #7500
-    radius = 5000
-    invalue = 1
-    outvalue = 2.424e-06 #3.877e-04
-    block = 2
-    int_width = 500
-  []
-  # # C Int
-  # [ci_IC_L]
-  #   type = FunctionIC
-  #   variable = cint_var
-  #   function = ic_func_cvGB #ic_func_ciGB
-  #   block = 0
-  # []
-  # [ci_IC_R]
-  #   type = SmoothCircleIC
-  #   variable = cint_var
-  #   x1 = 30000
-  #   y1 = 7500
-  #   radius = 5000
-  #   invalue = 0.0 #0
-  #   outvalue = 2.424e-06 #1.667e-32 #7.258e-09
-  #   block = 1
-  # []
-  # C Vac
+  # C INT
   [ci_IC_L]
     type = FunctionIC
     variable = cint_var
     function = ic_func_ciGB
     block = 0
   []
-  [ci_IC_TR]
-    type = SmoothCircleIC
+  [ci_IC_R]
+    type = FunctionIC
     variable = cint_var
-    x1 = 30000
-    y1 = 6500 #7500
-    radius = 5000
-    invalue = 0
-    outvalue = 1.667e-32 #2.424e-06 #3.877e-04
+    function = ic_func_ciPore
     block = 1
-    int_width = 400 #500
-  []
-  [ci_IC_BR]
-    type = SmoothCircleIC
-    variable = cint_var
-    x1 = 30000
-    y1 = 8500 #7500
-    radius = 5000
-    invalue = 0
-    outvalue = 1.667e-32 #2.424e-06 #3.877e-04
-    block = 2
-    int_width = 400 #500
   []
   # Grains
   [gr0_IC]
     type = FunctionIC
     variable = gr0
     function = ic_func_gr0
-    block = '0 1 2'
+    block = '0 1'
   []
   [gr1_IC_L]
     type = FunctionIC
@@ -168,45 +121,17 @@
     function = ic_func_gr1
     block = '0' #1
   []
-  [gr1_IC_TR]
-    type = SmoothCircleIC
+  [gr1_IC_R]
+    type = FunctionIC
     variable = gr1
-    x1 = 30000
-    y1 = 6500 #7500
-    radius = 5000
-    invalue = 0
-    outvalue = 1
-    block = 1
-  []
-  [gr1_IC_BR]
-    type = SmoothCircleIC
-    variable = gr1
-    x1 = 30000
-    y1 = 8500 #7500
-    radius = 5000
-    invalue = 0
-    outvalue = 1
-    block = 2
+    function = ic_func_GR1pore
+    block = '1'
   []
   [phi_IC]
-    type = SmoothCircleIC
+    type = FunctionIC
     variable = phi
-    x1 = 30000
-    y1 = 6500 #7500
-    radius = 5000
-    invalue = 1
-    outvalue = 0.0
+    function = ic_func_pore
     block = '0 1'
-  []
-  [phi_IC_br]
-    type = SmoothCircleIC
-    variable = phi
-    x1 = 30000
-    y1 = 8500 #7500
-    radius = 5000
-    invalue = 1
-    outvalue = 0.0
-    block = '2'
   []
 []
 
@@ -268,6 +193,21 @@
     symbol_values = '1000 -5000 7500 15000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);0.5*(1.0-tanh((r-d)/iw))'
   []
+  [ic_func_pore] # Right side pore
+    type = ParsedFunction
+    symbol_names = 'iw x0 y0 r'
+    symbol_values = '1000 30000 7500 5000'
+    expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
+    1-0.5*(1.0-tanh((r-d)/iw))'
+  []
+  [ic_func_GR1pore] # Right side pore grain value (1-ic_func_pore)
+    type = ParsedFunction
+    symbol_names = 'iw x0 y0 r'
+    symbol_values = '1000 30000 7500 5000'
+    expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
+    0.5*(1.0-tanh((r-d)/iw))'
+  []
+  # C Functions
   [ic_func_cvGB]
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r cb cgb'
@@ -286,207 +226,226 @@
     hgb:=if(hgbex>1e-6,hgbex,0.0);
     cb + (cgb - cb)*hgb'
   []
-[]
-
-[Modules]
-  [PhaseField]
-    [GrandPotentialAlt]
-      switching_function_names = 'hv hs'
-      # Chempot
-      chemical_potentials = 'wvac wint'
-      mobilities = 'chiuD chiiD' #cons_mob
-      anisotropic = 'false false'
-      susceptibilities = 'chiu chii'
-      free_energies_w = 'rhovu rhosu rhovi rhosi'
-      # Grains
-      mobility_name_gr = L_mat
-      kappa_gr = kappa
-      gamma_gr = gamma
-      free_energies_gr = 'omegav omegas'
-      # Other OPs (Phi)
-      additional_ops = 'phi'
-      mobility_name_op = L_mat
-      kappa_op = kappa
-      gamma_grxop = gamma
-      free_energies_op = 'omegav omegas' #empty when no phi'omegaa omegab'
-      # Mass Conservation
-      mass_conservation = true
-      concentrations = 'cvac_var cint_var'
-      hj_over_kVa = 'hoverk_vu hoverk_su hoverk_vi hoverk_si' #'hv_over_kVa hs_over_kVa' #
-      hj_c_min = 'cvueq_mask csueq_mask cvieq_mask csieq_mask' #cvueq_mask=hv*1 'hv_c_min hs_c_min' #
-    []
+  # C pore
+  [ic_func_cvPore] # Right side pore
+    type = ParsedFunction
+    symbol_names = 'iw x0 y0 r cb cp'
+    symbol_values = '1000 30000 7500 5000 2.424e-06 1'
+    expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
+    circ:=1-0.5*(1.0-tanh((r-d)/iw));
+    hv:=circ*circ*circ*(10 + circ * (-15 + circ * 6));
+    hv*cp + (1-hv)*cb'
+  []
+  [ic_func_ciPore] # Right side pore
+    type = ParsedFunction
+    symbol_names = 'iw x0 y0 r cb cp'
+    symbol_values = '1000 30000 7500 5000 1.667e-32 0'
+    expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
+    circ:=1-0.5*(1.0-tanh((r-d)/iw));
+    hv:=circ*circ*circ*(10 + circ * (-15 + circ * 6));
+    hv*cp + (1-hv)*cb'
   []
 []
 
+# [Modules]
+#   [PhaseField]
+#     [GrandPotential]
+#       switching_function_names = 'hv hs'
+#       # Chempot
+#       chemical_potentials = 'wvac wint'
+#       mobilities = 'chiuD chiiD' #cons_mob
+#       anisotropic = 'false false'
+#       susceptibilities = 'chiu chii'
+#       free_energies_w = 'rhovu rhosu rhovi rhosi'
+#       # Grains
+#       mobility_name_gr = L_mat
+#       kappa_gr = kappa
+#       gamma_gr = gamma
+#       free_energies_gr = 'omegav omegas'
+#       # Other OPs (Phi)
+#       additional_ops = 'phi'
+#       mobility_name_op = L_mat
+#       kappa_op = kappa
+#       gamma_grxop = gamma
+#       free_energies_op = 'omegav omegas' #empty when no phi'omegaa omegab'
+#       # Mass Conservation
+#       mass_conservation = true
+#       concentrations = 'cvac_var cint_var'
+#       hj_over_kVa = 'hoverk_vu hoverk_su' # hoverk_vi hoverk_si' #'hv_over_kVa hs_over_kVa' #
+#       hj_c_min = 'cvueq_mask csueq_mask cvieq_mask csieq_mask' #cvueq_mask=hv*1 'hv_c_min hs_c_min' #
+#     []
+#   []
+# []
+
 [Kernels]
-  # # Order parameter phi
-  # [DT_phi]
-  #   type = TimeDerivative
-  #   variable = phi
-  # []
-  # [ACInt_phi]
-  #   type = ACInterface
-  #   variable = phi
-  #   kappa_name = kappa
-  #   mob_name = L_mat
-  #   coupled_variables = 'gr0 gr1'
-  # []
-  # [ACSwitch_phi]
-  #   type = ACSwitching
-  #   variable = phi
-  #   mob_name = L_mat
-  #   Fj_names = 'omegav omegas'
-  #   hj_names = 'hv     hs'
-  #   coupled_variables = 'gr0 gr1 wvac wint' # action technically includes all vars here including phi
-  # []
-  # [AcGrGr_phi]
-  #   type = ACGrGrMulti
-  #   variable = phi
-  #   mob_name = L_mat
-  #   v = 'gr0 gr1'
-  #   gamma_names = 'gamma gamma'
-  # []
-  # # Order parameter gr0
-  # [DT_gr0]
-  #   type = TimeDerivative
-  #   variable = gr0
-  # []
-  # [ACInt_gr0]
-  #   type = ACInterface
-  #   variable = gr0
-  #   kappa_name = kappa
-  #   mob_name = L_mat
-  #   coupled_variables = 'phi gr1'
-  # []
-  # [ACSwitch_gr0]
-  #   type = ACSwitching
-  #   variable = gr0
-  #   mob_name = L_mat
-  #   Fj_names = 'omegav omegas'
-  #   hj_names = 'hv     hs'
-  #   coupled_variables = 'phi gr1 wvac wint' # action technically includes all vars here including gr0
-  # []
-  # [AcGrGr_gr0]
-  #   type = ACGrGrMulti
-  #   variable = gr0
-  #   mob_name = L_mat
-  #   v = 'phi gr1'
-  #   gamma_names = 'gamma gamma'
-  # []
-  # # Order parameter gr1
-  # [DT_gr1]
-  #   type = TimeDerivative
-  #   variable = gr1
-  # []
-  # [ACInt_gr1]
-  #   type = ACInterface
-  #   variable = gr1
-  #   kappa_name = kappa
-  #   mob_name = L_mat
-  #   coupled_variables = 'phi gr0'
-  # []
-  # [ACSwitch_gr1]
-  #   type = ACSwitching
-  #   variable = gr1
-  #   mob_name = L_mat
-  #   Fj_names = 'omegav omegas'
-  #   hj_names = 'hv     hs'
-  #   coupled_variables = 'phi gr0 wvac wint' # action technically includes all vars here including gr1
-  # []
-  # [AcGrGr_gr1]
-  #   type = ACGrGrMulti
-  #   variable = gr1
-  #   mob_name = L_mat
-  #   v = 'phi gr0'
-  #   gamma_names = 'gamma gamma'
-  # []
-  # # MASS CONSERVATION
-  # # Concentration Vacancies
-  # [DT_cv]
-  #   type = TimeDerivative
-  #   variable = cvac_var
-  # []
-  # [MatDif_cv]
-  #   type = MatDiffusion
-  #   variable = cvac_var
-  #   v = wvac # in action its 'wvac wint' ?
-  #   diffusivity = chiuD
-  #   args = 'phi gr0 gr1 wvac wint' #NOT SURE IF IT SHOULD HAVE CROSS TERMS?
-  # []
-  # # Concentration Interstitials
-  # [DT_ci]
-  #   type = TimeDerivative
-  #   variable = cint_var
-  # []
-  # [MatDif_ci]
-  #   type = MatDiffusion
-  #   variable = cint_var
-  #   v = wint # in action its 'wvac wint' ?
-  #   diffusivity = chiiD
-  #   args = 'phi gr0 gr1 wvac wint'
-  # []
-  # # Chemical Potential Vacancies
-  # [MR_c_wvac]
-  #   type = MatReaction
-  #   variable = wvac
-  #   v = cvac_var # in action its 'cvac_var cint_var' ?
-  #   mob_name = '-1'
-  # []
-  # [MR_wvac_hoverk_vu]
-  #   type = MatReaction
-  #   variable = wvac
-  #   args = 'phi gr0 gr1'
-  #   mob_name = hoverk_vu
-  # []
-  # [MBD_wvac_cvueq_mask]
-  #   type = MaskedBodyForce
-  #   variable = wvac
-  #   mask = cvueq_mask
-  #   coupled_variables = 'phi gr0 gr1'
-  # []
-  # [MR_wvac_hoverk_su]
-  #   type = MatReaction
-  #   variable = wvac
-  #   args = 'phi gr0 gr1'
-  #   mob_name = hoverk_su
-  # []
-  # [MBD_wvac_csueq_mask]
-  #   type = MaskedBodyForce
-  #   variable = wvac
-  #   mask = csueq_mask
-  #   coupled_variables = 'phi gr0 gr1'
-  # []
-  # # Chemical Potential Interstitials
-  # [MR_c_wint]
-  #   type = MatReaction
-  #   variable = wint
-  #   v = cint_var # in action its 'cvac_var cint_var' ?
-  #   mob_name = '-1'
-  # []
-  # [MR_wint_hoverk_vi]
-  #   type = MatReaction
-  #   variable = wint
-  #   args = 'phi gr0 gr1'
-  #   mob_name = hoverk_vi
-  # []
-  # [MBD_wint_cvieq_mask]
-  #   type = MaskedBodyForce
-  #   variable = wint
-  #   mask = cvieq_mask
-  #   coupled_variables = 'phi gr0 gr1'
-  # []
-  # [MR_wint_hoverk_si]
-  #   type = MatReaction
-  #   variable = wint
-  #   args = 'phi gr0 gr1'
-  #   mob_name = hoverk_si
-  # []
-  # [MBD_wint_csieq_mask]
-  #   type = MaskedBodyForce
-  #   variable = wint
-  #   mask = csieq_mask
-  #   coupled_variables = 'phi gr0 gr1'
-  # []
+  # Order parameter phi
+  [DT_phi]
+    type = TimeDerivative
+    variable = phi
+  []
+  [ACInt_phi]
+    type = ACInterface
+    variable = phi
+    kappa_name = kappa
+    mob_name = L_mat
+    coupled_variables = 'gr0 gr1'
+  []
+  [ACSwitch_phi]
+    type = ACSwitching
+    variable = phi
+    mob_name = L_mat
+    Fj_names = 'omegav omegas'
+    hj_names = 'hv     hs'
+    coupled_variables = 'gr0 gr1 wvac wint' # action technically includes all vars here including phi
+  []
+  [AcGrGr_phi]
+    type = ACGrGrMulti
+    variable = phi
+    mob_name = L_mat
+    v = 'gr0 gr1'
+    gamma_names = 'gamma gamma'
+  []
+  # Order parameter gr0
+  [DT_gr0]
+    type = TimeDerivative
+    variable = gr0
+  []
+  [ACInt_gr0]
+    type = ACInterface
+    variable = gr0
+    kappa_name = kappa
+    mob_name = L_mat
+    coupled_variables = 'phi gr1'
+  []
+  [ACSwitch_gr0]
+    type = ACSwitching
+    variable = gr0
+    mob_name = L_mat
+    Fj_names = 'omegav omegas'
+    hj_names = 'hv     hs'
+    coupled_variables = 'phi gr1 wvac wint' # action technically includes all vars here including gr0
+  []
+  [AcGrGr_gr0]
+    type = ACGrGrMulti
+    variable = gr0
+    mob_name = L_mat
+    v = 'phi gr1'
+    gamma_names = 'gamma gamma'
+  []
+  # Order parameter gr1
+  [DT_gr1]
+    type = TimeDerivative
+    variable = gr1
+  []
+  [ACInt_gr1]
+    type = ACInterface
+    variable = gr1
+    kappa_name = kappa
+    mob_name = L_mat
+    coupled_variables = 'phi gr0'
+  []
+  [ACSwitch_gr1]
+    type = ACSwitching
+    variable = gr1
+    mob_name = L_mat
+    Fj_names = 'omegav omegas'
+    hj_names = 'hv     hs'
+    coupled_variables = 'phi gr0 wvac wint' # action technically includes all vars here including gr1
+  []
+  [AcGrGr_gr1]
+    type = ACGrGrMulti
+    variable = gr1
+    mob_name = L_mat
+    v = 'phi gr0'
+    gamma_names = 'gamma gamma'
+  []
+  # MASS CONSERVATION
+  # Concentration Vacancies
+  [DT_cv]
+    type = TimeDerivative
+    variable = cvac_var
+  []
+  [MatDif_cv]
+    type = MatDiffusion
+    variable = cvac_var
+    v = wvac # in action its 'wvac wint' ?
+    diffusivity = chiuD
+    args = 'phi gr0 gr1 wvac wint' #NOT SURE IF IT SHOULD HAVE CROSS TERMS?
+  []
+  # Concentration Interstitials
+  [DT_ci]
+    type = TimeDerivative
+    variable = cint_var
+  []
+  [MatDif_ci]
+    type = MatDiffusion
+    variable = cint_var
+    v = wint # in action its 'wvac wint' ?
+    diffusivity = chiiD
+    args = 'phi gr0 gr1 wvac wint'
+  []
+  # Chemical Potential Vacancies
+  [MR_c_wvac]
+    type = MatReaction
+    variable = wvac
+    v = cvac_var # in action its 'cvac_var cint_var' ?
+    mob_name = '-1'
+  []
+  [MR_wvac_hoverk_vu]
+    type = MatReaction
+    variable = wvac
+    args = 'phi gr0 gr1'
+    mob_name = hoverk_vu
+  []
+  [MBD_wvac_cvueq_mask]
+    type = MaskedBodyForce
+    variable = wvac
+    mask = cvueq_mask
+    coupled_variables = 'phi gr0 gr1'
+  []
+  [MR_wvac_hoverk_su]
+    type = MatReaction
+    variable = wvac
+    args = 'phi gr0 gr1'
+    mob_name = hoverk_su
+  []
+  [MBD_wvac_csueq_mask]
+    type = MaskedBodyForce
+    variable = wvac
+    mask = csueq_mask
+    coupled_variables = 'phi gr0 gr1'
+  []
+  # Chemical Potential Interstitials
+  [MR_c_wint]
+    type = MatReaction
+    variable = wint
+    v = cint_var # in action its 'cvac_var cint_var' ?
+    mob_name = '-1'
+  []
+  [MR_wint_hoverk_vi]
+    type = MatReaction
+    variable = wint
+    args = 'phi gr0 gr1'
+    mob_name = hoverk_vi
+  []
+  [MBD_wint_cvieq_mask]
+    type = MaskedBodyForce
+    variable = wint
+    mask = cvieq_mask
+    coupled_variables = 'phi gr0 gr1'
+  []
+  [MR_wint_hoverk_si]
+    type = MatReaction
+    variable = wint
+    args = 'phi gr0 gr1'
+    mob_name = hoverk_si
+  []
+  [MBD_wint_csieq_mask]
+    type = MaskedBodyForce
+    variable = wint
+    mask = csieq_mask
+    coupled_variables = 'phi gr0 gr1'
+  []
   # Sintering Terms for gb/surface energy
   [barrier_phi]
     type = ACBarrierFunction
@@ -741,6 +700,14 @@
     expression = 'hs * ci_eq'
     # outputs = exodus
   []
+  # Extras
+  [hv_out]
+    type = ParsedMaterial
+    property_name = hv_out
+    material_property_names = 'hv'
+    expression = 'hv'
+    outputs = exodus
+  []
 []
 
 [Postprocessors]
@@ -793,32 +760,47 @@
   []
 []
 
+# [Executioner]
+#   type = Transient
+#   scheme = bdf2
+#   solve_type = PJFNK
+#   petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -sub_pc_factor_shift_type'
+#   petsc_options_value = ' asm      lu           2                nonzero'
+#   nl_max_its = 30
+#   l_max_its = 60
+#   l_tol = 1e-06 #4
+#   nl_rel_tol = 1e-6 #6 #default is 1e-8
+#   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
+#   start_time = 0
+#   # end_time = 1e6
+#   dt = 0.01
+#   num_steps = 5
+#   # steady_state_detection = true
+#   # # From tonks ode input
+#   automatic_scaling = true
+#   compute_scaling_once = false
+#   # line_search = none
+#   # dt = 1.0
+#   # [TimeStepper]
+#   #   type = IterationAdaptiveDT
+#   #   optimal_iterations = 6
+#   #   dt = 0.001
+#   # []
+# []
+
 [Executioner]
   type = Transient
   scheme = bdf2
-  solve_type = PJFNK
-  petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -sub_pc_factor_shift_type'
-  petsc_options_value = ' asm      lu           2                nonzero'
-  nl_max_its = 30
-  l_max_its = 60
-  l_tol = 1e-06 #4
-  nl_rel_tol = 1e-6 #6 #default is 1e-8
-  # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
-  start_time = 0
-  # end_time = 1e6
-  dt = 0.001
-  num_steps = 10
-  # steady_state_detection = true
-  # # From tonks ode input
-  automatic_scaling = true
-  compute_scaling_once = false
-  # line_search = none
-  # dt = 1.0
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   optimal_iterations = 6
-  #   dt = 0.001
-  # []
+  solve_type = NEWTON
+
+  l_max_its = 15
+  l_tol = 1e-3
+  nl_max_its = 15
+  nl_rel_tol = 1e-8
+  nl_abs_tol = 1e-8
+
+  num_steps = 5
+  dt = 0.01
 []
 
 [Outputs]

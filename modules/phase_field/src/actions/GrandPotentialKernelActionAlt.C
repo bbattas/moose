@@ -267,19 +267,22 @@ GrandPotentialKernelActionAlt::act()
   if (mass_conservation) // mass conservation kernels with conc and chempot coupling
   {
     c_names = getParam<std::vector<NonlinearVariableName>>("concentrations");
-    std::vector<VariableName> v3;
-    v3.resize(n_w);
-    for (unsigned int i = 0; i < n_w; ++i)
-      v3[i] = w_names[i];
+    // std::vector<VariableName> v3;
+    // v3.resize(n_w);
+    // for (unsigned int i = 0; i < n_w; ++i)
+    //   v3[i] = w_names[i];
 
-    std::vector<VariableName> v4;
+    // std::vector<VariableName> v4;
     unsigned int n_c = c_names.size();
-    v4.resize(n_c);
-    for (unsigned int i = 0; i < n_c; ++i)
-      v4[i] = c_names[i];
+    // v4.resize(n_c);
+    // for (unsigned int i = 0; i < n_c; ++i)
+    //   v4[i] = c_names[i];
 
     for (unsigned int i = 0; i < n_c; ++i)
     {
+      // Create a new v3 vector for each iteration with only one value
+      std::vector<VariableName> v3(1, w_names[i]);
+
       // TimeDerivative concentration Kernel
       InputParameters params = _factory.getValidParams("TimeDerivative");
       params.set<NonlinearVariableName>("variable") = c_names[i];
@@ -311,6 +314,8 @@ GrandPotentialKernelActionAlt::act()
     // Chemical Potentials
     for (unsigned int i = 0; i < n_w; ++i)
     {
+      // Create a new v4 vector for each iteration with only one value
+      std::vector<VariableName> v4(1, c_names[i]);
       // coupling of c and w
       InputParameters params = _factory.getValidParams("MatReaction");
       params.set<NonlinearVariableName>("variable") = w_names[i];

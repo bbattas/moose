@@ -1,6 +1,6 @@
 ##############################################################################
-# File: 47_actionKernels.i
-# File Location: /examples/sintering/paper3/20_newGPKernelAction/47_action_exodiff
+# File: 49_manualPoreIC_actionKernels.i
+# File Location: /examples/sintering/paper3/20_newGPKernelAction/49_manualPoreIC_actionExodiff
 # Created Date: Tuesday July 30th 2024
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
@@ -8,11 +8,15 @@
 # Modified By: Battas,Brandon Scott
 # -----
 # Description:
-#  Action kernel input for an exodiff comparison to the manual version with my
-#  changes to the action here
-#  Input 45 basically
+#  Action kernel version of second attempt at the exodiff test for my new action
+#   since last wasnt the same so im trying with the better IC here
+#
 #
 ##############################################################################
+
+
+
+
 
 # f_dot = 1e-8
 # cvic = 500
@@ -34,19 +38,19 @@
     combinatorial_geometry = 'x > 20000'
     block_id = 1
   []
-  [subdomain_botright]
-    type = ParsedSubdomainMeshGenerator
-    input = subdomain_right
-    combinatorial_geometry = 'y < 7500'
-    block_id = 2
-    excluded_subdomains = 0
-  []
+  # [subdomain_botright]
+  #   type = ParsedSubdomainMeshGenerator
+  #   input = subdomain_right
+  #   combinatorial_geometry = 'y < 7500'
+  #   block_id = 2
+  #   excluded_subdomains = 0
+  # []
   uniform_refine = 2
   # second_order = true
 []
 
 [GlobalParams]
-  profile = TANH
+  # profile = TANH #Not needed since its all function ICs
   int_width = 1000
   op_num = 2
   var_name_base = gr
@@ -87,80 +91,31 @@
     function = ic_func_cvGB
     block = 0
   []
-  [cv_IC_TR]
-    type = SmoothCircleIC
+  [cv_IC_R]
+    type = FunctionIC
     variable = cvac_var
-    x1 = 30000
-    y1 = 6500 #7500
-    radius = 5000
-    invalue = 1
-    outvalue = 2.424e-06 #3.877e-04
+    function = ic_func_cvPore
     block = 1
-    int_width = 500
   []
-  [cv_IC_BR]
-    type = SmoothCircleIC
-    variable = cvac_var
-    x1 = 30000
-    y1 = 8500 #7500
-    radius = 5000
-    invalue = 1
-    outvalue = 2.424e-06 #3.877e-04
-    block = 2
-    int_width = 500
-  []
-  # # C Int
-  # [ci_IC_L]
-  #   type = FunctionIC
-  #   variable = cint_var
-  #   function = ic_func_cvGB #ic_func_ciGB
-  #   block = 0
-  # []
-  # [ci_IC_R]
-  #   type = SmoothCircleIC
-  #   variable = cint_var
-  #   x1 = 30000
-  #   y1 = 7500
-  #   radius = 5000
-  #   invalue = 0.0 #0
-  #   outvalue = 2.424e-06 #1.667e-32 #7.258e-09
-  #   block = 1
-  # []
-  # C Vac
+  # C INT
   [ci_IC_L]
     type = FunctionIC
     variable = cint_var
     function = ic_func_ciGB
     block = 0
   []
-  [ci_IC_TR]
-    type = SmoothCircleIC
+  [ci_IC_R]
+    type = FunctionIC
     variable = cint_var
-    x1 = 30000
-    y1 = 6500 #7500
-    radius = 5000
-    invalue = 0
-    outvalue = 1.667e-32 #2.424e-06 #3.877e-04
+    function = ic_func_ciPore
     block = 1
-    int_width = 400 #500
-  []
-  [ci_IC_BR]
-    type = SmoothCircleIC
-    variable = cint_var
-    x1 = 30000
-    y1 = 8500 #7500
-    radius = 5000
-    invalue = 0
-    outvalue = 1.667e-32 #2.424e-06 #3.877e-04
-    block = 2
-    int_width = 400 #500
   []
   # Grains
   [gr0_IC]
     type = FunctionIC
     variable = gr0
     function = ic_func_gr0
-    block = '0 1 2'
+    block = '0 1'
   []
   [gr1_IC_L]
     type = FunctionIC
@@ -168,45 +123,17 @@
     function = ic_func_gr1
     block = '0' #1
   []
-  [gr1_IC_TR]
-    type = SmoothCircleIC
+  [gr1_IC_R]
+    type = FunctionIC
     variable = gr1
-    x1 = 30000
-    y1 = 6500 #7500
-    radius = 5000
-    invalue = 0
-    outvalue = 1
-    block = 1
-  []
-  [gr1_IC_BR]
-    type = SmoothCircleIC
-    variable = gr1
-    x1 = 30000
-    y1 = 8500 #7500
-    radius = 5000
-    invalue = 0
-    outvalue = 1
-    block = 2
+    function = ic_func_GR1pore
+    block = '1'
   []
   [phi_IC]
-    type = SmoothCircleIC
+    type = FunctionIC
     variable = phi
-    x1 = 30000
-    y1 = 6500 #7500
-    radius = 5000
-    invalue = 1
-    outvalue = 0.0
+    function = ic_func_pore
     block = '0 1'
-  []
-  [phi_IC_br]
-    type = SmoothCircleIC
-    variable = phi
-    x1 = 30000
-    y1 = 8500 #7500
-    radius = 5000
-    invalue = 1
-    outvalue = 0.0
-    block = '2'
   []
 []
 
@@ -268,6 +195,21 @@
     symbol_values = '1000 -5000 7500 15000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);0.5*(1.0-tanh((r-d)/iw))'
   []
+  [ic_func_pore] # Right side pore
+    type = ParsedFunction
+    symbol_names = 'iw x0 y0 r'
+    symbol_values = '1000 30000 7500 5000'
+    expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
+    1-0.5*(1.0-tanh((r-d)/iw))'
+  []
+  [ic_func_GR1pore] # Right side pore grain value (1-ic_func_pore)
+    type = ParsedFunction
+    symbol_names = 'iw x0 y0 r'
+    symbol_values = '1000 30000 7500 5000'
+    expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
+    0.5*(1.0-tanh((r-d)/iw))'
+  []
+  # C Functions
   [ic_func_cvGB]
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r cb cgb'
@@ -285,6 +227,25 @@
     hgbex:=16*((1-0.5*(1.0-tanh((r-d)/iw))) * (0.5*(1.0-tanh((r-d)/iw))))^2;
     hgb:=if(hgbex>1e-6,hgbex,0.0);
     cb + (cgb - cb)*hgb'
+  []
+  # C pore
+  [ic_func_cvPore] # Right side pore
+    type = ParsedFunction
+    symbol_names = 'iw x0 y0 r cb cp'
+    symbol_values = '1000 30000 7500 5000 2.424e-06 1'
+    expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
+    circ:=1-0.5*(1.0-tanh((r-d)/iw));
+    hv:=circ*circ*circ*(10 + circ * (-15 + circ * 6));
+    hv*cp + (1-hv)*cb'
+  []
+  [ic_func_ciPore] # Right side pore
+    type = ParsedFunction
+    symbol_names = 'iw x0 y0 r cb cp'
+    symbol_values = '1000 30000 7500 5000 1.667e-32 0'
+    expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
+    circ:=1-0.5*(1.0-tanh((r-d)/iw));
+    hv:=circ*circ*circ*(10 + circ * (-15 + circ * 6));
+    hv*cp + (1-hv)*cb'
   []
 []
 
@@ -741,6 +702,14 @@
     expression = 'hs * ci_eq'
     # outputs = exodus
   []
+  # Extras
+  [hv_out]
+    type = ParsedMaterial
+    property_name = hv_out
+    material_property_names = 'hv'
+    expression = 'hv'
+    outputs = exodus
+  []
 []
 
 [Postprocessors]
@@ -793,32 +762,47 @@
   []
 []
 
+# [Executioner]
+#   type = Transient
+#   scheme = bdf2
+#   solve_type = PJFNK
+#   petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -sub_pc_factor_shift_type'
+#   petsc_options_value = ' asm      lu           2                nonzero'
+#   nl_max_its = 30
+#   l_max_its = 60
+#   l_tol = 1e-06 #4
+#   nl_rel_tol = 1e-6 #6 #default is 1e-8
+#   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
+#   start_time = 0
+#   # end_time = 1e6
+#   dt = 0.01
+#   num_steps = 5
+#   # steady_state_detection = true
+#   # # From tonks ode input
+#   automatic_scaling = true
+#   compute_scaling_once = false
+#   # line_search = none
+#   # dt = 1.0
+#   # [TimeStepper]
+#   #   type = IterationAdaptiveDT
+#   #   optimal_iterations = 6
+#   #   dt = 0.001
+#   # []
+# []
+
 [Executioner]
   type = Transient
   scheme = bdf2
-  solve_type = PJFNK
-  petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -sub_pc_factor_shift_type'
-  petsc_options_value = ' asm      lu           2                nonzero'
-  nl_max_its = 30
-  l_max_its = 60
-  l_tol = 1e-06 #4
-  nl_rel_tol = 1e-6 #6 #default is 1e-8
-  # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
-  start_time = 0
-  # end_time = 1e6
-  dt = 0.001
-  num_steps = 10
-  # steady_state_detection = true
-  # # From tonks ode input
-  automatic_scaling = true
-  compute_scaling_once = false
-  # line_search = none
-  # dt = 1.0
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   optimal_iterations = 6
-  #   dt = 0.001
-  # []
+  solve_type = NEWTON
+
+  l_max_its = 15
+  l_tol = 1e-3
+  nl_max_its = 15
+  nl_rel_tol = 1e-8
+  nl_abs_tol = 1e-8
+
+  num_steps = 5
+  dt = 0.01
 []
 
 [Outputs]
