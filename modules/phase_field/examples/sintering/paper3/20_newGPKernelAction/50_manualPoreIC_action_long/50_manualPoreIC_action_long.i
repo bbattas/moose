@@ -4,7 +4,7 @@
 # Created Date: Tuesday July 30th 2024
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday July 31st 2024
+# Last Modified: Thursday August 1st 2024
 # Modified By: Battas,Brandon Scott
 # -----
 # Description:
@@ -228,7 +228,7 @@
   [ic_func_cvPore] # Right side pore
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r cb cp'
-    symbol_values = '1000 30000 7500 5000 2.424e-06 1'
+    symbol_values = '800 30000 7500 5000 2.424e-06 1'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
     circ:=1-0.5*(1.0-tanh((r-d)/iw));
     hv:=circ*circ*circ*(10 + circ * (-15 + circ * 6));
@@ -237,7 +237,7 @@
   [ic_func_ciPore] # Right side pore
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r cb cp'
-    symbol_values = '1000 30000 7500 5000 1.667e-32 0'
+    symbol_values = '800 30000 7500 5000 1.667e-32 0'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
     circ:=1-0.5*(1.0-tanh((r-d)/iw));
     hv:=circ*circ*circ*(10 + circ * (-15 + circ * 6));
@@ -790,7 +790,7 @@
   csv = true
   exodus = true
   checkpoint = false
-  # file_base = 44_hgbif_forBlockBoundary
+  file_base = 50_cPoreICIW800
 []
 
 # [Debug]
