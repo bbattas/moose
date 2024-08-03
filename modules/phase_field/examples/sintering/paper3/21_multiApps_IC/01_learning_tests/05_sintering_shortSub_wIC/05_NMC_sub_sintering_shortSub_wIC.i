@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 03_NMC_sub_sintering_auxvar.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/01_learning_tests/03_sintering_auxvar
-# Created Date: Tuesday July 30th 2024
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 05_NMC_sub_sintering_shortSub_wIC.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/01_learning_tests/05_sintering_shortSub_wIC
+# Created Date: Friday August 2nd 2024
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday August 2nd 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  creating an auxvariable cvac to pass to the main MC one
-#
+#  Same short sub file, just a new name. Eventually ill keep those in a single
+#  00 folder probably and just put parents in the new folder
 #
 #
 ##############################################################################

@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 03_NMC_sub_sintering_auxvar.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/01_learning_tests/03_sintering_auxvar
-# Created Date: Tuesday July 30th 2024
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 06_NMC_sub_sintering_longSub_noWIC.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/01_learning_tests/06_sintering_longSub_noWIC
+# Created Date: Friday August 2nd 2024
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday August 2nd 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  creating an auxvariable cvac to pass to the main MC one
+#  Longer run of the subfile (this one) for 100 s
 #
 #
 #
@@ -371,19 +371,20 @@
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   start_time = 0
-  num_steps = 1
-  dt = 0.001
+  end_time = 100
+  # num_steps = 1
+  # dt = 1
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
   compute_scaling_once = false
   # line_search = none
   # dt = 1.0
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   optimal_iterations = 6
-  #   dt = 1 #0.001
-  # []
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    optimal_iterations = 6
+    dt = 1 #0.001
+  []
 []
 
 [Outputs]

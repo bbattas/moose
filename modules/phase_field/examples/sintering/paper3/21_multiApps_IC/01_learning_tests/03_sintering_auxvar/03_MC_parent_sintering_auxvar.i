@@ -4,8 +4,8 @@
 # Created Date: Tuesday July 30th 2024
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday August 1st 2024
-# Modified By: Battas,Brandon Scott
+# Last Modified: Friday August 2nd 2024
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Parent/main MC input pulling cvac_aux for the IC of cvac_var
@@ -170,9 +170,9 @@
       free_energies_op = 'omegav omegas' #empty when no phi'omegaa omegab'
       # Mass Conservation
       mass_conservation = true
-      concentrations = 'cvac_var'# cint_var'
-      hj_over_kVa = 'hoverk_vu hoverk_su'# hoverk_vi hoverk_si' #'hv_over_kVa hs_over_kVa' #
-      hj_c_min = 'cvueq_mask csueq_mask'# cvieq_mask csieq_mask' #cvueq_mask=hv*1 'hv_c_min hs_c_min' #
+      concentrations = 'cvac_var' # cint_var'
+      hj_over_kVa = 'hoverk_vu hoverk_su' # hoverk_vi hoverk_si' #'hv_over_kVa hs_over_kVa' #
+      hj_c_min = 'cvueq_mask csueq_mask' # cvieq_mask csieq_mask' #cvueq_mask=hv*1 'hv_c_min hs_c_min' #
     []
   []
 []
@@ -385,7 +385,7 @@
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 0.01 #0.001
+    dt = 0.001
   []
 []
 

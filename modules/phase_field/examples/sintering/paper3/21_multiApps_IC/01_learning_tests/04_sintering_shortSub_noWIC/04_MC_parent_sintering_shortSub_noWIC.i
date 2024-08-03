@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 03_NMC_sub_sintering_auxvar.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/01_learning_tests/03_sintering_auxvar
-# Created Date: Tuesday July 30th 2024
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 04_MC_parent_sintering_shortSub_noWIC.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/01_learning_tests/04_sintering_shortSub_noWIC
+# Created Date: Friday August 2nd 2024
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday August 2nd 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  creating an auxvariable cvac to pass to the main MC one
-#
+#  Loading from a short 1 timestep subfile and Not loading the NMC w, just
+#   starting with wic = 0
 #
 #
 ##############################################################################
@@ -25,28 +25,46 @@
     ymin = 0
     ymax = 15000
   []
-  [subdomain_right]
-    type = ParsedSubdomainMeshGenerator
-    input = gmg
-    combinatorial_geometry = 'x > 20000'
-    block_id = 1
-  []
-  [subdomain_botright]
-    type = ParsedSubdomainMeshGenerator
-    input = subdomain_right
-    combinatorial_geometry = 'y < 7500'
-    block_id = 2
-    excluded_subdomains = 0
-  []
+  # [subdomain_right]
+  #   type = ParsedSubdomainMeshGenerator
+  #   input = gmg
+  #   combinatorial_geometry = 'x > 20000'
+  #   block_id = 1
+  # []
+  # [subdomain_botright]
+  #   type = ParsedSubdomainMeshGenerator
+  #   input = subdomain_right
+  #   combinatorial_geometry = 'y < 7500'
+  #   block_id = 2
+  #   excluded_subdomains = 0
+  # []
   uniform_refine = 2
   # second_order = true
 []
 
 [GlobalParams]
-  profile = TANH
+  # profile = TANH
   int_width = 1000
   op_num = 2
   var_name_base = gr
+[]
+
+[MultiApps]
+  [full_NMC]
+    type = FullSolveMultiApp
+    execute_on = initial
+    positions = '0 0 0'
+    input_files = 04_NMC_sub_sintering_shortSub_noWIC.i
+  []
+[]
+
+[Transfers]
+  [from_NMC]
+    type = MultiAppCopyTransfer
+    from_multi_app = full_NMC
+    source_variable = 'gr0 gr1 phi cvac_aux'
+    variable = 'gr0 gr1 phi cvac_var'
+  []
 []
 
 [Variables]
@@ -57,8 +75,8 @@
   #   initial_condition = 0
   #   # order = SECOND
   # []
-  # [cvac_var]
-  # []
+  [cvac_var]
+  []
   # [cint_var]
   #   # order = SECOND
   # []
@@ -76,79 +94,58 @@
     family = MONOMIAL
     initial_condition = 1600
   []
-  [cvac_aux]
-    family = LAGRANGE
-    order = FIRST
-  []
-  [cvac_aux_elem]
-    family = MONOMIAL
-    order = CONSTANT
-  []
 []
 
-[AuxKernels]
-  [cvac_aux_elem] #NEEDS WORK
-    type = MaterialRealAux
-    variable = 'cvac_aux_elem'
-    property = 'cvac'
-  []
-  [cvac_aux]
-    type = ProjectionAux
-    variable = cvac_aux
-    v = cvac_aux_elem
-  []
-[]
+# [ICs]
+# # Grains
+# [gr0_IC]
+#   type = FunctionIC
+#   variable = gr0
+#   function = ic_func_gr0
+#   block = '0 1'
+# []
+# [gr1_IC_L]
+#   type = FunctionIC
+#   variable = gr1
+#   function = ic_func_gr1
+#   block = '0 1'
+# []
+# [gr1_IC_R]
+#   type = SmoothCircleIC
+#   variable = gr1
+#   x1 = 30000
+#   y1 = 7500
+#   radius = 5000
+#   invalue = 0
+#   outvalue = 1
+#   block = 1
+# []
+# [phi_IC]
+#   type = SmoothCircleIC
+#   variable = phi
+#   x1 = 30000
+#   y1 = 7500
+#   radius = 5000
+#   invalue = 1
+#   outvalue = 0.0
+#   block = '0 1'
+# []
+# []
 
-[ICs]
-  # Grains
-  [gr0_IC]
-    type = FunctionIC
-    variable = gr0
-    function = ic_func_gr0
-    block = '0 1 2'
-  []
-  [gr1_IC_L]
-    type = FunctionIC
-    variable = gr1
-    function = ic_func_gr1
-    block = '0'
-  []
-  [gr1_IC_R]
-    type = SmoothCircleIC
-    variable = gr1
-    x1 = 30000
-    y1 = 7500
-    radius = 5000
-    invalue = 0
-    outvalue = 1
-    block = '1 2'
-  []
-  [phi_IC]
-    type = SmoothCircleIC
-    variable = phi
-    x1 = 30000
-    y1 = 7500
-    radius = 5000
-    invalue = 1
-    outvalue = 0.0
-    block = '0 1 2'
-  []
-[]
-
-[Functions]
-  [ic_func_gr0] # Left grain
-    type = ParsedFunction
-    symbol_names = 'iw x0 y0 r'
-    symbol_values = '2000 -5000 7500 15000'
-    expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);1-0.5*(1.0-tanh((r-d)/iw))'
-  []
-  [ic_func_gr1] # Right grain
-    type = ParsedFunction
-    symbol_names = 'iw x0 y0 r'
-    symbol_values = '2000 -5000 7500 15000'
-    expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);0.5*(1.0-tanh((r-d)/iw))'
-  []
-[]
+# [Functions]
+#   [ic_func_gr0] # Left grain
+#     type = ParsedFunction
+#     symbol_names = 'iw x0 y0 r'
+#     symbol_values = '2000 -5000 7500 15000'
+#     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);1-0.5*(1.0-tanh((r-d)/iw))'
+#   []
+#   [ic_func_gr1] # Right grain
+#     type = ParsedFunction
+#     symbol_names = 'iw x0 y0 r'
+#     symbol_values = '2000 -5000 7500 15000'
+#     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);0.5*(1.0-tanh((r-d)/iw))'
+#   []
+# []
 
 [Modules]
   [PhaseField]
@@ -156,9 +153,9 @@
       switching_function_names = 'hv hs'
       # Chempot
       chemical_potentials = 'wvac'
-      mobilities = 'chiD' #cons_mob
+      mobilities = 'chiuD' #cons_mob
       anisotropic = 'false'
-      susceptibilities = 'chi'
+      susceptibilities = 'chiu'
       free_energies_w = 'rhov rhos'
       # Grains
       mobility_name_gr = L_mat
@@ -172,10 +169,10 @@
       gamma_grxop = gamma
       free_energies_op = 'omegav omegas' #empty when no phi'omegaa omegab'
       # Mass Conservation
-      mass_conservation = false
-      # concentrations = 'cvac_var cint_var'
-      # hj_over_kVa = 'hoverk_vu hoverk_su hoverk_vi hoverk_si' #'hv_over_kVa hs_over_kVa' #
-      # hj_c_min = 'cvueq_mask csueq_mask cvieq_mask csieq_mask' #cvueq_mask=hv*1 'hv_c_min hs_c_min' #
+      mass_conservation = true
+      concentrations = 'cvac_var' # cint_var'
+      hj_over_kVa = 'hoverk_vu hoverk_su' # hoverk_vi hoverk_si' #'hv_over_kVa hs_over_kVa' #
+      hj_c_min = 'cvueq_mask csueq_mask' # cvieq_mask csieq_mask' #cvueq_mask=hv*1 'hv_c_min hs_c_min' #
     []
   []
 []
@@ -223,12 +220,19 @@
                 hv*Lv + (1-hv)*L'
     outputs = none #'nemesis'
   []
-  [chiD]
+  [chiu]
+    type = DerivativeParsedMaterial
+    property_name = chiu
+    # derivative_order = 2
+    material_property_names = 'chi(wvac,phi,gr0,gr1) Va'
+    expression = 'Va * chi'
+  []
+  [chiuD]
     type = GrandPotentialIsoMaterial
-    f_name = chiD #chiuD
+    f_name = chiuD #chiuD
     solid_mobility = L #CHANGED FROM L
     void_mobility = Lv
-    chi = chi
+    chi = chiu
     c = phi
     T = T
     D0 = 4.2488e11 #8.33e9
@@ -275,52 +279,52 @@
     expression = 'Va*(hs*rhos + hv*rhov)'
     outputs = exodus
   []
-  # # CONSERVATION
-  # # h / (V*k)
-  # [hoverk_vu]
-  #   type = DerivativeParsedMaterial
-  #   property_name = hoverk_vu
-  #   coupled_variables = 'phi gr0 gr1'
-  #   derivative_order = 2
-  #   material_property_names = 'hv(phi) Va kvu'
-  #   expression = 'hv / (Va * kvu)'
-  #   # outputs = exodus
-  # []
-  # [hoverk_su]
-  #   type = DerivativeParsedMaterial
-  #   property_name = hoverk_su
-  #   coupled_variables = 'phi gr0 gr1'
-  #   derivative_order = 2
-  #   material_property_names = 'hs(phi) Va ksu'
-  #   expression = 'hs / (Va * ksu)'
-  #   # outputs = exodus
-  # []
-  # # h*ceq Masks
-  # [cvueq_mask] # cvueq_mask = hv*1
-  #   type = DerivativeParsedMaterial
-  #   property_name = cvueq_mask
-  #   coupled_variables = 'phi gr0 gr1'
-  #   derivative_order = 2
-  #   material_property_names = 'hv(phi)'
-  #   expression = 'hv'
-  #   # outputs = exodus
-  # []
-  # [csueq_mask]
-  #   type = DerivativeParsedMaterial
-  #   property_name = csueq_mask
-  #   coupled_variables = 'phi gr0 gr1'
-  #   derivative_order = 2
-  #   material_property_names = 'hs(phi) cv_eq(phi,gr0,gr1)'
-  #   expression = 'hs * cv_eq'
-  #   # outputs = exodus
-  # []
+  # CONSERVATION
+  # h / (V*k)
+  [hoverk_vu]
+    type = DerivativeParsedMaterial
+    property_name = hoverk_vu
+    coupled_variables = 'phi gr0 gr1'
+    derivative_order = 2
+    material_property_names = 'hv(phi) Va kvu'
+    expression = 'hv / (Va * kvu)'
+    # outputs = exodus
+  []
+  [hoverk_su]
+    type = DerivativeParsedMaterial
+    property_name = hoverk_su
+    coupled_variables = 'phi gr0 gr1'
+    derivative_order = 2
+    material_property_names = 'hs(phi) Va ksu'
+    expression = 'hs / (Va * ksu)'
+    # outputs = exodus
+  []
+  # h*ceq Masks
+  [cvueq_mask] # cvueq_mask = hv*1
+    type = DerivativeParsedMaterial
+    property_name = cvueq_mask
+    coupled_variables = 'phi gr0 gr1'
+    derivative_order = 2
+    material_property_names = 'hv(phi)'
+    expression = 'hv'
+    # outputs = exodus
+  []
+  [csueq_mask]
+    type = DerivativeParsedMaterial
+    property_name = csueq_mask
+    coupled_variables = 'phi gr0 gr1'
+    derivative_order = 2
+    material_property_names = 'hs(phi) cv_eq(phi,gr0,gr1)'
+    expression = 'hs * cv_eq'
+    # outputs = exodus
+  []
 []
 
 [Postprocessors]
-  # [cv_var_total]
-  #   type = ElementIntegralVariablePostprocessor
-  #   variable = cvac_var
-  # []
+  [cv_var_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = cvac_var
+  []
   [wvac_total]
     type = ElementIntegralVariablePostprocessor
     variable = wvac
@@ -370,20 +374,20 @@
   l_tol = 1e-06 #4
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
-  start_time = 0
-  num_steps = 1
-  dt = 0.001
+  # start_time = 0
+  end_time = 1e6
+  # num_steps = 5
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
   compute_scaling_once = false
   # line_search = none
   # dt = 1.0
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   optimal_iterations = 6
-  #   dt = 1 #0.001
-  # []
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    optimal_iterations = 6
+    dt = 0.001
+  []
 []
 
 [Outputs]
