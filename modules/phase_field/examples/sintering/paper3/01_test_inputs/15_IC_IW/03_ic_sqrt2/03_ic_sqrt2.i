@@ -5,7 +5,7 @@
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday August 8th 2024
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Testing variations of the int_width vs IC int_width to see if i can make it
@@ -44,7 +44,7 @@
 
 [GlobalParams]
   profile = TANH
-  int_width = 1000
+  int_width = 2000
   op_num = 2
   var_name_base = gr
 []
@@ -122,7 +122,7 @@
     invalue = 0
     outvalue = 1
     block = '1 2'
-    int_width = 1414 #1000
+    int_width = 2828 #1000
   []
   [phi_IC]
     type = SmoothCircleIC
@@ -133,7 +133,7 @@
     invalue = 1
     outvalue = 0.0
     block = '0 1 2'
-    int_width = 1414 #1000
+    int_width = 2828 #1000
   []
 []
 
@@ -141,13 +141,13 @@
   [ic_func_gr0] # Left grain
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r'
-    symbol_values = '1414 -5000 7500 15000'
+    symbol_values = '2828 -5000 7500 15000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);1-0.5*(1.0-tanh((r-d)/iw))'
   []
   [ic_func_gr1] # Right grain
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r'
-    symbol_values = '1414 -5000 7500 15000'
+    symbol_values = '2828 -5000 7500 15000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);0.5*(1.0-tanh((r-d)/iw))'
   []
 []

@@ -1,8 +1,8 @@
 ##############################################################################
-# File: 02_global_sqrt2.i
-# File Location: /examples/sintering/paper3/01_test_inputs/15_IC_IW/02_global_sqrt2
-# Created Date: Tuesday August 6th 2024
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 05_global_divSqrt2.i
+# File Location: /examples/sintering/paper3/01_test_inputs/15_IC_IW/05_global_divSqrt2
+# Created Date: Thursday August 8th 2024
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday August 8th 2024
 # Modified By: Brandon Battas
@@ -10,7 +10,7 @@
 # Description:
 #  Testing variations of the int_width vs IC int_width to see if i can make it
 #   not have to relax or narrow from the IC
-#  Global one at iw*sqrt2
+#  Global one at iw/sqrt2 ~= 707
 #
 ##############################################################################
 
@@ -44,7 +44,7 @@
 
 [GlobalParams]
   profile = TANH
-  int_width = 2828 #1000
+  int_width = 1414 #1000
   op_num = 2
   var_name_base = gr
 []
