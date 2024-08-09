@@ -5,7 +5,7 @@
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday August 8th 2024
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Increasing IW and decreasing refinement test
@@ -13,8 +13,6 @@
 #
 #
 ##############################################################################
-
-
 
 [Mesh]
   [gmg]
@@ -46,7 +44,7 @@
 
 [GlobalParams]
   # profile = TANH
-  int_width = 1000
+  int_width = 2000
   op_num = 3
   var_name_base = gr
 []
@@ -56,7 +54,7 @@
     type = FullSolveMultiApp
     execute_on = initial
     positions = '0 0 0'
-    input_files = 06_sub_NMC_vi_3grain_1step.i
+    input_files = 07_sub_NMC_vi_3grain_coarse_1step.i
   []
 []
 

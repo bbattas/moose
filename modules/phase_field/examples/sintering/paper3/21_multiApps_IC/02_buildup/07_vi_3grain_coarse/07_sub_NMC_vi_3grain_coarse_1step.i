@@ -5,7 +5,7 @@
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday August 8th 2024
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Trying a coarser mesh
@@ -13,8 +13,6 @@
 #
 #
 ##############################################################################
-
-
 
 [Mesh]
   [gmg]
@@ -40,7 +38,7 @@
     block_id = 2
     excluded_subdomains = 0
   []
-  uniform_refine = 1#2
+  uniform_refine = 1 #2
   # second_order = true
 []
 
@@ -169,39 +167,39 @@
   [ic_func_gr0] # Left grain
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r'
-    symbol_values = '2000 -5000 7500 15000'
+    symbol_values = '1000 -5000 7500 15000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);1-0.5*(1.0-tanh((r-d)/iw))'
   []
   [ic_func_gr1L] # Top Right grain- Left section
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r'
-    symbol_values = '2000 -5000 7500 15000'
+    symbol_values = '1000 -5000 7500 15000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);0.5*(1.0-tanh((r-d)/iw))* 0.5*(1.0+tanh((y-y0)/iw))'
   []
   [ic_func_gr2L] # Bottom Right grain- Left section
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r'
-    symbol_values = '2000 -5000 7500 15000'
+    symbol_values = '1000 -5000 7500 15000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);0.5*(1.0-tanh((r-d)/iw))* 0.5*(1.0-tanh((y-y0)/iw))'
   []
   # Right Half
   [ic_func_pore] # Right side pore
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r'
-    symbol_values = '2000 30000 7500 5000'
+    symbol_values = '1000 30000 7500 5000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
     1-0.5*(1.0-tanh((r-d)/iw))'
   []
   [ic_func_gr1R] # Top Right grain- Right section
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r'
-    symbol_values = '2000 30000 7500 5000'
+    symbol_values = '1000 30000 7500 5000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);0.5*(1.0-tanh((r-d)/iw))* 0.5*(1.0+tanh((y-y0)/iw))'
   []
   [ic_func_gr2R] # Bottom Right grain- Right section
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r'
-    symbol_values = '2000 30000 7500 5000'
+    symbol_values = '1000 30000 7500 5000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);0.5*(1.0-tanh((r-d)/iw))* 0.5*(1.0-tanh((y-y0)/iw))'
   []
 []
