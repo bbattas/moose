@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 01_v_base.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/03_noGB_ripening/01_v_base
-# Created Date: Tuesday August 6th 2024
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 12_v_scaledDgb_highLv.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/03_noGB_ripening/12_v_scaledDgb_highLv
+# Created Date: Wednesday August 14th 2024
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Wednesday August 14th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Sintering (vac only) test base form (normal D and everything)
+#  Additional test where Lv is 10x the current value
 #
 #
 #
@@ -205,7 +205,7 @@
     constant_names = 'p0'
     constant_expressions = '0.3'
     expression = 'hv:=if(phi<=0.0,0.0,if(phi>=p0,1.0,6*(phi/p0)^5 - 15*(phi/p0)^4 + 10*(phi/p0)^3));
-                hv*Lv + (1-hv)*L'
+                hv*10*Lv + (1-hv)*L'
     outputs = none #'nemesis'
   []
   [chiu]
@@ -223,17 +223,18 @@
     chi = chiu
     c = phi
     T = T
-    D0 = 4.2488e11 #8.33e9
-    Em = 4.23317 #3.608
+    D0 = 9.34875e7 # GB Value SCALED #4.2488e11 #8.33e9
+    # D0 = 1.2465e11 # GB Value #4.2488e11 #8.33e9
+    Em = 1.5984 # GB Value #4.23317 #3.608
     GBmob0 = 3.42828e10 # nm4/eVs #1.4759e9 # new value from Tonks/PC/Jake GG Paper
     Q = 3.01 #2.77 # new value from Tonks/PC/Jake GG Paper
     vaporindex = 1
     bulkindex = 1
-    gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = -1 #1e11
+    gbindex = 1 #-1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
+    surfindex = 1 #-1 #1e11
     GBwidth = 1.0
     surf_thickness = 1.0 #0.5
-    iw_scaling = true
+    iw_scaling = false
     D_out_name = vac_diffus
   []
   [sintering]
@@ -306,6 +307,14 @@
     expression = 'hs * cv_eq'
     # outputs = exodus
   []
+  # TEST D OUT TO CONFIRM
+  [D_out]
+    type = ParsedMaterial
+    property_name = D_out
+    material_property_names = vac_diffus
+    expression = 'vac_diffus'
+    outputs = exodus
+  []
 []
 
 [Postprocessors]
@@ -359,6 +368,14 @@
     execute_on = 'initial timestep_end final'
     output_centroids = true #false #was true
     outputs = csv
+  []
+[]
+
+[UserObjects]
+  [terminator]
+    type = Terminator
+    expression = 'void_tracker < 2'
+    execute_on = TIMESTEP_END
   []
 []
 

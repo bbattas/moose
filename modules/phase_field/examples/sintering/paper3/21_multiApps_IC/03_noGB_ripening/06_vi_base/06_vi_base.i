@@ -4,8 +4,8 @@
 # Created Date: Monday August 12th 2024
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday August 12th 2024
-# Modified By: Battas,Brandon Scott
+# Last Modified: Wednesday August 14th 2024
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  base input for ripening with no GBs and vac and int (D all normal use here)
@@ -413,15 +413,19 @@
     expression = 'hs * ci_eq'
     # outputs = exodus
   []
-[]
-
-[VectorPostprocessors]
-  [voids]
-    type = FeatureVolumeVectorPostprocessor
-    flood_counter = void_tracker
-    execute_on = 'initial timestep_end final'
-    output_centroids = true #false #was true
-    outputs = csv
+  [Dv_out]
+    type = ParsedMaterial
+    property_name = Dv_out
+    material_property_names = vac_diffus
+    expression = 'vac_diffus'
+    outputs = exodus
+  []
+  [Di_out]
+    type = ParsedMaterial
+    property_name = Di_out
+    material_property_names = int_diffus
+    expression = 'int_diffus'
+    outputs = exodus
   []
 []
 
@@ -485,6 +489,24 @@
   []
 []
 
+[VectorPostprocessors]
+  [voids]
+    type = FeatureVolumeVectorPostprocessor
+    flood_counter = void_tracker
+    execute_on = 'initial timestep_end final'
+    output_centroids = true #false #was true
+    outputs = csv
+  []
+[]
+
+[UserObjects]
+  [terminator]
+    type = Terminator
+    expression = 'void_tracker < 2'
+    execute_on = TIMESTEP_END
+  []
+[]
+
 [Preconditioning]
   [SMP]
     type = SMP
@@ -504,7 +526,7 @@
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   # start_time = 0
-  end_time = 1e5
+  end_time = 1e8
   # num_steps = 5
   # steady_state_detection = true
   # # From tonks ode input

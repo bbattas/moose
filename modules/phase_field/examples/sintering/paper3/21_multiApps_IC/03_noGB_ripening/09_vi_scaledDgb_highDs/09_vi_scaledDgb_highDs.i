@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 01_v_base.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/03_noGB_ripening/01_v_base
-# Created Date: Tuesday August 6th 2024
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 09_vi_scaledDgb_highDs.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/03_noGB_ripening/09_vi_scaledDgb_highDs
+# Created Date: Wednesday August 14th 2024
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Wednesday August 14th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Sintering (vac only) test base form (normal D and everything)
-#
+#  Vac and int using the respective gb D value for all D components (scaled DGB)
+#   EXCEPT Ds = 100x that
 #
 #
 ##############################################################################
@@ -62,8 +62,8 @@
   [from_NMC]
     type = MultiAppCopyTransfer
     from_multi_app = full_NMC
-    source_variable = 'gr0 phi cvac_aux'
-    variable = 'gr0 phi cvac_var'
+    source_variable = 'gr0 phi cvac_aux cint_aux'
+    variable = 'gr0 phi cvac_var cint_var'
   []
 []
 
@@ -71,18 +71,18 @@
   [wvac]
     initial_condition = 0
   []
-  # [wint]
-  #   initial_condition = 0
-  #   # order = SECOND
-  # []
+  [wint]
+    initial_condition = 0
+  []
   [cvac_var]
   []
-  # [cint_var]
-  #   # order = SECOND
-  # []
+  [cint_var]
+  []
   [gr0]
   []
   # [gr1]
+  # []
+  # [gr2]
   # []
   [phi]
   []
@@ -127,9 +127,21 @@
     boundary = 'left right top bottom'
     value = 0
   []
+  [wi_bc]
+    type = NeumannBC
+    variable = 'wint'
+    boundary = 'left right top bottom'
+    value = 0
+  []
   [cv_bc]
     type = NeumannBC
     variable = 'cvac_var'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [ci_bc]
+    type = NeumannBC
+    variable = 'cint_var'
     boundary = 'left right top bottom'
     value = 0
   []
@@ -140,11 +152,11 @@
     [GrandPotentialAlt]
       switching_function_names = 'hv hs'
       # Chempot
-      chemical_potentials = 'wvac'
-      mobilities = 'chiuD' #cons_mob
-      anisotropic = 'false'
-      susceptibilities = 'chiu'
-      free_energies_w = 'rhov rhos'
+      chemical_potentials = 'wvac wint'
+      mobilities = 'chiuD chiiD' #cons_mob
+      anisotropic = 'false false'
+      susceptibilities = 'chiu chii'
+      free_energies_w = 'rhovu rhosu rhovi rhosi'
       # Grains
       mobility_name_gr = L_mat
       kappa_gr = kappa
@@ -158,24 +170,41 @@
       free_energies_op = 'omegav omegas' #empty when no phi'omegaa omegab'
       # Mass Conservation
       mass_conservation = true
-      concentrations = 'cvac_var' # cint_var'
-      hj_over_kVa = 'hoverk_vu hoverk_su' # hoverk_vi hoverk_si' #'hv_over_kVa hs_over_kVa' #
-      hj_c_min = 'cvueq_mask csueq_mask' # cvieq_mask csieq_mask' #cvueq_mask=hv*1 'hv_c_min hs_c_min' #
+      concentrations = 'cvac_var cint_var'
+      hj_over_kVa = 'hoverk_vu hoverk_su hoverk_vi hoverk_si' #'hv_over_kVa hs_over_kVa' #
+      hj_c_min = 'cvueq_mask csueq_mask cvieq_mask csieq_mask' #cvueq_mask=hv*1 'hv_c_min hs_c_min' #
     []
   []
 []
 
+# [Kernels]
+#   # Sintering Terms for gb/surface energy
+#   [barrier_phi]
+#     type = ACBarrierFunction
+#     variable = phi
+#     v = 'gr0 gr1 gr2' #gr2 gr3'# gr4 gr5'# gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15'
+#     gamma = gamma
+#     mob_name = L_mat
+#   []
+#   [kappa_phi]
+#     type = ACKappaFunction
+#     variable = phi
+#     mob_name = L_mat
+#     kappa_name = kappa
+#   []
+# []
+
 [Materials]
   [consts]
     type = GenericConstantMaterial
-    prop_names = 'Va negOverVa hgb'
-    prop_values = '0.04092 -24.4379 0.0'
+    prop_names = 'Va negOverVa cvieq_mask hgb'
+    prop_values = '0.04092 -24.4379 0.0 0.0'
   []
   [k_constants]
     type = GenericConstantMaterial
     prop_names = 'ksu kvu ksi kvi' # Using the GB based values (lowest of mine)
     # prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
-    prop_values = '6.569e2 6.569e2 6.569e2 6.569e2' # 5.461e7 5.461e7' # No Irradiation
+    prop_values = '6.569e2 6.569e2  5.461e7 5.461e7' # No Irradiation
   []
   [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
@@ -186,14 +215,21 @@
     expression = 'c*(a*T + b)'
     outputs = none
   []
+  # [surf_e_mat] # eV/nm^2
+  #   type = ParsedMaterial
+  #   property_name = surf_e_mat
+  #   material_property_names = gb_e_mat
+  #   expression = '2 * gb_e_mat'
+  #   outputs = none
+  # []
   # [hgb]
   #   type = DerivativeParsedMaterial
   #   property_name = hgb
   #   # derivative_order = 2
-  #   coupled_variables = 'gr0 gr1'
-  #   expression = '16 * ( (gr0 * gr1)^2 )'
-  #   # expression = 'hg:=16 * ( (gr0 * gr1)^2 );
-  #   #               if(hg>1e-8,hg,0.0)' #+ (gr0 * etad0)^2 + (gr1 * etad0)^2)
+  #   coupled_variables = 'gr0 gr1 gr2'
+  #   # expression = '16 * ( (gr0 * gr1)^2 )'
+  #   expression = 'hg:=16 * ( (gr0 * gr1)^2 + (gr0 * gr2)^2 + (gr1 * gr2)^2 );
+  #                 if(hg>1e-4,hg,0.0)' #+ (gr0 * etad0)^2 + (gr1 * etad0)^2)
   #   # expression = '4*(1 - (gr0^2 + gr1^2 + etad0^2))^2'
   #   # outputs = exodus
   # []
@@ -208,13 +244,6 @@
                 hv*Lv + (1-hv)*L'
     outputs = none #'nemesis'
   []
-  [chiu]
-    type = DerivativeParsedMaterial
-    property_name = chiu
-    # derivative_order = 2
-    material_property_names = 'chi(wvac,phi,gr0) Va'
-    expression = 'Va * chi'
-  []
   [chiuD]
     type = GrandPotentialIsoMaterial
     f_name = chiuD #chiuD
@@ -223,30 +252,54 @@
     chi = chiu
     c = phi
     T = T
-    D0 = 4.2488e11 #8.33e9
-    Em = 4.23317 #3.608
+    D0 = 9.34875e7 # GB Value SCALED #4.2488e11 #8.33e9
+    # D0 = 1.2465e11 # GB Value #4.2488e11 #8.33e9
+    Em = 1.5984 # GB Value #4.23317 #3.608
     GBmob0 = 3.42828e10 # nm4/eVs #1.4759e9 # new value from Tonks/PC/Jake GG Paper
     Q = 3.01 #2.77 # new value from Tonks/PC/Jake GG Paper
     vaporindex = 1
     bulkindex = 1
-    gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = -1 #1e11
+    gbindex = 1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
+    surfindex = 100 #1e11
     GBwidth = 1.0
     surf_thickness = 1.0 #0.5
-    iw_scaling = true
+    iw_scaling = false
     D_out_name = vac_diffus
   []
-  [sintering]
-    type = GrandPotentialSinteringMaterial
-    chemical_potential = wvac
+  [chiiD]
+    type = GrandPotentialIsoIntMaterial
+    f_name = chiiD
+    chi = chii
+    c = phi
+    T = T
+    D0 = 4.511775e8 # GB Value SCALED
+    # D0 = 6.0157e11# GB Value #4.0767e11 #1e13 #Ian's irradiation paper (Matzke 1987)
+    Em = 1.5521 # GB Value #4.08453089 #2 #Ian's irradiation paper (Matzke 1987)
+    vaporindex = 1
+    bulkindex = 1
+    gbindex = 1 #10 # -1 sets the GB D to the LANL MD Value in GPIsoMat
+    surfindex = 100 #100 #1e11
+    GBwidth = 1.0
+    surf_thickness = 1.0 #0.5
+    iw_scaling = false
+    D_out_name = int_diffus
+  []
+  [densificaiton]
+    type = GrandPotentialMultiSinteringMaterial
+    chemical_potential_vac = wvac
+    chemical_potential_int = wint
     void_op = phi
     Temperature = T
-    surface_energy = gb_e_mat
-    grainboundary_energy = gb_e_mat
-    void_energy_coefficient = kvu
-    solid_energy_coefficient = ksu
-    solid_energy_model = PARABOLIC
+    surface_energy = gb_e_mat #gb_e_mat #surf_e_mat #19.7
+    grainboundary_energy = gb_e_mat #9.86
+    vac_solid_energy_coefficient = ksu
+    int_solid_energy_coefficient = ksi
+    vac_void_energy_coefficient = kvu
+    int_void_energy_coefficient = kvi
     equilibrium_vacancy_concentration = cv_eq
+    equilibrium_interstitial_concentration = ci_eq
+    solid_energy_model = PARABOLIC
+    mass_conservation = true
   []
   [cv_eq]
     type = DerivativeParsedMaterial
@@ -260,11 +313,31 @@
     expression = 'cgb * hgb + (1 - hgb)*cb'
     outputs = none #'nemesis' # + phi^2
   []
+  [ci_eq]
+    type = DerivativeParsedMaterial
+    property_name = ci_eq
+    # derivative_order = 2
+    coupled_variables = 'gr0 phi wint'
+    material_property_names = 'hgb(phi,gr0)' # 'rhovi(wint) rhosi(wint) hv(phi)'
+    constant_names = 'cb cgb'
+    # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
+    constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
+    # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation VACANCY- LANL
+    expression = 'cgb * hgb + (1 - hgb)*cb'
+    outputs = none #'nemesis' #+ phi^2
+  []
   [cvac]
     type = ParsedMaterial
     property_name = cvac
-    material_property_names = 'hs rhos hv rhov Va'
-    expression = 'Va*(hs*rhos + hv*rhov)'
+    material_property_names = 'hs rhosu hv rhovu Va'
+    expression = 'Va*(hs*rhosu + hv*rhovu)'
+    outputs = exodus
+  []
+  [cint]
+    type = ParsedMaterial
+    property_name = cint
+    material_property_names = 'hs rhosi hv rhovi Va'
+    expression = 'Va*(hs*rhosi + hv*rhovi)'
     outputs = exodus
   []
   # CONSERVATION
@@ -272,7 +345,7 @@
   [hoverk_vu]
     type = DerivativeParsedMaterial
     property_name = hoverk_vu
-    coupled_variables = 'phi gr0'
+    coupled_variables = 'phi gr0' # gr1 gr2'
     derivative_order = 2
     material_property_names = 'hv(phi) Va kvu'
     expression = 'hv / (Va * kvu)'
@@ -281,17 +354,35 @@
   [hoverk_su]
     type = DerivativeParsedMaterial
     property_name = hoverk_su
-    coupled_variables = 'phi gr0'
+    coupled_variables = 'phi gr0' # gr1 gr2'
     derivative_order = 2
     material_property_names = 'hs(phi) Va ksu'
     expression = 'hs / (Va * ksu)'
+    # outputs = exodus
+  []
+  [hoverk_vi]
+    type = DerivativeParsedMaterial
+    property_name = hoverk_vi
+    coupled_variables = 'phi gr0' # gr1 gr2'
+    derivative_order = 2
+    material_property_names = 'hv(phi) Va kvi'
+    expression = 'hv / (Va * kvi)'
+    # outputs = exodus
+  []
+  [hoverk_si]
+    type = DerivativeParsedMaterial
+    property_name = hoverk_si
+    coupled_variables = 'phi gr0' # gr1 gr2'
+    derivative_order = 2
+    material_property_names = 'hs(phi) Va ksi'
+    expression = 'hs / (Va * ksi)'
     # outputs = exodus
   []
   # h*ceq Masks
   [cvueq_mask] # cvueq_mask = hv*1
     type = DerivativeParsedMaterial
     property_name = cvueq_mask
-    coupled_variables = 'phi gr0'
+    coupled_variables = 'phi gr0' # gr1 gr2'
     derivative_order = 2
     material_property_names = 'hv(phi)'
     expression = 'hv'
@@ -300,10 +391,28 @@
   [csueq_mask]
     type = DerivativeParsedMaterial
     property_name = csueq_mask
-    coupled_variables = 'phi gr0'
+    coupled_variables = 'phi gr0' # gr1 gr2'
     derivative_order = 2
     material_property_names = 'hs(phi) cv_eq(phi,gr0)'
     expression = 'hs * cv_eq'
+    # outputs = exodus
+  []
+  # [cvieq_mask] # cvieq_mask = 0
+  #   type = DerivativeParsedMaterial
+  #   property_name = cvieq_mask
+  #   coupled_variables = 'phi gr0 gr1 gr2'
+  #   derivative_order = 2
+  #   material_property_names = 'hv(phi)'
+  #   expression = '0'
+  #   # outputs = exodus
+  # []
+  [csieq_mask]
+    type = DerivativeParsedMaterial
+    property_name = csieq_mask
+    coupled_variables = 'phi gr0' # gr1 gr2'
+    derivative_order = 2
+    material_property_names = 'hs(phi) ci_eq(phi,gr0)'
+    expression = 'hs * ci_eq'
     # outputs = exodus
   []
 []
@@ -317,6 +426,14 @@
     type = ElementIntegralVariablePostprocessor
     variable = wvac
   []
+  [ci_var_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = cint_var
+  []
+  [wint_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = wint
+  []
   [phi_total]
     type = ElementIntegralVariablePostprocessor
     variable = phi
@@ -329,6 +446,10 @@
   #   type = ElementIntegralVariablePostprocessor
   #   variable = gr1
   # []
+  # [gr2_total]
+  #   type = ElementIntegralVariablePostprocessor
+  #   variable = gr2
+  # []
   [hgb_total]
     type = ElementIntegralMaterialProperty
     mat_prop = hgb
@@ -336,6 +457,10 @@
   [cvac_total]
     type = ElementIntegralMaterialProperty
     mat_prop = cvac
+  []
+  [cint_total]
+    type = ElementIntegralMaterialProperty
+    mat_prop = cint
   []
   [runtime]
     type = PerfGraphData
@@ -359,6 +484,14 @@
     execute_on = 'initial timestep_end final'
     output_centroids = true #false #was true
     outputs = csv
+  []
+[]
+
+[UserObjects]
+  [terminator]
+    type = Terminator
+    expression = 'void_tracker < 2'
+    execute_on = TIMESTEP_END
   []
 []
 
