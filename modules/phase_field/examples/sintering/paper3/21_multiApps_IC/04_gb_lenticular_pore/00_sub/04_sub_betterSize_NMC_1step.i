@@ -4,7 +4,7 @@
 # Created Date: Friday August 16th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday August 16th 2024
+# Last Modified: Monday August 19th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -18,8 +18,8 @@
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2
-    nx = 50
-    ny = 50
+    nx = 80 #50
+    ny = 80 #50
     xmin = 0
     xmax = 10000
     ymin = 0
@@ -133,21 +133,21 @@
   [ic_func_pore] # Pore and exterior right
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r xr'
-    symbol_values = '200 2500 5000 400 5000'
+    symbol_values = '200 2500 5000 500 5000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
     1-0.5*(1.0-tanh((r-d)/iw)) + 0.5*(1.0+tanh((x-xr)/iw))'
   []
   [ic_func_gr0] # Top grain
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r xr'
-    symbol_values = '200 2500 5000 400 5000'
+    symbol_values = '200 2500 5000 500 5000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
     0.5*(1.0-tanh((r-d)/iw)) * 0.5*(1.0-tanh((x-xr)/iw)) * 0.5*(1.0-tanh((y-y0)/iw))'
   []
   [ic_func_gr1] # Top grain
     type = ParsedFunction
     symbol_names = 'iw x0 y0 r xr'
-    symbol_values = '200 2500 5000 400 5000'
+    symbol_values = '200 2500 5000 500 5000'
     expression = 'd:=sqrt((x-x0)^2+(y-y0)^2);
     0.5*(1.0-tanh((r-d)/iw)) * 0.5*(1.0-tanh((x-xr)/iw)) * 0.5*(1.0+tanh((y-y0)/iw))'
   []
