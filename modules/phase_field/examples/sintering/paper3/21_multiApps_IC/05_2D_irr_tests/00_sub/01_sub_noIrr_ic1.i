@@ -18,6 +18,8 @@
   [ebsd_mesh]
     type = EBSDMeshGenerator
     filename = 2D_40x40um_8umavg_8pore_coarse.txt
+    # filename = 2D_40x40nm_8nmavg_veryCoarse.txt
+    # filename = ../../../18_newCeq/00_d3d_txt/2D_50x50um_8umavg_5pore.txt
   []
   [subdomain_external]
     type = ParsedSubdomainMeshGenerator
@@ -35,7 +37,6 @@
   op_num = 8
   var_name_base = gr
 []
-
 
 [Variables]
   [wvac]
@@ -56,51 +57,50 @@
     family = MONOMIAL
     initial_condition = 1600
   []
-  # Vacancy mat to variable
-  [cvac_aux]
-    family = LAGRANGE
-    order = FIRST
-  []
-  [cvac_aux_elem]
-    family = MONOMIAL
-    order = CONSTANT
-  []
-  # Interstitial mat to variable
-  [cint_aux]
-    family = LAGRANGE
-    order = FIRST
-  []
-  [cint_aux_elem]
-    family = MONOMIAL
-    order = CONSTANT
-  []
+  # # Vacancy mat to variable
+  # [cvac_aux]
+  #   family = LAGRANGE
+  #   order = FIRST
+  # []
+  # [cvac_aux_elem]
+  #   family = MONOMIAL
+  #   order = CONSTANT
+  # []
+  # # Interstitial mat to variable
+  # [cint_aux]
+  #   family = LAGRANGE
+  #   order = FIRST
+  # []
+  # [cint_aux_elem]
+  #   family = MONOMIAL
+  #   order = CONSTANT
+  # []
 []
 
-[AuxKernels]
-  # Vacancy
-  [cvac_aux_elem]
-    type = MaterialRealAux
-    variable = 'cvac_aux_elem'
-    property = 'cvac'
-  []
-  [cvac_aux]
-    type = ProjectionAux
-    variable = cvac_aux
-    v = cvac_aux_elem
-  []
-  # Interstitial
-  [cint_aux_elem]
-    type = MaterialRealAux
-    variable = 'cint_aux_elem'
-    property = 'cint'
-  []
-  [cint_aux]
-    type = ProjectionAux
-    variable = cint_aux
-    v = cint_aux_elem
-  []
-[]
-
+# [AuxKernels]
+#   # Vacancy
+#   [cvac_aux_elem]
+#     type = MaterialRealAux
+#     variable = 'cvac_aux_elem'
+#     property = 'cvac'
+#   []
+#   [cvac_aux]
+#     type = ProjectionAux
+#     variable = cvac_aux
+#     v = cvac_aux_elem
+#   []
+#   # Interstitial
+#   [cint_aux_elem]
+#     type = MaterialRealAux
+#     variable = 'cint_aux_elem'
+#     property = 'cint'
+#   []
+#   [cint_aux]
+#     type = ProjectionAux
+#     variable = cint_aux
+#     v = cint_aux_elem
+#   []
+# []
 
 [ICs]
   [PolycrystalICs]
@@ -113,7 +113,7 @@
     variable = phi
     block = 1
     inside = 1
-    outside = 0.0#0.01
+    outside = 0.0 #0.01
     x1 = 40000
     x2 = 80000
     y1 = -5000
@@ -123,85 +123,87 @@
     type = SpecifiedSmoothCircleIC
     variable = phi
     invalue = 1
-    outvalue = 0#0.01
-    radii = '2157.03 1863.05 2081.  2036.04 1826.13 1772.42 1798.55 2060.82'
-    x_positions = '30095.6  29046.79 20283.12  9370.67 19428.33 11649.88 24936.2   7106.3'
-    y_positions = '7653.64 18136.86 20731.16 27581.73  8101.88 11721.34 28519.04 18280.74'
-    z_positions = '    0.       0.       0.       0.       0.      0.        0.       0.'
+    outvalue = 0 #0.01
+    radii = '2103.98 1726.32 1737.97 2031.9  2142.97 2004.37 2105.26 1720.39'
+    x_positions = '27572.65 10108.61  8449.17 21472.42 31722.39 10618.79 33868.86 17317.95'
+    y_positions = '12254.12 22065.8  14400.47 27221.5  19418.01 31363.63 33639.84 16480.25'
+    z_positions = '    0.       0.       0.       0.       0.       0.       0.       0.  '
+    # radii = '2157.03 1863.05 2081.  2036.04 1826.13 1772.42 1798.55 2060.82'
+    # x_positions = '30095.6  29046.79 20283.12  9370.67 19428.33 11649.88 24936.2   7106.3'
+    # y_positions = '7653.64 18136.86 20731.16 27581.73  8101.88 11721.34 28519.04 18280.74'
+    # z_positions = '    0.       0.       0.       0.       0.      0.        0.       0.'
     block = 0
   []
 []
 
-
-
-[BCs]
-  [phi_bc]
-    type = NeumannBC
-    variable = 'phi'
-    boundary = 'left right top bottom'
-    value = 0
-  []
-  [gr0_bc]
-    type = NeumannBC
-    variable = 'gr0'
-    boundary = 'left right top bottom'
-    value = 0
-  []
-  [gr1_bc]
-    type = NeumannBC
-    variable = 'gr1'
-    boundary = 'left right top bottom'
-    value = 0
-  []
-  [gr2_bc]
-    type = NeumannBC
-    variable = 'gr2'
-    boundary = 'left right top bottom'
-    value = 0
-  []
-  [gr3_bc]
-    type = NeumannBC
-    variable = 'gr3'
-    boundary = 'left right top bottom'
-    value = 0
-  []
-  [gr4_bc]
-    type = NeumannBC
-    variable = 'gr4'
-    boundary = 'left right top bottom'
-    value = 0
-  []
-  [gr5_bc]
-    type = NeumannBC
-    variable = 'gr5'
-    boundary = 'left right top bottom'
-    value = 0
-  []
-  [gr6_bc]
-    type = NeumannBC
-    variable = 'gr6'
-    boundary = 'left right top bottom'
-    value = 0
-  []
-  [gr7_bc]
-    type = NeumannBC
-    variable = 'gr7'
-    boundary = 'left right top bottom'
-    value = 0
-  []
-  [wv_bc]
-    type = NeumannBC
-    variable = 'wvac'
-    boundary = 'left right top bottom'
-    value = 0
-  []
-  [wi_bc]
-    type = NeumannBC
-    variable = 'wint'
-    boundary = 'left right top bottom'
-    value = 0
-  []
-[]
+# [BCs]
+#   [phi_bc]
+#     type = NeumannBC
+#     variable = 'phi'
+#     boundary = 'left right top bottom'
+#     value = 0
+#   []
+#   [gr0_bc]
+#     type = NeumannBC
+#     variable = 'gr0'
+#     boundary = 'left right top bottom'
+#     value = 0
+#   []
+#   [gr1_bc]
+#     type = NeumannBC
+#     variable = 'gr1'
+#     boundary = 'left right top bottom'
+#     value = 0
+#   []
+#   [gr2_bc]
+#     type = NeumannBC
+#     variable = 'gr2'
+#     boundary = 'left right top bottom'
+#     value = 0
+#   []
+#   [gr3_bc]
+#     type = NeumannBC
+#     variable = 'gr3'
+#     boundary = 'left right top bottom'
+#     value = 0
+#   []
+#   [gr4_bc]
+#     type = NeumannBC
+#     variable = 'gr4'
+#     boundary = 'left right top bottom'
+#     value = 0
+#   []
+#   [gr5_bc]
+#     type = NeumannBC
+#     variable = 'gr5'
+#     boundary = 'left right top bottom'
+#     value = 0
+#   []
+#   [gr6_bc]
+#     type = NeumannBC
+#     variable = 'gr6'
+#     boundary = 'left right top bottom'
+#     value = 0
+#   []
+#   [gr7_bc]
+#     type = NeumannBC
+#     variable = 'gr7'
+#     boundary = 'left right top bottom'
+#     value = 0
+#   []
+#   [wv_bc]
+#     type = NeumannBC
+#     variable = 'wvac'
+#     boundary = 'left right top bottom'
+#     value = 0
+#   []
+#   [wi_bc]
+#     type = NeumannBC
+#     variable = 'wint'
+#     boundary = 'left right top bottom'
+#     value = 0
+#   []
+# []
 
 [Modules]
   [PhaseField]
@@ -278,22 +280,10 @@
   #   expression = '2 * gb_e_mat'
   #   outputs = none
   # []
-  [hgb]
-    type = DerivativeParsedMaterial
-    property_name = hgb
-    # derivative_order = 2
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-    # expression = '16 * ( (gr0 * gr1)^2 )'
-    expression = 'hg:=16 * ( (gr0 * gr1)^2 + (gr0 * gr2)^2 + (gr0 * gr3)^2 + (gr0 * gr4)^2 +
-                      (gr0 * gr5)^2 + (gr0 * gr6)^2 + (gr0 * gr7)^2 +
-                      (gr1 * gr2)^2 + (gr1 * gr3)^2 + (gr1 * gr4)^2 +
-                      (gr1 * gr5)^2 + (gr1 * gr6)^2 + (gr1 * gr7)^2 +
-                      (gr2 * gr3)^2 + (gr2 * gr4)^2 + (gr2 * gr5)^2 + (gr2 * gr6)^2 + (gr2 * gr7)^2 +
-                      (gr3 * gr4)^2 + (gr3 * gr5)^2 + (gr3 * gr6)^2 + (gr3 * gr7)^2 +
-                      (gr4 * gr5)^2 + (gr4 * gr6)^2 + (gr4 * gr7)^2 +
-                      (gr5 * gr6)^2 + (gr5 * gr7)^2 + (gr6 * gr7)^2 );
-                  if(hg>1e-4,hg,0.0)' #+ (gr0 * etad0)^2 + (gr1 * etad0)^2)
-    # expression = '4*(1 - (gr0^2 + gr1^2 + etad0^2))^2'
+  [hgb_out]
+    type = SwitchingFunctionGBMaterial
+    h_name = hgb_out
+    grain_ops = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
     outputs = none
   []
   [L_mat]
@@ -365,26 +355,44 @@
   [cv_eq]
     type = DerivativeParsedMaterial
     property_name = cv_eq
-    # derivative_order = 2
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 phi wvac'#gr6 gr7
-    material_property_names = 'hgb(phi,gr0,gr1,gr2,gr3,gr4,gr5,gr6,gr7)'#,gr6,gr7 #'rhovi(vac) rhosi hv(phi)'
+    derivative_order = 2
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 phi wvac' #gr6 gr7
+    # material_property_names = 'hgb'#(gr0,gr1,gr2,gr3,gr4,gr5,gr6,gr7)'#,gr6,gr7 #'rhovi(vac) rhosi hv(phi)'
     constant_names = 'cb cgb'
     # constant_expressions = '3.877e-04 4.347e-03' #Irradiation
     constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
-    expression = 'cgb * hgb + (1 - hgb)*cb'
+    expression = 'hg:=16 * ( (gr0 * gr1)^2 + (gr0 * gr2)^2 + (gr0 * gr3)^2 + (gr0 * gr4)^2 +
+                          (gr0 * gr5)^2 + (gr0 * gr6)^2 + (gr0 * gr7)^2 +
+                          (gr1 * gr2)^2 + (gr1 * gr3)^2 + (gr1 * gr4)^2 +
+                          (gr1 * gr5)^2 + (gr1 * gr6)^2 + (gr1 * gr7)^2 +
+                          (gr2 * gr3)^2 + (gr2 * gr4)^2 + (gr2 * gr5)^2 + (gr2 * gr6)^2 + (gr2 * gr7)^2 +
+                          (gr3 * gr4)^2 + (gr3 * gr5)^2 + (gr3 * gr6)^2 + (gr3 * gr7)^2 +
+                          (gr4 * gr5)^2 + (gr4 * gr6)^2 + (gr4 * gr7)^2 +
+                          (gr5 * gr6)^2 + (gr5 * gr7)^2 + (gr6 * gr7)^2 );
+                  hgb:=if(hg>1e-4,hg,0.0);
+                  cgb * hgb + (1 - hgb)*cb'
     outputs = none #'nemesis' # + phi^2
   []
   [ci_eq]
     type = DerivativeParsedMaterial
     property_name = ci_eq
-    # derivative_order = 2
+    derivative_order = 2
     coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 phi wint' #gr6 gr7
-    material_property_names = 'hgb(phi,gr0,gr1,gr2,gr3,gr4,gr5,gr6,gr7)'#,gr6,gr7 # 'rhovi(wint) rhosi(wint) hv(phi)'
+    # material_property_names = 'hgb'#(phi,gr0,gr1,gr2,gr3,gr4,gr5)'#,gr6,gr7 # 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
     # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
     constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
     # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation VACANCY- LANL
-    expression = 'cgb * hgb + (1 - hgb)*cb'
+    expression = 'hg:=16 * ( (gr0 * gr1)^2 + (gr0 * gr2)^2 + (gr0 * gr3)^2 + (gr0 * gr4)^2 +
+                          (gr0 * gr5)^2 + (gr0 * gr6)^2 + (gr0 * gr7)^2 +
+                          (gr1 * gr2)^2 + (gr1 * gr3)^2 + (gr1 * gr4)^2 +
+                          (gr1 * gr5)^2 + (gr1 * gr6)^2 + (gr1 * gr7)^2 +
+                          (gr2 * gr3)^2 + (gr2 * gr4)^2 + (gr2 * gr5)^2 + (gr2 * gr6)^2 + (gr2 * gr7)^2 +
+                          (gr3 * gr4)^2 + (gr3 * gr5)^2 + (gr3 * gr6)^2 + (gr3 * gr7)^2 +
+                          (gr4 * gr5)^2 + (gr4 * gr6)^2 + (gr4 * gr7)^2 +
+                          (gr5 * gr6)^2 + (gr5 * gr7)^2 + (gr6 * gr7)^2 );
+                  hgb:=if(hg>1e-4,hg,0.0);
+                  cgb * hgb + (1 - hgb)*cb'
     outputs = none #'nemesis' #+ phi^2
   []
   [cvac]
@@ -399,13 +407,6 @@
     property_name = cint
     material_property_names = 'hs rhosi hv rhovi Va'
     expression = 'Va*(hs*rhosi + hv*rhovi)'
-    outputs = nemesis
-  []
-  [hgb_out]
-    type = ParsedMaterial
-    property_name = hgb_out
-    material_property_names = 'hgb'
-    expression = 'hgb'
     outputs = nemesis
   []
 []
@@ -445,7 +446,7 @@
   # []
   [hgb_total]
     type = ElementIntegralMaterialProperty
-    mat_prop = hgb
+    mat_prop = hgb_out
   []
   [cvac_total]
     type = ElementIntegralMaterialProperty
@@ -499,19 +500,19 @@
     compute_halo_maps = false #true#false
     verbosity_level = 1
   []
-#   [terminator]
-#     type = Terminator
-#     expression = 'void_tracker < 2'
-#     execute_on = TIMESTEP_END
-#   []
+  #   [terminator]
+  #     type = Terminator
+  #     expression = 'void_tracker < 2'
+  #     execute_on = TIMESTEP_END
+  #   []
 []
 
-# [Preconditioning]
-#   [SMP]
-#     type = SMP
-#     full = true
-#   []
-# []
+[Preconditioning]
+  [SMP]
+    type = SMP
+    full = true
+  []
+[]
 
 [Executioner]
   type = Transient
@@ -525,8 +526,8 @@
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   # start_time = 0
-  # end_time = 1e8
-  num_steps = 1
+  end_time = 10000
+  # num_steps = 1
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
@@ -536,7 +537,7 @@
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
-    dt = 0.001
+    dt = 0.01
   []
 []
 
