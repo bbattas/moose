@@ -1,20 +1,18 @@
 ##############################################################################
-# File: 02_1e-8FR_fullIrr_icFine.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/02_1e-8FR_fullIrr_icFine
-# Created Date: Saturday August 24th 2024
+# File: 03_noIrr_highDs.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/03_noIrr_highDs
+# Created Date: Monday August 26th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday August 26th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Same as 01 but using the full irradiation system just as a first shot to
-#   see what it does
+#  Increasing surface D a couple oom to see if that makes it change density at all
+#
 #
 #
 ##############################################################################
-
-f_dot = 1e-8
 
 [Mesh]
   [gmg]
@@ -56,7 +54,7 @@ f_dot = 1e-8
     type = FullSolveMultiApp
     execute_on = initial
     positions = '0 0 0'
-    input_files = ../00_sub/03_sub_1e-8FR_icFine.i
+    input_files = ../00_sub/02_sub_noIrr_icFine.i
   []
 []
 
@@ -219,62 +217,22 @@ f_dot = 1e-8
   []
 []
 
-[Kernels]
-  #   # Sintering Terms for gb/surface energy
-  #   [barrier_phi]
-  #     type = ACBarrierFunction
-  #     variable = phi
-  #     v = 'gr0 gr1 gr2' #gr2 gr3'# gr4 gr5'# gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15'
-  #     gamma = gamma
-  #     mob_name = L_mat
-  #   []
-  #   [kappa_phi]
-  #     type = ACKappaFunction
-  #     variable = phi
-  #     mob_name = L_mat
-  #     kappa_name = kappa
-  #   []
-  # Irradiation
-  # Source/Generation
-  [source_vac]
-    type = MaskedBodyForce
-    variable = cvac_var
-    mask = rho_gen #change_vac #rho_gen
-    coupled_variables = 'phi wvac' # wint'
-  []
-  [source_int]
-    type = MaskedBodyForce
-    variable = cint_var
-    mask = rho_gen #change_vac #rho_gen
-    coupled_variables = 'phi wint' # wvac'
-  []
-  # Sink/Recombination
-  [recombination_vac]
-    type = MatReaction
-    variable = cvac_var
-    mob_name = rho_recomb
-    args = 'wvac wint phi gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7' # grain ops mean i should include them in combined_rho
-    #coupled_variables = 'phi gr0 gr1 gr2'
-  []
-  [recombination_int]
-    type = MatReaction
-    variable = cint_var
-    mob_name = rho_recomb
-    args = 'wvac wint phi gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7' # grain ops mean i should include them in combined_rho
-    #coupled_variables = 'wvac phi gr0 gr1 gr2'
-  []
-  # Damage/Mixing
-  [ballistic_mix_vac]
-    type = MatDiffusion
-    variable = cvac_var
-    diffusivity = rho_mixing_vac
-  []
-  [ballistic_mix_int]
-    type = MatDiffusion
-    variable = cint_var
-    diffusivity = rho_mixing_int
-  []
-[]
+# [Kernels]
+#   # Sintering Terms for gb/surface energy
+#   [barrier_phi]
+#     type = ACBarrierFunction
+#     variable = phi
+#     v = 'gr0 gr1 gr2' #gr2 gr3'# gr4 gr5'# gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15'
+#     gamma = gamma
+#     mob_name = L_mat
+#   []
+#   [kappa_phi]
+#     type = ACKappaFunction
+#     variable = phi
+#     mob_name = L_mat
+#     kappa_name = kappa
+#   []
+# []
 
 [Materials]
   [consts]
@@ -285,8 +243,8 @@ f_dot = 1e-8
   [k_constants]
     type = GenericConstantMaterial
     prop_names = 'ksu kvu ksi kvi' # Using the GB based values (lowest of mine)
-    prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
-    # prop_values = '6.569e2 6.569e2  5.461e7 5.461e7' # No Irradiation
+    # prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
+    prop_values = '6.569e2 6.569e2  5.461e7 5.461e7' # No Irradiation
   []
   [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
@@ -341,7 +299,7 @@ f_dot = 1e-8
     vaporindex = 1
     bulkindex = 1
     gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = -1 #1e11
+    surfindex = 1e10 #-1 #1e11
     GBwidth = 3.5 # based on avg of two lanl values
     surf_thickness = 3.5 # keeping equal to gb for simplicity
     iw_scaling = true
@@ -358,7 +316,7 @@ f_dot = 1e-8
     vaporindex = 1
     bulkindex = 1
     gbindex = -1 #10 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = -1 #100 #1e11
+    surfindex = 1e10 #-1 #100 #1e11
     GBwidth = 3.5 # based on avg of two lanl values
     surf_thickness = 3.5 # keeping equal to gb for simplicity
     iw_scaling = true
@@ -388,8 +346,8 @@ f_dot = 1e-8
     coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 phi wvac'
     # material_property_names = 'hgb(phi,gr0)' #'rhovi(vac) rhosi hv(phi)'
     constant_names = 'cb cgb'
-    constant_expressions = '3.877e-04 4.347e-03' #Irradiation
-    # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
+    # constant_expressions = '3.877e-04 4.347e-03' #Irradiation
+    constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
     expression = 'hg:=16 * ( (gr0 * gr1)^2 + (gr0 * gr2)^2 + (gr0 * gr3)^2 + (gr0 * gr4)^2 +
                           (gr0 * gr5)^2 + (gr0 * gr6)^2 + (gr0 * gr7)^2 +
                           (gr1 * gr2)^2 + (gr1 * gr3)^2 + (gr1 * gr4)^2 +
@@ -409,8 +367,8 @@ f_dot = 1e-8
     coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 phi wint'
     # material_property_names = 'hgb(phi,gr0)' # 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
-    constant_expressions = '7.258e-09 5.900e-06' #Irradiation
-    # constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
+    # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
+    constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
     # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation VACANCY- LANL
     expression = 'hg:=16 * ( (gr0 * gr1)^2 + (gr0 * gr2)^2 + (gr0 * gr3)^2 + (gr0 * gr4)^2 +
                           (gr0 * gr5)^2 + (gr0 * gr6)^2 + (gr0 * gr7)^2 +
@@ -493,8 +451,8 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hs(phi)' #' cv_eq(gr0,gr1,gr2,gr3,gr4,gr5,gr6,gr7)'
     constant_names = 'cb cgb'
-    constant_expressions = '3.877e-04 4.347e-03' #Irradiation
-    # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
+    # constant_expressions = '3.877e-04 4.347e-03' #Irradiation
+    constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
     expression = 'hg:=16 * ( (gr0 * gr1)^2 + (gr0 * gr2)^2 + (gr0 * gr3)^2 + (gr0 * gr4)^2 +
                           (gr0 * gr5)^2 + (gr0 * gr6)^2 + (gr0 * gr7)^2 +
                           (gr1 * gr2)^2 + (gr1 * gr3)^2 + (gr1 * gr4)^2 +
@@ -524,8 +482,8 @@ f_dot = 1e-8
     derivative_order = 2
     material_property_names = 'hs(phi)' #' ci_eq(gr0,gr1,gr2,gr3,gr4,gr5,gr6,gr7)'
     constant_names = 'cb cgb'
-    constant_expressions = '7.258e-09 5.900e-06' #Irradiation
-    # constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
+    # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
+    constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
     # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation VACANCY- LANL
     expression = 'hg:=16 * ( (gr0 * gr1)^2 + (gr0 * gr2)^2 + (gr0 * gr3)^2 + (gr0 * gr4)^2 +
                           (gr0 * gr5)^2 + (gr0 * gr6)^2 + (gr0 * gr7)^2 +
@@ -539,80 +497,6 @@ f_dot = 1e-8
                   ci_eq:=cgb * hgb + (1 - hgb)*cb;
                   hs * ci_eq'
     # outputs = exodus
-  []
-  # IRRADIATION
-  [combined_rho_vac]
-    type = DerivativeParsedMaterial
-    property_name = combined_rho_vac
-    coupled_variables = 'wvac phi'
-    derivative_order = 2
-    material_property_names = 'rhovu(wvac) rhosu(wvac) hv(phi) hs(phi)'
-    expression = 'hv*rhovu + hs*rhosu' #'(1-hv)*rhos' #
-    outputs = none #'nemesis'
-  []
-  [combined_rho_int]
-    type = DerivativeParsedMaterial
-    property_name = combined_rho_int
-    coupled_variables = 'wint phi'
-    derivative_order = 2
-    material_property_names = 'rhovi(wint) rhosi(wint) hv(phi) hs(phi)'
-    expression = 'hv*rhovi + hs*rhosi' #'(1-hv)*rhos' #
-    outputs = none #'nemesis'
-  []
-  [a_r]
-    type = ParsedMaterial
-    property_name = a_r
-    constant_names = 'Va Z a_0 kB Di_0 Ei_B' # Di_0 Ei_B'
-    constant_expressions = '0.04092 250 0.25 8.617343e-5 4.0767e11 4.08453089' #1e13 2
-    material_property_names = 'hs(phi)'
-    coupled_variables = 'phi T gr0 gr1 gr2'
-    expression = 'dint:=Di_0 * exp(-Ei_B / (kB * T));
-                  hs * Va * Z * dint / (a_0^2)'
-    outputs = none #nemesis #nemesis #'nemesis'
-  []
-  [rho_gen]
-    type = DerivativeParsedMaterial
-    property_name = rho_gen
-    coupled_variables = 'phi'
-    derivative_order = 1
-    constant_names = 'Nc Nd noise f_dot'
-    constant_expressions = '2 5 1 ${f_dot}'
-    material_property_names = 'hs(phi) Va'
-    expression = 'f_dot * noise * Nc * Nd * hs * Va'
-    outputs = nemesis #'nemesis'
-  []
-  [rho_recomb] #This one is off on GB?
-    type = DerivativeParsedMaterial
-    property_name = rho_recomb
-    coupled_variables = 'wvac wint phi' # gr0 gr1' #gr0 gr1 gr2
-    derivative_order = 2
-    # additional_derivative_symbols = w # combined_rho_vac combined_rho_int
-    material_property_names = 'Va a_r(phi) combined_rho_vac(wvac,phi) combined_rho_int(wint,phi)'
-    expression = 'out:=a_r * combined_rho_vac * combined_rho_int * Va;
-                  if(out>0.0,0.0-out,0.0)'
-    outputs = nemesis #'nemesis'
-  []
-  [rho_mixing_vac]
-    type = DerivativeParsedMaterial
-    property_name = rho_mixing_vac
-    coupled_variables = 'wvac'
-    derivative_order = 2
-    constant_names = 'Nc Vc noise tc Dc f_dot'
-    constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
-    material_property_names = 'chiu(phi,wvac) Va'
-    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chiu * Va' # * hs
-    outputs = none #nemesis #'nemesis'
-  []
-  [rho_mixing_int]
-    type = DerivativeParsedMaterial
-    property_name = rho_mixing_int
-    coupled_variables = 'wint'
-    derivative_order = 2
-    constant_names = 'Nc Vc noise tc Dc f_dot'
-    constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
-    material_property_names = 'chii(phi,wint) Va'
-    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chii * Va' # * hs
-    outputs = none #nemesis #'nemesis'
   []
 []
 
