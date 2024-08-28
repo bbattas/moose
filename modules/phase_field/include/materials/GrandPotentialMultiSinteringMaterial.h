@@ -147,12 +147,18 @@ protected:
   MaterialProperty<Real> & _gamma;
 
   /// Body Force coefficient for mass conservation in conc and chempot coupling
-  MaterialProperty<Real> & _hv_c_min;
-  MaterialProperty<Real> & _hs_c_min;
+  MaterialProperty<Real> & _hv_cv_min;
+  MaterialProperty<Real> & _hs_cv_min;
+  MaterialProperty<Real> & _hv_ci_min;
+  MaterialProperty<Real> & _hs_ci_min;
+  // One derivative was needed for this or the linear solve took way more iterations (45 vs 3)
+  MaterialProperty<Real> & _dhv_cv_min;
 
   /// MatReaction Force coefficient for mass conservation in conc and chempot coupling
-  MaterialProperty<Real> & _hv_over_kVa;
-  MaterialProperty<Real> & _hs_over_kVa;
+  MaterialProperty<Real> & _hv_over_kvVa;
+  MaterialProperty<Real> & _hs_over_kvVa;
+  MaterialProperty<Real> & _hv_over_kiVa;
+  MaterialProperty<Real> & _hs_over_kiVa;
 
   /// surface energy
   // const Real _sigma_s;

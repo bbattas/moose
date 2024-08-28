@@ -164,11 +164,18 @@ GrandPotentialMultiSinteringMaterial::GrandPotentialMultiSinteringMaterial(
     _d2kappa(declarePropertyDerivative<Real>("kappa", _phi_name, _phi_name)),
     _gamma(declareProperty<Real>("gamma")),
     // mass conservation
-    _hv_c_min(declareProperty<Real>("hv_c_min")),
-    _hs_c_min(declareProperty<Real>("hs_c_min")),
-    _hv_over_kVa(declareProperty<Real>("hv_over_kVa")),
-    _hs_over_kVa(declareProperty<Real>("hs_over_kVa")),
-
+    // h * ceq
+    _hv_cv_min(declareProperty<Real>("hv_cv_min")),
+    _hs_cv_min(declareProperty<Real>("hs_cv_min")),
+    _hv_ci_min(declareProperty<Real>("hv_ci_min")),
+    _hs_ci_min(declareProperty<Real>("hs_ci_min")),
+    // One deriv was needed on this mat to help linear solve?
+    _dhv_cv_min(declarePropertyDerivative<Real>("hv_cv_min", _phi_name)),
+    // h / (k*Va)
+    _hv_over_kvVa(declareProperty<Real>("hv_over_kvVa")),
+    _hs_over_kvVa(declareProperty<Real>("hs_over_kvVa")),
+    _hv_over_kiVa(declareProperty<Real>("hv_over_kiVa")),
+    _hs_over_kiVa(declareProperty<Real>("hs_over_kiVa")),
     // _sigma_s(getParam<Real>("surface_energy")),
     // _sigma_gb(getParam<Real>("grainboundary_energy")),
     _sigma_s(getMaterialProperty<Real>("surface_energy")),
@@ -308,11 +315,16 @@ GrandPotentialMultiSinteringMaterial::computeQpProperties()
       _domegasdwi[_qp] = -_rhosi[_qp];
       _d2omegasdwi2[_qp] = -_drhosidw[_qp];
 
-      // // bodyforce and matreact coefficients for strict mass conservation case
-      // _hv_c_min[_qp] = _hv[_qp] * 1.0;
-      // _hs_c_min[_qp] = _hs[_qp] * _cs_eq[_qp];
-      // _hv_over_kVa[_qp] = _hv[_qp] / (_Va * _kv[_qp]);
-      // _hs_over_kVa[_qp] = _hs[_qp] / (_Va * _ks[_qp]);
+      // bodyforce and matreact coefficients for strict mass conservation case
+      _hv_cv_min[_qp] = _hv[_qp] * 1.0;
+      _hs_cv_min[_qp] = _hs[_qp] * _csu_eq[_qp];
+      _hv_ci_min[_qp] = 0.0; //_hv[_qp] * 0.0;
+      _hs_ci_min[_qp] = _hs[_qp] * _csi_eq[_qp];
+      _dhv_cv_min[_qp] = _dhv[_qp]; // This one is needed to keep linear solve small?
+      _hv_over_kvVa[_qp] = _hv[_qp] / (_Va * _kvu[_qp]);
+      _hs_over_kvVa[_qp] = _hs[_qp] / (_Va * _ksu[_qp]);
+      _hv_over_kiVa[_qp] = _hv[_qp] / (_Va * _kvi[_qp]);
+      _hs_over_kiVa[_qp] = _hs[_qp] / (_Va * _ksi[_qp]);
 
       for (unsigned int i = 0; i < _neta; ++i)
       {
