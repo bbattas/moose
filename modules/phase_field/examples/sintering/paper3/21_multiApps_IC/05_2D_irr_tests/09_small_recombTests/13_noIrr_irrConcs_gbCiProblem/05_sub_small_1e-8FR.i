@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 04_sub_small_noIrr.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/00_sub
-# Created Date: Tuesday August 27th 2024
+# File: 05_sub_small_1e-8FR.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/09_small_recombTests/13_noIrr_irrConcs_gbCiProblem
+# Created Date: Thursday August 29th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday August 30th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Manually defined small pore 2 grain structure for testing
-#
+#  NMC input with irr values, subfile for the MC one in this folder but also
+#   used to debug why the Ci on the gb is so different in the initial steps??
 #
 #
 ##############################################################################
@@ -192,8 +192,8 @@
   [k_constants]
     type = GenericConstantMaterial
     prop_names = 'ksu kvu ksi kvi' # Using the GB based values (lowest of mine)
-    # prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
-    prop_values = '6.569e2 6.569e2 5.461e7 5.461e7' # No Irradiation
+    prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
+    # prop_values = '6.569e2 6.569e2 5.461e7 5.461e7' # No Irradiation
   []
   [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
@@ -207,7 +207,7 @@
   [hgb]
     type = DerivativeParsedMaterial
     property_name = hgb
-    # derivative_order = 2
+    derivative_order = 2
     coupled_variables = 'gr0 gr1'
     # expression = '16 * ( (gr0 * gr1)^2 )'
     expression = 'hg:=16 * ( (gr0 * gr1)^2 );
@@ -288,10 +288,10 @@
     coupled_variables = 'gr0 gr1 phi wvac'
     material_property_names = 'hgb(phi,gr0,gr1)' #'rhovi(vac) rhosi hv(phi)'
     constant_names = 'cb cgb'
-    # constant_expressions = '3.877e-04 4.347e-03' #Irradiation
-    constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
+    constant_expressions = '3.877e-04 4.347e-03' #Irradiation
+    # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
     expression = 'cgb * hgb + (1 - hgb)*cb'
-    outputs = none #'nemesis' # + phi^2
+    # outputs = exodus #'nemesis' # + phi^2
   []
   [ci_eq]
     type = DerivativeParsedMaterial
@@ -300,40 +300,26 @@
     coupled_variables = 'gr0 gr1 phi wint'
     material_property_names = 'hgb(phi,gr0,gr1)' # 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
-    # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
-    constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
+    constant_expressions = '7.258e-09 5.900e-06' #Irradiation
+    # constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
     # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation VACANCY- LANL
     expression = 'cgb * hgb + (1 - hgb)*cb'
-    outputs = none #'nemesis' #+ phi^2
+    # outputs = exodus #'nemesis' #+ phi^2
   []
-  # [cvac]
-  #   type = ParsedMaterial
-  #   property_name = cvac
-  #   material_property_names = 'hs rhosu hv rhovu Va'
-  #   expression = 'Va*(hs*rhosu + hv*rhovu)'
-  #   # outputs = exodus
-  # []
-  # [cint]
-  #   type = ParsedMaterial
-  #   property_name = cint
-  #   material_property_names = 'hs rhosi hv rhovi Va'
-  #   expression = 'Va*(hs*rhosi + hv*rhovi)'
-  #   # outputs = exodus
-  # []
-  # [cvac]
-  #   type = ParsedMaterial
-  #   property_name = cvac
-  #   material_property_names = 'hs cv_eq hv Va'
-  #   expression = 'Va*(hs*cv_eq ) + hv*1.0'
-  #   # outputs = exodus
-  # []
-  # [cint]
-  #   type = ParsedMaterial
-  #   property_name = cint
-  #   material_property_names = 'hs ci_eq hv Va'
-  #   expression = 'Va*(hs*ci_eq) + hv*0.0'
-  #   # outputs = exodus
-  # []
+  [cvac_nmc]
+    type = ParsedMaterial
+    property_name = cvac_nmc
+    material_property_names = 'hs rhosu hv rhovu Va'
+    expression = 'Va*(hs*rhosu + hv*rhovu)'
+    # outputs = exodus
+  []
+  [cint_nmc]
+    type = ParsedMaterial
+    property_name = cint_nmc
+    material_property_names = 'hs rhosi hv rhovi Va'
+    expression = 'Va*(hs*rhosi + hv*rhovi)'
+    # outputs = exodus
+  []
   [cvac]
     type = ParsedMaterial
     property_name = cvac
@@ -348,6 +334,27 @@
     material_property_names = 'hs ci_eq hv Va'
     expression = 'ci:=(hs*ci_eq) + hv*0.0;
                   if(ci<0.0, 0.0, ci)'
+    # outputs = exodus
+  []
+  [hgb_out]
+    type = ParsedMaterial
+    property_name = hgb_out
+    material_property_names = 'hs hgb hv'
+    expression = 'hgb'
+    # outputs = exodus
+  []
+  [hs_out]
+    type = ParsedMaterial
+    property_name = hs_out
+    material_property_names = 'hs hgb hv'
+    expression = 'hs'
+    # outputs = exodus
+  []
+  [hv_out]
+    type = ParsedMaterial
+    property_name = hv_out
+    material_property_names = 'hs hgb hv'
+    expression = 'hv'
     # outputs = exodus
   []
   # # CONSERVATION
@@ -454,27 +461,27 @@
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   start_time = 0
-  # end_time = 100
-  num_steps = 1
-  dt = 0.001
+  end_time = 100 #00
+  # num_steps = 1
+  # dt = 0.001
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
   compute_scaling_once = false
   # line_search = none
   # dt = 1.0
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   optimal_iterations = 6
-  #   dt = 0.1 #0.001
-  # []
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    optimal_iterations = 6
+    dt = 0.1 #0.001
+  []
 []
 
 [Outputs]
   csv = false
   exodus = false
   checkpoint = false
-  # file_base = fullList
+  # file_base = NMC_long
 []
 
 # [Debug]

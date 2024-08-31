@@ -4,7 +4,7 @@
 # Created Date: Tuesday August 27th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday August 27th 2024
+# Last Modified: Friday August 30th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -306,16 +306,16 @@
     expression = 'cgb * hgb + (1 - hgb)*cb'
     outputs = none #'nemesis' #+ phi^2
   []
-  # [cvac]
+  # [cvac_nmc]
   #   type = ParsedMaterial
-  #   property_name = cvac
+  #   property_name = cvac_nmc
   #   material_property_names = 'hs rhosu hv rhovu Va'
   #   expression = 'Va*(hs*rhosu + hv*rhovu)'
   #   # outputs = exodus
   # []
-  # [cint]
+  # [cint_nmc]
   #   type = ParsedMaterial
-  #   property_name = cint
+  #   property_name = cint_nmc
   #   material_property_names = 'hs rhosi hv rhovi Va'
   #   expression = 'Va*(hs*rhosi + hv*rhovi)'
   #   # outputs = exodus
@@ -324,14 +324,16 @@
     type = ParsedMaterial
     property_name = cvac
     material_property_names = 'hs cv_eq hv Va'
-    expression = 'Va*(hs*cv_eq ) + hv*1.0'
+    expression = 'cv:=(hs*cv_eq ) + hv*1.0;
+                  if(cv<0.0, 0.0, cv)'
     # outputs = exodus
   []
   [cint]
     type = ParsedMaterial
     property_name = cint
     material_property_names = 'hs ci_eq hv Va'
-    expression = 'Va*(hs*ci_eq) + hv*0.0'
+    expression = 'ci:=(hs*ci_eq) + hv*0.0;
+                  if(ci<0.0, 0.0, ci)'
     # outputs = exodus
   []
   # # CONSERVATION
@@ -447,11 +449,11 @@
   compute_scaling_once = false
   # line_search = none
   # dt = 1.0
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   optimal_iterations = 6
-  #   dt = 0.1 #0.001
-  # []
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    optimal_iterations = 6
+    dt = 0.1 #0.001
+  []
 []
 
 [Outputs]
