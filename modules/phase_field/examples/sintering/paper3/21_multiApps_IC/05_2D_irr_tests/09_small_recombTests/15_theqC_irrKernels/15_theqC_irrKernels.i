@@ -1,18 +1,17 @@
 ##############################################################################
-# File: 13_noIrr_irrConcs_gbCiProblem.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/09_small_recombTests/13_noIrr_irrConcs_gbCiProblem
-# Created Date: Thursday August 29th 2024
+# File: 15_theqC_irrKernels.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/09_small_recombTests/15_theqC_irrKernels
+# Created Date: Sunday September 1st 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday September 2nd 2024
+# Last Modified: Sunday September 1st 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  The GB interstitial conc was shifting and forming the weird dogbone shape which
-#   was squaring the edge of the pore, not good.  BUT it did it even with irrad
-#   kernels off, so this is to work out NMC/MC/NoIrr/wtf is needed to make that
-#   not happen?
-# It was an issue with cint and cvac in subfile, had an extra xVa in hs part
+#  Using the no irradiation values for k and ceq with irradiation kernels
+#
+#
+#
 ##############################################################################
 
 f_dot = 1e-8
@@ -44,7 +43,7 @@ f_dot = 1e-8
     type = FullSolveMultiApp
     execute_on = initial
     positions = '0 0 0'
-    input_files = ../../00_sub/05_sub_small_1e-8FR.i
+    input_files = ../../00_sub/04_sub_small_noIrr.i
   []
 []
 
@@ -251,17 +250,17 @@ f_dot = 1e-8
     args = 'wvac wint phi gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7' # grain ops mean i should include them in combined_rho
     #coupled_variables = 'wvac phi gr0 gr1 gr2'
   []
-  # # Damage/Mixing
-  # [ballistic_mix_vac]
-  #   type = MatDiffusion
-  #   variable = cvac_var
-  #   diffusivity = rho_mixing_vac
-  # []
-  # [ballistic_mix_int]
-  #   type = MatDiffusion
-  #   variable = cint_var
-  #   diffusivity = rho_mixing_int
-  # []
+  # Damage/Mixing
+  [ballistic_mix_vac]
+    type = MatDiffusion
+    variable = cvac_var
+    diffusivity = rho_mixing_vac
+  []
+  [ballistic_mix_int]
+    type = MatDiffusion
+    variable = cint_var
+    diffusivity = rho_mixing_int
+  []
 []
 
 [Materials]
@@ -273,8 +272,8 @@ f_dot = 1e-8
   [k_constants]
     type = GenericConstantMaterial
     prop_names = 'ksu kvu ksi kvi' # Using the GB based values (lowest of mine)
-    prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
-    # prop_values = '6.569e2 6.569e2  5.461e7 5.461e7' # No Irradiation
+    # prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
+    prop_values = '6.569e2 6.569e2  5.461e7 5.461e7' # No Irradiation
   []
   [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
@@ -387,8 +386,8 @@ f_dot = 1e-8
     coupled_variables = 'gr0 gr1 phi wvac'
     material_property_names = 'hgb(phi,gr0,gr1)' #'rhovi(vac) rhosi hv(phi)'
     constant_names = 'cb cgb'
-    constant_expressions = '3.877e-04 4.347e-03' #Irradiation
-    # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
+    # constant_expressions = '3.877e-04 4.347e-03' #Irradiation
+    constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
     expression = 'cgb * hgb + (1 - hgb)*cb'
     # expression = 'hg:=16 * ( (gr0 * gr1)^2 + (gr0 * gr2)^2 + (gr0 * gr3)^2 + (gr0 * gr4)^2 +
     #                       (gr0 * gr5)^2 + (gr0 * gr6)^2 + (gr0 * gr7)^2 +
@@ -409,8 +408,8 @@ f_dot = 1e-8
     coupled_variables = 'gr0 gr1 phi wint'
     material_property_names = 'hgb(phi,gr0,gr1)' # 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
-    constant_expressions = '7.258e-09 5.900e-06' #Irradiation
-    # constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
+    # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
+    constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
     # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation VACANCY- LANL
     expression = 'cgb * hgb + (1 - hgb)*cb'
     # expression = 'hg:=16 * ( (gr0 * gr1)^2 + (gr0 * gr2)^2 + (gr0 * gr3)^2 + (gr0 * gr4)^2 +
@@ -507,7 +506,7 @@ f_dot = 1e-8
     material_property_names = 'hs(phi) Va hv(phi) htj'
     expression = 'rg:=f_dot * noise * Nc * Nd * hs * Va;
                   if(hv<=1e-6,rg,0)'
-    # expression = 'f_dot * noise * Nc * Nd * hs * Va * (1-htj)'
+    # expression = 'f_dot * noise * Nc * Nd * hs * Va'
     outputs = nemesis #'nemesis'
   []
   [rho_recomb] #This one is off on GB?
@@ -518,7 +517,7 @@ f_dot = 1e-8
     # additional_derivative_symbols = w # combined_rho_vac combined_rho_int
     material_property_names = 'Va a_r(phi) combined_rho_vac(wvac,phi) combined_rho_int(wint,phi) hv htj'
     expression = 'out:=a_r * combined_rho_vac * combined_rho_int * Va;
-                  if((out>0.0 & hv<=1e-6),0.0-out,0.0)'
+                  if((out>0.0 & hv<=1e-6),0.0-0.1*out,0.0)'
     outputs = nemesis #'nemesis'
   []
   [rho_mixing_vac]
@@ -662,7 +661,7 @@ f_dot = 1e-8
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   # start_time = 0
-  end_time = 1e7 #1e8
+  end_time = 1e8
   # num_steps = 5
   # steady_state_detection = true
   # # From tonks ode input
@@ -682,7 +681,7 @@ f_dot = 1e-8
   exodus = false
   nemesis = true
   checkpoint = false
-  file_base = MC_GifRif_highDs
+  file_base = 15_theqC_GifM_0.1xRif
 []
 
 # [Debug]

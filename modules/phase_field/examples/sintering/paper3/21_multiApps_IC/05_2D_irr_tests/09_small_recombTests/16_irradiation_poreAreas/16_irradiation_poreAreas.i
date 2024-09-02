@@ -1,18 +1,17 @@
 ##############################################################################
-# File: 13_noIrr_irrConcs_gbCiProblem.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/09_small_recombTests/13_noIrr_irrConcs_gbCiProblem
-# Created Date: Thursday August 29th 2024
+# File: 16_irradiation_poreAreas.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/09_small_recombTests/16_irradiation_poreAreas
+# Created Date: Monday September 2nd 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday September 2nd 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  The GB interstitial conc was shifting and forming the weird dogbone shape which
-#   was squaring the edge of the pore, not good.  BUT it did it even with irrad
-#   kernels off, so this is to work out NMC/MC/NoIrr/wtf is needed to make that
-#   not happen?
-# It was an issue with cint and cvac in subfile, had an extra xVa in hs part
+#  Using the double if with high Ds input to check with FFC (and tiger?) how much
+#   of the internal pore/phi ends up external vs just recombined away
+#
+#
 ##############################################################################
 
 f_dot = 1e-8
@@ -251,17 +250,17 @@ f_dot = 1e-8
     args = 'wvac wint phi gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7' # grain ops mean i should include them in combined_rho
     #coupled_variables = 'wvac phi gr0 gr1 gr2'
   []
-  # # Damage/Mixing
-  # [ballistic_mix_vac]
-  #   type = MatDiffusion
-  #   variable = cvac_var
-  #   diffusivity = rho_mixing_vac
-  # []
-  # [ballistic_mix_int]
-  #   type = MatDiffusion
-  #   variable = cint_var
-  #   diffusivity = rho_mixing_int
-  # []
+  # Damage/Mixing
+  [ballistic_mix_vac]
+    type = MatDiffusion
+    variable = cvac_var
+    diffusivity = rho_mixing_vac
+  []
+  [ballistic_mix_int]
+    type = MatDiffusion
+    variable = cint_var
+    diffusivity = rho_mixing_int
+  []
 []
 
 [Materials]
@@ -618,22 +617,22 @@ f_dot = 1e-8
   [void_tracker]
     type = FeatureFloodCount
     variable = phi
-    threshold = 0.5 # 0.1 #0.2
-    connecting_threshold = 0.5 #0.09 #0.08
+    threshold = 0.2 # 0.1 #0.2
+    connecting_threshold = 0.08 #0.09 #0.08
     compute_var_to_feature_map = true
     execute_on = 'initial timestep_end'
   []
 []
 
-# [VectorPostprocessors]
-#   [voids]
-#     type = FeatureVolumeVectorPostprocessor
-#     flood_counter = void_tracker
-#     execute_on = 'initial timestep_end final'
-#     output_centroids = true #false #was true
-#     outputs = csv
-#   []
-# []
+[VectorPostprocessors]
+  [voids]
+    type = FeatureVolumeVectorPostprocessor
+    flood_counter = void_tracker
+    execute_on = 'initial timestep_end final'
+    output_centroids = true #false #was true
+    outputs = csv
+  []
+[]
 
 [UserObjects]
   [terminator]
@@ -682,7 +681,7 @@ f_dot = 1e-8
   exodus = false
   nemesis = true
   checkpoint = false
-  file_base = MC_GifRif_highDs
+  # file_base = MC_GifRif_highDs
 []
 
 # [Debug]
