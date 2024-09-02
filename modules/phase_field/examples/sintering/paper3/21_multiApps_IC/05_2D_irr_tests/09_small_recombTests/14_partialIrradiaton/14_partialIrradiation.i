@@ -340,7 +340,7 @@ f_dot = 1e-8
     vaporindex = 1
     bulkindex = 1
     gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = 1e10 #-1 #1e11
+    surfindex = -1 #1e10 #-1 #1e11
     GBwidth = 3.5 # based on avg of two lanl values
     surf_thickness = 3.5 # keeping equal to gb for simplicity
     iw_scaling = true
@@ -357,7 +357,7 @@ f_dot = 1e-8
     vaporindex = 1
     bulkindex = 1
     gbindex = -1 #10 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = 1e10 #-1 #100 #1e11
+    surfindex = -1 #1e10 #-1 #100 #1e11
     GBwidth = 3.5 # based on avg of two lanl values
     surf_thickness = 3.5 # keeping equal to gb for simplicity
     iw_scaling = true
@@ -518,7 +518,7 @@ f_dot = 1e-8
     # additional_derivative_symbols = w # combined_rho_vac combined_rho_int
     material_property_names = 'Va a_r(phi) combined_rho_vac(wvac,phi) combined_rho_int(wint,phi) hv htj'
     expression = 'out:=a_r * combined_rho_vac * combined_rho_int * Va;
-                  if((out>0.0 & hv<=1e-6),0.0-out,0.0)'
+                  if((out>0.0 & hv<=1e-6),0.0-0.1*out,0.0)'
     outputs = nemesis #'nemesis'
   []
   [rho_mixing_vac]
@@ -682,7 +682,7 @@ f_dot = 1e-8
   exodus = false
   nemesis = true
   checkpoint = false
-  file_base = MC_GifRif_highDs
+  file_base = MC_GifRif_0.1xR
 []
 
 # [Debug]
