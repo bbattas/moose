@@ -4,7 +4,7 @@
 # Created Date: Sunday March 31st 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Sunday June 9th 2024
+# Last Modified: Tuesday September 3rd 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -446,21 +446,21 @@
   # [../]
 []
 
-# [Preconditioning]
-#   [./SMP] #slow but good, very slow for 3D (might be another option then)
-#     type = SMP
-#     coupled_groups = 'w,phi'
-#   [../]
-# []
+[Preconditioning]
+  [SMP] #slow but good, very slow for 3D (might be another option then)
+    type = SMP
+    coupled_groups = 'w,phi'
+  []
+[]
 
 [Executioner]
   type = Transient
   scheme = bdf2
   solve_type = PJFNK
-  petsc_options_iname = '-pc_type -pc_hypre_type'
-  petsc_options_value = 'hypre boomeramg'
-  # petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap'
-  # petsc_options_value = ' asm      lu           2'
+  # petsc_options_iname = '-pc_type -pc_hypre_type'
+  # petsc_options_value = 'hypre boomeramg'
+  petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -sub_pc_factor_shift_type'
+  petsc_options_value = ' asm      lu           2                nonzero'
   nl_max_its = 20 #40 too large- optimal_iterations is 6
   l_max_its = 30 #if it seems like its using a lot it might still be fine
   l_tol = 1e-4
@@ -472,7 +472,7 @@
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 8 #WAS 6
-    dt = 0.0001
+    dt = 0.01
     growth_factor = 1.2
     cutback_factor = 0.8
     cutback_factor_at_failure = 0.5 #might be different from the curback_factor
