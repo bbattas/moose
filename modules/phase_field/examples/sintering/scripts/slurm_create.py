@@ -17,7 +17,7 @@ verb = logging.info
 # CL Argument Parser
 parser = argparse.ArgumentParser()
 parser.add_argument('--verbose','-v', action='store_true', help='Verbose output, default off')
-parser.add_argument('--subdirs','-s', action='store_false', help='Run in all direct subdirectories, default on')
+parser.add_argument('--subdirs','-s', action='store_true', help='Run in all direct subdirectories, default off')
 parser.add_argument('--overwrite','-o', action='store_true', help='Overwrite existing slurm scripts, default off')
 parser.add_argument('--input','-i', action='store_true', help='SLURM header manual inputs. Default=Off')
 parser.add_argument('--inl','--pbs','-p', action='store_true', help='PBS script for INL. Default=Off')
@@ -549,19 +549,22 @@ if cl_args.subdirs:
         verb(glob.glob("*/"))
         for dir in os.listdir():
             if not dir.startswith('.'):
-                cwd = working_dir + "/" + dir
-                os.chdir(cwd)
-                verb('In directory: ' + os.getcwd())
-                # Check if there is a .i file
-                input = checkForInput()
-                if input[0]:
-                    # Check if we need to make a slurm script for the .i file
-                    if checkForSlurm() == False:
-                        # Make a new slurm script
-                        slurmWrite(cwd,input[1])
-                    if cl_args.run:
-                        runSlurm()
+                cwd = os.path.join(working_dir, dir)
+                if os.path.isdir(cwd):  # Check if cwd is a directory
+                    os.chdir(cwd)
+                    verb('In directory: ' + os.getcwd())
+                    # Check if there is a .i file
+                    input = checkForInput()
+                    if input[0]:
+                        # Check if we need to make a slurm script for the .i file
+                        if not checkForSlurm():
+                            # Make a new slurm script
+                            slurmWrite(cwd, input[1])
+                        if cl_args.run:
+                            runSlurm()
                     verb(' ')
+                else:
+                    verb(f'Skipping: {cwd} is not a directory')
 # No sibdirectories, only the current directory
 else:
     verb('Running only in current directory')
