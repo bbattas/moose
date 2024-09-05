@@ -1,17 +1,17 @@
 ##############################################################################
-# File: 02_2D_scaled_100xGB.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/10_Ds_testing/01_2D_1pore_irrEq/02_2D_scaled_100xGB
-# Created Date: Wednesday September 4th 2024
+# File: 01_3D_scaled_10xGB.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/10_Ds_testing/02_3D_1pore_irrEq/01_3D_scaled_10xGB
+# Created Date: Thursday September 5th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday September 5th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Using 100x GB instead of the hardcoded 10x
-#  For vac thats an index of 5.8422e+09 while int is 1.3989e+10
-#   both relative to their own Db
+#  Base 3D input, using Ds = 10xDgb for v and i, then iw scaling applied to that
 #
+#
+#  1.8-2M ish DoFs, so use like 5 nodes of 30 should be enough hopefully
 ##############################################################################
 
 f_dot = 1e-8
@@ -19,13 +19,16 @@ f_dot = 1e-8
 [Mesh]
   [gmg]
     type = DistributedRectilinearMeshGenerator
-    dim = 2
-    nx = 120
-    ny = 80
+    dim = 3
+    nx = 100
+    ny = 60
+    nz = 60
     xmin = 0
-    xmax = 30000
+    xmax = 25000
     ymin = 0
-    ymax = 20000
+    ymax = 15000
+    zmin = 0
+    zmax = 15000
   []
   uniform_refine = 0 #2
   # second_order = true
@@ -43,7 +46,7 @@ f_dot = 1e-8
     type = FullSolveMultiApp
     execute_on = initial
     positions = '0 0 0'
-    input_files = ../../00_sub/01_sub_2D_1e-8FR.i
+    input_files = ../../00_sub/03_sub_3D_1e-8FR.i
   []
 []
 
@@ -330,7 +333,7 @@ f_dot = 1e-8
     vaporindex = 1
     bulkindex = 1
     gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = 5.8422e9 #-1 #1e11
+    surfindex = -1 #1e11
     GBwidth = 3.5 # based on avg of two lanl values
     surf_thickness = 3.5 # keeping equal to gb for simplicity
     iw_scaling = true
@@ -347,7 +350,7 @@ f_dot = 1e-8
     vaporindex = 1
     bulkindex = 1
     gbindex = -1 #10 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = 1.3989e10 #-1 #100 #1e11
+    surfindex = -1 #100 #1e11
     GBwidth = 3.5 # based on avg of two lanl values
     surf_thickness = 3.5 # keeping equal to gb for simplicity
     iw_scaling = true

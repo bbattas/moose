@@ -1,16 +1,16 @@
 ##############################################################################
-# File: 02_2D_scaled_100xGB.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/10_Ds_testing/01_2D_1pore_irrEq/02_2D_scaled_100xGB
-# Created Date: Wednesday September 4th 2024
+# File: 03_2D_scaled_1000xGB.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/10_Ds_testing/01_2D_1pore_irrEq/03_2D_scaled_1000xGB
+# Created Date: Thursday September 5th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday September 5th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Using 100x GB instead of the hardcoded 10x
-#  For vac thats an index of 5.8422e+09 while int is 1.3989e+10
-#   both relative to their own Db
+#  setting the surface D for vac and int to 1000x their respective GB values
+#
+#
 #
 ##############################################################################
 
@@ -330,7 +330,7 @@ f_dot = 1e-8
     vaporindex = 1
     bulkindex = 1
     gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = 5.8422e9 #-1 #1e11
+    surfindex = 5.8422e10 #-1 #1e11
     GBwidth = 3.5 # based on avg of two lanl values
     surf_thickness = 3.5 # keeping equal to gb for simplicity
     iw_scaling = true
@@ -347,7 +347,7 @@ f_dot = 1e-8
     vaporindex = 1
     bulkindex = 1
     gbindex = -1 #10 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = 1.3989e10 #-1 #100 #1e11
+    surfindex = 1.3989e11 #-1 #100 #1e11
     GBwidth = 3.5 # based on avg of two lanl values
     surf_thickness = 3.5 # keeping equal to gb for simplicity
     iw_scaling = true

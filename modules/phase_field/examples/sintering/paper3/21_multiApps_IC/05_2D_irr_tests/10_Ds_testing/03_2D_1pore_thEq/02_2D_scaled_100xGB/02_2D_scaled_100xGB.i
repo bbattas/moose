@@ -1,7 +1,7 @@
 ##############################################################################
 # File: 02_2D_scaled_100xGB.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/10_Ds_testing/01_2D_1pore_irrEq/02_2D_scaled_100xGB
-# Created Date: Wednesday September 4th 2024
+# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/10_Ds_testing/03_2D_1pore_thEq/02_2D_scaled_100xGB
+# Created Date: Thursday September 5th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday September 5th 2024
@@ -11,7 +11,7 @@
 #  Using 100x GB instead of the hardcoded 10x
 #  For vac thats an index of 5.8422e+09 while int is 1.3989e+10
 #   both relative to their own Db
-#
+#  Using THERMAL WQ C adn K values
 ##############################################################################
 
 f_dot = 1e-8
@@ -43,7 +43,7 @@ f_dot = 1e-8
     type = FullSolveMultiApp
     execute_on = initial
     positions = '0 0 0'
-    input_files = ../../00_sub/01_sub_2D_1e-8FR.i
+    input_files = ../../00_sub/02_sub_2D_noIrr.i
   []
 []
 
@@ -274,8 +274,8 @@ f_dot = 1e-8
   [k_constants]
     type = GenericConstantMaterial
     prop_names = 'ksu kvu ksi kvi' # Using the GB based values (lowest of mine)
-    prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
-    # prop_values = '6.569e2 6.569e2  5.461e7 5.461e7' # No Irradiation
+    # prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
+    prop_values = '6.569e2 6.569e2  5.461e7 5.461e7' # No Irradiation
   []
   [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
@@ -377,8 +377,8 @@ f_dot = 1e-8
     coupled_variables = 'gr0 gr1 phi wvac'
     material_property_names = 'hgb(phi,gr0,gr1)' #'rhovi(vac) rhosi hv(phi)'
     constant_names = 'cb cgb'
-    constant_expressions = '3.877e-04 4.347e-03' #Irradiation
-    # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
+    # constant_expressions = '3.877e-04 4.347e-03' #Irradiation
+    constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
     expression = 'cgb * hgb + (1 - hgb)*cb'
     outputs = none # + phi^2
   []
@@ -389,8 +389,8 @@ f_dot = 1e-8
     coupled_variables = 'gr0 gr1 phi wint'
     material_property_names = 'hgb(phi,gr0,gr1)' # 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
-    constant_expressions = '7.258e-09 5.900e-06' #Irradiation
-    # constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
+    # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
+    constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
     # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation VACANCY- LANL
     expression = 'cgb * hgb + (1 - hgb)*cb'
     outputs = none #+ phi^2

@@ -1,17 +1,17 @@
 ##############################################################################
-# File: 02_2D_scaled_100xGB.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/10_Ds_testing/01_2D_1pore_irrEq/02_2D_scaled_100xGB
-# Created Date: Wednesday September 4th 2024
+# File: 03_3D_scaled_1000xGB.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/10_Ds_testing/04_3D_1pore_thEq/03_3D_scaled_1000xGB
+# Created Date: Thursday September 5th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday September 5th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Using 100x GB instead of the hardcoded 10x
-#  For vac thats an index of 5.8422e+09 while int is 1.3989e+10
-#   both relative to their own Db
-#
+#  3D input, using Ds = 100x Dgb for v and i, then iw scaling applied to that
+#  For vac thats an index of 5.8422e10 while int is 1.3989e11
+#  THERMAL EQ c and k
+#  1.8-2M ish DoFs, so use like 5 nodes of 30 should be enough hopefully
 ##############################################################################
 
 f_dot = 1e-8
@@ -19,13 +19,16 @@ f_dot = 1e-8
 [Mesh]
   [gmg]
     type = DistributedRectilinearMeshGenerator
-    dim = 2
-    nx = 120
-    ny = 80
+    dim = 3
+    nx = 100
+    ny = 60
+    nz = 60
     xmin = 0
-    xmax = 30000
+    xmax = 25000
     ymin = 0
-    ymax = 20000
+    ymax = 15000
+    zmin = 0
+    zmax = 15000
   []
   uniform_refine = 0 #2
   # second_order = true
@@ -43,7 +46,7 @@ f_dot = 1e-8
     type = FullSolveMultiApp
     execute_on = initial
     positions = '0 0 0'
-    input_files = ../../00_sub/01_sub_2D_1e-8FR.i
+    input_files = ../../00_sub/04_sub_3D_noIrr.i
   []
 []
 
@@ -274,8 +277,8 @@ f_dot = 1e-8
   [k_constants]
     type = GenericConstantMaterial
     prop_names = 'ksu kvu ksi kvi' # Using the GB based values (lowest of mine)
-    prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
-    # prop_values = '6.569e2 6.569e2  5.461e7 5.461e7' # No Irradiation
+    # prop_values = '7.751e2 7.751e2 5.711e5 5.711e5' # Irradiation
+    prop_values = '6.569e2 6.569e2  5.461e7 5.461e7' # No Irradiation
   []
   [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
@@ -330,7 +333,7 @@ f_dot = 1e-8
     vaporindex = 1
     bulkindex = 1
     gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = 5.8422e9 #-1 #1e11
+    surfindex = 5.8422e10 #-1 #1e11
     GBwidth = 3.5 # based on avg of two lanl values
     surf_thickness = 3.5 # keeping equal to gb for simplicity
     iw_scaling = true
@@ -347,7 +350,7 @@ f_dot = 1e-8
     vaporindex = 1
     bulkindex = 1
     gbindex = -1 #10 # -1 sets the GB D to the LANL MD Value in GPIsoMat
-    surfindex = 1.3989e10 #-1 #100 #1e11
+    surfindex = 1.3989e11 #-1 #100 #1e11
     GBwidth = 3.5 # based on avg of two lanl values
     surf_thickness = 3.5 # keeping equal to gb for simplicity
     iw_scaling = true
@@ -377,8 +380,8 @@ f_dot = 1e-8
     coupled_variables = 'gr0 gr1 phi wvac'
     material_property_names = 'hgb(phi,gr0,gr1)' #'rhovi(vac) rhosi hv(phi)'
     constant_names = 'cb cgb'
-    constant_expressions = '3.877e-04 4.347e-03' #Irradiation
-    # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
+    # constant_expressions = '3.877e-04 4.347e-03' #Irradiation
+    constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
     expression = 'cgb * hgb + (1 - hgb)*cb'
     outputs = none # + phi^2
   []
@@ -389,8 +392,8 @@ f_dot = 1e-8
     coupled_variables = 'gr0 gr1 phi wint'
     material_property_names = 'hgb(phi,gr0,gr1)' # 'rhovi(wint) rhosi(wint) hv(phi)'
     constant_names = 'cb cgb'
-    constant_expressions = '7.258e-09 5.900e-06' #Irradiation
-    # constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
+    # constant_expressions = '7.258e-09 5.900e-06' #Irradiation
+    constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
     # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation VACANCY- LANL
     expression = 'cgb * hgb + (1 - hgb)*cb'
     outputs = none #+ phi^2

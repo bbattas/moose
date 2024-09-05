@@ -4,7 +4,7 @@
 # Created Date: Wednesday September 4th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday September 4th 2024
+# Last Modified: Thursday September 5th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -503,6 +503,13 @@ f_dot = 1e-8
 []
 
 [Postprocessors]
+  [max_mpi_memory]
+    type = MemoryUsage
+    value_type = max_process
+    report_peak_value = True
+    mem_units = gigabytes
+    execute_on = 'NONLINEAR TIMESTEP_END'
+  []
   [cv_var_total]
     type = ElementIntegralVariablePostprocessor
     variable = cvac_var
