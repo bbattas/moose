@@ -630,7 +630,7 @@ f_dot = 0
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   # start_time = 0
-  end_time = 1e7 #1e8
+  end_time = 1e10 #1e7 #1e8
   # num_steps = 5
   # steady_state_detection = true
   # # From tonks ode input
