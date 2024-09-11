@@ -1,5 +1,5 @@
 ##############################################################################
-# File: 09_2D_scaled_1000xGB_0FR.i
+# File: 10_2D_scaled_10000xGB_0FR.i
 # File Location: /examples/sintering/paper3/21_multiApps_IC/05_2D_irr_tests/10_Ds_testing/03_2D_1pore_thEq/10_2D_scaled_10000xGB_0FR
 # Created Date: Wednesday September 11th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
