@@ -98,10 +98,11 @@ SwitchingFunctionGBMaterialTempl<is_ad>::computeQpProperties()
     for (unsigned int i = 0; i < _num_eta_gb; ++i)
     {
       (*_prop_dh[i])[_qp] = 0.0;
-      for (unsigned int j = 0; j < _num_eta_gb; ++j)
-      {
-        (*_prop_d2h[i][j])[_qp] = 0.0;
-      }
+      (*_prop_d2h[i][i])[_qp] = 0.0;
+      // for (unsigned int j = 0; j < _num_eta_gb; ++j)
+      // {
+      //   (*_prop_d2h[i][j])[_qp] = 0.0;
+      // }
     }
     return;
   }
@@ -138,28 +139,21 @@ SwitchingFunctionGBMaterialTempl<is_ad>::computeQpProperties()
     }
     // First derivatives
     (*_prop_dh[i])[_qp] = 32 * (*_eta_gb[i])[_qp] * sum_other;
+    // Second derivatives only for same var twice (rest assuming 0)
+    (*_prop_d2h[i][i])[_qp] = 32 * sum_other;
 
-    // Manually set second derivatives to zero for i != j and assign the diagonal term
-    for (unsigned int j = 0; j < _num_eta_gb; ++j)
-    {
-      if (i == j)
-      {
-        (*_prop_d2h[i][j])[_qp] = 32 * sum_other;
-      }
-      else
-      {
-        (*_prop_d2h[i][j])[_qp] = 0.0; // Previously assumed it defaulted to 0 if undefined?
-      }
-    }
-    // Fill didnt work
-    // // First derivatives
-    // (*_prop_dh[i])[_qp] = 32 * (*_eta_gb[i])[_qp] * sum_other; // sum_other[i];
-
-    // // Initialize the entire row of second derivatives to zero
-    // std::fill((*_prop_d2h[i].begin()), (*_prop_d2h[i].end()), 0.0);
-
-    // // Only assign the diagonal element (i == j)
-    // (*_prop_d2h[i][i])[_qp] = 32 * sum_other; // sum_other[i];
+    // // Manually set second derivatives to zero for i != j and assign the diagonal term
+    // for (unsigned int j = 0; j < _num_eta_gb; ++j)
+    // {
+    //   if (i == j)
+    //   {
+    //     (*_prop_d2h[i][j])[_qp] = 32 * sum_other;
+    //   }
+    //   else
+    //   {
+    //     (*_prop_d2h[i][j])[_qp] = 0.0; // Previously assumed it defaulted to 0 if undefined?
+    //   }
+    // }
   }
 
   // for (unsigned int i = 0; i < _num_eta_gb; ++i)

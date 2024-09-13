@@ -539,6 +539,22 @@ f_dot = 1e-8
     expression = 'dhgb'
     outputs = nemesis
   []
+  [old_hgb_d2gr0]
+    type = ParsedMaterial
+    property_name = old_hgb_d2gr0
+    coupled_variables = 'gr0 gr1'
+    material_property_names = 'dhgb:=D[hgb_man(gr0,gr1),gr0,gr0]'
+    expression = 'dhgb'
+    outputs = nemesis
+  []
+  [new_hgb_d2gr0]
+    type = ParsedMaterial
+    property_name = new_hgb_d2gr0
+    coupled_variables = 'gr0 gr1'
+    material_property_names = 'dhgb:=D[hgb(gr0,gr1),gr0,gr0]'
+    expression = 'dhgb'
+    outputs = nemesis
+  []
   [old_hgb_dgr0gr1]
     type = ParsedMaterial
     property_name = old_hgb_dgr0gr1
@@ -564,6 +580,12 @@ f_dot = 1e-8
     report_peak_value = True
     mem_units = gigabytes
     execute_on = 'NONLINEAR TIMESTEP_END'
+  []
+  [linear]
+    type = NumLinearIterations
+  []
+  [nonlinear]
+    type = NumNonlinearIterations
   []
   [cv_var_total]
     type = ElementIntegralVariablePostprocessor

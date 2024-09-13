@@ -4,7 +4,7 @@
 # Created Date: Thursday September 12th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday September 12th 2024
+# Last Modified: Friday September 13th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -509,6 +509,12 @@ f_dot = 1e-8
     report_peak_value = True
     mem_units = gigabytes
     execute_on = 'NONLINEAR TIMESTEP_END'
+  []
+  [linear]
+    type = NumLinearIterations
+  []
+  [nonlinear]
+    type = NumNonlinearIterations
   []
   [cv_var_total]
     type = ElementIntegralVariablePostprocessor
