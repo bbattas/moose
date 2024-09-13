@@ -21,6 +21,7 @@ SwitchingFunctionGBMaterialTempl<is_ad>::validParams()
   params.addRequiredParam<MaterialPropertyName>(
       "h_name", "Name of the switching function material property for the grain boundaries");
   params.addRequiredCoupledVar("grain_ops", "Vector of order parameters for the given phase");
+  params.addParam<Real>("hgb_threshold", 1e-4, "Lower limit cutoff for hgb.");
   // params.addRequiredCoupledVar("all_ops", "Vector of all order parameters for all phases that you
   // want derivatives wrt");
   params.addClassDescription("Calculates the switching function for a grain boundary in a "
@@ -36,6 +37,7 @@ SwitchingFunctionGBMaterialTempl<is_ad>::SwitchingFunctionGBMaterialTempl(
     _num_eta_gb(coupledComponents("grain_ops")),
     _eta_gb(coupledGenericValues<is_ad>("grain_ops")),
     _eta_gb_names(coupledNames("grain_ops")),
+    _hgb_threshold(getParam<Real>("hgb_threshold")),
     // _num_eta(coupledComponents("all_ops")),
     // _eta(coupledGenericValues<is_ad>("all_ops")),
     // _eta_names(coupledNames("all_ops")),
@@ -82,42 +84,102 @@ SwitchingFunctionGBMaterialTempl<is_ad>::computeQpProperties()
       hgb += (*_eta_gb[i])[_qp] * (*_eta_gb[i])[_qp] * (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
     }
 
-  _prop_h[_qp] = 16 * hgb;
+  // _prop_h[_qp] = 16 * hgb;
+  // Calculate 16 * hgb and check against threshold
+  GenericReal<is_ad> hgb_val = 16 * hgb;
 
-  // For derivatives: sum of other squares
-  // GenericReal<is_ad> sum_other = 0.0;
-  std::vector<GenericReal<is_ad>> sum_other(_num_eta_gb, 0.0);
+  // If h_val is below the threshold, set _prop_h to 0 and return early
+  if (hgb_val < _hgb_threshold)
+  {
+    _prop_h[_qp] = 0.0;
+
+    // Skip all derivative calculations as they're assumed to be zero
+    // Unsure but it seems like it actually needs to explicitly be set to 0?
+    for (unsigned int i = 0; i < _num_eta_gb; ++i)
+    {
+      (*_prop_dh[i])[_qp] = 0.0;
+      for (unsigned int j = 0; j < _num_eta_gb; ++j)
+      {
+        (*_prop_d2h[i][j])[_qp] = 0.0;
+      }
+    }
+    return;
+  }
+
+  // ELSE: Define hgb and its derivatives
+  _prop_h[_qp] = hgb_val;
+
+  // // For derivatives: sum of other squares
+  // // GenericReal<is_ad> sum_other = 0.0;
+  // std::vector<GenericReal<is_ad>> sum_other(_num_eta_gb, 0.0);
+  // for (unsigned int i = 0; i < _num_eta_gb; ++i)
+  // {
+  //   GenericReal<is_ad> sum_tmp = 0.0;
+  //   for (unsigned int j = 0; j < _num_eta_gb; ++j)
+  //   {
+  //     if (i != j)
+  //     {
+  //       sum_tmp += (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
+  //     }
+  //   }
+  //   sum_other[i] = sum_tmp;
+  // }
+
   for (unsigned int i = 0; i < _num_eta_gb; ++i)
   {
-    GenericReal<is_ad> sum_tmp = 0.0;
+    // Calculate sum of non i OPs squares for derivatives
+    GenericReal<is_ad> sum_other = 0.0;
     for (unsigned int j = 0; j < _num_eta_gb; ++j)
     {
       if (i != j)
       {
-        sum_tmp += (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
+        sum_other += (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
       }
     }
-    sum_other[i] = sum_tmp;
-  }
-
-  for (unsigned int i = 0; i < _num_eta_gb; ++i)
-  {
     // First derivatives
-    (*_prop_dh[i])[_qp] = 32 * (*_eta_gb[i])[_qp] * sum_other[i];
+    (*_prop_dh[i])[_qp] = 32 * (*_eta_gb[i])[_qp] * sum_other;
 
-    // Second derivatives
+    // Manually set second derivatives to zero for i != j and assign the diagonal term
     for (unsigned int j = 0; j < _num_eta_gb; ++j)
     {
       if (i == j)
       {
-        (*_prop_d2h[i][j])[_qp] = 32 * sum_other[i];
+        (*_prop_d2h[i][j])[_qp] = 32 * sum_other;
       }
       else
       {
-        (*_prop_d2h[i][j])[_qp] = 64 * (*_eta_gb[i])[_qp] * (*_eta_gb[j])[_qp];
+        (*_prop_d2h[i][j])[_qp] = 0.0; // Previously assumed it defaulted to 0 if undefined?
       }
     }
+    // Fill didnt work
+    // // First derivatives
+    // (*_prop_dh[i])[_qp] = 32 * (*_eta_gb[i])[_qp] * sum_other; // sum_other[i];
+
+    // // Initialize the entire row of second derivatives to zero
+    // std::fill((*_prop_d2h[i].begin()), (*_prop_d2h[i].end()), 0.0);
+
+    // // Only assign the diagonal element (i == j)
+    // (*_prop_d2h[i][i])[_qp] = 32 * sum_other; // sum_other[i];
   }
+
+  // for (unsigned int i = 0; i < _num_eta_gb; ++i)
+  // {
+  //   // First derivatives
+  //   (*_prop_dh[i])[_qp] = 32 * (*_eta_gb[i])[_qp] * sum_other[i];
+
+  //   // Second derivatives
+  //   for (unsigned int j = 0; j < _num_eta_gb; ++j)
+  //   {
+  //     if (i == j)
+  //     {
+  //       (*_prop_d2h[i][j])[_qp] = 32 * sum_other[i];
+  //     }
+  //     else // Removed the cross term second derivatives
+  //     {
+  //       (*_prop_d2h[i][j])[_qp] = 0.0;//64 * (*_eta_gb[i])[_qp] * (*_eta_gb[j])[_qp];
+  //     }
+  //   }
+  // }
 }
 
 // explicit instantiation
