@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 04_custom_ceqs.i
-# File Location: /examples/sintering/paper3/01_test_inputs/18_custom_irrad/04_custom_ceqs
-# Created Date: Tuesday September 17th 2024
+# File: 05_custom_mixing.i
+# File Location: /examples/sintering/paper3/01_test_inputs/18_custom_irrad/05_custom_mixing
+# Created Date: Wednesday September 18th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Wednesday September 18th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Using my own custom ceq material now to go with custom hgb
+#  Custom ballistic mixing materials test
 #
 #
 #
@@ -254,14 +254,14 @@ f_dot = 1e-8
   [ballistic_mix_vac]
     type = MatDiffusion
     variable = cvac_var
-    diffusivity = rho_mixing_vac
-    args = 'wvac'
+    diffusivity = cv_mixing #rho_mixing_vac
+    args = 'wvac phi'
   []
   [ballistic_mix_int]
     type = MatDiffusion
     variable = cint_var
-    diffusivity = rho_mixing_int
-    args = 'wint'
+    diffusivity = ci_mixing #rho_mixing_int
+    args = 'wint phi'
   []
 []
 
@@ -377,31 +377,6 @@ f_dot = 1e-8
     hgb = hgb
     vi = INT_IRR
   []
-  [cv_eq_old]
-    type = DerivativeParsedMaterial
-    property_name = cv_eq_old
-    derivative_order = 2
-    coupled_variables = 'gr0 gr1'
-    material_property_names = 'hgb(gr0,gr1)' #'rhovi(vac) rhosi hv(phi)'
-    constant_names = 'cb cgb'
-    constant_expressions = '3.877e-04 4.347e-03' #Irradiation
-    # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation- LANL
-    expression = 'cgb * hgb + (1 - hgb)*cb'
-    outputs = none # + phi^2
-  []
-  [ci_eq_old]
-    type = DerivativeParsedMaterial
-    property_name = ci_eq_old
-    derivative_order = 2
-    coupled_variables = 'gr0 gr1'
-    material_property_names = 'hgb(gr0,gr1)' # 'rhovi(wint) rhosi(wint) hv(phi)'
-    constant_names = 'cb cgb'
-    constant_expressions = '7.258e-09 5.900e-06' #Irradiation
-    # constant_expressions = '1.667e-32 6.170e-08' #'1.667e-32 6.170e-08' #No Irradiation- LANL
-    # constant_expressions = '2.424e-06 5.130e-03' #No Irradiation VACANCY- LANL
-    expression = 'cgb * hgb + (1 - hgb)*cb'
-    outputs = none #+ phi^2
-  []
   # Outputs for visualization
   [cvac]
     type = ParsedMaterial
@@ -485,6 +460,19 @@ f_dot = 1e-8
                   if((out>0.0 & hv<=1e-6),0.0-out,0.0)'
     outputs = none #nemesis #'nemesis'
   []
+  [c_mixing]
+    type = UO2MixingMaterial
+    vac_mix_out = cv_mixing
+    int_mix_out = ci_mixing
+    chemical_potential_vac = wvac
+    chemical_potential_int = wint
+    concentration_vac = cvac_var
+    concentration_int = cint_var
+    vac_chi = chiu
+    int_chi = chii
+    void_op = phi
+  []
+  # OLD
   [rho_mixing_vac]
     type = DerivativeParsedMaterial
     property_name = rho_mixing_vac
@@ -494,7 +482,7 @@ f_dot = 1e-8
     constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
     material_property_names = 'chiu(phi,wvac) Va'
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chiu' # * Va' # * hs
-    outputs = none #nemesis #'nemesis'
+    outputs = nemesis #nemesis #'nemesis'
   []
   [rho_mixing_int]
     type = DerivativeParsedMaterial
@@ -507,69 +495,70 @@ f_dot = 1e-8
     expression = 'f_dot * noise * Nc * tc * Vc * Dc * chii' # * Va' # * hs
     outputs = none #nemesis #'nemesis'
   []
-  # TEST OUTPUTS
-  [cvs_new]
-    type = ParsedMaterial
-    property_name = cvs_new
-    material_property_names = 'cv_eq'
-    expression = 'cv_eq'
+  # # TEST OUTPUTS
+  [cvmix_new]
+    type = DerivativeParsedMaterial
+    property_name = cvmix_new
+    coupled_variables = 'phi wvac cvac_var'
+    material_property_names = 'cv_mixing(phi,wvac,cvac_var)'
+    expression = 'cv_mixing'
     outputs = nemesis
   []
-  [cvs_old]
-    type = ParsedMaterial
-    property_name = cvs_old
-    material_property_names = 'cv_eq_old'
-    expression = 'cv_eq_old'
-    outputs = nemesis
-  []
-  [cvs_old_dgr0]
-    type = ParsedMaterial
-    property_name = cvs_old_dgr0
-    coupled_variables = 'gr0 gr1'
-    material_property_names = 'dhgb:=D[cv_eq_old(gr0,gr1),gr0]'
-    expression = 'dhgb'
-    outputs = nemesis
-  []
-  [cvs_new_dgr0]
-    type = ParsedMaterial
-    property_name = cvs_new_dgr0
-    coupled_variables = 'gr0 gr1'
-    material_property_names = 'dhgb:=D[cv_eq(gr0,gr1),gr0]'
-    expression = 'dhgb'
-    outputs = nemesis
-  []
-  [cvs_old_d2gr0]
-    type = ParsedMaterial
-    property_name = cvs_old_d2gr0
-    coupled_variables = 'gr0 gr1'
-    material_property_names = 'dhgb:=D[cv_eq_old(gr0,gr1),gr0,gr0]'
-    expression = 'dhgb'
-    outputs = nemesis
-  []
-  [cvs_new_d2gr0]
-    type = ParsedMaterial
-    property_name = cvs_new_d2gr0
-    coupled_variables = 'gr0 gr1'
-    material_property_names = 'dhgb:=D[cv_eq(gr0,gr1),gr0,gr0]'
-    expression = 'dhgb'
-    outputs = nemesis
-  []
-  [cvs_old_dgr0gr1]
-    type = ParsedMaterial
-    property_name = cvs_old_dgr0gr1
-    coupled_variables = 'gr0 gr1'
-    material_property_names = 'dhgb:=D[cv_eq_old(gr0,gr1),gr0,gr1]'
-    expression = 'dhgb'
-    outputs = nemesis
-  []
-  [cvs_new_dgr0gr1]
-    type = ParsedMaterial
-    property_name = cvs_new_dgr0gr1
-    coupled_variables = 'gr0 gr1'
-    material_property_names = 'dhgb:=D[cv_eq(gr0,gr1),gr0,gr1]'
-    expression = 'dhgb'
-    outputs = nemesis
-  []
+  # [cvs_old]
+  #   type = ParsedMaterial
+  #   property_name = cvs_old
+  #   material_property_names = 'cv_eq_old'
+  #   expression = 'cv_eq_old'
+  #   outputs = nemesis
+  # []
+  # [cvs_old_dgr0]
+  #   type = ParsedMaterial
+  #   property_name = cvs_old_dgr0
+  #   coupled_variables = 'gr0 gr1'
+  #   material_property_names = 'dhgb:=D[cv_eq_old(gr0,gr1),gr0]'
+  #   expression = 'dhgb'
+  #   outputs = nemesis
+  # []
+  # [cvs_new_dgr0]
+  #   type = ParsedMaterial
+  #   property_name = cvs_new_dgr0
+  #   coupled_variables = 'gr0 gr1'
+  #   material_property_names = 'dhgb:=D[cv_eq(gr0,gr1),gr0]'
+  #   expression = 'dhgb'
+  #   outputs = nemesis
+  # []
+  # [cvs_old_d2gr0]
+  #   type = ParsedMaterial
+  #   property_name = cvs_old_d2gr0
+  #   coupled_variables = 'gr0 gr1'
+  #   material_property_names = 'dhgb:=D[cv_eq_old(gr0,gr1),gr0,gr0]'
+  #   expression = 'dhgb'
+  #   outputs = nemesis
+  # []
+  # [cvs_new_d2gr0]
+  #   type = ParsedMaterial
+  #   property_name = cvs_new_d2gr0
+  #   coupled_variables = 'gr0 gr1'
+  #   material_property_names = 'dhgb:=D[cv_eq(gr0,gr1),gr0,gr0]'
+  #   expression = 'dhgb'
+  #   outputs = nemesis
+  # []
+  # [cvs_old_dgr0gr1]
+  #   type = ParsedMaterial
+  #   property_name = cvs_old_dgr0gr1
+  #   coupled_variables = 'gr0 gr1'
+  #   material_property_names = 'dhgb:=D[cv_eq_old(gr0,gr1),gr0,gr1]'
+  #   expression = 'dhgb'
+  #   outputs = nemesis
+  # []
+  # [cvs_new_dgr0gr1]
+  #   type = ParsedMaterial
+  #   property_name = cvs_new_dgr0gr1
+  #   coupled_variables = 'gr0 gr1'
+  #   material_property_names = 'dhgb:=D[cv_eq(gr0,gr1),gr0,gr1]'
+  #   expression = 'dhgb'
+  #   outputs = nemesis
+  # []
 []
 
 [Postprocessors]
@@ -707,7 +696,7 @@ f_dot = 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   # start_time = 0
   end_time = 1e5 #1e8
-  # num_steps = 5
+  # num_steps = 2
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true

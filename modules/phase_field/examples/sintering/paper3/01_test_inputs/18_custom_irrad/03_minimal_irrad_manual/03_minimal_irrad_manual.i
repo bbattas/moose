@@ -4,7 +4,7 @@
 # Created Date: Tuesday September 17th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday September 17th 2024
+# Last Modified: Wednesday September 18th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -481,7 +481,7 @@ f_dot = 1e-8
     constant_names = 'Nc Vc noise tc Dc f_dot'
     constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
     material_property_names = 'chiu(phi,wvac) Va'
-    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chiu * Va' # * hs
+    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chiu' # * Va' # * hs
     outputs = none #nemesis #'nemesis'
   []
   [rho_mixing_int]
@@ -492,7 +492,7 @@ f_dot = 1e-8
     constant_names = 'Nc Vc noise tc Dc f_dot'
     constant_expressions = '2 268 1 1e-11 1e12 ${f_dot}'
     material_property_names = 'chii(phi,wint) Va'
-    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chii * Va' # * hs
+    expression = 'f_dot * noise * Nc * tc * Vc * Dc * chii' # * Va' mass cons alredy multiplies chi by va
     outputs = none #nemesis #'nemesis'
   []
 []
