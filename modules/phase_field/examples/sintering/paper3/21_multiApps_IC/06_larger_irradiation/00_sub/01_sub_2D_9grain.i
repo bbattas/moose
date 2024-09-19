@@ -499,8 +499,8 @@
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   # start_time = 0
-  # end_time = 1e6 #1e8
-  num_steps = 10000
+  end_time = 10000 #1e8
+  # num_steps = 0
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
