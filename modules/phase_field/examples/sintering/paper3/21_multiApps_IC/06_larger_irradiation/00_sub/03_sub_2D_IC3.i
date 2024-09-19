@@ -1,5 +1,5 @@
 ##############################################################################
-# File: 01_sub_2D_9grain.i
+# File: 03_sub_2D_IC3.i
 # File Location: /examples/sintering/paper3/21_multiApps_IC/06_larger_irradiation/00_sub
 # Created Date: Thursday September 19th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
@@ -8,8 +8,10 @@
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  sub file for the 40x40um 9 grain 8 pore input in 2D
+#  sub file for the 40(50)x40um 12 grain 8 pore input in 2D
 #  Producing cv/ci for with and without irradiation values!
+#  Second version of the randomly d3d generated 8 pore IC with the same mesh and
+#   generation parameters
 #
 #  ~260k DoFs
 ##############################################################################
@@ -17,7 +19,7 @@
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    filename = 2D_40x40um_8umavg_8pore.txt
+    filename = 2D_40x40um_8umavg_8pore_3.txt
   []
   [subdomain_external]
     type = ParsedSubdomainMeshGenerator
@@ -84,9 +86,9 @@
     variable = phi
     invalue = 1
     outvalue = 0 #0.01
-    radii = '2157.03 1863.05 2081.   2036.04 1826.13 1772.42 1798.55 2060.82'
-    x_positions = '30095.6  29046.79 20283.12  9370.67 19428.33 11649.88 24936.2   7106.3'
-    y_positions = '7653.64 18136.86 20731.16 27581.73  8101.88 11721.34 28519.04 18280.74'
+    radii = '1989.16 2179.42 1670.89 1980.24 1758.75 2156.75 1743.37 2086.57'
+    x_positions = '18588.03 24069.56 28443.59 25257.78 11163.55 13648.09  5896.52 28044.72'
+    y_positions = '16914.83  6514.17 32943.68 22279.1  30020.62  7568.91 19204.85 14664.35'
     z_positions = '    0.       0.       0.       0.       0.       0.       0.       0.  '
     block = 0
   []

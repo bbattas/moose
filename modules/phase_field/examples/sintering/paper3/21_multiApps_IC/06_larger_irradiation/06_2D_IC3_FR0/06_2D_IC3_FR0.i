@@ -1,6 +1,6 @@
 ##############################################################################
-# File: 01_sub_2D_9grain.i
-# File Location: /examples/sintering/paper3/21_multiApps_IC/06_larger_irradiation/00_sub
+# File: 06_2D_IC3_FR0.i
+# File Location: /examples/sintering/paper3/21_multiApps_IC/06_larger_irradiation/06_2D_IC3_FR0
 # Created Date: Thursday September 19th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
@@ -8,25 +8,27 @@
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  sub file for the 40x40um 9 grain 8 pore input in 2D
-#  Producing cv/ci for with and without irradiation values!
+#  Testing the NO irradiation case with new amterials and whatnot using the
+#   fission rate of 0 so gen and mix are disabled on a 2D system with
+#   12 grains (8um avg) and 8 pores (6% solid area) (IC 3)
 #
-#  ~260k DoFs
 ##############################################################################
 
+# f_dot = 1e-8
+
 [Mesh]
-  [ebsd_mesh]
-    type = EBSDMeshGenerator
-    filename = 2D_40x40um_8umavg_8pore.txt
+  [gmg]
+    type = DistributedRectilinearMeshGenerator
+    dim = 2
+    nx = 200
+    ny = 160
+    xmin = 0
+    xmax = 50000
+    ymin = 0
+    ymax = 40000
   []
-  [subdomain_external]
-    type = ParsedSubdomainMeshGenerator
-    input = ebsd_mesh
-    combinatorial_geometry = 'x > 38000'
-    block_id = 1
-  []
-  parallel_type = DISTRIBUTED
-  uniform_refine = 0
+  uniform_refine = 0 #2
+  # second_order = true
 []
 
 [GlobalParams]
@@ -36,59 +38,21 @@
   var_name_base = gr
 []
 
-[UserObjects]
-  [ebsd_reader]
-    type = EBSDReader
+[MultiApps]
+  [full_NMC]
+    type = FullSolveMultiApp
+    execute_on = initial
+    positions = '0 0 0'
+    input_files = ../00_sub/03_sub_2D_IC3.i
   []
-  [ebsd]
-    type = PolycrystalEBSD
-    # coloring_algorithm = bt
-    ebsd_reader = ebsd_reader
-    enable_var_coloring = true
-    output_adjacency_matrix = true
-    phase = 1
-  []
-  [grain_tracker]
-    type = GrainTracker
-    threshold = 0.1 #0.2
-    connecting_threshold = 0.09 #0.08
-    # compute_halo_maps = false #true#false
-    verbosity_level = 1
-  []
-  #   [terminator]
-  #     type = Terminator
-  #     expression = 'void_tracker < 2'
-  #     execute_on = TIMESTEP_END
-  #   []
 []
 
-[ICs]
-  [PolycrystalICs]
-    [PolycrystalColoringIC]
-      polycrystal_ic_uo = ebsd
-    []
-  []
-  [VoidIC] #External
-    type = BoundingBoxIC
-    variable = phi
-    block = 1
-    inside = 1
-    outside = 0.0 #0.01
-    x1 = 40000
-    x2 = 80000
-    y1 = -5000
-    y2 = 55000
-  []
-  [voidIC2] #Internal
-    type = SpecifiedSmoothCircleIC
-    variable = phi
-    invalue = 1
-    outvalue = 0 #0.01
-    radii = '2157.03 1863.05 2081.   2036.04 1826.13 1772.42 1798.55 2060.82'
-    x_positions = '30095.6  29046.79 20283.12  9370.67 19428.33 11649.88 24936.2   7106.3'
-    y_positions = '7653.64 18136.86 20731.16 27581.73  8101.88 11721.34 28519.04 18280.74'
-    z_positions = '    0.       0.       0.       0.       0.       0.       0.       0.  '
-    block = 0
+[Transfers]
+  [from_NMC]
+    type = MultiAppCopyTransfer
+    from_multi_app = full_NMC
+    source_variable = 'gr0 gr1 gr2 gr3 gr4 phi cvac_aux_th cint_aux_th'
+    variable = 'gr0 gr1 gr2 gr3 gr4 phi cvac_var cint_var'
   []
 []
 
@@ -98,6 +62,10 @@
   []
   [wint]
     initial_condition = 0
+  []
+  [cvac_var]
+  []
+  [cint_var]
   []
   [gr0]
   []
@@ -125,92 +93,15 @@
     family = MONOMIAL
     initial_condition = 1600
   []
-  # THEQ
-  # Vacancy mat to variable
-  [cvac_aux_th]
-    family = LAGRANGE
-    order = FIRST
-  []
-  [cvac_aux_elem_th]
-    family = MONOMIAL
-    order = CONSTANT
-  []
-  # Interstitial mat to variable
-  [cint_aux_th]
-    family = LAGRANGE
-    order = FIRST
-  []
-  [cint_aux_elem_th]
-    family = MONOMIAL
-    order = CONSTANT
-  []
-  # IRR EQ
-  # Vacancy mat to variable
-  [cvac_aux_ir]
-    family = LAGRANGE
-    order = FIRST
-  []
-  [cvac_aux_elem_ir]
-    family = MONOMIAL
-    order = CONSTANT
-  []
-  # Interstitial mat to variable
-  [cint_aux_ir]
-    family = LAGRANGE
-    order = FIRST
-  []
-  [cint_aux_elem_ir]
-    family = MONOMIAL
-    order = CONSTANT
+  [bnds]
   []
 []
 
 [AuxKernels]
-  # THEQ
-  # Vacancy
-  [cvac_aux_elem_th]
-    type = MaterialRealAux
-    variable = 'cvac_aux_elem_th'
-    property = 'cvac_th'
-  []
-  [cvac_aux_th]
-    type = ProjectionAux
-    variable = cvac_aux_th
-    v = cvac_aux_elem_th
-  []
-  # Interstitial
-  [cint_aux_elem_th]
-    type = MaterialRealAux
-    variable = 'cint_aux_elem_th'
-    property = 'cint_th'
-  []
-  [cint_aux_th]
-    type = ProjectionAux
-    variable = cint_aux_th
-    v = cint_aux_elem_th
-  []
-  # THEQ
-  # Vacancy
-  [cvac_aux_elem_ir]
-    type = MaterialRealAux
-    variable = 'cvac_aux_elem_ir'
-    property = 'cvac_ir'
-  []
-  [cvac_aux_ir]
-    type = ProjectionAux
-    variable = cvac_aux_ir
-    v = cvac_aux_elem_ir
-  []
-  # Interstitial
-  [cint_aux_elem_ir]
-    type = MaterialRealAux
-    variable = 'cint_aux_elem_ir'
-    property = 'cint_ir'
-  []
-  [cint_aux_ir]
-    type = ProjectionAux
-    variable = cint_aux_ir
-    v = cint_aux_elem_ir
+  [bnds]
+    type = BndsCalcAux
+    variable = bnds
+    execute_on = 'INITIAL TIMESTEP_END'
   []
 []
 
@@ -281,6 +172,18 @@
     boundary = 'left right top bottom'
     value = 0
   []
+  [cv_bc]
+    type = NeumannBC
+    variable = 'cvac_var'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [ci_bc]
+    type = NeumannBC
+    variable = 'cint_var'
+    boundary = 'left right top bottom'
+    value = 0
+  []
 []
 
 [Modules]
@@ -305,12 +208,69 @@
       gamma_grxop = gamma
       free_energies_op = 'omegav omegas' #empty when no phi'omegaa omegab'
       # Mass Conservation
-      mass_conservation = false
-      # concentrations = 'cvac_var cint_var'
-      # hj_over_kVa = 'hv_over_kvVa hs_over_kvVa hv_over_kiVa hs_over_kiVa' #'hoverk_vu hoverk_su hoverk_vi hoverk_si'
-      # hj_c_min = 'hv_cv_min hs_cv_min hv_ci_min hs_ci_min' #'cvueq_mask csueq_mask cvieq_mask csieq_mask'
+      mass_conservation = true
+      concentrations = 'cvac_var cint_var'
+      hj_over_kVa = 'hv_over_kvVa hs_over_kvVa hv_over_kiVa hs_over_kiVa' #'hoverk_vu hoverk_su hoverk_vi hoverk_si'
+      hj_c_min = 'hv_cv_min hs_cv_min hv_ci_min hs_ci_min' #'cvueq_mask csueq_mask cvieq_mask csieq_mask'
     []
   []
+[]
+
+[Kernels]
+  #   # Sintering Terms for gb/surface energy
+  #   [barrier_phi]
+  #     type = ACBarrierFunction
+  #     variable = phi
+  #     v = 'gr0 gr1 gr2' #gr2 gr3'# gr4 gr5'# gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15'
+  #     gamma = gamma
+  #     mob_name = L_mat
+  #   []
+  #   [kappa_phi]
+  #     type = ACKappaFunction
+  #     variable = phi
+  #     mob_name = L_mat
+  #     kappa_name = kappa
+  #   []
+  # Irradiation
+  # # Source/Generation
+  # [source_vac]
+  #   type = MaskedBodyForce
+  #   variable = cvac_var
+  #   mask = c_gen
+  #   coupled_variables = 'phi' # wint'
+  # []
+  # [source_int]
+  #   type = MaskedBodyForce
+  #   variable = cint_var
+  #   mask = c_gen
+  #   coupled_variables = 'phi' # wvac'
+  # []
+  # Sink/Recombination
+  [recombination_vac]
+    type = MatReaction
+    variable = cvac_var
+    mob_name = cvi_recomb
+    args = 'wvac wint cint_var phi'
+  []
+  [recombination_int]
+    type = MatReaction
+    variable = cint_var
+    mob_name = cvi_recomb
+    args = 'wvac wint cvac_var phi'
+  []
+  # # Damage/Mixing
+  # [ballistic_mix_vac]
+  #   type = MatDiffusion
+  #   variable = cvac_var
+  #   diffusivity = cv_mixing
+  #   args = 'wvac phi'
+  # []
+  # [ballistic_mix_int]
+  #   type = MatDiffusion
+  #   variable = cint_var
+  #   diffusivity = ci_mixing
+  #   args = 'wint phi'
+  # []
 []
 
 [Materials]
@@ -411,7 +371,7 @@
     equilibrium_vacancy_concentration = cv_eq
     equilibrium_interstitial_concentration = ci_eq
     solid_energy_model = PARABOLIC
-    mass_conservation = false
+    mass_conservation = true
   []
   [cv_eq]
     type = UO2CeqMaterial
@@ -425,59 +385,180 @@
     hgb = hgb
     vi = INT_TH
   []
-  [cv_eq_ir]
-    type = UO2CeqMaterial
-    ceq_name = cv_eq_ir
-    hgb = hgb
-    vi = VAC_IRR
-  []
-  [ci_eq_ir]
-    type = UO2CeqMaterial
-    ceq_name = ci_eq_ir
-    hgb = hgb
-    vi = INT_IRR
-  []
   # Outputs for visualization
-  [cvac_th]
+  [cvac]
     type = ParsedMaterial
-    property_name = cvac_th
-    material_property_names = 'hs cv_eq hv Va'
-    expression = 'cv:=(hs*cv_eq ) + hv*1.0;
-                  if(cv<0.0, 0.0, cv)'
+    property_name = cvac
+    material_property_names = 'hs rhosu hv rhovu Va'
+    expression = 'Va*(hs*rhosu + hv*rhovu)'
     # outputs = nemesis
   []
-  [cint_th]
+  [cint]
     type = ParsedMaterial
-    property_name = cint_th
-    material_property_names = 'hs ci_eq hv Va'
-    expression = 'ci:=(hs*ci_eq) + hv*0.0;
-                  if(ci<0.0, 0.0, ci)'
+    property_name = cint
+    material_property_names = 'hs rhosi hv rhovi Va'
+    expression = 'Va*(hs*rhosi + hv*rhovi)'
     # outputs = nemesis
   []
-  [cvac_ir]
+  [net_defect]
     type = ParsedMaterial
-    property_name = cvac_ir
-    material_property_names = 'hs cv_eq_ir hv Va'
-    expression = 'cv:=(hs*cv_eq_ir ) + hv*1.0;
-                  if(cv<0.0, 0.0, cv)'
-    # outputs = nemesis
+    property_name = net_defect
+    material_property_names = 'c_gen cvi_recomb'
+    expression = 'c_gen + cvi_recomb'
+    outputs = nemesis
   []
-  [cint_ir]
-    type = ParsedMaterial
-    property_name = cint_ir
-    material_property_names = 'hs ci_eq_ir hv Va'
-    expression = 'ci:=(hs*ci_eq_ir) + hv*0.0;
-                  if(ci<0.0, 0.0, ci)'
-    # outputs = nemesis
-  []
-  # # hgb check for interface width
-  # [hgb_out]
-  #   type = ParsedMaterial
-  #   property_name = hgb_out
-  #   material_property_names = 'hgb'
-  #   expression = 'hgb'
-  #   outputs = nemesis
+  # IRRADIATION
+  # [c_gen]
+  #   type = DerivativeParsedMaterial
+  #   property_name = c_gen
+  #   coupled_variables = 'phi'
+  #   derivative_order = 1
+  #   constant_names = 'Nc Nd noise f_dot'
+  #   constant_expressions = '2 5 1 ${f_dot}'
+  #   material_property_names = 'hs(phi) Va hv(phi)'
+  #   expression = 'rg:=f_dot * noise * Nc * Nd * hs * Va;
+  #                 if(hv<=1e-6,rg,0)'
+  #   outputs = none #emesis #'nemesis'
   # []
+  [c_rec]
+    type = UO2RecombinationMaterial
+    rec_out = cvi_recomb
+    chemical_potential_vac = wvac
+    chemical_potential_int = wint
+    concentration_vac = cvac_var
+    concentration_int = cint_var
+    vac_chi = chiu
+    int_chi = chii
+    void_op = phi
+  []
+  # [c_mixing]
+  #   type = UO2MixingMaterial
+  #   vac_mix_out = cv_mixing
+  #   int_mix_out = ci_mixing
+  #   chemical_potential_vac = wvac
+  #   chemical_potential_int = wint
+  #   concentration_vac = cvac_var
+  #   concentration_int = cint_var
+  #   vac_chi = chiu
+  #   int_chi = chii
+  #   void_op = phi
+  #   f_dot = ${f_dot}
+  # []
+[]
+
+[Postprocessors]
+  [max_mpi_memory]
+    type = MemoryUsage
+    value_type = max_process
+    report_peak_value = True
+    mem_units = gigabytes
+    execute_on = 'NONLINEAR TIMESTEP_END'
+  []
+  [linear]
+    type = NumLinearIterations
+  []
+  [nonlinear]
+    type = NumNonlinearIterations
+  []
+  [cv_var_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = cvac_var
+  []
+  [wvac_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = wvac
+  []
+  [ci_var_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = cint_var
+  []
+  [wint_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = wint
+  []
+  [phi_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = phi
+  []
+  [gr0_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = gr0
+  []
+  [gr1_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = gr1
+  []
+  [gr2_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = gr2
+  []
+  [gr3_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = gr3
+  []
+  [gr4_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = gr4
+  []
+  # [gr5_total]
+  #   type = ElementIntegralVariablePostprocessor
+  #   variable = gr5
+  # []
+  # [gr6_total]
+  #   type = ElementIntegralVariablePostprocessor
+  #   variable = gr6
+  # []
+  # [gr7_total]
+  #   type = ElementIntegralVariablePostprocessor
+  #   variable = gr7
+  # []
+  [total_defect_change]
+    type = ElementIntegralMaterialProperty
+    mat_prop = net_defect
+  []
+  [hgb_total]
+    type = ElementIntegralMaterialProperty
+    mat_prop = hgb
+  []
+  [cvac_total]
+    type = ElementIntegralMaterialProperty
+    mat_prop = cvac
+  []
+  [cint_total]
+    type = ElementIntegralMaterialProperty
+    mat_prop = cint
+  []
+  [runtime]
+    type = PerfGraphData
+    section_name = "Root"
+    data_type = TOTAL
+  []
+  [void_tracker]
+    type = FeatureFloodCount
+    variable = phi
+    threshold = 0.2 # 0.1 #0.2
+    connecting_threshold = 0.08 #0.09 #0.08
+    compute_var_to_feature_map = true
+    execute_on = 'initial timestep_end'
+  []
+[]
+
+[VectorPostprocessors]
+  [voids]
+    type = FeatureVolumeVectorPostprocessor
+    flood_counter = void_tracker
+    execute_on = 'initial timestep_end final'
+    output_centroids = true #false #was true
+    outputs = csv
+  []
+[]
+
+[UserObjects]
+  [terminator]
+    type = Terminator
+    expression = 'void_tracker < 2'
+    execute_on = TIMESTEP_END
+  []
 []
 
 [Preconditioning]
@@ -499,8 +580,8 @@
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   # start_time = 0
-  # end_time = 1e6 #1e8
-  num_steps = 10000
+  end_time = 1e10
+  # num_steps = 2
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
@@ -515,9 +596,9 @@
 []
 
 [Outputs]
-  csv = false
+  csv = true
   exodus = false
-  nemesis = false
+  nemesis = true
   checkpoint = false
   # file_base = MC_GifRif_highDs
 []
