@@ -542,29 +542,29 @@ else:
 # All subdirectories 1 level deep
 if cl_args.subdirs:
     verb('Cycling through all subdirectories.')
+    exclude_prefixes = ('.', '00_')
     # Cycle through the directories
-    if cl_args.subdirs:
-        working_dir = os.getcwd()
-        verb('Directories:')
-        verb(glob.glob("*/"))
-        for dir in os.listdir():
-            if not dir.startswith('.'):
-                cwd = os.path.join(working_dir, dir)
-                if os.path.isdir(cwd):  # Check if cwd is a directory
-                    os.chdir(cwd)
-                    verb('In directory: ' + os.getcwd())
-                    # Check if there is a .i file
-                    input = checkForInput()
-                    if input[0]:
-                        # Check if we need to make a slurm script for the .i file
-                        if not checkForSlurm():
-                            # Make a new slurm script
-                            slurmWrite(cwd, input[1])
-                        if cl_args.run:
-                            runSlurm()
-                    verb(' ')
-                else:
-                    verb(f'Skipping: {cwd} is not a directory')
+    working_dir = os.getcwd()
+    verb('Directories:')
+    verb(glob.glob("*/"))
+    for dir in os.listdir():
+        if not dir.startswith(exclude_prefixes):
+            cwd = os.path.join(working_dir, dir)
+            if os.path.isdir(cwd):  # Check if cwd is a directory
+                os.chdir(cwd)
+                verb('In directory: ' + os.getcwd())
+                # Check if there is a .i file
+                input = checkForInput()
+                if input[0]:
+                    # Check if we need to make a slurm script for the .i file
+                    if not checkForSlurm():
+                        # Make a new slurm script
+                        slurmWrite(cwd, input[1])
+                    if cl_args.run:
+                        runSlurm()
+                verb(' ')
+            else:
+                verb(f'Skipping: {cwd} is not a directory')
 # No sibdirectories, only the current directory
 else:
     verb('Running only in current directory')
