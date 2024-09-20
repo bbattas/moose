@@ -4,7 +4,7 @@
 # Created Date: Thursday September 19th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday September 19th 2024
+# Last Modified: Friday September 20th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -37,7 +37,7 @@
 [GlobalParams]
   # profile = TANH
   int_width = 2000
-  op_num = 6
+  op_num = 8
   var_name_base = gr
 []
 
@@ -54,8 +54,8 @@
   [from_NMC]
     type = MultiAppCopyTransfer
     from_multi_app = full_NMC
-    source_variable = 'gr0 gr1 gr2 gr3 gr4 gr5 phi cvac_aux_th cint_aux_th'
-    variable = 'gr0 gr1 gr2 gr3 gr4 gr5 phi cvac_var cint_var'
+    source_variable = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 phi cvac_aux_th cint_aux_th'
+    variable = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 phi cvac_var cint_var'
   []
 []
 
@@ -82,10 +82,10 @@
   []
   [gr5]
   []
-  # [gr6]
-  # []
-  # [gr7]
-  # []
+  [gr6]
+  []
+  [gr7]
+  []
   [phi]
   []
 []
@@ -151,18 +151,18 @@
     boundary = 'left right top bottom'
     value = 0
   []
-  # [gr6_bc]
-  #   type = NeumannBC
-  #   variable = 'gr6'
-  #   boundary = 'left right top bottom'
-  #   value = 0
-  # []
-  # [gr7_bc]
-  #   type = NeumannBC
-  #   variable = 'gr7'
-  #   boundary = 'left right top bottom'
-  #   value = 0
-  # []
+  [gr6_bc]
+    type = NeumannBC
+    variable = 'gr6'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [gr7_bc]
+    type = NeumannBC
+    variable = 'gr7'
+    boundary = 'left right top bottom'
+    value = 0
+  []
   [wv_bc]
     type = NeumannBC
     variable = 'wvac'
@@ -307,7 +307,7 @@
   [hgb]
     type = SwitchingFunctionGBMaterial
     h_name = hgb
-    grain_ops = 'gr0 gr1 gr2 gr3 gr4 gr5'
+    grain_ops = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
     hgb_threshold = 0.0001
   []
   [L_mat]
@@ -507,14 +507,14 @@
     type = ElementIntegralVariablePostprocessor
     variable = gr5
   []
-  # [gr6_total]
-  #   type = ElementIntegralVariablePostprocessor
-  #   variable = gr6
-  # []
-  # [gr7_total]
-  #   type = ElementIntegralVariablePostprocessor
-  #   variable = gr7
-  # []
+  [gr6_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = gr6
+  []
+  [gr7_total]
+    type = ElementIntegralVariablePostprocessor
+    variable = gr7
+  []
   [total_defect_change]
     type = ElementIntegralMaterialProperty
     mat_prop = net_defect
