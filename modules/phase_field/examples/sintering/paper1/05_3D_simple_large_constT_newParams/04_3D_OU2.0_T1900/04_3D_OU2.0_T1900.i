@@ -4,8 +4,8 @@
 # Created Date: Monday April 1st 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday September 3rd 2024
-# Modified By: Brandon Battas
+# Last Modified: Tuesday September 24th 2024
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Retesting old LARGE inputs from paper 1 with the corrected 3 values:
@@ -459,12 +459,12 @@
   #   execute_on = TIMESTEP_END
   #   enable = true
   # [../]
-  [terminator] #do i have to specify that this is off so that the control can turn it on?
-    type = Terminator
-    expression = 'grain_tracker < 4'
-    execute_on = TIMESTEP_END
-    enable = true
-  []
+  # [terminator] #do i have to specify that this is off so that the control can turn it on?
+  #   type = Terminator
+  #   expression = 'grain_tracker < 4'
+  #   execute_on = TIMESTEP_END
+  #   enable = true
+  # []
   [grain_tracker]
     type = GrainTracker
     threshold = 0.1 #0.2
