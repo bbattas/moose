@@ -4,14 +4,15 @@
 # Created Date: Friday October 11th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Sunday October 13th 2024
-# Modified By: Brandon Battas
+# Last Modified: Monday October 14th 2024
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  New version of the old paper 2 inputs (new D, gbmob, gb/seEnergy, and ceq (and time))
 #  ALSO using MC solve through multiapps!
+#  Dgb = 5.8422e7, Ds = iw*Dgb = 1.16844e9
 #
-#  Full 2 grain structure, del*Dgb/Ds = 1, sigma_gb/sigma_s = 1
+#  OLD: Full 2 grain structure, del*Dgb/Ds = 1, sigma_gb/sigma_s = 1
 #  delta=iw but on scaled D internal value, so backcalc Dgb = 1e6, Ds = 2e7
 #  sigma_gb=sigma_s=sig5tiltgb=9.86 eV/nm2
 #  Coarsened the mesh to 4 elements horizontal across iw (Tonks advice)
@@ -130,7 +131,7 @@
     type = SwitchingFunctionGBMaterial
     h_name = hgb
     grain_ops = 'gr0 gr1'
-    hgb_threshold = 0.0001
+    hgb_threshold = 0.0 #0.0001
   []
   # Diffusivity and mobilities
   [chiD]
@@ -190,6 +191,13 @@
     expression = 'hv:=if(phi<=0.0,0.0,if(phi>=p0,1.0,6*(phi/p0)^5 - 15*(phi/p0)^4 + 10*(phi/p0)^3));
                 hv*Lv + (1-hv)*L'
     outputs = none
+  []
+  [Diff] # Diffusivity output for debugging
+    type = ParsedMaterial
+    property_name = Diff
+    material_property_names = 'diffusivity'
+    expression = 'diffusivity'
+    outputs = nemesis
   []
 []
 

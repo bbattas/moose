@@ -1,14 +1,17 @@
 ##############################################################################
 # File: 11_3grain_gamma1_D001.i
-# File Location: /examples/sintering/paper2/07_3grain/11_3grain_gamma1_D001/11_3grain_gamma1_D001.i
-# Created Date: Tuesday August 22nd 2023
-# Author: Brandon Battas (bbattas@ufl.edu)
+# File Location: /examples/sintering/paper2_newParams/03_3grain/11_3grain_gamma1_D001
+# Created Date: Monday October 14th 2024
+# Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday September 14th 2023
-# Modified By: Brandon Battas
+# Last Modified: Monday October 14th 2024
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
-#  Full 3 grain structure, del*Dgb/Ds = 0.01, sigma_gb/sigma_s = 1
+#  New parameter MC version of old paper2 input
+#   Dgb = 5.8422e7, Ds = 100*iw*Dgb = 1.16844e11
+#
+#  OLD: Full 3 grain structure, del*Dgb/Ds = 0.01, sigma_gb/sigma_s = 1
 #  delta=iw but on scaled D internal value, so backcalc Dgb = 1e6, Ds = 2e9
 #  sigma_gb=sig5tiltgb=9.86 eV/nm2=sig_s
 #  02 but with different gamma/D, and 1000 instead of 2000 for end time
@@ -38,11 +41,32 @@
   op_num = 3
   var_name_base = gr
   int_width = 20 #particle radius is 100
-  profile = TANH
+  # profile = TANH
+[]
+
+[MultiApps]
+  [NMC_1step]
+    type = FullSolveMultiApp
+    execute_on = initial
+    positions = '0 0 0'
+    input_files = ../../00_sub/02_sub_3grain.i
+  []
+[]
+
+[Transfers]
+  [from_NMC]
+    type = MultiAppCopyTransfer
+    from_multi_app = NMC_1step
+    source_variable = 'gr0 gr1 gr2 phi cvac_aux_th'
+    variable = 'gr0 gr1 gr2 phi cvac_var'
+  []
 []
 
 [Variables]
   [w]
+    initial_condition = 0.0
+  []
+  [cvac_var]
   []
   [phi]
   []
@@ -60,15 +84,8 @@
   [T]
     order = CONSTANT
     family = MONOMIAL
+    initial_condition = 1600
   []
-  [OU]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  #  [./voids]
-  #    order = CONSTANT
-  #    family = MONOMIAL
-  #  [../]
   [unique_grains]
     order = CONSTANT
     family = MONOMIAL
@@ -87,75 +104,35 @@
   # [../]
 []
 
-[ICs]
-  [phi_IC]
-    type = SpecifiedSmoothCircleIC
-    variable = phi
-    x_positions = '150 350 250'
-    y_positions = '150 150 150'
-    z_positions = '150 150 322.5'
-    radii = '100 100 100'
-    invalue = 0
-    outvalue = 1
-  []
-  [gr0_IC]
-    type = SmoothCircleIC
-    variable = gr0
-    x1 = 150
-    y1 = 150
-    z1 = 150
-    radius = 100
-    invalue = 1
-    outvalue = 0
-  []
-  [gr1_IC]
-    type = SmoothCircleIC
-    variable = gr1
-    x1 = 350
-    y1 = 150
-    z1 = 150
-    radius = 100
-    invalue = 1
-    outvalue = 0
-  []
-  [gr2_IC]
-    type = SmoothCircleIC
-    variable = gr2
-    x1 = 250
-    y1 = 150
-    z1 = 322.5
-    radius = 100
-    invalue = 1
-    outvalue = 0
-  []
-[]
-
-[Functions]
-  [f_T]
-    type = ConstantFunction
-    value = 1600
-  []
-  [f_OU]
-    type = ConstantFunction
-    value = 2.0
-  []
-[]
-
 [Materials]
   # Free energy coefficients for parabolic curves
-  [ks]
-    type = ParsedMaterial
-    property_name = ks
-    coupled_variables = 'T'
-    constant_names = 'a b'
-    constant_expressions = '-0.0025 157.16'
-    expression = 'a*T + b'
+  [k_constants]
+    type = GenericConstantMaterial
+    prop_names = 'ks kv' # Using the GB based values (lowest of mine)
+    # prop_values = '7.751e2 7.751e2' # Irradiation
+    prop_values = '6.569e2 6.569e2' # No Irradiation
   []
-  [kv]
+  [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
-    property_name = kv
-    material_property_names = 'ks'
-    expression = '10*ks'
+    property_name = gb_e_mat
+    coupled_variables = 'T'
+    constant_names = 'a b c'
+    constant_expressions = '-5.87e-4 1.56 6.24151'
+    expression = 'c*(a*T + b)'
+    outputs = none
+  []
+  [surf_e_mat] # eV/nm^2
+    type = ParsedMaterial
+    property_name = surf_e_mat
+    material_property_names = gb_e_mat
+    expression = '2 * gb_e_mat'
+    outputs = none
+  []
+  [hgb]
+    type = SwitchingFunctionGBMaterial
+    h_name = hgb
+    grain_ops = 'gr0 gr1 gr2'
+    hgb_threshold = 0.0 #0.0001
   []
   # Diffusivity and mobilities
   [chiD]
@@ -166,31 +143,30 @@
     chi = chi
     c = phi
     T = T
-    D0 = 8.33e9
-    GBmob0 = 1.4759e9
-    Q = 2.77
-    Em = 3.608
+    GBmob0 = 3.42828e10 # nm4/eVs #1.4759e9 # new value from Tonks/PC/Jake GG Paper
+    Q = 3.01 #2.77 # new value from Tonks/PC/Jake GG Paper
+    D0 = 4.2488e11 #8.33e9
+    Em = 4.23317 #3.608
     bulkindex = 1
-    gbindex = 1e6
-    surfindex = 2e9
+    gbindex = 5.8422e7 # GB avg from 9/11 at 1600 # -1 sets the GB D to the LANL MD Value in GPIsoMat
+    surfindex = 1.16844e11 #100*iw*DGB  #5.8422e10
+    GBwidth = 3.5 # based on avg of two lanl values
+    surf_thickness = 3.5 # keeping equal to gb for simplicity
+    iw_scaling = true
   []
   [cv_eq]
-    type = UO2CvMaterial
-    f_name = cv_eq
-    T = T
-    c = phi
-    OU = OU
-    gb_se_csv = '../../../gb_segregation_csv/sigma9_se.csv
-                 ../../../gb_segregation_csv/sigma11_se.csv'
-    outputs = 'none'
+    type = UO2CeqMaterial
+    ceq_name = cv_eq
+    hgb = hgb
+    vi = VAC_TH
   []
   [sintering]
     type = GrandPotentialSinteringMaterial
     chemical_potential = w
     void_op = phi
     Temperature = T
-    surface_energy = 9.86 #19.7
-    grainboundary_energy = 9.86
+    surface_energy = gb_e_mat #9.86 #19.7
+    grainboundary_energy = gb_e_mat #9.86
     void_energy_coefficient = kv
     solid_energy_coefficient = ks
     solid_energy_model = PARABOLIC
@@ -228,25 +204,30 @@
 
 [Modules]
   [PhaseField]
-    [GrandPotential]
+    [GrandPotentialAlt]
       switching_function_names = 'hv hs'
-      anisotropic = 'false'
-
+      # Chempot
       chemical_potentials = 'w'
-      mobilities = 'chiD'
+      mobilities = 'chiD' #cons_mob
+      anisotropic = 'false'
       susceptibilities = 'chi'
-      free_energies_w = 'rhov rhos'
-
-      gamma_gr = gamma
+      free_energies_w = 'rhov rhos '
+      # Grains
       mobility_name_gr = L_mat
       kappa_gr = kappa
+      gamma_gr = gamma
       free_energies_gr = 'omegav omegas'
-
+      # Other OPs (Phi)
       additional_ops = 'phi'
-      gamma_grxop = gamma
       mobility_name_op = L_mat
       kappa_op = kappa
-      free_energies_op = 'omegav omegas'
+      gamma_grxop = gamma
+      free_energies_op = 'omegav omegas' #empty when no phi'omegaa omegab'
+      # Mass Conservation
+      mass_conservation = true
+      concentrations = 'cvac_var'
+      hj_over_kVa = 'hv_over_kVa hs_over_kVa'
+      hj_c_min = 'hv_c_min hs_c_min'
     []
   []
 []
@@ -273,23 +254,6 @@
     variable = bnds
     execute_on = 'initial timestep_end'
   []
-  [T_aux]
-    type = FunctionAux
-    variable = T
-    function = f_T
-  []
-  [OU_aux]
-    type = FunctionAux
-    variable = OU
-    function = f_OU
-  []
-  #  [./voids_aux]
-  #    type = FeatureFloodCountAux
-  #    variable = voids
-  #    flood_counter = void_tracker
-  #    field_display = UNIQUE_REGION
-  #    execute_on = 'INITIAL TIMESTEP_END'
-  #  [../]
   #NEW
   [unique_grains]
     type = FeatureFloodCountAux
@@ -415,13 +379,13 @@
     type = Terminator
     expression = 'grain_tracker < 3'
     execute_on = TIMESTEP_END
-    enable = true
+    # enable = true
   []
   [grain_tracker]
     type = GrainTracker
     threshold = 0.1 #0.2
     connecting_threshold = 0.09 #0.08
-    compute_halo_maps = false #true#false
+    # compute_halo_maps = false #true#false
   []
   # [./circle_IC]
   #   type = PolycrystalCircles
@@ -434,12 +398,12 @@
   # [../]
 []
 
-# [Preconditioning]
-#   [./SMP] #slow but good, very slow for 3D (might be another option then)
-#     type = SMP
-#     coupled_groups = 'w,phi'
-#   [../]
-# []
+[Preconditioning]
+  [./SMP] #slow but good, very slow for 3D (might be another option then)
+    type = SMP
+    coupled_groups = 'w,phi'
+  [../]
+[]
 
 [Executioner]
   type = Transient
@@ -450,13 +414,15 @@
   # petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap'
   # petsc_options_value = ' asm      lu           2'
   nl_max_its = 20 #40 too large- optimal_iterations is 6
-  l_max_its = 30 #if it seems like its using a lot it might still be fine
-  l_tol = 1e-04
+  l_max_its = 60 #if it seems like its using a lot it might still be fine
+  l_tol = 1e-06#4
   nl_rel_tol = 1e-6 #default is 1e-8
-  nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
+  # nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
   end_time = 250
   steady_state_detection = true
+  automatic_scaling = true
+  compute_scaling_once = false
   # num_steps = 2
   # dt = 0.0001
   dtmax = 10

@@ -4,8 +4,8 @@
 # Created Date: Sunday October 13th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Sunday October 13th 2024
-# Modified By: Brandon Battas
+# Last Modified: Monday October 14th 2024
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  2 grain subfile for MC Solve of new parameter paper 2
@@ -130,7 +130,7 @@
     type = SwitchingFunctionGBMaterial
     h_name = hgb
     grain_ops = 'gr0 gr1'
-    hgb_threshold = 0.0001
+    hgb_threshold = 0.0 #0.0001
   []
   # Diffusivity and mobilities
   [chiD]
@@ -363,7 +363,9 @@
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
   # end_time = 25000
-  steady_state_detection = true
+  # steady_state_detection = true
+  automatic_scaling = true
+  compute_scaling_once = false
   num_steps = 1
   dt = 0.0001
   # dtmax = 200

@@ -1,27 +1,26 @@
 ##############################################################################
-# File: 03_3grain_gamma1_D1_lowMob.i
-# File Location: /examples/sintering/paper2/09_gb_mobility/03_3grain_gamma1_D1_lowMob
-# Created Date: Friday October 20th 2023
-# Author: Brandon Battas (bbattas@ufl.edu)
+# File: 04_sub_3grain_fine.i
+# File Location: /examples/sintering/paper2_newParams/00_sub
+# Created Date: Monday October 14th 2024
+# Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday October 20th 2023
-# Modified By: Brandon Battas
+# Last Modified: Monday October 14th 2024
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
-#  Input 02 but with low gb mobility (1/100th), del*Dgb/Ds = 1, sigma_gb/sigma_s = 1
-#  delta=iw but on scaled D internal value, so backcalc Dgb = 1e6, Ds = 2e7
-#  sigma_gb=sigma_s=sig5tiltgb=9.86 eV/nm2
-#  Coarsened the mesh to 4 elements horizontal across iw (Tonks advice)
-#  100x60x95 had 3m DoFs-> 150(20k/ea), 300(10k/ea)
+#  Finer mesh i used on the gamma 0.5 inputs for 5 elements across interface
+#   instead of 4
+#
+#  125x75x118 had 5.7m DoFs-> 300(19k/ea), 450(12.7k/ea)
 ##############################################################################
 
 [Mesh]
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 3
-    nx = 100
-    ny = 60
-    nz = 95
+    nx = 125
+    ny = 75
+    nz = 118
     xmin = 0
     xmax = 500
     ymin = 0
@@ -55,36 +54,21 @@
 []
 
 [AuxVariables]
-  [bnds]
-  []
   [T]
     order = CONSTANT
     family = MONOMIAL
+    initial_condition = 1600
   []
-  [OU]
-    order = CONSTANT
+  # THEQ
+  # Vacancy mat to variable
+  [cvac_aux_th]
+    family = LAGRANGE
+    order = FIRST
+  []
+  [cvac_aux_elem_th]
     family = MONOMIAL
-  []
-  #  [./voids]
-  #    order = CONSTANT
-  #    family = MONOMIAL
-  #  [../]
-  [unique_grains]
     order = CONSTANT
-    family = MONOMIAL
   []
-  [var_indices]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  # [./ghost_regions]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # [../]
-  # [./halos]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # [../]
 []
 
 [ICs]
@@ -130,32 +114,35 @@
   []
 []
 
-[Functions]
-  [f_T]
-    type = ConstantFunction
-    value = 1600
-  []
-  [f_OU]
-    type = ConstantFunction
-    value = 2.0
-  []
-[]
-
 [Materials]
   # Free energy coefficients for parabolic curves
-  [ks]
-    type = ParsedMaterial
-    property_name = ks
-    coupled_variables = 'T'
-    constant_names = 'a b'
-    constant_expressions = '-0.0025 157.16'
-    expression = 'a*T + b'
+  [k_constants]
+    type = GenericConstantMaterial
+    prop_names = 'ks kv' # Using the GB based values (lowest of mine)
+    # prop_values = '7.751e2 7.751e2' # Irradiation
+    prop_values = '6.569e2 6.569e2' # No Irradiation
   []
-  [kv]
+  [gb_e_mat] # eV/nm^2
     type = ParsedMaterial
-    property_name = kv
-    material_property_names = 'ks'
-    expression = '10*ks'
+    property_name = gb_e_mat
+    coupled_variables = 'T'
+    constant_names = 'a b c'
+    constant_expressions = '-5.87e-4 1.56 6.24151'
+    expression = 'c*(a*T + b)'
+    outputs = none
+  []
+  [surf_e_mat] # eV/nm^2
+    type = ParsedMaterial
+    property_name = surf_e_mat
+    material_property_names = gb_e_mat
+    expression = '2 * gb_e_mat'
+    outputs = none
+  []
+  [hgb]
+    type = SwitchingFunctionGBMaterial
+    h_name = hgb
+    grain_ops = 'gr0 gr1 gr2'
+    hgb_threshold = 0.0 #0.0001
   []
   # Diffusivity and mobilities
   [chiD]
@@ -166,31 +153,34 @@
     chi = chi
     c = phi
     T = T
-    D0 = 8.33e9
-    GBmob0 = 1.4759e9
-    Q = 2.77
-    Em = 3.608
+    # D0 = 8.33e9
+    # GBmob0 = 1.4759e9
+    # Q = 2.77
+    # Em = 3.608
+    D0 = 4.2488e11 #8.33e9
+    Em = 4.23317 #3.608
+    GBmob0 = 3.42828e10 # nm4/eVs #1.4759e9 # new value from Tonks/PC/Jake GG Paper
+    Q = 3.01 #2.77 # new value from Tonks/PC/Jake GG Paper
     bulkindex = 1
-    gbindex = 1e6
-    surfindex = 2e7
+    gbindex = -1 # -1 sets the GB D to the LANL MD Value in GPIsoMat
+    surfindex = 1.16844e9 #iw*DGB  #5.8422e10
+    GBwidth = 3.5 # based on avg of two lanl values
+    surf_thickness = 3.5 # keeping equal to gb for simplicity
+    iw_scaling = true
   []
   [cv_eq]
-    type = UO2CvMaterial
-    f_name = cv_eq
-    T = T
-    c = phi
-    OU = OU
-    gb_se_csv = '../../../gb_segregation_csv/sigma9_se.csv
-                 ../../../gb_segregation_csv/sigma11_se.csv'
-    outputs = 'none'
+    type = UO2CeqMaterial
+    ceq_name = cv_eq
+    hgb = hgb
+    vi = VAC_TH
   []
   [sintering]
     type = GrandPotentialSinteringMaterial
     chemical_potential = w
     void_op = phi
     Temperature = T
-    surface_energy = 9.86 #19.7
-    grainboundary_energy = 9.86
+    surface_energy = gb_e_mat # 9.86 #19.7
+    grainboundary_energy = gb_e_mat # 9.86
     void_energy_coefficient = kv
     solid_energy_coefficient = ks
     solid_energy_model = PARABOLIC
@@ -206,6 +196,15 @@
     expression = 'Va*(hs*rhos + hv*rhov)'
     outputs = none #exodus
   []
+  # Cvac th is for auxvar for IC
+  [cvac_th]
+    type = ParsedMaterial
+    property_name = cvac_th
+    material_property_names = 'hs cv_eq hv'
+    expression = 'cv:=(hs*cv_eq ) + hv*1.0;
+                  if(cv<0.0, 0.0, cv)'
+    # outputs = nemesis
+  []
   [L_mat]
     type = DerivativeParsedMaterial
     property_name = L_mat
@@ -214,21 +213,14 @@
     constant_names = 'p0'
     constant_expressions = '0.3'
     expression = 'hv:=if(phi<=0.0,0.0,if(phi>=p0,1.0,6*(phi/p0)^5 - 15*(phi/p0)^4 + 10*(phi/p0)^3));
-                hv*Lv + (1-hv)*(L/100)'
+                hv*Lv + (1-hv)*L'
     outputs = none
-  []
-  [Diff] # Diffusivity output for debugging
-    type = ParsedMaterial
-    property_name = Diff
-    material_property_names = 'diffusivity'
-    expression = 'diffusivity'
-    outputs = nemesis
   []
 []
 
 [Modules]
   [PhaseField]
-    [GrandPotential]
+    [GrandPotentialAlt]
       switching_function_names = 'hv hs'
       anisotropic = 'false'
 
@@ -247,6 +239,11 @@
       mobility_name_op = L_mat
       kappa_op = kappa
       free_energies_op = 'omegav omegas'
+      # Mass Conservation
+      mass_conservation = false
+      # concentrations = 'cvac_var cint_var'
+      # hj_over_kVa = 'hv_over_kvVa hs_over_kvVa hv_over_kiVa hs_over_kiVa' #'hoverk_vu hoverk_su hoverk_vi hoverk_si'
+      # hj_c_min = 'hv_cv_min hs_cv_min hv_ci_min hs_ci_min' #'cvueq_mask csueq_mask cvieq_mask csieq_mask'
     []
   []
 []
@@ -268,57 +265,18 @@
 []
 
 [AuxKernels]
-  [bnds_aux]
-    type = BndsCalcAux
-    variable = bnds
-    execute_on = 'initial timestep_end'
+  # THEQ
+  # Vacancy
+  [cvac_aux_elem_th]
+    type = MaterialRealAux
+    variable = 'cvac_aux_elem_th'
+    property = 'cvac_th'
   []
-  [T_aux]
-    type = FunctionAux
-    variable = T
-    function = f_T
+  [cvac_aux_th]
+    type = ProjectionAux
+    variable = cvac_aux_th
+    v = cvac_aux_elem_th
   []
-  [OU_aux]
-    type = FunctionAux
-    variable = OU
-    function = f_OU
-  []
-  #  [./voids_aux]
-  #    type = FeatureFloodCountAux
-  #    variable = voids
-  #    flood_counter = void_tracker
-  #    field_display = UNIQUE_REGION
-  #    execute_on = 'INITIAL TIMESTEP_END'
-  #  [../]
-  #NEW
-  [unique_grains]
-    type = FeatureFloodCountAux
-    variable = unique_grains
-    flood_counter = grain_tracker
-    field_display = UNIQUE_REGION
-    execute_on = 'initial timestep_end'
-  []
-  [var_indices]
-    type = FeatureFloodCountAux
-    variable = var_indices
-    flood_counter = grain_tracker
-    field_display = VARIABLE_COLORING
-    execute_on = 'initial timestep_end'
-  []
-  # [./ghosted_entities]
-  #   type = FeatureFloodCountAux
-  #   variable = ghost_regions
-  #   flood_counter = grain_tracker
-  #   field_display = GHOSTED_ENTITIES
-  #   execute_on = 'initial timestep_end'
-  # [../]
-  # [./halos]
-  #   type = FeatureFloodCountAux
-  #   variable = halos
-  #   flood_counter = grain_tracker
-  #   field_display = HALOS
-  #   execute_on = 'initial timestep_end'
-  # [../]
 []
 
 [Postprocessors]
@@ -345,24 +303,24 @@
   # [../]
   [n_DOFs]
     type = NumDOFs
-    outputs = csv
+    # outputs = csv
   []
   [c_total]
     type = ElementIntegralMaterialProperty
     mat_prop = c
-    outputs = csv
+    # outputs = csv
   []
   [nonlinear]
     type = NumNonlinearIterations
-    outputs = csv
+    # outputs = csv
   []
   [linear]
     type = NumLinearIterations
-    outputs = csv
+    # outputs = csv
   []
   [residuals]
     type = NumResidualEvaluations
-    outputs = csv
+    # outputs = csv
   []
   [runtime]
     type = PerfGraphData
@@ -379,67 +337,28 @@
   #  [../]
 []
 
-[VectorPostprocessors]
-  [ctrline]
-    type = LineValueSampler
-    variable = phi
-    start_point = '250 0 207.5'
-    end_point = '250 300 207.5'
-    sort_by = y
-    num_points = 31
-    outputs = csv
-  []
-  # #  [./voids]
-  # #    type = FeatureVolumeVectorPostprocessor
-  # #    flood_counter = void_tracker
-  # #    execute_on = 'initial timestep_end final'
-  # #    output_centroids = false  #was true
-  # #    outputs = csv
-  # #  [../]
-  #  [./vectorMemory]
-  #    type = VectorMemoryUsage
-  #    mem_units = gigabytes
-  #    outputs = csv
-  #    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
-  #  [../]
-[]
-
-[UserObjects]
-  # [./terminator]  #do i have to specify that this is off so that the control can turn it on?
-  #   type = Terminator
-  #   expression = 'void_tracker = 1'
-  #   execute_on = TIMESTEP_END
-  #   enable = true
-  # [../]
-  [terminator] #do i have to specify that this is off so that the control can turn it on?
-    type = Terminator
-    expression = 'grain_tracker < 3'
-    execute_on = TIMESTEP_END
-    enable = true
-  []
-  [grain_tracker]
-    type = GrainTracker
-    threshold = 0.1 #0.2
-    connecting_threshold = 0.09 #0.08
-    compute_halo_maps = false #true#false
-  []
-  # [./circle_IC]
-  #   type = PolycrystalCircles
-  #   # file_name = '../gt4gr.txt'
-  #   read_from_file = true
-  #   execute_on = 'initial'
-  #   threshold = 0.2
-  #   connecting_threshold = 0.08
-  #   coloring_algorithm = jp
-  # [../]
-[]
-
-# [Preconditioning]
-#   [./SMP] #slow but good, very slow for 3D (might be another option then)
-#     type = SMP
-#     coupled_groups = 'w,phi'
-#   [../]
+# [VectorPostprocessors]
+# #  [./voids]
+# #    type = FeatureVolumeVectorPostprocessor
+# #    flood_counter = void_tracker
+# #    execute_on = 'initial timestep_end final'
+# #    output_centroids = false  #was true
+# #    outputs = csv
+# #  [../]
+#  [./vectorMemory]
+#    type = VectorMemoryUsage
+#    mem_units = gigabytes
+#    outputs = csv
+#    execute_on = 'NONLINEAR LINEAR TIMESTEP_END'
+#  [../]
 # []
+
+[Preconditioning]
+  [SMP] #slow but good, very slow for 3D (might be another option then)
+    type = SMP
+    coupled_groups = 'w,phi'
+  []
+[]
 
 [Executioner]
   type = Transient
@@ -455,20 +374,22 @@
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
   start_time = 0
-  end_time = 25000
-  steady_state_detection = true
-  # num_steps = 2
+  # end_time = 25000
+  # steady_state_detection = true
+  automatic_scaling = true
+  compute_scaling_once = false
+  num_steps = 1
+  dt = 0.0001
+  # dtmax = 200
   # dt = 0.0001
-  dtmax = 200
-  # dt = 0.0001
-  [TimeStepper]
-    type = IterationAdaptiveDT
-    optimal_iterations = 6 #WAS 6
-    dt = 0.01
-    growth_factor = 1.2
-    cutback_factor = 0.8
-    cutback_factor_at_failure = 0.5 #might be different from the curback_factor
-  []
+  # [TimeStepper]
+  #   type = IterationAdaptiveDT
+  #   optimal_iterations = 6 #WAS 6
+  #   dt = 0.01
+  #   growth_factor = 1.2
+  #   cutback_factor = 0.8
+  #   cutback_factor_at_failure = 0.5 #might be different from the curback_factor
+  # []
   #[Adaptivity]
   #  refine_fraction = 0.8
   #  coarsen_fraction = 0.05 #minimize this- adds error
@@ -479,16 +400,16 @@
 
 [Outputs]
   perf_graph = false
-  csv = true
+  csv = false
   exodus = false
-  # nemesis = true
-  [nemesis]
-    type = Nemesis
-    # interval = 5              # this ExodusII will only output every third time step
-  []
+  nemesis = false
+  # [nemesis]
+  #   type = Nemesis
+  #   # interval = 5              # this ExodusII will only output every third time step
+  # []
   print_linear_residuals = false
-  [checkpoint]
-    type = Checkpoint
-    num_files = 3
-  []
+  # [checkpoint]
+  #   type = Checkpoint
+  #   num_files = 3
+  # []
 []
