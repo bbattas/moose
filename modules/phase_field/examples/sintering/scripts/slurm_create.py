@@ -42,6 +42,8 @@ parser.add_argument('--time','-t', type=int, help='''SLURM number of hours to ru
                     of [hpg-default, hpg2-compute, bigmem] burst limit is 96, while regular limit is 744 (31 days).
                     Default=72 hours''')
 parser.add_argument('--args','-c', type=str, help='Extra CL arguments at the end. Default=NONE')
+parser.add_argument('--recover', action='store_true', help='''Add the recovery flag to the executable, without a '''
+                    '''specified checkpoint file.''')
 cl_args = parser.parse_args()
 
 # Defaults for the variables
@@ -284,14 +286,14 @@ def slurmWrite(cwd,inputName):
         slurmList.append('cd $OUTPUT')
         if cl_args.force:
             if cl_args.args == None:
-                slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i')
+                slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i' + (' --recover' if cl_args.recover else ''))
             else:
-                slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i '+str(cl_args.args))
+                slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i ' + ('--recover ' if cl_args.recover else '') +str(cl_args.args))
         else:
             if cl_args.args == None:
-                slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i')
+                slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i' + (' --recover' if cl_args.recover else ''))
             else:
-                slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i '+str(cl_args.args))
+                slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i ' + ('--recover ' if cl_args.recover else '')+str(cl_args.args))
 
         # Output the slurm script
         # verb(slurmList)
