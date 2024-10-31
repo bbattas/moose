@@ -75,4 +75,9 @@ protected:
   const MaterialProperty<Real> & _hv;
   const MaterialProperty<Real> & _hs;
   const MaterialProperty<Real> & _dhs;
+
+  // ENUM to select which version of recombination ifs to use
+  MooseEnum _if_case;
+  // hs interface narrowing divisor if applicable
+  const Real _switch;
 };

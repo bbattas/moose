@@ -40,7 +40,17 @@ UO2RecombinationMaterial::validParams()
   params.addParam<Real>("a_0", 0.25, "Atomic jump distance (length)");
   params.addParam<Real>("Di_0", 4.0767e11, "Bulk interstitial diffusivity prefactor (length^2/s)");
   params.addParam<Real>("Ei_B", 4.08453089, "Bulk interstitial diffusivity migration energy (eV)");
-
+  // ENUM to set which version of the recombination i want
+  MooseEnum thresh_case("FULL_IF SHORTSWITCH_NONEGIF SHORTSWITCH NONE", "FULL_IF");
+  params.addRequiredParam<MooseEnum>(
+      "if_case",
+      thresh_case,
+      "Which combination of if statements to use (if any), between the hs and"
+      " keeping the recombination from being negative (growth).");
+  params.addParam<Real>("phi_0",
+                        0.3,
+                        "Shortened switching function divisor (0,1]. Smaller sharpens interface. "
+                        "Only used if thresh_case = SHORTSWITCH_NONEGIF or SHORTSWITCH.");
   return params;
 }
 
@@ -86,11 +96,17 @@ UO2RecombinationMaterial::UO2RecombinationMaterial(const InputParameters & param
     // Switching Functions
     _hv(getMaterialProperty<Real>("hv")),
     _hs(getMaterialProperty<Real>("hs")),
-    _dhs(getMaterialPropertyDerivativeByName<Real>("hs", _phi_name))
+    _dhs(getMaterialPropertyDerivativeByName<Real>("hs", _phi_name)),
+    // Toggle
+    _if_case(getParam<MooseEnum>("if_case")),
+    _switch(getParam<Real>("phi_0"))
 
 {
   if (_neta == 0)
     mooseError("Model requires op_num > 0");
+
+  if ((_switch > 1.0) || (_switch <= 0.0))
+    mooseError("UO2RecombinationMaterial: phi_0 should be between 0 and 1, but not = 0");
 
   for (unsigned int i = 0; i < _neta; ++i) //_op_num
   {
@@ -105,32 +121,133 @@ UO2RecombinationMaterial::computeQpProperties()
   // Interstitial Bulk D
   Real Dib = _Di0 * std::exp(-_EiB / _kB / 1600);
   // Recombination rate / prefactor term
-  Real ar = _hs[_qp] * _Va * _znum * Dib / (_a0 * _a0);
-  Real dar_dphi = _dhs[_qp] * _Va * _znum * Dib / (_a0 * _a0);
+  Real ar = _Va * _znum * Dib / (_a0 * _a0);
+  // Real dar_dphi = _dhs[_qp] * _Va * _znum * Dib / (_a0 * _a0);
 
-  // Recombination
-  Real rec = ar * _cu[_qp] * _ci[_qp] / _Va;
+  // Empty placeholders for the values in the case statement based on enum switch
+  Real rec, drecdphi, drecdwu, drecdwi, drecdcu, drecdci;
 
-  // Set recombination if > 0 and hv is below the threshold value specified
-  if ((_hv[_qp] < _hv_thresh) && (rec > 0.0))
+  // Which if any if statements to use
+  switch (_if_case)
   {
-    // Negative recombination rate
-    _rec[_qp] = -rec;
-    // remember from GPMultiSinteringMat chi in masscons is chi*Va
-    _drecdphi[_qp] = -dar_dphi * _cu[_qp] * _ci[_qp] / _Va;
-    _drecdwu[_qp] = -(_chiu[_qp] / _Va) * ar * _ci[_qp] / _Va;
-    _drecdwi[_qp] = -(_chii[_qp] / _Va) * ar * _cu[_qp] / _Va;
-    _drecdcu[_qp] = -ar * _ci[_qp] / _Va;
-    _drecdci[_qp] = -ar * _cu[_qp] / _Va;
+    case 0: // FULL_IF: Previous approach of if on both hv and the - recombination value
+    {
+      // Recombination
+      rec = _hs[_qp] * ar * _cu[_qp] * _ci[_qp] / _Va;
+
+      // Set recombination if > 0 and hv is below the threshold value specified
+      if ((_hv[_qp] < _hv_thresh) && (rec > 0.0))
+      {
+        // Negative recombination rate
+        rec = -rec;
+        // remember from GPMultiSinteringMat chi in masscons is chi*Va
+        drecdphi = -ar * _dhs[_qp] * _cu[_qp] * _ci[_qp] / _Va;
+        drecdwu = -(_chiu[_qp] / _Va) * ar * _hs[_qp] * _ci[_qp] / _Va;
+        drecdwi = -(_chii[_qp] / _Va) * ar * _hs[_qp] * _cu[_qp] / _Va;
+        drecdcu = -ar * _hs[_qp] * _ci[_qp] / _Va;
+        drecdci = -ar * _hs[_qp] * _cu[_qp] / _Va;
+      }
+      else
+      {
+        // Set recombination rate and derivatives to zero
+        rec = 0.0;
+        drecdphi = 0.0;
+        drecdwu = 0.0;
+        drecdwi = 0.0;
+        drecdcu = 0.0;
+        drecdci = 0.0;
+      }
+      break;
+    }
+
+    case 1: // SHORTSWITCH_NONEGIF: Using cutdown switching function with only negative rec if
+    {
+      // Narrow switching function
+      Real phi = _phi[_qp] / _switch;
+      Real f = 1.0;
+      Real df = 0.0;
+      if (phi >= 1.0) // f is hs as a function of phi
+        f = 0.0;
+      else if (phi > 0.0)
+      {
+        f = 1 - (phi * phi * phi * (10.0 + phi * (-15.0 + phi * 6.0)));
+        df = -30.0 / _switch * phi * phi * (phi - 1.0) * (phi - 1.0);
+      }
+
+      // Recombination
+      rec = f * ar * _cu[_qp] * _ci[_qp] / _Va;
+
+      // Set recombination if > 0
+      if (rec > 0.0)
+      {
+        // Negative recombination rate
+        rec = -rec;
+        // remember from GPMultiSinteringMat chi in masscons is chi*Va
+        drecdphi = -ar * df * _cu[_qp] * _ci[_qp] / _Va;
+        drecdwu = -(_chiu[_qp] / _Va) * ar * f * _ci[_qp] / _Va;
+        drecdwi = -(_chii[_qp] / _Va) * ar * f * _cu[_qp] / _Va;
+        drecdcu = -ar * f * _ci[_qp] / _Va;
+        drecdci = -ar * f * _cu[_qp] / _Va;
+      }
+      else
+      {
+        // Set recombination rate and derivatives to zero
+        rec = 0.0;
+        drecdphi = 0.0;
+        drecdwu = 0.0;
+        drecdwi = 0.0;
+        drecdcu = 0.0;
+        drecdci = 0.0;
+      }
+      break;
+    }
+
+    case 2: // SHORTSWITCH: no ifs just the narrow hs
+    {
+      // Narrow switching function
+      Real phi = _phi[_qp] / _switch;
+      Real f = 1.0;
+      Real df = 0.0;
+      if (phi >= 1.0) // f is hs as a function of phi
+        f = 0.0;
+      else if (phi > 0.0)
+      {
+        f = 1 - (phi * phi * phi * (10.0 + phi * (-15.0 + phi * 6.0)));
+        df = -30.0 / _switch * phi * phi * (phi - 1.0) * (phi - 1.0);
+      }
+
+      // Recombination
+      rec = -f * ar * _cu[_qp] * _ci[_qp] / _Va;
+      // remember from GPMultiSinteringMat chi in masscons is chi*Va
+      drecdphi = -ar * df * _cu[_qp] * _ci[_qp] / _Va;
+      drecdwu = -(_chiu[_qp] / _Va) * ar * f * _ci[_qp] / _Va;
+      drecdwi = -(_chii[_qp] / _Va) * ar * f * _cu[_qp] / _Va;
+      drecdcu = -ar * f * _ci[_qp] / _Va;
+      drecdci = -ar * f * _cu[_qp] / _Va;
+      break;
+    }
+
+    case 3: // NONE: no if or narrowed hs
+    {
+      // Recombination as is
+      rec = -_hs[_qp] * ar * _cu[_qp] * _ci[_qp] / _Va;
+      drecdphi = -ar * _dhs[_qp] * _cu[_qp] * _ci[_qp] / _Va;
+      drecdwu = -(_chiu[_qp] / _Va) * ar * _hs[_qp] * _ci[_qp] / _Va;
+      drecdwi = -(_chii[_qp] / _Va) * ar * _hs[_qp] * _cu[_qp] / _Va;
+      drecdcu = -ar * _hs[_qp] * _ci[_qp] / _Va;
+      drecdci = -ar * _hs[_qp] * _cu[_qp] / _Va;
+      break;
+    }
+
+    default:
+      paramError("if_case", "Incorrect if case enum");
   }
-  else
-  {
-    // Set recombination rate and derivatives to zero
-    _rec[_qp] = 0.0;
-    _drecdphi[_qp] = 0.0;
-    _drecdwu[_qp] = 0.0;
-    _drecdwi[_qp] = 0.0;
-    _drecdcu[_qp] = 0.0;
-    _drecdci[_qp] = 0.0;
-  }
+
+  // Set recombination rate and derivatives the real values from cases
+  _rec[_qp] = rec;
+  _drecdphi[_qp] = drecdphi;
+  _drecdwu[_qp] = drecdwu;
+  _drecdwi[_qp] = drecdwi;
+  _drecdcu[_qp] = drecdcu;
+  _drecdci[_qp] = drecdci;
 }
