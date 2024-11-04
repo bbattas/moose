@@ -4,8 +4,8 @@
 # Created Date: Monday October 14th 2024
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday October 14th 2024
-# Modified By: Battas,Brandon Scott
+# Last Modified: Monday November 4th 2024
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  NEW Params with del*Dgb/Ds = 0.01, sigma_gb/sigma_s = 1
@@ -423,6 +423,7 @@
     growth_factor = 1.2
     cutback_factor = 0.8
     cutback_factor_at_failure = 0.5 #might be different from the curback_factor
+    linear_iteration_ratio = 1e5
   []
   #[Adaptivity]
   #  refine_fraction = 0.8
