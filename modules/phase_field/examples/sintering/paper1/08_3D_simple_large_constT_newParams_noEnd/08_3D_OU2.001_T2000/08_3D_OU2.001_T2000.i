@@ -4,7 +4,7 @@
 # Created Date: Wednesday October 9th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday October 9th 2024
+# Last Modified: Monday November 4th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -513,6 +513,7 @@
     growth_factor = 1.2
     cutback_factor = 0.8
     cutback_factor_at_failure = 0.5 #might be different from the curback_factor
+    linear_iteration_ratio = 1e5
   []
   [Adaptivity]
     refine_fraction = 0.8
