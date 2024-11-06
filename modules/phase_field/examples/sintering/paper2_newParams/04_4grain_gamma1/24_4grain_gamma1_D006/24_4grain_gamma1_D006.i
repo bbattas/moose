@@ -4,7 +4,7 @@
 # Created Date: Monday October 14th 2024
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday November 4th 2024
+# Last Modified: Wednesday November 6th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -440,12 +440,12 @@
   type = Transient
   scheme = bdf2
   solve_type = PJFNK
-  petsc_options_iname = '-pc_type -pc_hypre_type'
-  petsc_options_value = 'hypre boomeramg'
-  # petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap'
-  # petsc_options_value = ' asm      lu           2'
+  # petsc_options_iname = '-pc_type -pc_hypre_type'
+  # petsc_options_value = 'hypre boomeramg'
+  petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -sub_pc_factor_shift_type'
+  petsc_options_value = ' asm      lu           2                nonzero'
   nl_max_its = 20 #40 too large- optimal_iterations is 6
-  l_max_its = 30 #if it seems like its using a lot it might still be fine
+  l_max_its = 60 #if it seems like its using a lot it might still be fine
   l_tol = 1e-06 #4
   nl_rel_tol = 1e-6 #default is 1e-8
   # nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
