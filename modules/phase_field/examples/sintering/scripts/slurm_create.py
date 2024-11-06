@@ -2,10 +2,8 @@
 import os
 import glob
 import sys
-import numpy as np
 import argparse
 import logging
-import time
 import subprocess
 import json
 import copy
