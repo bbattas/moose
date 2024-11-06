@@ -4,7 +4,7 @@
 # Created Date: Wednesday October 9th 2024
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday November 4th 2024
+# Last Modified: Wednesday November 6th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -499,7 +499,7 @@
   petsc_options_iname = '-pc_type -sub_pc_type -pc_asm_overlap -sub_pc_factor_shift_type'
   petsc_options_value = ' asm      lu           2                nonzero'
   nl_max_its = 20 #40 too large- optimal_iterations is 6
-  l_max_its = 30 #if it seems like its using a lot it might still be fine
+  l_max_its = 60 #if it seems like its using a lot it might still be fine
   l_tol = 1e-4
   nl_rel_tol = 1e-6 #default is 1e-8
   nl_abs_tol = 1e-6 #only needed when near equilibrium or veeeery small timesteps and things changing FAST
