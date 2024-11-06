@@ -276,7 +276,7 @@ def slurmWrite(cwd,inputName):
         slurmList.append('')
         slurmList.append('export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77')
         slurmList.append('module purge')
-        slurmList.append('module load ufrc mkl/2023.2.0 gcc/12.2.0 openmpi/4.1.5 python/3.11 cmake/3.26.4')
+        slurmList.append('module load ufrc mkl/2023.2.0 gcc/12.2.0 openmpi/4.1.6 python/3.11 cmake/3.26.4')
         # slurmList.append('module load conda')
         # Mamba Build
         # slurmList.append('source ~/.bashrc')
