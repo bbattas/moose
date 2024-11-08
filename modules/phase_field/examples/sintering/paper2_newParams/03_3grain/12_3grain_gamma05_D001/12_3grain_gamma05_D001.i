@@ -4,7 +4,7 @@
 # Created Date: Monday October 14th 2024
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday November 6th 2024
+# Last Modified: Friday November 8th 2024
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -403,7 +403,8 @@
 [Preconditioning]
   [./SMP] #slow but good, very slow for 3D (might be another option then)
     type = SMP
-    coupled_groups = 'w,phi'
+    # coupled_groups = 'w,phi'
+    full = true
   [../]
 []
 
