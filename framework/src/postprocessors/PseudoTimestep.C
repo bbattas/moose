@@ -11,7 +11,7 @@
 #include "FEProblemBase.h"
 #include "NonlinearSystemBase.h"
 #include "MathUtils.h"
-#include "Transient.h"
+#include "TransientBase.h"
 #include "Restartable.h"
 #include "libmesh/enum_norm_type.h"
 
@@ -94,7 +94,8 @@ PseudoTimestep::currentResidualNorm() const
   Real res_norm = 0.0;
   for (const auto var_num : make_range(nl.system().n_vars()))
   {
-    auto var_res = nl.system().calculate_norm(nl.getResidualNonTimeVector(), var_num, DISCRETE_L2);
+    auto var_res =
+        nl.system().calculate_norm(nl.getResidualNonTimeVector(), var_num, libMesh::DISCRETE_L2);
     res_norm = res_norm + std::pow(var_res, 2);
   }
   res_norm = std::sqrt(res_norm);
@@ -158,9 +159,8 @@ PseudoTimestep::timestepEXP() const
 void
 PseudoTimestep::execute()
 {
-  Transient * transient = dynamic_cast<Transient *>(_app.getExecutioner());
+  TransientBase * transient = dynamic_cast<TransientBase *>(_app.getExecutioner());
 
-  // internal parameters needed for computing residuals and setting next timestep
   Real res_norm;
   Real curr_dt;
   Real update_dt;

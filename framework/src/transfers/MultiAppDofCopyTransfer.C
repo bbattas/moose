@@ -16,6 +16,8 @@
 #include "libmesh/id_types.h"
 #include "libmesh/string_to_enum.h"
 
+using namespace libMesh;
+
 InputParameters
 MultiAppDofCopyTransfer::validParams()
 {
@@ -75,6 +77,9 @@ MultiAppDofCopyTransfer::initialSetup()
     from_problem = &getFromMultiApp()->appProblemBase(getFromMultiApp()->firstLocalApp());
     to_problem = &getToMultiApp()->appProblemBase(getToMultiApp()->firstLocalApp());
   }
+
+  if (from_problem->mesh().getParallelType() != to_problem->mesh().getParallelType())
+    mooseError("The parallel types (distributed or replicated) of the meshes are not the same.");
 
   // Convert block names to block IDs, fill with all blocks if unspecified
   if (_has_block_restrictions)

@@ -61,8 +61,11 @@ PeripheralTriangleMeshGenerator::validParams()
 
   params.addParam<SubdomainName>("peripheral_ring_block_name",
                                  "The block name assigned to the created peripheral layer.");
-  params.addParam<std::string>("external_boundary_name",
-                               "Optional customized external boundary name.");
+  params.addParam<BoundaryName>(
+      "external_boundary_name", "", "Optional customized external boundary name.");
+  MooseEnum tri_elem_type("TRI3 TRI6 TRI7 DEFAULT", "DEFAULT");
+  params.addParam<MooseEnum>(
+      "tri_element_type", tri_elem_type, "Type of the triangular elements to be generated.");
   params.addClassDescription("This PeripheralTriangleMeshGenerator object is designed to generate "
                              "a triangulated mesh between a generated outer circle boundary "
                              "and a provided inner mesh.");
@@ -83,9 +86,7 @@ PeripheralTriangleMeshGenerator::PeripheralTriangleMeshGenerator(const InputPara
     _peripheral_ring_block_name(isParamValid("peripheral_ring_block_name")
                                     ? getParam<SubdomainName>("peripheral_ring_block_name")
                                     : (SubdomainName) ""),
-    _external_boundary_name(isParamValid("external_boundary_name")
-                                ? getParam<std::string>("external_boundary_name")
-                                : std::string())
+    _external_boundary_name(getParam<BoundaryName>("external_boundary_name"))
 {
   // Calculate outer boundary points
 
@@ -141,6 +142,7 @@ PeripheralTriangleMeshGenerator::PeripheralTriangleMeshGenerator(const InputPara
     params.set<std::vector<bool>>("stitch_holes") = std::vector<bool>{true};
     params.set<BoundaryName>("output_boundary") = _external_boundary_name;
     params.set<SubdomainName>("output_subdomain_name") = _peripheral_ring_block_name;
+    params.set<MooseEnum>("tri_element_type") = getParam<MooseEnum>("tri_element_type");
     addMeshSubgenerator("XYDelaunayGenerator", _input_name + "_periphery", params);
     _build_mesh = &getMeshByName(_input_name + "_periphery");
   }

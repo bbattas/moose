@@ -78,6 +78,8 @@
 #include "FVScalarLagrangeMultiplierInterface.h"
 #include "UserObject.h"
 #include "OffDiagonalScalingMatrix.h"
+#include "HDGKernel.h"
+#include "HDGIntegratedBC.h"
 
 // libMesh
 #include "libmesh/nonlinear_solver.h"
@@ -97,6 +99,7 @@
 #include "libmesh/default_coupling.h"
 #include "libmesh/diagonal_matrix.h"
 #include "libmesh/fe_interface.h"
+#include "libmesh/petsc_solver_exception.h"
 
 #include <ios>
 
@@ -105,6 +108,8 @@
 EXTERN_C_BEGIN
 extern PetscErrorCode DMCreate_Moose(DM);
 EXTERN_C_END
+
+using namespace libMesh;
 
 NonlinearSystemBase::NonlinearSystemBase(FEProblemBase & fe_problem,
                                          System & sys,
@@ -176,9 +181,9 @@ NonlinearSystemBase::NonlinearSystemBase(FEProblemBase & fe_problem,
 NonlinearSystemBase::~NonlinearSystemBase() = default;
 
 void
-NonlinearSystemBase::init()
+NonlinearSystemBase::preInit()
 {
-  SolverSystem::init();
+  SolverSystem::preInit();
 
   if (_fe_problem.hasDampers())
     setupDampers();
@@ -437,17 +442,6 @@ NonlinearSystemBase::setupFieldDecomposition()
 }
 
 void
-NonlinearSystemBase::addTimeIntegrator(const std::string & type,
-                                       const std::string & name,
-                                       InputParameters & parameters)
-{
-  parameters.set<SystemBase *>("_sys") = this;
-
-  std::shared_ptr<TimeIntegrator> ti = _factory.create<TimeIntegrator>(type, name, parameters);
-  _time_integrator = ti;
-}
-
-void
 NonlinearSystemBase::addKernel(const std::string & kernel_name,
                                const std::string & name,
                                InputParameters & parameters)
@@ -465,6 +459,38 @@ NonlinearSystemBase::addKernel(const std::string & kernel_name,
     _has_save_in = true;
   if (parameters.get<std::vector<AuxVariableName>>("diag_save_in").size() > 0)
     _has_diag_save_in = true;
+}
+
+void
+NonlinearSystemBase::addHDGKernel(const std::string & kernel_name,
+                                  const std::string & name,
+                                  InputParameters & parameters)
+{
+  // The hybridized objects require that the residual and Jacobian be computed together
+  residualAndJacobianTogether();
+
+  for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
+  {
+    parameters.set<MooseObjectWarehouse<HDGIntegratedBC> *>("hibc_warehouse") = &_hybridized_ibcs;
+    // Create the kernel object via the factory and add to warehouse
+    auto kernel = _factory.create<HDGKernel>(kernel_name, name, parameters, tid);
+    _kernels.addObject(kernel, tid);
+    _hybridized_kernels.addObject(kernel, tid);
+    postAddResidualObject(*kernel);
+  }
+}
+
+void
+NonlinearSystemBase::addHDGIntegratedBC(const std::string & bc_name,
+                                        const std::string & name,
+                                        InputParameters & parameters)
+{
+  for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
+  {
+    // Create the bc object via the factory and add to warehouse
+    auto bc = _factory.create<HDGIntegratedBC>(bc_name, name, parameters, tid);
+    _hybridized_ibcs.addObject(bc, tid);
+  }
 }
 
 void
@@ -805,8 +831,11 @@ NonlinearSystemBase::computeResidualTags(const std::set<TagID> & tags)
     if (required_residual)
     {
       auto & residual = getVector(residualVectorTag());
-      if (_time_integrator)
-        _time_integrator->postResidual(residual);
+      if (!_time_integrators.empty())
+      {
+        for (auto & ti : _time_integrators)
+          ti->postResidual(residual);
+      }
       else
         residual += *_Re_non_time;
       residual.close();
@@ -863,8 +892,11 @@ NonlinearSystemBase::computeResidualAndJacobianTags(const std::set<TagID> & vect
     if (required_residual)
     {
       auto & residual = getVector(residualVectorTag());
-      if (_time_integrator)
-        _time_integrator->postResidual(residual);
+      if (!_time_integrators.empty())
+      {
+        for (auto & ti : _time_integrators)
+          ti->postResidual(residual);
+      }
       else
         residual += *_Re_non_time;
       residual.close();
@@ -885,8 +917,8 @@ NonlinearSystemBase::computeResidualAndJacobianTags(const std::set<TagID> & vect
 void
 NonlinearSystemBase::onTimestepBegin()
 {
-  if (_time_integrator)
-    _time_integrator->preSolve();
+  for (auto & ti : _time_integrators)
+    ti->preSolve();
   if (_predictor.get())
     _predictor->timestepSetup();
 }
@@ -1900,11 +1932,12 @@ NonlinearSystemBase::computeResidualAndJacobianInternal(const std::set<TagID> & 
     // Necessary for speed
     if (auto petsc_matrix = dynamic_cast<PetscMatrix<Number> *>(&jacobian))
     {
-      MatSetOption(petsc_matrix->mat(),
-                   MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
-                   PETSC_TRUE);
+      LibmeshPetscCall(MatSetOption(petsc_matrix->mat(),
+                                    MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
+                                    PETSC_TRUE));
       if (!_fe_problem.errorOnJacobianNonzeroReallocation())
-        MatSetOption(petsc_matrix->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+        LibmeshPetscCall(
+            MatSetOption(petsc_matrix->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE));
     }
   }
 
@@ -2004,6 +2037,20 @@ NonlinearSystemBase::computeNodalBCs(const std::set<TagID> & tags)
   if (_has_save_in)
     _fe_problem.getAuxiliarySystem().solution().close();
 
+  // Select nodal kernels
+  MooseObjectWarehouse<NodalBCBase> * nbc_warehouse;
+
+  if (tags.size() == _fe_problem.numVectorTags(Moose::VECTOR_TAG_RESIDUAL) || !tags.size())
+    nbc_warehouse = &_nodal_bcs;
+  else if (tags.size() == 1)
+    nbc_warehouse = &(_nodal_bcs.getVectorTagObjectWarehouse(*(tags.begin()), 0));
+  else
+    nbc_warehouse = &(_nodal_bcs.getVectorTagsObjectWarehouse(tags, 0));
+
+  // Return early if there is no nodal kernel
+  if (!nbc_warehouse->size())
+    return;
+
   PARALLEL_TRY
   {
     const ConstBndNodeRange & bnd_nodes = _fe_problem.getCurrentAlgebraicBndNodeRange();
@@ -2012,32 +2059,21 @@ NonlinearSystemBase::computeNodalBCs(const std::set<TagID> & tags)
     {
       TIME_SECTION("NodalBCs", 3 /*, "Computing NodalBCs"*/);
 
-      MooseObjectWarehouse<NodalBCBase> * nbc_warehouse;
-
-      // Select nodal kernels
-      if (tags.size() == _fe_problem.numVectorTags(Moose::VECTOR_TAG_RESIDUAL) || !tags.size())
-        nbc_warehouse = &_nodal_bcs;
-      else if (tags.size() == 1)
-        nbc_warehouse = &(_nodal_bcs.getVectorTagObjectWarehouse(*(tags.begin()), 0));
-      else
-        nbc_warehouse = &(_nodal_bcs.getVectorTagsObjectWarehouse(tags, 0));
-
       for (const auto & bnode : bnd_nodes)
       {
         BoundaryID boundary_id = bnode->_bnd_id;
         Node * node = bnode->_node;
 
-        if (node->processor_id() == processor_id())
+        if (node->processor_id() == processor_id() &&
+            nbc_warehouse->hasActiveBoundaryObjects(boundary_id))
         {
           // reinit variables in nodes
           _fe_problem.reinitNodeFace(node, boundary_id, 0);
-          if (nbc_warehouse->hasActiveBoundaryObjects(boundary_id))
-          {
-            const auto & bcs = nbc_warehouse->getActiveBoundaryObjects(boundary_id);
-            for (const auto & nbc : bcs)
-              if (nbc->shouldApply())
-                nbc->computeResidual();
-          }
+
+          const auto & bcs = nbc_warehouse->getActiveBoundaryObjects(boundary_id);
+          for (const auto & nbc : bcs)
+            if (nbc->shouldApply())
+              nbc->computeResidual();
         }
       }
     }
@@ -2241,12 +2277,13 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
   auto & jacobian = getMatrix(systemMatrixTag());
 
   if (!_fe_problem.errorOnJacobianNonzeroReallocation())
-    MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
-                 MAT_NEW_NONZERO_ALLOCATION_ERR,
-                 PETSC_FALSE);
+    LibmeshPetscCall(MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
+                                  MAT_NEW_NONZERO_ALLOCATION_ERR,
+                                  PETSC_FALSE));
+
   if (_fe_problem.ignoreZerosInJacobian())
-    MatSetOption(
-        static_cast<PetscMatrix<Number> &>(jacobian).mat(), MAT_IGNORE_ZERO_ENTRIES, PETSC_TRUE);
+    LibmeshPetscCall(MatSetOption(
+        static_cast<PetscMatrix<Number> &>(jacobian).mat(), MAT_IGNORE_ZERO_ENTRIES, PETSC_TRUE));
 
   std::vector<numeric_index_type> zero_rows;
 
@@ -2427,9 +2464,9 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
 
       if (constraints_applied)
       {
-        MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
-                     MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
-                     PETSC_TRUE);
+        LibmeshPetscCall(MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
+                                      MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
+                                      PETSC_TRUE));
 
         jacobian.close();
         jacobian.zero_rows(zero_rows, 0.0);
@@ -2446,9 +2483,9 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
 
     if (constraints_applied)
     {
-      MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
-                   MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
-                   PETSC_TRUE);
+      LibmeshPetscCall(MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
+                                    MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
+                                    PETSC_TRUE));
 
       jacobian.close();
       jacobian.zero_rows(zero_rows, 0.0);
@@ -2630,9 +2667,9 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
 
   if (constraints_applied)
   {
-    MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
-                 MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
-                 PETSC_TRUE);
+    LibmeshPetscCall(MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
+                                  MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
+                                  PETSC_TRUE));
 
     jacobian.close();
     jacobian.zero_rows(zero_rows, 0.0);
@@ -2735,11 +2772,12 @@ NonlinearSystemBase::computeJacobianInternal(const std::set<TagID> & tags)
     // Necessary for speed
     if (auto petsc_matrix = dynamic_cast<PetscMatrix<Number> *>(&jacobian))
     {
-      MatSetOption(petsc_matrix->mat(),
-                   MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
-                   PETSC_TRUE);
+      LibmeshPetscCall(MatSetOption(petsc_matrix->mat(),
+                                    MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
+                                    PETSC_TRUE));
       if (!_fe_problem.errorOnJacobianNonzeroReallocation())
-        MatSetOption(petsc_matrix->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+        LibmeshPetscCall(
+            MatSetOption(petsc_matrix->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE));
     }
   }
 
@@ -3124,13 +3162,13 @@ NonlinearSystemBase::computeJacobianBlocks(std::vector<JacobianBlock *> & blocks
   {
     SparseMatrix<Number> & jacobian = blocks[i]->_jacobian;
 
-    MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
-                 MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
-                 PETSC_TRUE);
+    LibmeshPetscCall(MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
+                                  MAT_KEEP_NONZERO_PATTERN, // This is changed in 3.1
+                                  PETSC_TRUE));
     if (!_fe_problem.errorOnJacobianNonzeroReallocation())
-      MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
-                   MAT_NEW_NONZERO_ALLOCATION_ERR,
-                   PETSC_TRUE);
+      LibmeshPetscCall(MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
+                                    MAT_NEW_NONZERO_ALLOCATION_ERR,
+                                    PETSC_TRUE));
 
     jacobian.zero();
   }
@@ -3585,8 +3623,10 @@ NonlinearSystemBase::checkKernelCoverage(const std::set<SubdomainID> & mesh_subd
                         std::inserter(difference, difference.end()));
 
     // there supposed to be no kernels on this lower-dimensional subdomain
-    difference.erase(Moose::INTERNAL_SIDE_LOWERD_ID);
-    difference.erase(Moose::BOUNDARY_SIDE_LOWERD_ID);
+    for (const auto & id : _mesh.interiorLowerDBlocks())
+      difference.erase(id);
+    for (const auto & id : _mesh.boundaryLowerDBlocks())
+      difference.erase(id);
 
     if (!difference.empty())
     {
@@ -3626,8 +3666,9 @@ NonlinearSystemBase::checkKernelCoverage(const std::set<SubdomainID> & mesh_subd
   for (auto & var_name : vars)
   {
     auto blks = getSubdomainsForVar(var_name);
-    if (blks.count(Moose::INTERNAL_SIDE_LOWERD_ID) || blks.count(Moose::BOUNDARY_SIDE_LOWERD_ID))
-      difference.erase(var_name);
+    for (const auto & id : blks)
+      if (_mesh.interiorLowerDBlocks().count(id) > 0 || _mesh.boundaryLowerDBlocks().count(id) > 0)
+        difference.erase(var_name);
   }
 
   if (!difference.empty())
@@ -3648,6 +3689,18 @@ NonlinearSystemBase::containsTimeKernel()
   auto & time_kernels = _kernels.getVectorTagObjectWarehouse(timeVectorTag(), 0);
 
   return time_kernels.hasActiveObjects();
+}
+
+std::vector<std::string>
+NonlinearSystemBase::timeKernelVariableNames()
+{
+  std::vector<std::string> variable_names;
+  const auto & time_kernels = _kernels.getVectorTagObjectWarehouse(timeVectorTag(), 0);
+  if (time_kernels.hasActiveObjects())
+    for (const auto & kernel : time_kernels.getObjects())
+      variable_names.push_back(kernel->variable().name());
+
+  return variable_names;
 }
 
 bool
@@ -4015,8 +4068,5 @@ void
 NonlinearSystemBase::destroyColoring()
 {
   if (matrixFromColoring())
-  {
-    auto ierr = MatFDColoringDestroy(&_fdcoloring);
-    LIBMESH_CHKERR(ierr);
-  }
+    LibmeshPetscCall(MatFDColoringDestroy(&_fdcoloring));
 }

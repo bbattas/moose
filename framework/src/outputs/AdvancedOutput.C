@@ -24,6 +24,10 @@
 #include "Restartable.h"
 #include "VectorPostprocessor.h"
 
+#include "libmesh/fe_interface.h"
+
+using namespace libMesh;
+
 // A function, only available in this file, for adding the AdvancedOutput parameters. This is
 // used to eliminate code duplication between the difference specializations of the validParams
 // function.
@@ -336,7 +340,7 @@ AdvancedOutput::wantOutput(const std::string & name, const ExecFlagType & type)
     return false;
 
   // Do not output if the 'none' is contained by the execute_on
-  if (_advanced_execute_on.contains(name) && _advanced_execute_on[name].contains("none"))
+  if (_advanced_execute_on.contains(name) && _advanced_execute_on[name].isValueSet("none"))
     return false;
 
   // Data output flag, true if data exists to be output
@@ -360,7 +364,7 @@ AdvancedOutput::wantOutput(const std::string & name, const ExecFlagType & type)
   //   (2) The current output type is contained in the list of output execution types
   //   (3) The current execution time is "final" or "forced" and the data has not already been
   //   output
-  if (execute_data_flag && _advanced_execute_on[name].contains(type) &&
+  if (execute_data_flag && _advanced_execute_on[name].isValueSet(type) &&
       !(type == EXEC_FINAL && _last_execute_time[name] == _time))
     return true;
   else
@@ -438,8 +442,7 @@ AdvancedOutput::initAvailableLists()
         if (type.order == CONSTANT && !_problem_ptr->havePRefinement() &&
             type.family != MONOMIAL_VEC)
           _execute_data["elemental"].available.insert(vname);
-        else if (type.family == NEDELEC_ONE || type.family == LAGRANGE_VEC ||
-                 type.family == MONOMIAL_VEC || type.family == RAVIART_THOMAS)
+        else if (FEInterface::field_type(type) == TYPE_VECTOR)
         {
           const auto geom_type = ((type.family == MONOMIAL_VEC) && (type.order == CONSTANT) &&
                                   !_problem_ptr->havePRefinement())
@@ -481,7 +484,7 @@ AdvancedOutput::initAvailableLists()
 void
 AdvancedOutput::initExecutionTypes(const std::string & name, ExecFlagEnum & input)
 {
-  // Build the input paramemter name
+  // Build the input parameter name
   std::string param_name = "execute_";
   param_name += name + "_on";
 
@@ -494,7 +497,7 @@ AdvancedOutput::initExecutionTypes(const std::string & name, ExecFlagEnum & inpu
   else if (!_pars.have_parameter<ExecFlagEnum>(param_name))
   {
     input = _execute_on;
-    input.clear();
+    input.clearSetValues();
   }
 }
 
@@ -527,8 +530,7 @@ AdvancedOutput::initShowHideLists(const std::vector<VariableName> & show,
 
         if (type.order == CONSTANT)
           _execute_data["elemental"].show.insert(vname);
-        else if (type.family == NEDELEC_ONE || type.family == LAGRANGE_VEC ||
-                 type.family == MONOMIAL_VEC || type.family == RAVIART_THOMAS)
+        else if (FEInterface::field_type(type) == TYPE_VECTOR)
         {
           const auto geom_type =
               ((type.family == MONOMIAL_VEC) && (type.order == CONSTANT)) ? "elemental" : "nodal";
@@ -582,8 +584,7 @@ AdvancedOutput::initShowHideLists(const std::vector<VariableName> & show,
 
         if (type.order == CONSTANT)
           _execute_data["elemental"].hide.insert(vname);
-        else if (type.family == NEDELEC_ONE || type.family == LAGRANGE_VEC ||
-                 type.family == MONOMIAL_VEC || type.family == RAVIART_THOMAS)
+        else if (FEInterface::field_type(type) == TYPE_VECTOR)
         {
           switch (_es_ptr->get_mesh().spatial_dimension())
           {
@@ -688,7 +689,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   empty_execute_on.addAvailableFlags(EXEC_FAILED);
 
   // Nodal output
-  if (types.contains("nodal"))
+  if (types.isValueSet("nodal"))
   {
     params.addParam<ExecFlagEnum>(
         "execute_nodal_on", empty_execute_on, "Control the output of nodal variables");
@@ -696,7 +697,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   }
 
   // Elemental output
-  if (types.contains("elemental"))
+  if (types.isValueSet("elemental"))
   {
     params.addParam<ExecFlagEnum>(
         "execute_elemental_on", empty_execute_on, "Control the output of elemental variables");
@@ -723,7 +724,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   }
 
   // Scalar variable output
-  if (types.contains("scalar"))
+  if (types.isValueSet("scalar"))
   {
     params.addParam<ExecFlagEnum>(
         "execute_scalars_on", empty_execute_on, "Control the output of scalar variables");
@@ -731,14 +732,14 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   }
 
   // Nodal and scalar output
-  if (types.contains("nodal") && types.contains("scalar"))
+  if (types.isValueSet("nodal") && types.isValueSet("scalar"))
   {
     params.addParam<bool>("scalar_as_nodal", false, "Output scalar variables as nodal");
     params.addParamNamesToGroup("scalar_as_nodal", "Conversions before output");
   }
 
   // Elemental and nodal
-  if (types.contains("elemental") && types.contains("nodal"))
+  if (types.isValueSet("elemental") && types.isValueSet("nodal"))
   {
     params.addParam<bool>(
         "elemental_as_nodal", false, "Output elemental nonlinear variables as nodal");
@@ -746,7 +747,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   }
 
   // Postprocessors
-  if (types.contains("postprocessor"))
+  if (types.isValueSet("postprocessor"))
   {
     params.addParam<ExecFlagEnum>(
         "execute_postprocessors_on", empty_execute_on, "Control of when postprocessors are output");
@@ -754,7 +755,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   }
 
   // Vector Postprocessors
-  if (types.contains("vector_postprocessor"))
+  if (types.isValueSet("vector_postprocessor"))
   {
     params.addParam<ExecFlagEnum>("execute_vector_postprocessors_on",
                                   empty_execute_on,
@@ -764,7 +765,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   }
 
   // Reporters
-  if (types.contains("reporter"))
+  if (types.isValueSet("reporter"))
   {
     params.addParam<ExecFlagEnum>(
         "execute_reporters_on", empty_execute_on, "Control of when Reporter values are output");
@@ -772,7 +773,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   }
 
   // Input file
-  if (types.contains("input"))
+  if (types.isValueSet("input"))
   {
     params.addParam<ExecFlagEnum>(
         "execute_input_on", empty_execute_on, "Enable/disable the output of the input file");
@@ -780,7 +781,7 @@ AdvancedOutput::addValidParams(InputParameters & params, const MultiMooseEnum & 
   }
 
   // System Information
-  if (types.contains("system_information"))
+  if (types.isValueSet("system_information"))
   {
     params.addParam<ExecFlagEnum>("execute_system_information_on",
                                   empty_execute_on,
@@ -793,7 +794,7 @@ bool
 AdvancedOutput::hasOutputHelper(const std::string & name)
 {
   return !_execute_data[name].output.empty() && _advanced_execute_on.contains(name) &&
-         _advanced_execute_on[name].isValid() && !_advanced_execute_on[name].contains("none");
+         _advanced_execute_on[name].isValid() && !_advanced_execute_on[name].isValueSet("none");
 }
 
 bool

@@ -27,6 +27,7 @@
 #include "Executioner.h"
 #include "MooseMesh.h"
 #include "ComputeLineSearchObjectWrapper.h"
+#include "Convergence.h"
 
 #include "libmesh/equation_systems.h"
 #include "libmesh/linear_implicit_system.h"
@@ -37,6 +38,8 @@
 #include "libmesh/petsc_preconditioner.h"
 #include "libmesh/petsc_vector.h"
 #include "libmesh/sparse_matrix.h"
+#include "libmesh/petsc_solver_exception.h"
+#include "libmesh/simple_range.h"
 
 // PETSc includes
 #include <petsc.h>
@@ -56,18 +59,20 @@
 #include <fstream>
 #include <string>
 
+using namespace libMesh;
+
 void
 MooseVecView(NumericVector<Number> & vector)
 {
   PetscVector<Number> & petsc_vec = static_cast<PetscVector<Number> &>(vector);
-  VecView(petsc_vec.vec(), 0);
+  LibmeshPetscCallA(vector.comm().get(), VecView(petsc_vec.vec(), 0));
 }
 
 void
 MooseMatView(SparseMatrix<Number> & mat)
 {
   PetscMatrix<Number> & petsc_mat = static_cast<PetscMatrix<Number> &>(mat);
-  MatView(petsc_mat.mat(), 0);
+  LibmeshPetscCallA(mat.comm().get(), MatView(petsc_mat.mat(), 0));
 }
 
 void
@@ -75,7 +80,7 @@ MooseVecView(const NumericVector<Number> & vector)
 {
   PetscVector<Number> & petsc_vec =
       static_cast<PetscVector<Number> &>(const_cast<NumericVector<Number> &>(vector));
-  VecView(petsc_vec.vec(), 0);
+  LibmeshPetscCallA(vector.comm().get(), VecView(petsc_vec.vec(), 0));
 }
 
 void
@@ -83,7 +88,7 @@ MooseMatView(const SparseMatrix<Number> & mat)
 {
   PetscMatrix<Number> & petsc_mat =
       static_cast<PetscMatrix<Number> &>(const_cast<SparseMatrix<Number> &>(mat));
-  MatView(petsc_mat.mat(), 0);
+  LibmeshPetscCallA(mat.comm().get(), MatView(petsc_mat.mat(), 0));
 }
 
 namespace Moose
@@ -175,38 +180,29 @@ setSolverOptions(const SolverParams & solver_params)
 void
 petscSetupDM(NonlinearSystemBase & nl, const std::string & dm_name)
 {
-  PetscErrorCode ierr;
   PetscBool ismoose;
   DM dm = LIBMESH_PETSC_NULLPTR;
 
   // Initialize the part of the DM package that's packaged with Moose; in the PETSc source tree this
   // call would be in DMInitializePackage()
-  ierr = DMMooseRegisterAll();
-  CHKERRABORT(nl.comm().get(), ierr);
+  LibmeshPetscCallA(nl.comm().get(), DMMooseRegisterAll());
   // Create and set up the DM that will consume the split options and deal with block matrices.
   PetscNonlinearSolver<Number> * petsc_solver =
       dynamic_cast<PetscNonlinearSolver<Number> *>(nl.nonlinearSolver());
   SNES snes = petsc_solver->snes();
   // if there exists a DMMoose object, not to recreate a new one
-  ierr = SNESGetDM(snes, &dm);
-  CHKERRABORT(nl.comm().get(), ierr);
+  LibmeshPetscCallA(nl.comm().get(), SNESGetDM(snes, &dm));
   if (dm)
   {
-    ierr = PetscObjectTypeCompare((PetscObject)dm, DMMOOSE, &ismoose);
-    CHKERRABORT(nl.comm().get(), ierr);
+    LibmeshPetscCallA(nl.comm().get(), PetscObjectTypeCompare((PetscObject)dm, DMMOOSE, &ismoose));
     if (ismoose)
       return;
   }
-  ierr = DMCreateMoose(nl.comm().get(), nl, dm_name, &dm);
-  CHKERRABORT(nl.comm().get(), ierr);
-  ierr = DMSetFromOptions(dm);
-  CHKERRABORT(nl.comm().get(), ierr);
-  ierr = DMSetUp(dm);
-  CHKERRABORT(nl.comm().get(), ierr);
-  ierr = SNESSetDM(snes, dm);
-  CHKERRABORT(nl.comm().get(), ierr);
-  ierr = DMDestroy(&dm);
-  CHKERRABORT(nl.comm().get(), ierr);
+  LibmeshPetscCallA(nl.comm().get(), DMCreateMoose(nl.comm().get(), nl, dm_name, &dm));
+  LibmeshPetscCallA(nl.comm().get(), DMSetFromOptions(dm));
+  LibmeshPetscCallA(nl.comm().get(), DMSetUp(dm));
+  LibmeshPetscCallA(nl.comm().get(), SNESSetDM(snes, dm));
+  LibmeshPetscCallA(nl.comm().get(), DMDestroy(&dm));
   // We temporarily comment out this updating function because
   // we lack an approach to check if the problem
   // structure has been changed from the last iteration.
@@ -226,22 +222,25 @@ addPetscOptionsFromCommandline()
     int argc;
     char ** args;
 
-    PetscGetArgs(&argc, &args);
+    LibmeshPetscCallA(PETSC_COMM_WORLD, PetscGetArgs(&argc, &args));
 #if PETSC_VERSION_LESS_THAN(3, 7, 0)
-    PetscOptionsInsert(&argc, &args, NULL);
+    LibmeshPetscCallA(PETSC_COMM_WORLD, PetscOptionsInsert(&argc, &args, NULL));
 #else
-    PetscOptionsInsert(LIBMESH_PETSC_NULLPTR, &argc, &args, NULL);
+    LibmeshPetscCallA(PETSC_COMM_WORLD,
+                      PetscOptionsInsert(LIBMESH_PETSC_NULLPTR, &argc, &args, NULL));
 #endif
   }
 }
 
 void
-petscSetOptions(const PetscOptions & po, const SolverParams & solver_params)
+petscSetOptions(const PetscOptions & po,
+                const SolverParams & solver_params,
+                FEProblemBase * const problem /*=nullptr*/)
 {
 #if PETSC_VERSION_LESS_THAN(3, 7, 0)
-  PetscOptionsClear();
+  LibmeshPetscCallA(PETSC_COMM_WORLD, PetscOptionsClear());
 #else
-  PetscOptionsClear(LIBMESH_PETSC_NULLPTR);
+  LibmeshPetscCallA(PETSC_COMM_WORLD, PetscOptionsClear(LIBMESH_PETSC_NULLPTR));
 #endif
 
   setSolverOptions(solver_params);
@@ -252,7 +251,7 @@ petscSetOptions(const PetscOptions & po, const SolverParams & solver_params)
 
   // Add option pairs
   for (auto & option : po.pairs)
-    setSinglePetscOption(option.first, option.second);
+    setSinglePetscOption(option.first, option.second, problem);
 
   addPetscOptionsFromCommandline();
 }
@@ -260,6 +259,7 @@ petscSetOptions(const PetscOptions & po, const SolverParams & solver_params)
 PetscErrorCode
 petscSetupOutput(CommandLine * cmd_line)
 {
+  PetscFunctionBegin;
   char code[10] = {45, 45, 109, 111, 111, 115, 101};
   const std::vector<std::string> argv = cmd_line->getArguments();
   for (const auto & arg : argv)
@@ -270,146 +270,55 @@ petscSetupOutput(CommandLine * cmd_line)
       break;
     }
   }
-  return 0;
+  PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 PetscErrorCode
-petscNonlinearConverged(SNES snes,
+petscNonlinearConverged(SNES /*snes*/,
                         PetscInt it,
-                        PetscReal xnorm,
-                        PetscReal snorm,
-                        PetscReal fnorm,
+                        PetscReal /*xnorm*/,
+                        PetscReal /*snorm*/,
+                        PetscReal /*fnorm*/,
                         SNESConvergedReason * reason,
                         void * ctx)
 {
+  PetscFunctionBegin;
   FEProblemBase & problem = *static_cast<FEProblemBase *>(ctx);
 
-  // Let's be nice and always check PETSc error codes.
-  PetscErrorCode ierr = 0;
+  // execute objects that may be used in convergence check
+  problem.execute(EXEC_NONLINEAR_CONVERGENCE);
 
-  // Temporary variables to store SNES tolerances.  Usual C-style would be to declare
-  // but not initialize these... but it bothers me to leave anything uninitialized.
-  PetscReal atol = 0.; // absolute convergence tolerance
-  PetscReal rtol = 0.; // relative convergence tolerance
-  PetscReal stol = 0.; // convergence (step) tolerance in terms of the norm of the change in the
-                       // solution between steps
-  PetscInt maxit = 0;  // maximum number of iterations
-  PetscInt maxf = 0;   // maximum number of function evaluations
-
-  // Ask the SNES object about its tolerances.
-  ierr = SNESGetTolerances(snes, &atol, &rtol, &stol, &maxit, &maxf);
-  CHKERRABORT(problem.comm().get(), ierr);
-
-  // Ask the SNES object about its divergence tolerance.
-  PetscReal divtol = 0.; // relative divergence tolerance
-#if !PETSC_VERSION_LESS_THAN(3, 8, 0)
-  ierr = SNESGetDivergenceTolerance(snes, &divtol);
-  CHKERRABORT(problem.comm().get(), ierr);
-#endif
-
-  // Get current number of function evaluations done by SNES.
-  PetscInt nfuncs = 0;
-  ierr = SNESGetNumberFunctionEvals(snes, &nfuncs);
-  CHKERRABORT(problem.comm().get(), ierr);
-
-  // Whether or not to force SNESSolve() take at least one iteration regardless of the initial
-  // residual norm
-#if !PETSC_VERSION_LESS_THAN(3, 8, 4)
-  PetscBool force_iteration = PETSC_FALSE;
-  ierr = SNESGetForceIteration(snes, &force_iteration);
-  CHKERRABORT(problem.comm().get(), ierr);
-
-  if (force_iteration && !(problem.getNonlinearForcedIterations()))
-    problem.setNonlinearForcedIterations(1);
-
-  if (!force_iteration && (problem.getNonlinearForcedIterations()))
+  // perform the convergence check
+  Convergence::MooseConvergenceStatus status;
+  if (problem.getFailNextNonlinearConvergenceCheck())
   {
-    ierr = SNESSetForceIteration(snes, PETSC_TRUE);
-    CHKERRABORT(problem.comm().get(), ierr);
+    status = Convergence::MooseConvergenceStatus::DIVERGED;
+    problem.resetFailNextNonlinearConvergenceCheck();
   }
-#endif
-
-  // See if SNESSetFunctionDomainError() has been called.  Note:
-  // SNESSetFunctionDomainError() and SNESGetFunctionDomainError()
-  // were added in different releases of PETSc.
-  PetscBool domainerror;
-  ierr = SNESGetFunctionDomainError(snes, &domainerror);
-  CHKERRABORT(problem.comm().get(), ierr);
-  if (domainerror)
+  else
   {
-    *reason = SNES_DIVERGED_FUNCTION_DOMAIN;
-    return 0;
+    auto & convergence = problem.getConvergence(
+        problem.getNonlinearConvergenceNames()[problem.currentNonlinearSystem().number()]);
+    status = convergence.checkConvergence(it);
   }
 
-  // Error message that will be set by the FEProblemBase.
-  std::string msg;
-
-  // xnorm: 2-norm of current iterate
-  // snorm: 2-norm of current step
-  // fnorm: 2-norm of function at current iterate
-  MooseNonlinearConvergenceReason moose_reason =
-      problem.checkNonlinearConvergence(msg,
-                                        it,
-                                        xnorm,
-                                        snorm,
-                                        fnorm,
-                                        rtol,
-                                        divtol,
-                                        stol,
-                                        atol,
-                                        nfuncs,
-                                        maxf,
-                                        std::numeric_limits<Real>::max());
-
-  if (msg.length() > 0)
-#if !PETSC_VERSION_LESS_THAN(3, 17, 0)
-    PetscInfo(snes, "%s", msg.c_str());
-#else
-    PetscInfo(snes, msg.c_str());
-#endif
-
-  switch (moose_reason)
+  // convert convergence status to PETSc converged reason
+  switch (status)
   {
-    case MooseNonlinearConvergenceReason::ITERATING:
+    case Convergence::MooseConvergenceStatus::ITERATING:
       *reason = SNES_CONVERGED_ITERATING;
       break;
 
-    case MooseNonlinearConvergenceReason::CONVERGED_FNORM_ABS:
+    case Convergence::MooseConvergenceStatus::CONVERGED:
       *reason = SNES_CONVERGED_FNORM_ABS;
       break;
 
-    case MooseNonlinearConvergenceReason::CONVERGED_FNORM_RELATIVE:
-      *reason = SNES_CONVERGED_FNORM_RELATIVE;
-      break;
-
-    case MooseNonlinearConvergenceReason::DIVERGED_DTOL:
-#if !PETSC_VERSION_LESS_THAN(3, 8, 0) // A new convergence enum in PETSc 3.8
+    case Convergence::MooseConvergenceStatus::DIVERGED:
       *reason = SNES_DIVERGED_DTOL;
-#endif
-      break;
-
-    case MooseNonlinearConvergenceReason::CONVERGED_SNORM_RELATIVE:
-      *reason = SNES_CONVERGED_SNORM_RELATIVE;
-      break;
-
-    case MooseNonlinearConvergenceReason::DIVERGED_FUNCTION_COUNT:
-      *reason = SNES_DIVERGED_FUNCTION_COUNT;
-      break;
-
-    case MooseNonlinearConvergenceReason::DIVERGED_FNORM_NAN:
-      *reason = SNES_DIVERGED_FNORM_NAN;
-      break;
-
-    case MooseNonlinearConvergenceReason::DIVERGED_LINE_SEARCH:
-      *reason = SNES_DIVERGED_LINE_SEARCH;
-      break;
-
-    case MooseNonlinearConvergenceReason::DIVERGED_NL_RESIDUAL_PINGPONG:
-      *reason = SNES_DIVERGED_LOCAL_MIN;
       break;
   }
 
-  return 0;
+  PetscFunctionReturn(PETSC_SUCCESS);
 }
 
 PCSide
@@ -456,7 +365,8 @@ petscSetDefaultKSPNormType(FEProblemBase & problem, KSP ksp)
   for (const auto i : make_range(problem.numSolverSystems()))
   {
     SolverSystem & sys = problem.getSolverSystem(i);
-    KSPSetNormType(ksp, getPetscKSPNormType(sys.getMooseKSPNormType()));
+    LibmeshPetscCallA(problem.comm().get(),
+                      KSPSetNormType(ksp, getPetscKSPNormType(sys.getMooseKSPNormType())));
   }
 }
 
@@ -469,7 +379,7 @@ petscSetDefaultPCSide(FEProblemBase & problem, KSP ksp)
 
     // PETSc 3.2.x+
     if (sys.getPCSide() != Moose::PCS_DEFAULT)
-      KSPSetPCSide(ksp, getPetscPCSide(sys.getPCSide()));
+      LibmeshPetscCallA(problem.comm().get(), KSPSetPCSide(ksp, getPetscPCSide(sys.getPCSide())));
   }
 }
 
@@ -488,7 +398,7 @@ petscSetKSPDefaults(FEProblemBase & problem, KSP ksp)
   PetscReal maxits = es.parameters.get<unsigned int>("linear solver maximum iterations");
 
   // 1e100 is because we don't use divtol currently
-  KSPSetTolerances(ksp, rtol, atol, 1e100, maxits);
+  LibmeshPetscCallA(problem.comm().get(), KSPSetTolerances(ksp, rtol, atol, 1e100, maxits));
 
   petscSetDefaultPCSide(problem, ksp);
 
@@ -502,18 +412,25 @@ petscSetDefaults(FEProblemBase & problem)
   {
     // dig out PETSc solver
     NonlinearSystemBase & nl = problem.getNonlinearSystemBase(nl_index);
-    PetscNonlinearSolver<Number> * petsc_solver =
-        dynamic_cast<PetscNonlinearSolver<Number> *>(nl.nonlinearSolver());
+    auto * const petsc_solver = cast_ptr<PetscNonlinearSolver<Number> *>(nl.nonlinearSolver());
+    auto * const sys_matrix = petsc_solver->system().request_matrix("System Matrix");
+    // Prefix the name of the system matrix with the name of the system
+    if (sys_matrix && problem.solverParams()._type != Moose::ST_JFNK)
+    {
+      auto * const petsc_sys_matrix = cast_ptr<PetscMatrix<Number> *>(sys_matrix);
+      LibmeshPetscCall2(
+          nl.comm(),
+          MatSetOptionsPrefix(petsc_sys_matrix->mat(),
+                              (problem.getNonlinearSystemNames()[nl_index] + "_").c_str()));
+      LibmeshPetscCall2(nl.comm(), MatSetFromOptions(petsc_sys_matrix->mat()));
+    }
     SNES snes = petsc_solver->snes();
     KSP ksp;
-    auto ierr = SNESGetKSP(snes, &ksp);
-    CHKERRABORT(nl.comm().get(), ierr);
+    LibmeshPetscCallA(nl.comm().get(), SNESGetKSP(snes, &ksp));
 
-    ierr = SNESSetMaxLinearSolveFailures(snes, 1000000);
-    CHKERRABORT(nl.comm().get(), ierr);
+    LibmeshPetscCallA(nl.comm().get(), SNESSetMaxLinearSolveFailures(snes, 1000000));
 
-    ierr = SNESSetCheckJacobianDomainError(snes, PETSC_TRUE);
-    CHKERRABORT(nl.comm().get(), ierr);
+    LibmeshPetscCallA(nl.comm().get(), SNESSetCheckJacobianDomainError(snes, PETSC_TRUE));
 
     // In 3.0.0, the context pointer must actually be used, and the
     // final argument to KSPSetConvergenceTest() is a pointer to a
@@ -521,8 +438,9 @@ petscSetDefaults(FEProblemBase & problem)
     // we use the default context provided by PETSc in addition to
     // a few other tests.
     {
-      ierr = SNESSetConvergenceTest(snes, petscNonlinearConverged, &problem, LIBMESH_PETSC_NULLPTR);
-      CHKERRABORT(nl.comm().get(), ierr);
+      LibmeshPetscCallA(
+          nl.comm().get(),
+          SNESSetConvergenceTest(snes, petscNonlinearConverged, &problem, LIBMESH_PETSC_NULLPTR));
     }
 
     petscSetKSPDefaults(problem, ksp);
@@ -634,8 +552,8 @@ processPetscFlags(const MultiMooseEnum & petsc_flags, PetscOptions & po)
     }
 
     // Update the stored items, but do not create duplicates
-    if (!po.flags.contains(option))
-      po.flags.push_back(option);
+    if (!po.flags.isValueSet(option))
+      po.flags.setAdditionalValue(option);
   }
 }
 
@@ -651,7 +569,7 @@ processPetscPairs(const std::vector<std::pair<MooseEnumItem, std::string>> & pet
        std::make_pair(false, "-ksp_converged_reason")}};
 
   for (auto & reason_flag : reason_flags)
-    if (po.flags.contains(reason_flag.second))
+    if (po.flags.isValueSet(reason_flag.second))
       // We register the reason option as already existing
       reason_flag.first = true;
 
@@ -898,7 +816,7 @@ isSNESVI(FEProblemBase & fe_problem)
 
   int argc;
   char ** args;
-  PetscGetArgs(&argc, &args);
+  LibmeshPetscCallA(fe_problem.comm().get(), PetscGetArgs(&argc, &args));
 
   std::vector<std::string> cml_arg;
   for (int i = 0; i < argc; i++)
@@ -914,23 +832,79 @@ isSNESVI(FEProblemBase & fe_problem)
 }
 
 void
-setSinglePetscOption(const std::string & name, const std::string & value)
+setSinglePetscOption(const std::string & name,
+                     const std::string & value,
+                     FEProblemBase * const problem /*=nullptr*/)
 {
-  PetscErrorCode ierr;
+  static const TIMPI::Communicator comm_world(PETSC_COMM_WORLD);
+  const TIMPI::Communicator & comm = problem ? problem->comm() : comm_world;
+  LibmeshPetscCall2(comm,
+                    PetscOptionsSetValue(LIBMESH_PETSC_NULLPTR,
+                                         name.c_str(),
+                                         value == "" ? LIBMESH_PETSC_NULLPTR : value.c_str()));
+  const auto lower_case_name = MooseUtils::toLower(name);
+  auto check_problem = [problem, &lower_case_name]()
+  {
+    if (!problem)
+      mooseError(
+          "Setting the option '",
+          lower_case_name,
+          "' requires passing a 'problem' parameter. Contact a developer of your application "
+          "to have them update their code. If in doubt, reach out to the MOOSE team on Github "
+          "discussions");
+  };
 
-#if PETSC_VERSION_LESS_THAN(3, 7, 0)
-  ierr = PetscOptionsSetValue(name.c_str(), value == "" ? LIBMESH_PETSC_NULLPTR : value.c_str());
-#else
-  // PETSc 3.7.0 and later version.  First argument is the options
-  // database to use, NULL indicates the default global database.
-  ierr = PetscOptionsSetValue(
-      LIBMESH_PETSC_NULLPTR, name.c_str(), value == "" ? LIBMESH_PETSC_NULLPTR : value.c_str());
-#endif
+  // Select vector type from user-passed PETSc options
+  if (lower_case_name.find("-vec_type") != std::string::npos)
+  {
+    check_problem();
+    for (auto & solver_system : problem->_solver_systems)
+    {
+      auto & lm_sys = solver_system->system();
+      for (auto & [vec_name, vec] : as_range(lm_sys.vectors_begin(), lm_sys.vectors_end()))
+      {
+        libmesh_ignore(vec_name);
+        auto * const petsc_vec = cast_ptr<PetscVector<Number> *>(vec.get());
+        LibmeshPetscCall2(comm, VecSetFromOptions(petsc_vec->vec()));
+      }
+      // The solution vectors aren't included in the system vectors storage
+      auto * petsc_vec = cast_ptr<PetscVector<Number> *>(lm_sys.solution.get());
+      LibmeshPetscCall2(comm, VecSetFromOptions(petsc_vec->vec()));
+      petsc_vec = cast_ptr<PetscVector<Number> *>(lm_sys.current_local_solution.get());
+      LibmeshPetscCall2(comm, VecSetFromOptions(petsc_vec->vec()));
+    }
+  }
+  // Select matrix type from user-passed PETSc options
+  else if (lower_case_name.find("mat_type") != std::string::npos)
+  {
+    check_problem();
+    if (problem->solverParams()._type == Moose::ST_JFNK)
+      mooseError("Setting option '", lower_case_name, "' is incompatible with a JFNK 'solve_type'");
 
-  // Not convenient to use the usual error checking macro, because we
-  // don't have a specific communicator in this helper function.
-  if (ierr)
-    mooseError("Error setting PETSc option: ", name);
+    bool found_matching_prefix = false;
+    for (const auto i : index_range(problem->_solver_systems))
+    {
+      const auto & prefix = problem->_solver_sys_names[i];
+      if (lower_case_name.find("-" + MooseUtils::toLower(prefix) + "_mat_type") ==
+          std::string::npos)
+        continue;
+
+      auto & lm_sys = problem->_solver_systems[i]->system();
+      for (auto & [mat_name, mat] : as_range(lm_sys.matrices_begin(), lm_sys.matrices_end()))
+      {
+        libmesh_ignore(mat_name);
+        auto * const petsc_mat = cast_ptr<PetscMatrix<Number> *>(mat.get());
+        LibmeshPetscCall2(comm, MatSetFromOptions(petsc_mat->mat()));
+      }
+      found_matching_prefix = true;
+      break;
+    }
+
+    if (!found_matching_prefix)
+      mooseError("We did not find a matching solver system name for the petsc option '",
+                 lower_case_name,
+                 "'");
+  }
 }
 
 void
@@ -942,41 +916,38 @@ colorAdjacencyMatrix(PetscScalar * adjacency_matrix,
 {
   // Mat A will be a dense matrix from the incoming data structure
   Mat A;
-  MatCreate(MPI_COMM_SELF, &A);
-  MatSetSizes(A, size, size, size, size);
-  MatSetType(A, MATSEQDENSE);
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatCreate(PETSC_COMM_SELF, &A));
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatSetSizes(A, size, size, size, size));
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatSetType(A, MATSEQDENSE));
   // PETSc requires a non-const data array to populate the matrix
-  MatSeqDenseSetPreallocation(A, adjacency_matrix);
-  MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-  MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatSeqDenseSetPreallocation(A, adjacency_matrix));
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY));
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY));
 
   // Convert A to a sparse matrix
-  MatConvert(A,
-             MATAIJ,
 #if PETSC_VERSION_LESS_THAN(3, 7, 0)
-             MAT_REUSE_MATRIX,
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatConvert(A, MATAIJ, MAT_REUSE_MATRIX, &A));
 #else
-             MAT_INPLACE_MATRIX,
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatConvert(A, MATAIJ, MAT_INPLACE_MATRIX, &A));
 #endif
-             &A);
 
   ISColoring iscoloring;
   MatColoring mc;
-  MatColoringCreate(A, &mc);
-  MatColoringSetType(mc, coloring_algorithm);
-  MatColoringSetMaxColors(mc, static_cast<PetscInt>(colors));
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatColoringCreate(A, &mc));
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatColoringSetType(mc, coloring_algorithm));
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatColoringSetMaxColors(mc, static_cast<PetscInt>(colors)));
 
   // Petsc normally colors by distance two (neighbors of neighbors), we just want one
-  MatColoringSetDistance(mc, 1);
-  MatColoringSetFromOptions(mc);
-  MatColoringApply(mc, &iscoloring);
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatColoringSetDistance(mc, 1));
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatColoringSetFromOptions(mc));
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatColoringApply(mc, &iscoloring));
 
   PetscInt nn;
   IS * is;
 #if PETSC_RELEASE_LESS_THAN(3, 12, 0)
-  ISColoringGetIS(iscoloring, &nn, &is);
+  LibmeshPetscCallA(PETSC_COMM_SELF, ISColoringGetIS(iscoloring, &nn, &is));
 #else
-  ISColoringGetIS(iscoloring, PETSC_USE_POINTER, &nn, &is);
+  LibmeshPetscCallA(PETSC_COMM_SELF, ISColoringGetIS(iscoloring, PETSC_USE_POINTER, &nn, &is));
 #endif
 
   if (nn > static_cast<PetscInt>(colors))
@@ -986,19 +957,19 @@ colorAdjacencyMatrix(PetscScalar * adjacency_matrix,
   {
     PetscInt isize;
     const PetscInt * indices;
-    ISGetLocalSize(is[i], &isize);
-    ISGetIndices(is[i], &indices);
+    LibmeshPetscCallA(PETSC_COMM_SELF, ISGetLocalSize(is[i], &isize));
+    LibmeshPetscCallA(PETSC_COMM_SELF, ISGetIndices(is[i], &indices));
     for (int j = 0; j < isize; j++)
     {
       mooseAssert(indices[j] < static_cast<PetscInt>(vertex_colors.size()), "Index out of bounds");
       vertex_colors[indices[j]] = i;
     }
-    ISRestoreIndices(is[i], &indices);
+    LibmeshPetscCallA(PETSC_COMM_SELF, ISRestoreIndices(is[i], &indices));
   }
 
-  MatDestroy(&A);
-  MatColoringDestroy(&mc);
-  ISColoringDestroy(&iscoloring);
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatDestroy(&A));
+  LibmeshPetscCallA(PETSC_COMM_SELF, MatColoringDestroy(&mc));
+  LibmeshPetscCallA(PETSC_COMM_SELF, ISColoringDestroy(&iscoloring));
 }
 
 void
@@ -1006,7 +977,7 @@ disableNonlinearConvergedReason(FEProblemBase & fe_problem)
 {
   auto & petsc_options = fe_problem.getPetscOptions();
 
-  petsc_options.flags.erase("-snes_converged_reason");
+  petsc_options.flags.eraseSetValue("-snes_converged_reason");
 
   auto & pairs = petsc_options.pairs;
   auto it = MooseUtils::findPair(pairs, "-snes_converged_reason", MooseUtils::Any);
@@ -1019,7 +990,7 @@ disableLinearConvergedReason(FEProblemBase & fe_problem)
 {
   auto & petsc_options = fe_problem.getPetscOptions();
 
-  petsc_options.flags.erase("-ksp_converged_reason");
+  petsc_options.flags.eraseSetValue("-ksp_converged_reason");
 
   auto & pairs = petsc_options.pairs;
   auto it = MooseUtils::findPair(pairs, "-ksp_converged_reason", MooseUtils::Any);

@@ -41,8 +41,8 @@ FunctionParserUtils<is_ad>::validParams()
 
   params.addParamNamesToGroup(
       "enable_jit enable_ad_cache enable_auto_optimize disable_fpoptimizer evalerror_behavior",
-      "Advanced");
-
+      "Parsed expression advanced");
+  params.addParam<Real>("epsilon", FunctionParser::epsilon(), "Fuzzy comparison tolerance");
   return params;
 }
 
@@ -62,7 +62,8 @@ FunctionParserUtils<is_ad>::FunctionParserUtils(const InputParameters & paramete
     _disable_fpoptimizer(parameters.get<bool>("disable_fpoptimizer")),
     _enable_auto_optimize(parameters.get<bool>("enable_auto_optimize") && !_disable_fpoptimizer),
     _evalerror_behavior(parameters.get<MooseEnum>("evalerror_behavior").getEnum<FailureMethod>()),
-    _quiet_nan(std::numeric_limits<Real>::quiet_NaN())
+    _quiet_nan(std::numeric_limits<Real>::quiet_NaN()),
+    _epsilon(parameters.get<Real>("epsilon"))
 {
 #ifndef LIBMESH_HAVE_FPARSER_JIT
   if (_enable_jit)
@@ -85,12 +86,28 @@ template <bool is_ad>
 GenericReal<is_ad>
 FunctionParserUtils<is_ad>::evaluate(SymFunctionPtr & parser, const std::string & name)
 {
+  return evaluate(parser, _func_params, name);
+}
+
+template <bool is_ad>
+GenericReal<is_ad>
+FunctionParserUtils<is_ad>::evaluate(SymFunctionPtr & parser,
+                                     const std::vector<GenericReal<is_ad>> & func_params,
+                                     const std::string & name)
+{
   // null pointer is a shortcut for vanishing derivatives, see functionsOptimize()
   if (parser == NULL)
     return 0.0;
 
+  // set desired epsilon
+  auto tmp_eps = parser->epsilon();
+  parser->setEpsilon(_epsilon);
+
   // evaluate expression
-  auto result = parser->Eval(_func_params.data());
+  auto result = parser->Eval(func_params.data());
+
+  // restore epsilon
+  parser->setEpsilon(tmp_eps);
 
   // fetch fparser evaluation error (set to unknown if the JIT result is nan)
   int error_code = _enable_jit ? (std::isnan(result) ? -1 : 0) : parser->EvalError();
@@ -139,7 +156,9 @@ FunctionParserUtils<is_ad>::addFParserConstants(
   // check constant vectors
   unsigned int nconst = constant_expressions.size();
   if (nconst != constant_names.size())
-    mooseError("The parameter vectors constant_names and constant_values must have equal length.");
+    mooseError("The parameter vectors constant_names (size " +
+               std::to_string(constant_names.size()) + ") and constant_expressions (size " +
+               std::to_string(nconst) + ") must have equal length.");
 
   // previously evaluated constant_expressions may be used in following constant_expressions
   std::vector<Real> constant_values(nconst);

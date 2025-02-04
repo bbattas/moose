@@ -28,6 +28,8 @@ SinglePhaseFluidProperties::validParams()
       2e5,
       "p_initial_guess > 0",
       "Pressure initial guess for Newton Method variable set conversion");
+  params.addParam<unsigned int>(
+      "max_newton_its", 100, "Maximum number of Newton iterations for variable set conversions");
   params.addParamNamesToGroup("tolerance T_initial_guess p_initial_guess",
                               "Variable set conversions Newton solve");
 
@@ -39,7 +41,8 @@ SinglePhaseFluidProperties::SinglePhaseFluidProperties(const InputParameters & p
     // downstream apps are creating fluid properties without their parameters, hence the workaround
     _tolerance(isParamValid("tolerance") ? getParam<Real>("tolerance") : 1e-8),
     _T_initial_guess(isParamValid("T_initial_guess") ? getParam<Real>("T_initial_guess") : 400),
-    _p_initial_guess(isParamValid("p_initial_guess") ? getParam<Real>("p_initial_guess") : 2e5)
+    _p_initial_guess(isParamValid("p_initial_guess") ? getParam<Real>("p_initial_guess") : 2e5),
+    _max_newton_its(getParam<unsigned int>("max_newton_its"))
 {
 }
 
@@ -199,6 +202,22 @@ SinglePhaseFluidProperties::k_from_p_T(Real p, Real T, Real & k, Real & dk_dp, R
 }
 
 Real
+SinglePhaseFluidProperties::h_from_v_e(Real v, Real e) const
+{
+  return e + v * p_from_v_e(v, e);
+}
+
+void
+SinglePhaseFluidProperties::h_from_v_e(Real v, Real e, Real & h, Real & dh_dv, Real & dh_de) const
+{
+  Real p, dp_dv, dp_de;
+  p_from_v_e(v, e, p, dp_dv, dp_de);
+  h = e + v * p;
+  dh_dv = p + v * dp_dv;
+  dh_de = 1 + v * dp_de;
+}
+
+Real
 SinglePhaseFluidProperties::e_from_p_T(Real p, Real T) const
 {
   const Real rho = rho_from_p_T(p, T);
@@ -345,7 +364,8 @@ SinglePhaseFluidProperties::gamma_from_p_T(
   gamma = gamma_from_p_T(p, T);
 }
 
-Real SinglePhaseFluidProperties::vaporPressure(Real) const
+Real
+SinglePhaseFluidProperties::vaporPressure(Real) const
 {
   mooseError(__PRETTY_FUNCTION__, " not implemented.");
 }
@@ -380,7 +400,8 @@ SinglePhaseFluidProperties::vaporPressure(const ADReal & T) const
   return result;
 }
 
-Real SinglePhaseFluidProperties::vaporTemperature(Real) const
+Real
+SinglePhaseFluidProperties::vaporTemperature(Real) const
 {
   mooseError(__PRETTY_FUNCTION__, " not implemented.");
 }
@@ -454,7 +475,8 @@ SinglePhaseFluidProperties::rho_mu_from_p_T(const ADReal & p,
   mu = mu_from_p_T(p, T);
 }
 
-Real SinglePhaseFluidProperties::e_spndl_from_v(Real) const
+Real
+SinglePhaseFluidProperties::e_spndl_from_v(Real) const
 {
   mooseError(__PRETTY_FUNCTION__, " not implemented.");
 }

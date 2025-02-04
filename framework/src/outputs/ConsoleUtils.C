@@ -21,8 +21,17 @@
 #include "NonlinearSystem.h"
 #include "OutputWarehouse.h"
 #include "SystemInfo.h"
+#include "Checkpoint.h"
+#include "InputParameterWarehouse.h"
+#include "Registry.h"
+#include "CommandLine.h"
+
+#include <filesystem>
 
 #include "libmesh/string_to_enum.h"
+#include "libmesh/simple_range.h"
+
+using namespace libMesh;
 
 namespace ConsoleUtils
 {
@@ -41,6 +50,38 @@ outputFrameworkInformation(const MooseApp & app)
 
   if (app.getSystemInfo() != NULL)
     oss << app.getSystemInfo()->getInfo();
+
+  oss << "Input File(s):\n";
+  for (const auto & entry : app.getInputFileNames())
+    oss << "  " << std::filesystem::absolute(entry).c_str() << "\n";
+  oss << "\n";
+
+  const auto & cl = std::as_const(*app.commandLine());
+  // We skip the 0th argument of the main app, i.e., the name used to invoke the program
+  const auto cl_range =
+      as_range(std::next(cl.getEntries().begin(), app.multiAppLevel() == 0), cl.getEntries().end());
+
+  std::stringstream args_oss;
+  for (const auto & entry : cl_range)
+    if (!entry.hit_param && !entry.subapp_name && entry.name != "-i")
+      args_oss << "  " << cl.formatEntry(entry) << "\n";
+  if (args_oss.str().size())
+    oss << "Command Line Argument(s):\n" << args_oss.str() << "\n";
+
+  std::stringstream input_args_oss;
+  for (const auto & entry : cl_range)
+    if (entry.hit_param && !entry.subapp_name)
+      input_args_oss << "  " << cl.formatEntry(entry) << "\n";
+  if (input_args_oss.str().size())
+    oss << "Command Line Input Argument(s):\n" << input_args_oss.str() << "\n";
+
+  const auto checkpoints = app.getOutputWarehouse().getOutputs<Checkpoint>();
+  if (checkpoints.size())
+  {
+    oss << std::left << "Checkpoint:\n";
+    oss << checkpoints[0]->checkpointInfo().str();
+    oss << std::endl;
+  }
 
   oss << std::left << "Parallelism:\n"
       << std::setw(console_field_width)
@@ -327,9 +368,10 @@ outputExecutionInformation(const MooseApp & app, FEProblemBase & problem)
   std::string time_stepper = exec->getTimeStepperName();
   if (time_stepper != "")
     oss << std::setw(console_field_width) << "  TimeStepper: " << time_stepper << '\n';
-  std::string time_integrator = exec->getTimeIntegratorName();
-  if (time_integrator != "")
-    oss << std::setw(console_field_width) << "  TimeIntegrator: " << time_integrator << '\n';
+  const auto time_integrator_names = exec->getTimeIntegratorNames();
+  if (!time_integrator_names.empty())
+    oss << std::setw(console_field_width)
+        << "  TimeIntegrator(s): " << MooseUtils::join(time_integrator_names, ", ") << '\n';
 
   oss << std::setw(console_field_width) << "  Solver Mode: " << problem.solverTypeString() << '\n';
 
@@ -346,7 +388,7 @@ outputExecutionInformation(const MooseApp & app, FEProblemBase & problem)
           << "  MOOSE Preconditioner" +
                  (problem.numNonlinearSystems() > 1 ? (" " + std::to_string(i)) : "") + ": "
           << mpc->getParam<std::string>("_type");
-      if (mpc->name() == "_moose_auto")
+      if (mpc->name().find("_moose_auto") != std::string::npos)
         oss << " (auto)";
       oss << '\n';
     }
@@ -386,6 +428,23 @@ outputOutputInformation(MooseApp & app)
 }
 
 std::string
+outputPreSMOResidualInformation()
+{
+  std::stringstream oss;
+  oss << std::left;
+
+  oss << COLOR_BLUE;
+  oss << "Executioner/use_pre_smo_residual is set to true. The pre-SMO residual will be evaluated "
+         "at the beginning of each time step before executing objects that could modify the "
+         "solution, such as preset BCs, predictors, correctors, constraints, and certain user "
+         "objects. The pre-SMO residuals will be prefixed with * and will be used in the relative "
+         "convergence check.\n";
+  oss << COLOR_DEFAULT;
+
+  return oss.str();
+}
+
+std::string
 outputLegacyInformation(MooseApp & app)
 {
   std::stringstream oss;
@@ -419,6 +478,39 @@ outputLegacyInformation(MooseApp & app)
   }
 
   return oss.str();
+}
+
+std::string
+outputDataFilePaths()
+{
+  std::stringstream oss;
+  oss << "Data File Paths:\n";
+  for (const auto & [name, path] : Registry::getDataFilePaths())
+    oss << "  " << name << ": " << path << "\n";
+  return oss.str() + "\n";
+}
+
+std::string
+outputDataFileParams(MooseApp & app)
+{
+  std::map<std::string, std::string> values; // for A-Z sort
+  for (const auto & object_name_params_pair : app.getInputParameterWarehouse().getInputParameters())
+  {
+    const auto & params = object_name_params_pair.second;
+    for (const auto & name_value_pair : *params)
+    {
+      const auto & name = name_value_pair.first;
+      if (const auto path = params->queryDataFileNamePath(name))
+        if (params->getHitNode(name))
+          values.emplace(params->paramFullpath(name), path->path);
+    }
+  }
+
+  std::stringstream oss;
+  oss << "Data File Parameters:\n";
+  for (const auto & [param, value] : values)
+    oss << "  " << param << " = " << value << "\n";
+  return oss.str() + '\n';
 }
 
 void

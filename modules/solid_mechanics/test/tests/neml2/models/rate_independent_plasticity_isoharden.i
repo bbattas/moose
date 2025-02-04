@@ -11,12 +11,15 @@
     saturation_rate = 1.2
   []
   [elastic_strain]
-    type = ElasticStrain
+    type = SR2LinearCombination
+    from_var = 'forces/E state/internal/Ep'
+    to_var = 'state/internal/Ee'
+    coefficients = '1 -1'
   []
   [elasticity]
     type = LinearIsotropicElasticity
-    youngs_modulus = 1e5
-    poisson_ratio = 0.3
+    coefficients = '1e5 0.3'
+    coefficient_types = 'YOUNGS_MODULUS POISSONS_RATIO'
   []
   [mandel_stress]
     type = IsotropicMandelStress
@@ -51,11 +54,11 @@
   []
   [integrate_ep]
     type = ScalarBackwardEulerTimeIntegration
-    variable = 'internal/ep'
+    variable = 'state/internal/ep'
   []
   [integrate_Ep]
     type = SR2BackwardEulerTimeIntegration
-    variable = 'internal/Ep'
+    variable = 'state/internal/Ep'
   []
   [consistency]
     type = RateIndependentPlasticFlowConstraint

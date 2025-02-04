@@ -154,7 +154,9 @@ MeshGenerator::checkGetMesh(const MeshGeneratorName & mesh_generator_name,
                "order of your MeshGenerators.\n\nThe most likely case is a sub generator whose "
                "input(s) are not declared as a sub dependency in the generator creating them.";
     else
-      error << "was not found.";
+      error << "was not found.\nMesh generators that can be found: "
+            << Moose::stringify(mg_sys.getMeshGeneratorNames());
+
     if (param_name.size())
       paramError(param_name, error.str());
     else
@@ -300,7 +302,7 @@ MeshGenerator::generateInternal()
 
     if (!getParam<bool>("nemesis"))
     {
-      ExodusII_IO exio(*mesh);
+      libMesh::ExodusII_IO exio(*mesh);
 
       if (mesh->mesh_dimension() == 1)
         exio.write_as_dimension(3);
@@ -312,7 +314,7 @@ MeshGenerator::generateInternal()
     }
     else
     {
-      Nemesis_IO nemesis_io(*mesh);
+      libMesh::Nemesis_IO nemesis_io(*mesh);
 
       // Default to non-HDF5 output for wider compatibility
       nemesis_io.set_hdf5_writing(false);

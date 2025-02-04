@@ -27,6 +27,7 @@
 const ExecFlagType EXEC_NONE = registerDefaultExecFlag("NONE");
 const ExecFlagType EXEC_INITIAL = registerDefaultExecFlag("INITIAL");
 const ExecFlagType EXEC_LINEAR = registerDefaultExecFlag("LINEAR");
+const ExecFlagType EXEC_NONLINEAR_CONVERGENCE = registerDefaultExecFlag("NONLINEAR_CONVERGENCE");
 const ExecFlagType EXEC_NONLINEAR = registerDefaultExecFlag("NONLINEAR");
 const ExecFlagType EXEC_POSTCHECK = registerDefaultExecFlag("POSTCHECK");
 const ExecFlagType EXEC_TIMESTEP_END = registerDefaultExecFlag("TIMESTEP_END");
@@ -58,7 +59,7 @@ registerAll(Factory & f, ActionFactory & af, Syntax & s)
   registerObjects(f, {"MooseApp"});
   associateSyntaxInner(s, af);
   registerActions(s, af, {"MooseApp"});
-  registerDataFilePath();
+  registerAppDataFilePath("moose");
   registerRepository("moose", "github.com/idaholab/moose");
 }
 
@@ -98,7 +99,14 @@ addActionTypes(Syntax & syntax)
   registerMooseObjectTask("setup_executioner",            Executioner,               false);
   registerMooseObjectTask("read_executor",                Executor,                  false);
   registerTask("add_executor", true);
+
+  // TODO Organize these somewhere
   registerTask("init_physics", false);
+  registerTask("init_component_physics", false);
+  registerTask("meta_action_component", false);
+  registerTask("setup_component", false);
+  // 'list_component' is used to retrieve ActionComponents for the syntax JSON
+  registerTask("list_component", false);
 
   // This task does not construct an object, but it needs all of the parameters that
   // would normally be used to construct an object.
@@ -149,6 +157,8 @@ addActionTypes(Syntax & syntax)
   registerMooseObjectTask("add_interface_kernel",         InterfaceKernel,           false);
   appendMooseObjectTask  ("add_interface_kernel",         VectorInterfaceKernel);
   registerMooseObjectTask("add_constraint",               Constraint,                false);
+  registerMooseObjectTask("add_hybridized_kernel",        HDGKernel,                 false);
+  registerMooseObjectTask("add_hybridized_integrated_bc", HDGIntegratedBC,           false);
 
   registerMooseObjectTask("add_ic",                       InitialCondition,          false);
   appendMooseObjectTask  ("add_ic",                       ScalarInitialCondition);
@@ -160,7 +170,9 @@ addActionTypes(Syntax & syntax)
   registerMooseObjectTask("add_time_steppers",            TimeStepper,               false);
   registerMooseObjectTask("add_time_stepper",             TimeStepper,               false);
   registerTask           ("compose_time_stepper",                                    true);
+  registerMooseObjectTask("setup_time_integrators",       TimeIntegrator,            false);
   registerMooseObjectTask("setup_time_integrator",        TimeIntegrator,            false);
+  registerMooseObjectTask("add_convergence",              Convergence,            false);
 
   registerMooseObjectTask("add_preconditioning",          MoosePreconditioner,       false);
   registerMooseObjectTask("add_field_split",              Split,                     false);
@@ -168,6 +180,10 @@ addActionTypes(Syntax & syntax)
   registerMooseObjectTask("add_mesh_division",            MeshDivision,              false);
   registerMooseObjectTask("add_user_object",              UserObject,                false);
   appendMooseObjectTask  ("add_user_object",              Postprocessor);
+  appendDeprecatedMooseObjectTask("add_user_object",      Corrector);
+  registerMooseObjectTask("add_corrector",                Corrector,                 false);
+  appendDeprecatedMooseObjectTask("add_user_object",      MeshModifier);
+  registerMooseObjectTask("add_mesh_modifier",            MeshModifier,              false);
 
   registerMooseObjectTask("add_postprocessor",            Postprocessor,             false);
   registerMooseObjectTask("add_vector_postprocessor",     VectorPostprocessor,       false);
@@ -184,6 +200,7 @@ addActionTypes(Syntax & syntax)
   registerMooseObjectTask("add_output",                   Output,                    false);
 
   registerMooseObjectTask("add_control",                  Control,                   false);
+  registerMooseObjectTask("add_chain_control",            ChainControl,              false);
   registerMooseObjectTask("add_partitioner",              MoosePartitioner,          false);
 
   // clang-format on
@@ -231,6 +248,8 @@ addActionTypes(Syntax & syntax)
   registerTask("check_integrity_early_physics", false);
   registerTask("setup_quadrature", true);
 
+  registerTask("mesh_modifiers", false);
+
   /// Additional Actions
   registerTask("no_action", false); // Used for Empty Action placeholders
   registerTask("set_global_params", false);
@@ -261,6 +280,10 @@ addActionTypes(Syntax & syntax)
   registerTask("create_problem_custom", false);
   registerTask("create_problem_complete", false);
 
+  registerTask("add_default_convergence", true);
+
+  registerTask("chain_control_setup", true);
+
   // Action for setting up the signal-based checkpoint
   registerTask("auto_checkpoint_action", true);
   /**************************/
@@ -278,6 +301,7 @@ addActionTypes(Syntax & syntax)
 
   // clang-format off
   syntax.addDependencySets("(meta_action)"
+                           "(meta_action_component)"
                            "(dynamic_object_registration)"
                            "(common_output)"
                            "(set_global_params)"
@@ -304,25 +328,30 @@ addActionTypes(Syntax & syntax)
                            "(create_problem_custom)"
                            "(create_problem_default)"
                            "(create_problem_complete)"
+                           "(init_displaced_problem)" // Problem must be init-ed before we start adding functors
+                           "(add_function)"  // Functions can depend on scalar variables & PPs, but this dependence can be
+                                             // added on initialSetup() rather than construction
+                           "(init_component_physics)" // components must add their blocks to physics before init_physics
                            "(init_physics)"
                            "(setup_postprocessor_data)"
-                           "(setup_time_integrator)"
+                           "(setup_time_integrator, setup_time_integrators)"
                            "(setup_executioner)"
                            "(setup_executioner_complete)"
+                           "(setup_component)"  // no particular reason for that placement
                            "(read_executor)"
                            "(add_executor)"
                            "(check_integrity_early)"
-                           "(check_integrity_early_physics)"
                            "(setup_predictor)"
-                           "(init_displaced_problem)"
                            "(add_aux_variable, add_variable, add_elemental_field_variable,"
                            " add_external_aux_variables)"
                            "(add_mortar_variable)"
                            "(setup_variable_complete)"
+                           "(check_integrity_early_physics)"  // checks that systems and variables are consistent
                            "(setup_quadrature)"
-                           "(add_function)"
+                           "(add_convergence)"
+                           "(add_default_convergence)"
                            "(add_periodic_bc)"
-                           "(add_user_object)"
+                           "(add_user_object, add_corrector, add_mesh_modifier)"
                            "(add_distribution)"
                            "(add_sampler)"
                            "(setup_function_complete)"
@@ -360,7 +389,7 @@ addActionTypes(Syntax & syntax)
                            " add_nodal_kernel, add_dg_kernel, add_fv_kernel, add_linear_fv_kernel,"
                            " add_fv_bc, add_linear_fv_bc, add_fv_ik, add_interface_kernel,"
                            " add_scalar_kernel, add_aux_scalar_kernel, add_indicator, add_marker,"
-                           " add_bound)"
+                           " add_bound, add_hybridized_kernel, add_hybridized_integrated_bc)"
                            "(resolve_optional_materials)"
                            "(add_algebraic_rm)"
                            "(add_coupling_rm)"
@@ -370,7 +399,8 @@ addActionTypes(Syntax & syntax)
                            "(coupling_functor_check)"
                            "(delete_remote_elements_after_late_geometric_ghosting)"
                            "(init_problem)"
-                           "(add_control)"
+                           "(add_control, add_chain_control)"
+                           "(chain_control_setup)"
                            "(check_output)"
                            "(check_integrity)"
                            "(create_application_block)");
@@ -419,7 +449,8 @@ registerActions(Syntax & syntax,
 {
   Registry::registerActionsTo(action_factory, obj_labels);
 
-  // TODO: Why is this here?
+  // Add these actions here so they are always executed last, without setting any dependency
+  registerTask("dump_objects", false);
   registerTask("finish_input_file_output", false);
 }
 
@@ -434,6 +465,9 @@ associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
   registerSyntax("DiffusionCG", "Physics/Diffusion/ContinuousGalerkin/*");
   registerSyntax("DiffusionFV", "Physics/Diffusion/FiniteVolume/*");
 
+  registerSyntax("AddActionComponentAction", "ActionComponents/*");
+  registerSyntax("CombineComponentsMeshes", "ActionComponents");
+
   registerSyntaxTask("CopyNodalVarsAction", "Variables/*", "check_copy_nodal_vars");
   registerSyntaxTask("CopyNodalVarsAction", "Variables/*", "copy_nodal_vars");
   registerSyntaxTask("CopyNodalVarsAction", "AuxVariables/*", "check_copy_nodal_vars");
@@ -442,6 +476,9 @@ associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
   registerSyntaxTask("AddKernelAction", "Kernels/*", "add_kernel");
   registerSyntaxTask("AddNodalKernelAction", "NodalKernels/*", "add_nodal_kernel");
   registerSyntaxTask("AddKernelAction", "AuxKernels/*", "add_aux_kernel");
+
+  registerSyntaxTask("AddHDGKernelAction", "HDGKernels/*", "add_hybridized_kernel");
+  registerSyntaxTask("AddHDGBCAction", "HDGBCs/*", "add_hybridized_integrated_bc");
 
   registerSyntax("AddAuxKernelAction", "AuxVariables/*/AuxKernel");
 
@@ -455,6 +492,8 @@ associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
 
   registerSyntax("SetupMeshAction", "Mesh");
   registerSyntax("SetupMeshCompleteAction", "Mesh");
+  // Components should be able create a Mesh without a Mesh block
+  registerSyntax("CreateMeshSetupActionsForComponents", "ActionComponents");
   registerSyntax("CreateDisplacedProblemAction", "Mesh");
   registerSyntax("DisplayGhostingAction", "Mesh");
   registerSyntax("AddMeshGeneratorAction", "Mesh/*");
@@ -466,6 +505,8 @@ associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
 
   registerSyntax("AddMeshDivisionAction", "MeshDivisions/*");
   syntax.registerSyntaxType("MeshDivisions/*", "MeshDivisionName");
+  registerSyntax("AddConvergenceAction", "Convergence/*");
+  syntax.registerSyntaxType("Convergence/*", "ConvergenceName");
 
   registerSyntax("GlobalParamsAction", "GlobalParams");
 
@@ -525,6 +566,8 @@ associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
 
   registerSyntax("AddOutputAction", "Outputs/*");
   registerSyntax("CommonOutputAction", "Outputs");
+  registerSyntax("MaterialOutputAction", "Outputs");
+  registerSyntax("AutoCheckpointAction", "Outputs");
   syntax.registerSyntaxType("Outputs/*", "OutputName");
 
   // Note: Preconditioner Actions will be built by this setup action
@@ -538,7 +581,10 @@ associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
   registerSyntaxTask("AddTimeStepperAction", "Executioner/TimeStepper", "add_time_stepper");
   registerSyntaxTask(
       "ComposeTimeStepperAction", "Executioner/TimeSteppers", "compose_time_stepper");
-  registerSyntax("SetupTimeIntegratorAction", "Executioner/TimeIntegrator");
+  registerSyntaxTask(
+      "SetupTimeIntegratorAction", "Executioner/TimeIntegrators/*", "setup_time_integrators");
+  registerSyntaxTask(
+      "SetupTimeIntegratorAction", "Executioner/TimeIntegrator", "setup_time_integrator");
   syntax.registerSyntaxType("Executors/*", "ExecutorName");
 
   registerSyntax("SetupQuadratureAction", "Executioner/Quadrature");
@@ -564,11 +610,18 @@ associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
 
   registerSyntax("AddConstraintAction", "Constraints/*");
 
-  registerSyntax("AddUserObjectAction", "UserObjects/*");
-  syntax.registerSyntaxType("UserObjects/*", "UserObjectName");
   registerSyntax("AddControlAction", "Controls/*");
+  registerSyntax("AddChainControlAction", "ChainControls/*");
   registerSyntax("AddBoundAction", "Bounds/*");
   registerSyntax("AddBoundsVectorsAction", "Bounds");
+
+  // UserObject and some derived classes
+  registerSyntax("AddUserObjectAction", "UserObjects/*");
+  syntax.registerSyntaxType("UserObjects/*", "UserObjectName");
+  registerSyntax("AddCorrectorAction", "Correctors/*");
+  syntax.registerSyntaxType("Correctors/*", "UserObjectName");
+  registerSyntax("AddMeshModifiersAction", "MeshModifiers/*");
+  syntax.registerSyntaxType("MeshModifiers/*", "UserObjectName");
 
   registerSyntax("AddNodalNormalsAction", "NodalNormals");
 

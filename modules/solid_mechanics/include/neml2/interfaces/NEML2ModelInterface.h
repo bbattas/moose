@@ -9,14 +9,14 @@
 
 #pragma once
 
+#include "NEML2Utils.h"
+
 #ifdef NEML2_ENABLED
 #include "neml2/models/Model.h"
 #include "neml2/misc/parser_utils.h"
 #include "Material.h"
 #include "UserObject.h"
 #endif
-
-#include "NEML2Utils.h"
 
 /**
  * Interface class to provide common input parameters, members, and methods for MOOSEObjects that
@@ -35,28 +35,16 @@ public:
 
 protected:
   /**
-   * Validate the NEML2 material model. This method should throw a moose error with the first
-   * encountered problem. Note that the developer is responsible for calling this method at the
-   * appropriate times, for example, at initialSetup().
+   * Validate the NEML2 material model. Note that the developer is responsible for calling this
+   * method at the appropriate times, for example, at initialSetup().
    */
   virtual void validateModel() const;
-
-  /// Initialize the model with a batch shape
-  void initModel(torch::IntArrayRef batch_shape);
 
   /// Get the NEML2 model
   neml2::Model & model() const { return _model; }
 
   /// Get the target compute device
   const torch::Device & device() const { return _device; }
-
-  /**
-   * @brief Convert a raw string to a neml2::VariableName
-   *
-   * @param raw_str
-   * @return neml2::VariableName
-   */
-  neml2::VariableName getNEML2VariableName(const std::string & raw_str) const;
 
 private:
   /// The NEML2 material model
@@ -73,8 +61,9 @@ InputParameters
 NEML2ModelInterface<T>::validParams()
 {
   InputParameters params = T::validParams();
-  params.addRequiredParam<std::string>(
+  params.addParam<std::string>(
       "model",
+      "",
       "Name of the NEML2 model, i.e., the string inside the brackets [] in the NEML2 input file "
       "that corresponds to the model you want to use.");
   params.addParam<std::string>(
@@ -95,7 +84,6 @@ template <typename... P>
 NEML2ModelInterface<T>::NEML2ModelInterface(const InputParameters & params, P &&... args)
   : T(params, args...)
 {
-  NEML2Utils::libraryNotEnabledError(params);
 }
 
 #else
@@ -104,47 +92,17 @@ template <class T>
 template <typename... P>
 NEML2ModelInterface<T>::NEML2ModelInterface(const InputParameters & params, P &&... args)
   : T(params, args...),
-    _model(neml2::Factory::get_object<neml2::Model>("Models", params.get<std::string>("model"))),
+    _model(neml2::get_model(params.get<std::string>("model"))),
     _device(params.get<std::string>("device"))
 {
+  _model.to(_device);
 }
 
 template <class T>
 void
 NEML2ModelInterface<T>::validateModel() const
 {
-  // Forces and old forces on the input axis must match, i.e. all the variables on the old_forces
-  // subaxis must also exist on the forces subaxis:
-  if (_model.input_axis().has_subaxis("old_forces"))
-    for (auto var :
-         _model.input_axis().subaxis("old_forces").variable_accessors(/*recursive=*/true))
-      if (!_model.input_axis().subaxis("forces").has_variable(var))
-        mooseError("The NEML2 model has old force variable ",
-                   var,
-                   " as input, but does not have the corresponding force variable as input.");
-
-  // Similarly, state (on the output axis) and old state (on the input axis) must match, i.e. all
-  // the variables on the input's old_state subaxis must also exist on the output's state subaxis:
-  if (_model.input_axis().has_subaxis("old_state"))
-    for (auto var : _model.input_axis().subaxis("old_state").variable_accessors(/*recursive=*/true))
-      if (!_model.output_axis().subaxis("state").has_variable(var))
-        mooseError("The NEML2 model has old state variable ",
-                   var,
-                   " as input, but does not have the corresponding state variable as output.");
-}
-
-template <class T>
-void
-NEML2ModelInterface<T>::initModel(torch::IntArrayRef batch_shape)
-{
-  _model.reinit(batch_shape, /*deriv_order=*/1, _device, /*dtype=*/torch::kFloat64);
-}
-
-template <class T>
-neml2::VariableName
-NEML2ModelInterface<T>::getNEML2VariableName(const std::string & raw_str) const
-{
-  return neml2::utils::parse<neml2::VariableName>(raw_str);
+  neml2::diagnose(_model);
 }
 
 #endif // NEML2_ENABLED

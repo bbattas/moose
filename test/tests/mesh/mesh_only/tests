@@ -24,17 +24,6 @@
     requirement = 'The system shall print out information about the mesh when writing out the mesh and avoid emitting petsc warnings in mesh-only mode.'
   []
 
-  [mesh_only_warning]
-    type = RunApp
-    input = 'mesh_only.i'
-    # Intentional error (not a mesh filename)
-    cli_args = '--mesh-only Outputs/exodus=false'
-    allow_warnings = true
-    expect_out = 'The --mesh-only option should be followed by a file name.'
-    issues = '#1568'
-    requirement = 'The system shall warn when using --mesh-only and there is no clear filename to use'
-  []
-
   [output_dimension_override]
     type = 'Exodiff'
     input = 'output_dimension_override.i'
@@ -49,8 +38,8 @@
   [mesh_only_checkpoint]
     type = 'CheckFiles'
     input = 'mesh_only.i'
-    cli_args = 'Mesh/parallel_type=distributed --mesh-only 3d_chimney.cpr'
-    check_files = '3d_chimney.cpr/3/split-3-0.cpr 3d_chimney.cpr/3/split-3-1.cpr 3d_chimney.cpr/3/split-3-2.cpr'
+    cli_args = 'Mesh/parallel_type=distributed --mesh-only 3d_chimney.cpa.gz'
+    check_files = '3d_chimney.cpa.gz/3/split-3-0.gz 3d_chimney.cpa.gz/3/split-3-1.gz 3d_chimney.cpa.gz/3/split-3-2.gz 3d_chimney.cpa.gz/meta_data_mesh.rd/data 3d_chimney.cpa.gz/meta_data_mesh.rd/header'
     min_parallel = 3
     max_parallel = 3
     recover = false

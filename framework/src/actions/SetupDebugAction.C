@@ -17,6 +17,9 @@
 #include "ActionFactory.h"
 #include "AddAuxVariableAction.h"
 #include "MooseUtils.h"
+#include "BlockRestrictionDebugOutput.h"
+
+using namespace libMesh;
 
 registerMooseAction("MooseApp", SetupDebugAction, "add_output");
 
@@ -38,6 +41,9 @@ SetupDebugAction::validParams()
       "show_material_props",
       false,
       "Print out the material properties supplied for each block, face, neighbor, and/or sideset");
+  params.addParam<bool>("show_controllable",
+                        false,
+                        "Print out the controllable parameters from all input parameters");
   params.addParam<bool>("show_mesh_meta_data", false, "Print out the available mesh meta data");
   params.addParam<bool>(
       "show_reporters", false, "Print out information about the declared and requested Reporters");
@@ -60,6 +66,10 @@ SetupDebugAction::validParams()
       "Add a AuxVariable named \"pid\" that shows the partitioning for each process");
   params.addParam<bool>(
       "show_functors", false, "Whether to print information about the functors in the problem");
+  params.addParam<MultiMooseEnum>(
+      "show_block_restriction",
+      BlockRestrictionDebugOutput::getScopes("none"),
+      "Print out active objects like variables supplied for each block.");
 
   params.addClassDescription("Adds various debugging type output to the simulation system.");
 
@@ -89,7 +99,12 @@ SetupDebugAction::act()
   {
     const std::string type = "VariableResidualNormsDebugOutput";
     auto params = _factory.getValidParams(type);
-    _problem->addOutput(type, "_moose_variable_residual_norms_debug_output", params);
+    // Add one for every nonlinear system
+    for (const auto & sys_name : _problem->getNonlinearSystemNames())
+    {
+      params.set<NonlinearSystemName>("nl_sys") = sys_name;
+      _problem->addOutput(type, "_moose_variable_residual_norms_debug_output_" + sys_name, params);
+    }
   }
 
   // Top residuals
@@ -143,4 +158,23 @@ SetupDebugAction::act()
   // Add functor output
   if (getParam<bool>("show_functors"))
     _problem->setFunctorOutput(getParam<bool>("show_functors"));
+
+  // Block-restriction
+  const MultiMooseEnum & block_restriction_scope =
+      _pars.get<MultiMooseEnum>("show_block_restriction");
+  if (block_restriction_scope.isValid() && !block_restriction_scope.contains("none"))
+  {
+    const std::string type = "BlockRestrictionDebugOutput";
+    auto params = _factory.getValidParams(type);
+    params.set<MultiMooseEnum>("scope") = block_restriction_scope;
+    _problem->addOutput(type, "_moose_block_restriction_debug_output", params);
+  }
+
+  // Controllable output
+  if (getParam<bool>("show_controllable"))
+  {
+    const std::string type = "ControlOutput";
+    auto params = _factory.getValidParams(type);
+    _problem->addOutput(type, "_moose_controllable_debug_output", params);
+  }
 }

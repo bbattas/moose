@@ -364,6 +364,27 @@ journal = {Earthquake Engineering and Structural Dynamics},
 }
 ```
 
+### Fluid Properties Module
+
+This paper documents all the fluid properties implemented in the module and their capabilities. If your input includes a `[FluidProperties]`
+section, it is relying on this module.
+
+```
+@article{GIUDICELLI2025109407,
+title = {The MOOSE fluid properties module},
+journal = {Computer Physics Communications},
+volume = {307},
+pages = {109407},
+year = {2025},
+issn = {0010-4655},
+doi = {https://doi.org/10.1016/j.cpc.2024.109407},
+url = {https://www.sciencedirect.com/science/article/pii/S0010465524003308},
+author = {Guillaume Giudicelli and Christopher Green and Joshua Hansel and David Andrs and April Novak and Sebastian Schunert and Benjamin Spaude and Steven Isaacs and Matthias Kunick and Robert Salko and Shane Henderson and Lise Charlot and Alexander Lindsay},
+keywords = {Modeling & simulation, Fluid properties, MOOSE},
+}
+```
+Available on OSTI at [https://www.osti.gov/pages/biblio/2476597] after October 2025.
+
 ### Electromagnetics Module
 
 !include modules/electromagnetics/index.md start=em-citation-start end=em-citation-end
@@ -396,5 +417,20 @@ The following paper documents functionalities and demonstration of the MOOSE sto
   year = {2017},
   doi = {https://doi.org/10.1016/j.commatsci.2017.02.017},
   url = {https://www.sciencedirect.com/science/article/pii/S0927025617300885},
+}
+```
+
+### Optimization Module
+
+```
+@article{PRINCE2024101754,
+author = {Zachary M. Prince and Lynn Munday and Dewen Yushu and Max Nezdyur and Murthy Guddati}
+title = {MOOSE Optimization Module: Physics-constrained optimization},
+journal = {SoftwareX},
+volume = {26},
+pages = {101754},
+year = {2024},
+doi = {https://doi.org/10.1016/j.softx.2024.101754},
+url = {https://www.sciencedirect.com/science/article/pii/S2352711024001250},
 }
 ```

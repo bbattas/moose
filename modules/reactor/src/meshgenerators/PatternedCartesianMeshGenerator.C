@@ -99,8 +99,8 @@ PatternedCartesianMeshGenerator::validParams()
   params.addParam<bool>("create_outward_interface_boundaries",
                         true,
                         "Whether the outward interface boundary sidesets are created.");
-  params.addParam<std::string>(
-      "external_boundary_name", std::string(), "Optional customized external boundary name.");
+  params.addParam<BoundaryName>(
+      "external_boundary_name", BoundaryName(), "Optional customized external boundary name.");
   params.addParam<bool>("deform_non_circular_region",
                         true,
                         "Whether the non-circular region (outside the rings) can be deformed.");
@@ -118,10 +118,15 @@ PatternedCartesianMeshGenerator::validParams()
       "interface_boundary_id_shift_pattern",
       "User-defined shift values for each pattern cell. A double-indexed array starting with the "
       "upper-left corner.");
+  MooseEnum quad_elem_type("QUAD4 QUAD8 QUAD9", "QUAD4");
+  params.addParam<MooseEnum>(
+      "boundary_region_element_type",
+      quad_elem_type,
+      "Type of the quadrilateral elements to be generated in the boundary region.");
   params.addParamNamesToGroup(
       "pattern_boundary background_block_id background_block_name duct_block_ids duct_block_names "
       "external_boundary_id external_boundary_name create_inward_interface_boundaries "
-      "create_outward_interface_boundaries",
+      "create_outward_interface_boundaries boundary_region_element_type",
       "Customized Subdomain/Boundary");
   params.addParamNamesToGroup(
       "generate_control_drum_positions_file assign_control_drum_id position_file", "Control Drum");
@@ -163,13 +168,15 @@ PatternedCartesianMeshGenerator::PatternedCartesianMeshGenerator(const InputPara
     _external_boundary_id(isParamValid("external_boundary_id")
                               ? getParam<boundary_id_type>("external_boundary_id")
                               : 0),
-    _external_boundary_name(getParam<std::string>("external_boundary_name")),
+    _external_boundary_name(getParam<BoundaryName>("external_boundary_name")),
     _create_inward_interface_boundaries(getParam<bool>("create_inward_interface_boundaries")),
     _create_outward_interface_boundaries(getParam<bool>("create_outward_interface_boundaries")),
     _deform_non_circular_region(getParam<bool>("deform_non_circular_region")),
     _use_reporting_id(isParamValid("id_name")),
     _use_exclude_id(isParamValid("exclude_id")),
-    _use_interface_boundary_id_shift(isParamValid("interface_boundary_id_shift_pattern"))
+    _use_interface_boundary_id_shift(isParamValid("interface_boundary_id_shift_pattern")),
+    _boundary_quad_elem_type(
+        getParam<MooseEnum>("boundary_region_element_type").template getEnum<QUAD_ELEM_TYPE>())
 {
   declareMeshProperty("pattern_pitch_meta", 0.0);
   declareMeshProperty("input_pitch_meta", 0.0);
@@ -193,6 +200,9 @@ PatternedCartesianMeshGenerator::PatternedCartesianMeshGenerator(const InputPara
   std::set<unsigned int> pattern_elem_size;
   for (const auto & pattern_elem : _pattern)
   {
+    if (pattern_elem.empty())
+      paramError("pattern",
+                 "The element of the two-dimensional array parameter pattern must not be empty.");
     pattern_elem_size.emplace(pattern_elem.size());
     pattern_max_array.push_back(*std::max_element(pattern_elem.begin(), pattern_elem.end()));
     pattern_1d.insert(pattern_1d.end(), pattern_elem.begin(), pattern_elem.end());
@@ -831,6 +841,13 @@ PatternedCartesianMeshGenerator::generate()
         out_mesh->add_point(p_tmp, node_azi_list[i * side_intervals + j - 1].second);
       }
     }
+
+    // if quadratic elements are used, additional nodes need to be adjusted based on the new
+    // boundary node locations. adjust side mid-edge nodes to the midpoints of the corner
+    // points, and if QUAD9, adjust center point to new centroid.
+    if (_boundary_quad_elem_type != QUAD_ELEM_TYPE::QUAD4)
+      adjustPeripheralQuadraticElements(*out_mesh, _boundary_quad_elem_type);
+
     MeshTools::Modification::rotate(*out_mesh, 45.0, 0.0, 0.0);
   }
 
@@ -1032,9 +1049,11 @@ PatternedCartesianMeshGenerator::addPeripheralMesh(
                                           sub_positions_inner,
                                           sub_d_positions_outer,
                                           i,
+                                          _boundary_quad_elem_type,
                                           _create_inward_interface_boundaries,
                                           (i != extra_dist.size() - 1) &&
                                               _create_outward_interface_boundaries);
+
       if (mesh.is_prepared()) // Need to prepare if the other is prepared to stitch
         meshp0->prepare_for_use();
 

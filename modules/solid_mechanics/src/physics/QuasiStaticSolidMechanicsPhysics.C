@@ -14,6 +14,7 @@
 #include "MooseObjectAction.h"
 #include "QuasiStaticSolidMechanicsPhysics.h"
 #include "Material.h"
+#include "CommonSolidMechanicsAction.h"
 
 #include "BlockRestrictable.h"
 
@@ -55,8 +56,8 @@ QuasiStaticSolidMechanicsPhysics::validParams()
   InputParameters params = QuasiStaticSolidMechanicsPhysicsBase::validParams();
   params.addClassDescription("Set up stress divergence kernels with coordinate system aware logic");
 
-  // parameters specified here only appear in the input file sub-blocks of the
-  // Master action, not in the common parameters area
+  // parameters specified here only appear in the input file sub-blocks of the solid mechanics
+  // action, not in the common parameters area
   params.addParam<std::vector<SubdomainName>>("block",
                                               {},
                                               "The list of ids of the blocks (subdomain) "
@@ -382,7 +383,10 @@ QuasiStaticSolidMechanicsPhysics::act()
   // Add variables
   else if (_current_task == "add_variable")
   {
-    if (getParam<bool>("add_variables"))
+    // Add variables here only if the CommonSolidMechanicsAction does not exist.
+    // This happens notably if the QuasiStaticSolidMechanics was created by a meta_action
+    const auto common_actions = _awh.getActions<CommonSolidMechanicsAction>();
+    if (common_actions.empty() && getParam<bool>("add_variables"))
     {
       auto params = _factory.getValidParams("MooseVariable");
       // determine necessary order
@@ -392,6 +396,9 @@ QuasiStaticSolidMechanicsPhysics::act()
       params.set<MooseEnum>("family") = "LAGRANGE";
       if (isParamValid("scaling"))
         params.set<std::vector<Real>>("scaling") = {getParam<Real>("scaling")};
+
+      // Note how we do not add the block restriction because BISON's meta-actions
+      // currently rely on them not being added.
 
       // Loop through the displacement variables
       for (const auto & disp : _displacements)
@@ -512,7 +519,13 @@ QuasiStaticSolidMechanicsPhysics::actSubdomainChecks()
   {
     // get subdomain IDs
     for (auto & name : _subdomain_names)
-      _subdomain_ids.insert(_mesh->getSubdomainID(name));
+    {
+      auto id = _mesh->getSubdomainID(name);
+      if (id == Moose::INVALID_BLOCK_ID)
+        paramError("block", "Subdomain \"" + name + "\" not found in mesh.");
+      else
+        _subdomain_ids.insert(id);
+    }
   }
 
   if (_current_task == "validate_coordinate_systems")
@@ -766,7 +779,7 @@ QuasiStaticSolidMechanicsPhysics::verifyOrderAndFamilyOutputs()
 
   // if no value was provided, chose the default CONSTANT
   if (_material_output_order.size() == 0)
-    _material_output_order.push_back("CONSTANT");
+    _material_output_order.setAdditionalValue("CONSTANT");
 
   // For only one order, make all orders the same magnitude
   if (_material_output_order.size() == 1)
@@ -781,7 +794,7 @@ QuasiStaticSolidMechanicsPhysics::verifyOrderAndFamilyOutputs()
 
   // if no value was provided, chose the default MONOMIAL
   if (_material_output_family.size() == 0)
-    _material_output_family.push_back("MONOMIAL");
+    _material_output_family.setAdditionalValue("MONOMIAL");
 
   // For only one family, make all families that value
   if (_material_output_family.size() == 1)
@@ -993,7 +1006,7 @@ QuasiStaticSolidMechanicsPhysics::actStressDivergenceTensorsStrain()
   {
     std::map<std::pair<Moose::CoordinateSystemType, StrainAndIncrement>, std::string> type_map = {
         {{Moose::COORD_XYZ, StrainAndIncrement::SmallTotal}, "ComputeSmallStrain"},
-        {{Moose::COORD_XYZ, StrainAndIncrement::SmallIncremental}, "ComputeIncrementalSmallStrain"},
+        {{Moose::COORD_XYZ, StrainAndIncrement::SmallIncremental}, "ComputeIncrementalStrain"},
         {{Moose::COORD_XYZ, StrainAndIncrement::FiniteIncremental}, "ComputeFiniteStrain"},
         {{Moose::COORD_RZ, StrainAndIncrement::SmallTotal}, "ComputeAxisymmetricRZSmallStrain"},
         {{Moose::COORD_RZ, StrainAndIncrement::SmallIncremental},

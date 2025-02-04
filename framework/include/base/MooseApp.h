@@ -9,6 +9,14 @@
 
 #pragma once
 
+#ifdef LIBTORCH_ENABLED
+// Libtorch includes
+#include <torch/types.h>
+#include <torch/mps.h>
+#include <torch/cuda.h>
+#include <c10/core/DeviceType.h>
+#endif
+
 // MOOSE includes
 #include "Moose.h"
 #include "Parser.h"
@@ -25,6 +33,7 @@
 #include "TheWarehouse.h"
 #include "RankMap.h"
 #include "MeshGeneratorSystem.h"
+#include "ChainControlDataSystem.h"
 #include "RestartableDataReader.h"
 #include "Backup.h"
 #include "MooseBase.h"
@@ -76,6 +85,11 @@ class MooseApp : public ConsoleStreamInterface,
                  public MooseBase
 {
 public:
+#ifdef LIBTORCH_ENABLED
+  /// Get the device torch is supposed to be running on.
+  torch::DeviceType getLibtorchDevice() const { return _libtorch_device; }
+#endif
+
   /**
    * Stores configuration options relating to the fixed-point solving
    * capability.  This is used for communicating input-file-based config from
@@ -116,6 +130,17 @@ public:
   }
 
   /**
+   * Get the shell exit code for the application
+   * @return The shell exit code
+   */
+  int exitCode() const { return _exit_code; }
+
+  /**
+   * Sets the exit code that the application will exit with.
+   */
+  void setExitCode(const int exit_code) { _exit_code = exit_code; }
+
+  /**
    * Get the parameters of the object
    * @return The parameters of the object
    */
@@ -135,7 +160,10 @@ public:
   /**
    * Get the SolutionInvalidity for this app
    */
+  ///@{
   SolutionInvalidity & solutionInvalidity() { return _solution_invalidity; }
+  const SolutionInvalidity & solutionInvalidity() const { return _solution_invalidity; }
+  ///@}
 
   ///@{
   /**
@@ -427,12 +455,15 @@ public:
   /**
    * Set the Exodus reader to restart variables from an Exodus mesh file
    */
-  void setExReaderForRestart(std::shared_ptr<ExodusII_IO> && exreader) { _ex_reader = exreader; }
+  void setExReaderForRestart(std::shared_ptr<libMesh::ExodusII_IO> && exreader)
+  {
+    _ex_reader = exreader;
+  }
 
   /**
    * Get the Exodus reader to restart variables from an Exodus mesh file
    */
-  ExodusII_IO * getExReaderForRestart() const { return _ex_reader.get(); }
+  libMesh::ExodusII_IO * getExReaderForRestart() const { return _ex_reader.get(); }
 
   /**
    * Actually build everything in the input file.
@@ -538,6 +569,7 @@ public:
    * Get the OutputWarehouse objects
    */
   OutputWarehouse & getOutputWarehouse();
+  const OutputWarehouse & getOutputWarehouse() const;
 
   /**
    * Get SystemInfo object
@@ -820,6 +852,11 @@ public:
   MeshGeneratorSystem & getMeshGeneratorSystem() { return _mesh_generator_system; }
 
   /**
+   * Gets the system that manages the ChainControls
+   */
+  ChainControlDataSystem & getChainControlDataSystem() { return _chain_control_system; }
+
+  /**
    * Add a mesh generator that will act on the meshes in the system
    *
    * @param type The type of MeshGenerator
@@ -950,6 +987,16 @@ private:
    */
   void removeRelationshipManager(std::shared_ptr<RelationshipManager> relationship_manager);
 
+#ifdef LIBTORCH_ENABLED
+  /**
+   * Function to determine the device which should be used by libtorch on this
+   * application. We use this function to decide what is available on different
+   * builds.
+   * @param device Enum to describe if a cpu or a gpu should be used.
+   */
+  torch::DeviceType determineLibtorchDeviceType(const MooseEnum & device) const;
+#endif
+
 public:
   /**
    * Attach the relationship managers of the given type
@@ -998,7 +1045,7 @@ public:
   bool defaultAutomaticScaling() const { return _automatic_automatic_scaling; }
 
   // Return the communicator for this application
-  const std::shared_ptr<Parallel::Communicator> getCommunicator() const { return _comm; }
+  const std::shared_ptr<libMesh::Parallel::Communicator> getCommunicator() const { return _comm; }
 
   /**
    * Return the container of relationship managers
@@ -1048,19 +1095,20 @@ public:
   const std::vector<T *> & getInterfaceObjects() const;
 
   static void addAppParam(InputParameters & params);
+  static void addInputParam(InputParameters & params);
 
 protected:
   /**
    * Helper method for dynamic loading of objects
    */
-  void dynamicRegistration(const Parameters & params);
+  void dynamicRegistration(const libMesh::Parameters & params);
 
   /**
    * Recursively loads libraries and dependencies in the proper order to fully register a
    * MOOSE application that may have several dependencies. REQUIRES: dynamic linking loader support.
    */
   void loadLibraryAndDependencies(const std::string & library_filename,
-                                  const Parameters & params,
+                                  const libMesh::Parameters & params,
                                   bool load_dependencies = true);
 
   /// Constructor is protected so that this object is constructed through the AppFactory object
@@ -1084,9 +1132,6 @@ protected:
    */
   void errorCheck();
 
-  /// The name of this object
-  const std::string _name;
-
   /// Parameters of this object
   InputParameters _pars;
 
@@ -1094,7 +1139,7 @@ protected:
   const std::string _type;
 
   /// The MPI communicator this App is going to use
-  const std::shared_ptr<Parallel::Communicator> _comm;
+  const std::shared_ptr<libMesh::Parallel::Communicator> _comm;
 
   /// The output file basename
   std::string _output_file_base;
@@ -1207,12 +1252,14 @@ protected:
   /// Indicates whether warnings or errors are displayed when overridden parameters are detected
   bool _error_overridden;
   bool _ready_to_exit;
+  /// The exit code
+  int _exit_code;
 
   /// This variable indicates when a request has been made to restart from an Exodus file
   bool _initial_from_file;
 
   /// The Exodus reader when _initial_from_file is set to true
-  std::shared_ptr<ExodusII_IO> _ex_reader;
+  std::shared_ptr<libMesh::ExodusII_IO> _ex_reader;
 
   /// This variable indicates that DistributedMesh should be used for the libMesh mesh underlying MooseMesh.
   bool _distributed_mesh_on_command_line;
@@ -1255,7 +1302,8 @@ protected:
   /// GhostingFunctor). Anytime we clone in attachRelationshipManagers we create a map entry from
   /// the cloned undisplaced relationship manager to its displaced clone counterpart. We leverage
   /// this map when removing relationship managers/ghosting functors
-  std::unordered_map<RelationshipManager *, std::shared_ptr<GhostingFunctor>> _undisp_to_disp_rms;
+  std::unordered_map<RelationshipManager *, std::shared_ptr<libMesh::GhostingFunctor>>
+      _undisp_to_disp_rms;
 
   struct DynamicLibraryInfo
   {
@@ -1343,7 +1391,7 @@ private:
   RelationshipManager & createRMFromTemplateAndInit(const RelationshipManager & template_rm,
                                                     MooseMesh & moose_mesh,
                                                     MeshBase & mesh,
-                                                    const DofMap * dof_map = nullptr);
+                                                    const libMesh::DofMap * dof_map = nullptr);
 
   /**
    * Creates a recoverable PerfGraph.
@@ -1378,14 +1426,14 @@ private:
    * read/writable location for the user.
    * @return a Boolean value used to indicate whether the application should exit early
    */
-  bool copyInputs() const;
+  bool copyInputs();
 
   /**
    * Handles the run input parameter logic: Checks to see whether a directory exists in user space
    * and launches the TestHarness to process the given directory.
    * @return a Boolean value used to indicate whether the application should exit early
    */
-  bool runInputs() const;
+  bool runInputs();
 
   /// General storage for custom RestartableData that can be added to from outside applications
   std::unordered_map<RestartableDataMapName, std::pair<RestartableDataMap, std::string>>
@@ -1415,6 +1463,9 @@ private:
 
   /// The system that manages the MeshGenerators
   MeshGeneratorSystem _mesh_generator_system;
+
+  /// The system that manages the ChainControls
+  ChainControlDataSystem _chain_control_system;
 
   RestartableDataReader _rd_reader;
 
@@ -1453,6 +1504,11 @@ private:
   /// This is a pointer to a pointer because at the time of construction of the app,
   /// the backup will not be filled yet.
   std::unique_ptr<Backup> * const _initial_backup;
+
+#ifdef LIBTORCH_ENABLED
+  /// The libtorch device this app is using.
+  const torch::DeviceType _libtorch_device;
+#endif
 
   // Allow FEProblemBase to set the recover/restart state, so make it a friend
   friend class FEProblemBase;

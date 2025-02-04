@@ -22,7 +22,9 @@ NavierStokesPhysicsBase::validParams()
   params.addParam<bool>(
       "define_variables",
       true,
-      "Whether to define variables if the variables with the specified names do not exist");
+      "Whether to define variables if the variables with the specified names do not exist. Note "
+      "that if the variables are defined externally from the Physics, the initial conditions will "
+      "not be created in the Physics either.");
 
   params.addParam<unsigned short>(
       "ghost_layers", 2, "Number of layers of elements to ghost near process domain boundaries");
@@ -34,17 +36,6 @@ NavierStokesPhysicsBase::validParams()
 NavierStokesPhysicsBase::NavierStokesPhysicsBase(const InputParameters & parameters)
   : PhysicsBase(parameters), _define_variables(getParam<bool>("define_variables"))
 {
-  // Annoying edge case. We cannot use ANY_BLOCK_ID for kernels and variables since errors got added
-  // downstream for using it, we cannot leave it empty as that sets all objects to not live on any
-  // block
-  if (isParamSetByUser("block") && _blocks.empty())
-    paramError("block",
-               "Empty block restriction is not supported. Comment out the Physics if you are "
-               "trying to disable it.");
-
-  // Placeholder before work with components
-  if (_blocks.empty())
-    _blocks.push_back("ANY_BLOCK_ID");
 }
 
 InputParameters

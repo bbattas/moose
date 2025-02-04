@@ -9,27 +9,27 @@
 
 #pragma once
 
-#include "MOOSEToNEML2.h"
-
-#ifndef NEML2_ENABLED
-NEML2ObjectStubHeader(MOOSEVariableToNEML2, MOOSEToNEML2);
-#else
+#include "MOOSEToNEML2Batched.h"
 
 /**
- * Gather a MOOSE variable for insertion into the specified input of a NEML2 model.
+ * Gather a MOOSE variable for insertion into the NEML2 model.
  */
-class MOOSEVariableToNEML2 : public MOOSEToNEML2
+template <unsigned int state>
+class MOOSEVariableToNEML2Templ : public MOOSEToNEML2Batched<Real>
 {
 public:
   static InputParameters validParams();
 
-  MOOSEVariableToNEML2(const InputParameters & params);
+  MOOSEVariableToNEML2Templ(const InputParameters & params);
 
+#ifdef NEML2_ENABLED
 protected:
-  virtual void execute() override;
+  const MooseArray<Real> & elemMOOSEData() const override { return _moose_variable; }
 
   /// Coupled MOOSE variable to read data from
   const VariableValue & _moose_variable;
+#endif
 };
 
-#endif
+using MOOSEVariableToNEML2 = MOOSEVariableToNEML2Templ<0>;
+using MOOSEOldVariableToNEML2 = MOOSEVariableToNEML2Templ<1>;

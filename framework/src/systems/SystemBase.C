@@ -26,9 +26,13 @@
 #include "MooseUtils.h"
 #include "FVBoundaryCondition.h"
 #include "FEProblemBase.h"
+#include "TimeIntegrator.h"
 
 #include "libmesh/dof_map.h"
 #include "libmesh/string_to_enum.h"
+#include "libmesh/fe_interface.h"
+
+using namespace libMesh;
 
 /// Free function used for a libMesh callback
 void
@@ -75,7 +79,6 @@ SystemBase::SystemBase(SubProblem & subproblem,
     _var_kind(var_kind),
     _max_var_n_dofs_per_elem(0),
     _max_var_n_dofs_per_node(0),
-    _time_integrator(nullptr),
     _automatic_scaling(false),
     _verbose(false),
     _solution_states_initialized(false)
@@ -353,10 +356,7 @@ SystemBase::reinitElem(const Elem * /*elem*/, THREAD_ID tid)
 }
 
 void
-SystemBase::reinitElemFace(const Elem * /*elem*/,
-                           unsigned int /*side*/,
-                           BoundaryID /*bnd_id*/,
-                           THREAD_ID tid)
+SystemBase::reinitElemFace(const Elem * /*elem*/, unsigned int /*side*/, THREAD_ID tid)
 {
   const std::vector<MooseVariableFieldBase *> & vars = _vars[tid].fieldVariables();
   for (const auto & var : vars)
@@ -364,10 +364,7 @@ SystemBase::reinitElemFace(const Elem * /*elem*/,
 }
 
 void
-SystemBase::reinitNeighborFace(const Elem * /*elem*/,
-                               unsigned int /*side*/,
-                               BoundaryID /*bnd_id*/,
-                               THREAD_ID tid)
+SystemBase::reinitNeighborFace(const Elem * /*elem*/, unsigned int /*side*/, THREAD_ID tid)
 {
   const std::vector<MooseVariableFieldBase *> & vars = _vars[tid].fieldVariables();
   for (const auto & var : vars)
@@ -656,7 +653,6 @@ SystemBase::closeTaggedVector(const TagID tag)
                "' in system '",
                name(),
                "' because there is no vector associated with that tag");
-
   getVector(tag).close();
 }
 
@@ -682,8 +678,8 @@ SystemBase::zeroTaggedVector(const TagID tag)
                "' in system '",
                name(),
                "' because there is no vector associated with that tag");
-
-  getVector(tag).zero();
+  if (!_subproblem.vectorTagNotZeroed(tag))
+    getVector(tag).zero();
 }
 
 void
@@ -730,15 +726,16 @@ SystemBase::addVariable(const std::string & var_type,
     blocks.insert(blk_id);
   }
 
-  auto fe_type = FEType(Utility::string_to_enum<Order>(parameters.get<MooseEnum>("order")),
-                        Utility::string_to_enum<FEFamily>(parameters.get<MooseEnum>("family")));
+  const auto fe_type =
+      FEType(Utility::string_to_enum<Order>(parameters.get<MooseEnum>("order")),
+             Utility::string_to_enum<FEFamily>(parameters.get<MooseEnum>("family")));
+  const auto fe_field_type = FEInterface::field_type(fe_type);
 
   unsigned int var_num;
 
   if (var_type == "ArrayMooseVariable")
   {
-    if (fe_type.family == NEDELEC_ONE || fe_type.family == LAGRANGE_VEC ||
-        fe_type.family == MONOMIAL_VEC || fe_type.family == RAVIART_THOMAS)
+    if (fe_field_type == TYPE_VECTOR)
       mooseError("Vector family type cannot be used in an array variable");
 
     // Build up the variable names
@@ -801,6 +798,7 @@ SystemBase::addVariable(const std::string & var_type,
   // getMaxVariableNumber is an API method used in Rattlesnake
   if (var_num > _max_var_number)
     _max_var_number = var_num;
+  _du_dot_du.resize(var_num + 1);
 }
 
 bool
@@ -1215,10 +1213,9 @@ SystemBase::copyVars(ExodusII_IO & io)
 }
 
 void
-SystemBase::update(const bool update_libmesh_system)
+SystemBase::update()
 {
-  if (update_libmesh_system)
-    system().update();
+  system().update();
 }
 
 void
@@ -1234,8 +1231,25 @@ void
 SystemBase::copySolutionsBackwards()
 {
   system().update();
-
   copyOldSolutions();
+  copyPreviousNonlinearSolutions();
+}
+
+/**
+ * Shifts the solutions backwards in nonlinear iteration history
+ */
+void
+SystemBase::copyPreviousNonlinearSolutions()
+{
+  // 1 is for nonlinear, 0 is for time, we do this for nonlinear only here
+  const auto states = _solution_states[1].size();
+  if (states > 1)
+    for (unsigned int i = states - 1; i > 0; --i)
+      solutionState(i, Moose::SolutionIterationType::Nonlinear) =
+          solutionState(i - 1, Moose::SolutionIterationType::Nonlinear);
+
+  if (solutionPreviousNewton())
+    *solutionPreviousNewton() = *currentSolution();
 }
 
 /**
@@ -1245,22 +1259,16 @@ void
 SystemBase::copyOldSolutions()
 {
   // Copying the solutions backward so the current solution will become the old, and the old will
-  // become older. The same applies to the nonlinear iterates.
-  for (const auto iteration_index : index_range(_solution_states))
-  {
-    const auto states = _solution_states[iteration_index].size();
-    if (states > 1)
-      for (unsigned int i = states - 1; i > 0; --i)
-        solutionState(i, Moose::SolutionIterationType(iteration_index)) =
-            solutionState(i - 1, Moose::SolutionIterationType(iteration_index));
-  }
+  // become older. 0 index is for time, 1 would be nonlinear iteration.
+  const auto states = _solution_states[0].size();
+  if (states > 1)
+    for (unsigned int i = states - 1; i > 0; --i)
+      solutionState(i) = solutionState(i - 1);
 
   if (solutionUDotOld())
     *solutionUDotOld() = *solutionUDot();
   if (solutionUDotDotOld())
     *solutionUDotDotOld() = *solutionUDotDot();
-  if (solutionPreviousNewton())
-    *solutionPreviousNewton() = *currentSolution();
 }
 
 /**
@@ -1361,7 +1369,9 @@ SystemBase::solutionState(const unsigned int state,
                " was requested in ",
                name(),
                " but only up to state ",
-               _solution_states[static_cast<unsigned short>(iteration_type)].size() - 1,
+               (_solution_states[static_cast<unsigned short>(iteration_type)].size() == 0)
+                   ? 0
+                   : _solution_states[static_cast<unsigned short>(iteration_type)].size() - 1,
                " is available.");
 
   const auto & solution_states = _solution_states[static_cast<unsigned short>(iteration_type)];
@@ -1390,6 +1400,9 @@ SystemBase::needSolutionState(const unsigned int state,
                               const Moose::SolutionIterationType iteration_type)
 {
   libmesh_parallel_only(this->comm());
+  mooseAssert(!Threads::in_threads,
+              "This routine is not thread-safe. Request the solution state before using it in "
+              "a threaded region.");
 
   if (hasSolutionState(state, iteration_type))
     return;
@@ -1577,6 +1590,55 @@ SystemBase::serializedSolution()
   }
 
   return *_serialized_solution;
+}
+
+void
+SystemBase::addTimeIntegrator(const std::string & type,
+                              const std::string & name,
+                              InputParameters & parameters)
+{
+  parameters.set<SystemBase *>("_sys") = this;
+  _time_integrators.push_back(_factory.create<TimeIntegrator>(type, name, parameters));
+}
+
+void
+SystemBase::copyTimeIntegrators(const SystemBase & other_sys)
+{
+  _time_integrators = other_sys._time_integrators;
+}
+
+const TimeIntegrator *
+SystemBase::queryTimeIntegrator(const unsigned int var_num) const
+{
+  for (auto & ti : _time_integrators)
+    if (ti->integratesVar(var_num))
+      return ti.get();
+
+  return nullptr;
+}
+
+const TimeIntegrator &
+SystemBase::getTimeIntegrator(const unsigned int var_num) const
+{
+  const auto * const ti = queryTimeIntegrator(var_num);
+
+  if (ti)
+    return *ti;
+  else
+    mooseError("No time integrator found that integrates variable number ",
+               std::to_string(var_num));
+}
+
+const std::vector<std::shared_ptr<TimeIntegrator>> &
+SystemBase::getTimeIntegrators()
+{
+  return _time_integrators;
+}
+
+const Number &
+SystemBase::duDotDu(const unsigned int var_num) const
+{
+  return _du_dot_du[var_num];
 }
 
 template MooseVariableFE<Real> & SystemBase::getFieldVariable<Real>(THREAD_ID tid,

@@ -14,6 +14,7 @@
 #include "Moose.h"
 #include "MooseMain.h"
 #include "AppFactory.h"
+#include "MooseUtils.h"
 #include "pcrecpp.h"
 #include "waspcore/Object.h"
 #include "wasplsp/LSP.h"
@@ -122,24 +123,6 @@ protected:
   void format_completions(const wasp::DataArray & completions_array,
                           std::ostringstream & completions_stream) const
   {
-    struct CompletionInfo
-    {
-      std::string label;
-      std::string new_text;
-      std::string documentation;
-      int start_line;
-      int start_character;
-      int end_line;
-      int end_character;
-      int kind;
-      std::string text_format;
-    };
-
-    std::vector<CompletionInfo> completions;
-    std::size_t max_label = 0;
-    std::size_t max_new_text = 0;
-    std::size_t max_doc = 0;
-
     std::size_t completions_size = completions_array.size();
 
     for (std::size_t i = 0; i < completions_size; i++)
@@ -183,13 +166,6 @@ protected:
 
       MooseUtils::escape(completion_new_text);
 
-      if (completion_label.size() > max_label)
-        max_label = completion_label.size();
-      if (completion_new_text.size() > max_new_text)
-        max_new_text = completion_new_text.size();
-      if (completion_documentation.size() > max_doc)
-        max_doc = completion_documentation.size();
-
       // transform completion text format to string representation for test
       std::string text_format_string = "invalid";
       if (completion_text_format == wasp::lsp::m_text_format_plaintext)
@@ -197,26 +173,13 @@ protected:
       else if (completion_text_format == wasp::lsp::m_text_format_snippet)
         text_format_string = "snippet";
 
-      completions.push_back({completion_label,
-                             completion_new_text,
-                             completion_documentation,
-                             completion_start_line,
-                             completion_start_character,
-                             completion_end_line,
-                             completion_end_character,
-                             completion_kind,
-                             text_format_string});
-    }
-
-    for (const auto & completion : completions)
-    {
-      completions_stream << "label: " << std::setw(max_label) << std::left << completion.label
-                         << " text: " << std::setw(max_new_text) << std::left << completion.new_text
-                         << " desc: " << std::setw(max_doc) << std::left << completion.documentation
-                         << " pos: [" << completion.start_line << "." << completion.start_character
-                         << "]-[" << completion.end_line << "." << completion.end_character << "]"
-                         << " kind: " << std::setw(2) << std::right << completion.kind
-                         << " format: " << completion.text_format << "\n";
+      std::ostringstream completion_object;
+      completion_object << "label: " << completion_label << " text: " << completion_new_text
+                        << " desc: " << completion_documentation << " pos: ["
+                        << completion_start_line << "." << completion_start_character << "]-["
+                        << completion_end_line << "." << completion_end_character
+                        << "] kind: " << completion_kind << " format: " << text_format_string;
+      completions_stream << MooseUtils::removeExtraWhitespace(completion_object.str()) << "\n";
     }
   }
 
@@ -251,8 +214,8 @@ protected:
       pcrecpp::RE(uri_pattern).Replace(uri_replace, &location_uri);
 
       locations_stream << "document_uri: \"" << location_uri << "\""
-                       << "    definition_start: [" << location_start_line << "."
-                       << location_start_character << "]    definition_end: [" << location_end_line
+                       << "    location_start: [" << location_start_line << "."
+                       << location_start_character << "]    location_end: [" << location_end_line
                        << "." << location_end_character << "]"
                        << "\n";
     }
@@ -321,12 +284,21 @@ protected:
                                                      completions_array));
     EXPECT_TRUE(response_errors.str().empty());
     EXPECT_EQ(req_id, response_id);
-    EXPECT_EQ(expect_count, completions_array.size());
+
+    // check greater than or equal to allow syntax be added without failing
+    EXPECT_GE(completions_array.size(), expect_count);
 
     // make formatted list from completion items and check it is as expected
     std::ostringstream actual_items;
     format_completions(completions_array, actual_items);
-    EXPECT_EQ(expect_items, "\n" + actual_items.str());
+
+    // collapse repeated spaces to remove column format from expected items
+    auto expect_collapsed = MooseUtils::removeExtraWhitespace(expect_items);
+
+    // check that each line exists to allow syntax be added without failing
+    for (const auto & line : MooseUtils::split(expect_collapsed, "label:"))
+      EXPECT_NE(actual_items.str().find(line), std::string::npos)
+          << "did not find: \"" << line << "\"";
   }
 
   // build hover request, handle request with moose_server, check response
@@ -464,7 +436,7 @@ TEST_F(MooseServerTest, InitializeAndInitialized)
   EXPECT_TRUE(server_capabilities[wasp::lsp::m_definition_provider].to_bool());
 
   EXPECT_TRUE(server_capabilities[wasp::lsp::m_references_provider].is_bool());
-  EXPECT_FALSE(server_capabilities[wasp::lsp::m_references_provider].to_bool());
+  EXPECT_TRUE(server_capabilities[wasp::lsp::m_references_provider].to_bool());
 
   EXPECT_TRUE(server_capabilities[wasp::lsp::m_hover_provider].is_bool());
   EXPECT_TRUE(server_capabilities[wasp::lsp::m_hover_provider].to_bool());
@@ -528,24 +500,24 @@ TEST_F(MooseServerTest, DocumentOpenAndDiagnostics)
   wasp::DataObject didopen_notification;
   std::stringstream didopen_errors;
 
-  EXPECT_TRUE(wasp::lsp::buildDidOpenNotification(didopen_notification,
+  ASSERT_TRUE(wasp::lsp::buildDidOpenNotification(didopen_notification,
                                                   didopen_errors,
                                                   document_uri,
                                                   document_language_id,
                                                   document_version,
                                                   document_text_open));
 
-  EXPECT_TRUE(didopen_errors.str().empty());
+  ASSERT_TRUE(didopen_errors.str().empty());
 
   // handle the built didopen notification with the moose_server
 
   wasp::DataObject diagnostics_notification;
 
-  EXPECT_TRUE(
+  ASSERT_TRUE(
       moose_server->handleDidOpenNotification(didopen_notification, diagnostics_notification))
       << moose_server->getErrors();
 
-  EXPECT_TRUE(moose_server->getErrors().empty());
+  ASSERT_TRUE(moose_server->getErrors().empty());
 
   // check set of messages built from the moose_server diagnostics notification
 
@@ -1005,58 +977,14 @@ TEST_F(MooseServerTest, CompletionMeshDefaultedType)
       moose_server->handleDidChangeNotification(didchange_notification, diagnostics_notification));
 
   // completion test parameters - in Mesh default FileMesh already with params
-
   int request_id = 4;
-  int line = 6;
-  int character = 0;
-
-  // build completion request with the test parameters
-
-  wasp::DataObject completion_request;
-  std::stringstream completion_errors;
-
-  EXPECT_TRUE(wasp::lsp::buildCompletionRequest(
-      completion_request, completion_errors, request_id, doc_uri, line, character));
-
-  EXPECT_TRUE(completion_errors.str().empty());
-
-  // handle the built completion request with the moose_server
-
-  wasp::DataObject completion_response;
-
-  EXPECT_TRUE(moose_server->handleCompletionRequest(completion_request, completion_response));
-
-  EXPECT_TRUE(moose_server->getErrors().empty());
-
-  // check the dissected values of the moose_server completion response
-
-  std::stringstream response_errors;
-  int response_id;
-  bool response_is_incomplete;
-  wasp::DataArray completions_array;
-
-  EXPECT_TRUE(wasp::lsp::dissectCompletionResponse(completion_response,
-                                                   response_errors,
-                                                   response_id,
-                                                   response_is_incomplete,
-                                                   completions_array));
-
-  EXPECT_TRUE(response_errors.str().empty());
-
-  EXPECT_EQ(request_id, response_id);
-
-  EXPECT_EQ(48u, completions_array.size());
-
-  std::ostringstream completions_actual;
-
-  format_completions(completions_array, completions_actual);
-
-  // expected completions with zero-based lines and columns
-
-  std::string completions_expect = R"INPUT(
+  int request_line = 6;
+  int request_char = 0;
+  std::size_t expect_count = 48;
+  std::string expect_items = R"INPUT(
 label: active                                 text: active = '${1:__all__}'                             desc: If specified only... pos: [6.0]-[6.0] kind:  7 format: snippet
 label: add_subdomain_ids                      text: add_subdomain_ids =                                 desc: The listed subdom... pos: [6.0]-[6.0] kind: 14 format: regular
-label: add_subdomain_names                    text: add_subdomain_names =                               desc: Optional list of ... pos: [6.0]-[6.0] kind: 14 format: regular
+label: add_subdomain_names                    text: add_subdomain_names =                               desc: The listed subdom... pos: [6.0]-[6.0] kind: 14 format: regular
 label: allow_renumbering                      text: allow_renumbering = ${1:true}                       desc: If allow_renumber... pos: [6.0]-[6.0] kind:  8 format: snippet
 label: alpha_rotation                         text: alpha_rotation =                                    desc: The number of deg... pos: [6.0]-[6.0] kind: 14 format: regular
 label: beta_rotation                          text: beta_rotation =                                     desc: The number of deg... pos: [6.0]-[6.0] kind: 14 format: regular
@@ -1100,67 +1028,22 @@ label: uniform_refine                         text: uniform_refine = ${1:0}     
 label: up_direction                           text: up_direction =                                      desc: Specify what axis... pos: [6.0]-[6.0] kind: 13 format: regular
 label: use_displaced_mesh                     text: use_displaced_mesh = ${1:true}                      desc: Create the displa... pos: [6.0]-[6.0] kind:  8 format: snippet
 label: use_split                              text: use_split = ${1:false}                              desc: Use split distrib... pos: [6.0]-[6.0] kind:  8 format: snippet
-label: *                                      text: [block_name]\n  $0\n[]                              desc: custom user named... pos: [6.0]-[6.0] kind:  6 format: snippet
-label: Partitioner                            text: [Partitioner]\n  $0\n[]                             desc: application named... pos: [6.0]-[6.0] kind: 22 format: snippet
+label: *                                      text: [block_name]\n  type = \n  $0\n[]                   desc: custom user named... pos: [6.0]-[6.0] kind:  6 format: snippet
+label: Partitioner                            text: [Partitioner]\n  type = \n  $0\n[]                  desc: application named... pos: [6.0]-[6.0] kind: 22 format: snippet
 )INPUT";
 
-  EXPECT_EQ(completions_expect, "\n" + completions_actual.str());
+  check_completions(request_id, doc_uri, request_line, request_char, expect_count, expect_items);
 }
 
 TEST_F(MooseServerTest, CompletionDocumentRootLevel)
 {
   // completion test parameters - at document root level outside of all blocks
-
-  int request_id = 5;
   std::string doc_uri = wasp::lsp::m_uri_prefix + std::string("/test/input/path");
-  int line = 42;
-  int character = 0;
-
-  // build completion request with the test parameters
-
-  wasp::DataObject completion_request;
-  std::stringstream completion_errors;
-
-  EXPECT_TRUE(wasp::lsp::buildCompletionRequest(
-      completion_request, completion_errors, request_id, doc_uri, line, character));
-
-  EXPECT_TRUE(completion_errors.str().empty());
-
-  // handle the built completion request with the moose_server
-
-  wasp::DataObject completion_response;
-
-  EXPECT_TRUE(moose_server->handleCompletionRequest(completion_request, completion_response));
-
-  EXPECT_TRUE(moose_server->getErrors().empty());
-
-  // check the dissected values of the moose_server completion response
-
-  std::stringstream response_errors;
-  int response_id;
-  bool response_is_incomplete;
-  wasp::DataArray completions_array;
-
-  EXPECT_TRUE(wasp::lsp::dissectCompletionResponse(completion_response,
-                                                   response_errors,
-                                                   response_id,
-                                                   response_is_incomplete,
-                                                   completions_array));
-
-  EXPECT_TRUE(response_errors.str().empty());
-
-  EXPECT_EQ(request_id, response_id);
-
-  // If the array grows with new syntax, let it grow
-  EXPECT_GE(completions_array.size(), 50u);
-
-  std::ostringstream completions_actual;
-
-  format_completions(completions_array, completions_actual);
-
-  // expected completions with zero-based lines and columns
-
-  std::string completions_expect = R"INPUT(
+  int request_id = 5;
+  int request_line = 42;
+  int request_char = 0;
+  std::size_t expect_count = 50;
+  std::string expect_items = R"INPUT(
 label: active                           text: active = '${1:__all__}'                      desc: If specified only... pos: [42.0]-[42.0] kind:  7 format: snippet
 label: inactive                         text: inactive =                                   desc: If specified bloc... pos: [42.0]-[42.0] kind:  7 format: regular
 label: Adaptivity                       text: [Adaptivity]\n  $0\n[]                       desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
@@ -1178,7 +1061,7 @@ label: Debug                            text: [Debug]\n  $0\n[]                 
 label: DeprecatedBlock                  text: [DeprecatedBlock]\n  $0\n[]                  desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
 label: DiracKernels                     text: [DiracKernels]\n  $0\n[]                     desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
 label: Distributions                    text: [Distributions]\n  $0\n[]                    desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
-label: Executioner                      text: [Executioner]\n  $0\n[]                      desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
+label: Executioner                      text: [Executioner]\n  type = \n  $0\n[]           desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
 label: Executors                        text: [Executors]\n  $0\n[]                        desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
 label: FVBCs                            text: [FVBCs]\n  $0\n[]                            desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
 label: FVICs                            text: [FVICs]\n  $0\n[]                            desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
@@ -1191,7 +1074,7 @@ label: ICs                              text: [ICs]\n  $0\n[]                   
 label: InterfaceKernels                 text: [InterfaceKernels]\n  $0\n[]                 desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
 label: Kernels                          text: [Kernels]\n  $0\n[]                          desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
 label: Materials                        text: [Materials]\n  $0\n[]                        desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
-label: Mesh                             text: [Mesh]\n  $0\n[]                             desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
+label: Mesh                             text: [Mesh]\n  file = \n  $0\n[]                  desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
 label: MeshDivisions                    text: [MeshDivisions]\n  $0\n[]                    desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
 label: MultiApps                        text: [MultiApps]\n  $0\n[]                        desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
 label: NodalKernels                     text: [NodalKernels]\n  $0\n[]                     desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
@@ -1212,317 +1095,89 @@ label: UserObjects                      text: [UserObjects]\n  $0\n[]           
 label: Variables                        text: [Variables]\n  $0\n[]                        desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
 label: VectorPostprocessors             text: [VectorPostprocessors]\n  $0\n[]             desc: application named... pos: [42.0]-[42.0] kind: 22 format: snippet
 )INPUT";
-
-  // Check that each line added when the test was created is still output
-  for (const auto & line : MooseUtils::split(completions_expect, "label:"))
-    EXPECT_TRUE(completions_actual.str().find(line) != std::string::npos);
+  check_completions(request_id, doc_uri, request_line, request_char, expect_count, expect_items);
 }
 
 TEST_F(MooseServerTest, CompletionValueActiveBlocks)
 {
   // completion test parameters - on active parameter value in Variables block
-
-  int request_id = 6;
   std::string doc_uri = wasp::lsp::m_uri_prefix + std::string("/test/input/path");
-  int line = 9;
-  int character = 12;
-
-  // build completion request with the test parameters
-
-  wasp::DataObject completion_request;
-  std::stringstream completion_errors;
-
-  EXPECT_TRUE(wasp::lsp::buildCompletionRequest(
-      completion_request, completion_errors, request_id, doc_uri, line, character));
-
-  EXPECT_TRUE(completion_errors.str().empty());
-
-  // handle the built completion request with the moose_server
-
-  wasp::DataObject completion_response;
-
-  EXPECT_TRUE(moose_server->handleCompletionRequest(completion_request, completion_response));
-
-  EXPECT_TRUE(moose_server->getErrors().empty());
-
-  // check the dissected values of the moose_server completion response
-
-  std::stringstream response_errors;
-  int response_id;
-  bool response_is_incomplete;
-  wasp::DataArray completions_array;
-
-  EXPECT_TRUE(wasp::lsp::dissectCompletionResponse(completion_response,
-                                                   response_errors,
-                                                   response_id,
-                                                   response_is_incomplete,
-                                                   completions_array));
-
-  EXPECT_TRUE(response_errors.str().empty());
-
-  EXPECT_EQ(request_id, response_id);
-
-  EXPECT_EQ(2u, completions_array.size());
-
-  std::ostringstream completions_actual;
-
-  format_completions(completions_array, completions_actual);
-
-  // expected completions with zero-based lines and columns
-
-  std::string completions_expect = R"INPUT(
+  int request_id = 6;
+  int request_line = 9;
+  int request_char = 12;
+  std::size_t expect_count = 2;
+  std::string expect_items = R"INPUT(
 label: u text: u desc: subblock name pos: [9.12]-[9.19] kind:  7 format: regular
 label: v text: v desc: subblock name pos: [9.12]-[9.19] kind:  7 format: regular
 )INPUT";
-
-  EXPECT_EQ(completions_expect, "\n" + completions_actual.str());
+  check_completions(request_id, doc_uri, request_line, request_char, expect_count, expect_items);
 }
 
 TEST_F(MooseServerTest, CompletionValueBooleanParam)
 {
   // completion test parameters - on boolean value of solve param from Problem
-
-  int request_id = 7;
   std::string doc_uri = wasp::lsp::m_uri_prefix + std::string("/test/input/path");
-  int line = 33;
-  int character = 10;
-
-  // build completion request with the test parameters
-
-  wasp::DataObject completion_request;
-  std::stringstream completion_errors;
-
-  EXPECT_TRUE(wasp::lsp::buildCompletionRequest(
-      completion_request, completion_errors, request_id, doc_uri, line, character));
-
-  EXPECT_TRUE(completion_errors.str().empty());
-
-  // handle the built completion request with the moose_server
-
-  wasp::DataObject completion_response;
-
-  EXPECT_TRUE(moose_server->handleCompletionRequest(completion_request, completion_response));
-
-  EXPECT_TRUE(moose_server->getErrors().empty());
-
-  // check the dissected values of the moose_server completion response
-
-  std::stringstream response_errors;
-  int response_id;
-  bool response_is_incomplete;
-  wasp::DataArray completions_array;
-
-  EXPECT_TRUE(wasp::lsp::dissectCompletionResponse(completion_response,
-                                                   response_errors,
-                                                   response_id,
-                                                   response_is_incomplete,
-                                                   completions_array));
-
-  EXPECT_TRUE(response_errors.str().empty());
-
-  EXPECT_EQ(request_id, response_id);
-
-  EXPECT_EQ(2u, completions_array.size());
-
-  std::ostringstream completions_actual;
-
-  format_completions(completions_array, completions_actual);
-
-  // expected completions with zero-based lines and columns
-
-  std::string completions_expect = R"INPUT(
+  int request_id = 7;
+  int request_line = 33;
+  int request_char = 10;
+  std::size_t expect_count = 2;
+  std::string expect_items = R"INPUT(
 label: false text: false desc:  pos: [33.10]-[33.15] kind:  8 format: regular
 label: true  text: true  desc:  pos: [33.10]-[33.15] kind:  8 format: regular
 )INPUT";
-
-  EXPECT_EQ(completions_expect, "\n" + completions_actual.str());
+  check_completions(request_id, doc_uri, request_line, request_char, expect_count, expect_items);
 }
 
 TEST_F(MooseServerTest, CompletionValueEnumsAndDocs)
 {
   // completion test parameters - on error_level enum in Terminator UserObject
-
-  int request_id = 8;
   std::string doc_uri = wasp::lsp::m_uri_prefix + std::string("/test/input/path");
-  int line = 39;
-  int character = 18;
-
-  // build completion request with the test parameters
-
-  wasp::DataObject completion_request;
-  std::stringstream completion_errors;
-
-  EXPECT_TRUE(wasp::lsp::buildCompletionRequest(
-      completion_request, completion_errors, request_id, doc_uri, line, character));
-
-  EXPECT_TRUE(completion_errors.str().empty());
-
-  // handle the built completion request with the moose_server
-
-  wasp::DataObject completion_response;
-
-  EXPECT_TRUE(moose_server->handleCompletionRequest(completion_request, completion_response));
-
-  EXPECT_TRUE(moose_server->getErrors().empty());
-
-  // check the dissected values of the moose_server completion response
-
-  std::stringstream response_errors;
-  int response_id;
-  bool response_is_incomplete;
-  wasp::DataArray completions_array;
-
-  EXPECT_TRUE(wasp::lsp::dissectCompletionResponse(completion_response,
-                                                   response_errors,
-                                                   response_id,
-                                                   response_is_incomplete,
-                                                   completions_array));
-
-  EXPECT_TRUE(response_errors.str().empty());
-
-  EXPECT_EQ(request_id, response_id);
-
-  EXPECT_EQ(4u, completions_array.size());
-
-  std::ostringstream completions_actual;
-
-  format_completions(completions_array, completions_actual);
-
-  // expected completions with zero-based lines and columns
-
-  std::string completions_expect = R"INPUT(
+  int request_id = 8;
+  int request_line = 39;
+  int request_char = 18;
+  std::size_t expect_count = 4;
+  std::string expect_items = R"INPUT(
 label: ERROR   text: ERROR   desc: Throw a MOOSE err... pos: [39.18]-[39.22] kind: 20 format: regular
 label: INFO    text: INFO    desc: Output an informa... pos: [39.18]-[39.22] kind: 20 format: regular
 label: NONE    text: NONE    desc: No message will b... pos: [39.18]-[39.22] kind: 20 format: regular
 label: WARNING text: WARNING desc: Output a warning ... pos: [39.18]-[39.22] kind: 20 format: regular
 )INPUT";
-
-  EXPECT_EQ(completions_expect, "\n" + completions_actual.str());
+  check_completions(request_id, doc_uri, request_line, request_char, expect_count, expect_items);
 }
 
 TEST_F(MooseServerTest, CompletionValueAllowedTypes)
 {
   // completion test parameters - on type parameter value in Executioner block
-
-  int request_id = 9;
   std::string doc_uri = wasp::lsp::m_uri_prefix + std::string("/test/input/path");
-  int line = 30;
-  int character = 9;
-
-  // build completion request with the test parameters
-
-  wasp::DataObject completion_request;
-  std::stringstream completion_errors;
-
-  EXPECT_TRUE(wasp::lsp::buildCompletionRequest(
-      completion_request, completion_errors, request_id, doc_uri, line, character));
-
-  EXPECT_TRUE(completion_errors.str().empty());
-
-  // handle the built completion request with the moose_server
-
-  wasp::DataObject completion_response;
-
-  EXPECT_TRUE(moose_server->handleCompletionRequest(completion_request, completion_response));
-
-  EXPECT_TRUE(moose_server->getErrors().empty());
-
-  // check the dissected values of the moose_server completion response
-
-  std::stringstream response_errors;
-  int response_id;
-  bool response_is_incomplete;
-  wasp::DataArray completions_array;
-
-  EXPECT_TRUE(wasp::lsp::dissectCompletionResponse(completion_response,
-                                                   response_errors,
-                                                   response_id,
-                                                   response_is_incomplete,
-                                                   completions_array));
-
-  EXPECT_TRUE(response_errors.str().empty());
-
-  EXPECT_EQ(request_id, response_id);
-
-  EXPECT_EQ(5u, completions_array.size());
-
-  std::ostringstream completions_actual;
-
-  format_completions(completions_array, completions_actual);
-
-  // expected completions with zero-based lines and columns
-
-  std::string completions_expect = R"INPUT(
-label: Eigenvalue         text: Eigenvalue         desc: Eigenvalue solves... pos: [30.9]-[30.18] kind: 25 format: regular
-label: InversePowerMethod text: InversePowerMethod desc: Inverse power met... pos: [30.9]-[30.18] kind: 25 format: regular
-label: NonlinearEigen     text: NonlinearEigen     desc: Executioner for e... pos: [30.9]-[30.18] kind: 25 format: regular
-label: Steady             text: Steady             desc: Executioner for s... pos: [30.9]-[30.18] kind: 25 format: regular
-label: Transient          text: Transient          desc: Executioner for t... pos: [30.9]-[30.18] kind: 25 format: regular
+  int request_id = 9;
+  int request_line = 30;
+  int request_char = 9;
+  std::size_t expect_count = 5;
+  std::string expect_items = R"INPUT(
+label: Eigenvalue         text: Eigenvalue                       desc: Eigenvalue solves... pos: [30.9]-[30.18] kind: 25 format: regular
+label: InversePowerMethod text: InversePowerMethod\nbx_norm = \n desc: Inverse power met... pos: [30.9]-[30.18] kind: 25 format: regular
+label: NonlinearEigen     text: NonlinearEigen\nbx_norm = \n     desc: Executioner for e... pos: [30.9]-[30.18] kind: 25 format: regular
+label: Steady             text: Steady                           desc: Executioner for s... pos: [30.9]-[30.18] kind: 25 format: regular
+label: Transient          text: Transient                        desc: Executioner for t... pos: [30.9]-[30.18] kind: 25 format: regular
 )INPUT";
-
-  EXPECT_EQ(completions_expect, "\n" + completions_actual.str());
+  check_completions(request_id, doc_uri, request_line, request_char, expect_count, expect_items);
 }
 
 TEST_F(MooseServerTest, CompletionValueInputLookups)
 {
   // completion test parameters - on displacements parameter value in VacuumBC
-
-  int request_id = 10;
   std::string doc_uri = wasp::lsp::m_uri_prefix + std::string("/test/input/path");
-  int line = 26;
-  int character = 21;
-
-  // build completion request with the test parameters
-
-  wasp::DataObject completion_request;
-  std::stringstream completion_errors;
-
-  EXPECT_TRUE(wasp::lsp::buildCompletionRequest(
-      completion_request, completion_errors, request_id, doc_uri, line, character));
-
-  EXPECT_TRUE(completion_errors.str().empty());
-
-  // handle the built completion request with the moose_server
-
-  wasp::DataObject completion_response;
-
-  EXPECT_TRUE(moose_server->handleCompletionRequest(completion_request, completion_response));
-
-  EXPECT_TRUE(moose_server->getErrors().empty());
-
-  // check the dissected values of the moose_server completion response
-
-  std::stringstream response_errors;
-  int response_id;
-  bool response_is_incomplete;
-  wasp::DataArray completions_array;
-
-  EXPECT_TRUE(wasp::lsp::dissectCompletionResponse(completion_response,
-                                                   response_errors,
-                                                   response_id,
-                                                   response_is_incomplete,
-                                                   completions_array));
-
-  EXPECT_TRUE(response_errors.str().empty());
-
-  EXPECT_EQ(request_id, response_id);
-
-  EXPECT_EQ(4u, completions_array.size());
-
-  std::ostringstream completions_actual;
-
-  format_completions(completions_array, completions_actual);
-
-  // expected completions with zero-based lines and columns
-
-  std::string completions_expect = R"INPUT(
+  int request_id = 10;
+  int request_line = 26;
+  int request_char = 21;
+  std::size_t expect_count = 4;
+  std::string expect_items = R"INPUT(
 label: disp_x text: disp_x desc: from /AuxVariables/* pos: [26.21]-[26.27] kind: 18 format: regular
 label: disp_y text: disp_y desc: from /AuxVariables/* pos: [26.21]-[26.27] kind: 18 format: regular
 label: u      text: u      desc: from /Variables/*    pos: [26.21]-[26.27] kind: 18 format: regular
 label: v      text: v      desc: from /Variables/*    pos: [26.21]-[26.27] kind: 18 format: regular
 )INPUT";
-
-  EXPECT_EQ(completions_expect, "\n" + completions_actual.str());
+  check_completions(request_id, doc_uri, request_line, request_char, expect_count, expect_items);
 }
 
 TEST_F(MooseServerTest, DefinitionObjectTypeSource)
@@ -1574,7 +1229,7 @@ TEST_F(MooseServerTest, DefinitionObjectTypeSource)
   // expected locations with zero-based lines and columns
 
   std::string locations_expect = R"INPUT(
-document_uri: "file://...absolute.../framework/src/executioners/Transient.C"    definition_start: [38.0]    definition_end: [38.1000]
+document_uri: "file://...absolute.../framework/src/executioners/Transient.C"    location_start: [16.0]    location_end: [16.1000]
 )INPUT";
 
   EXPECT_EQ(locations_expect, "\n" + locations_actual.str());
@@ -1629,9 +1284,9 @@ TEST_F(MooseServerTest, DefinitionInputFileLookups)
   // expected locations with zero-based lines and columns
 
   std::string locations_expect = R"INPUT(
-document_uri: "file:///test/input/path"    definition_start: [16.4]    definition_end: [16.10]
-document_uri: "file:///test/input/path"    definition_start: [17.7]    definition_end: [17.13]
-document_uri: "file:///test/input/path"    definition_start: [19.5]    definition_end: [19.11]
+document_uri: "file:///test/input/path"    location_start: [16.4]    location_end: [16.10]
+document_uri: "file:///test/input/path"    location_start: [17.7]    location_end: [17.13]
+document_uri: "file:///test/input/path"    location_start: [19.5]    location_end: [19.11]
 )INPUT";
 
   EXPECT_EQ(locations_expect, "\n" + locations_actual.str());
@@ -1737,7 +1392,7 @@ TEST_F(MooseServerTest, CompletionPartialInputCases)
 label: ghosted_boundaries           text: ghosted_boundaries =            desc: Boundaries to be ... pos: [3.2]-[3.6] kind: 14 format: regular
 label: ghosted_boundaries_inflation text: ghosted_boundaries_inflation =  desc: If you are using ... pos: [3.2]-[3.6] kind: 14 format: regular
 label: ghosting_patch_size          text: ghosting_patch_size =           desc: The number of nea... pos: [3.2]-[3.6] kind: 14 format: regular
-label: *                            text: [ghos]\n  $0\n[]                desc: custom user named... pos: [3.2]-[3.6] kind:  6 format: snippet
+label: *                            text: [ghos]\n  type = \n  $0\n[]     desc: custom user named... pos: [3.2]-[3.6] kind:  6 format: snippet
 )INPUT";
   check_completions(request_id, doc_uri, request_line, request_char, expect_count, expect_items);
 
@@ -1747,8 +1402,8 @@ label: *                            text: [ghos]\n  $0\n[]                desc: 
   request_char = 5;
   expect_count = 2;
   expect_items = R"INPUT(
-label: FVInitialCondition text: FVInitialCondition]\n  $0\n[] desc: application named... pos: [7.5]-[7.6] kind: 22 format: snippet
-label: InitialCondition   text: InitialCondition]\n  $0\n[]   desc: application named... pos: [7.5]-[7.6] kind: 22 format: snippet
+label: FVInitialCondition text: FVInitialCondition]\n  type = \n  $0\n[] desc: application named... pos: [7.5]-[7.6] kind: 22 format: snippet
+label: InitialCondition   text: InitialCondition]\n  type = \n  $0\n[]   desc: application named... pos: [7.5]-[7.6] kind: 22 format: snippet
 )INPUT";
   check_completions(request_id, doc_uri, request_line, request_char, expect_count, expect_items);
 
@@ -1769,9 +1424,9 @@ label: v text: v desc: from /Variables/* pos: [16.15]-[16.15] kind: 18 format: r
   request_char = 6;
   expect_count = 3;
   expect_items = R"INPUT(
-label: TimeIntegrator text: TimeIntegrator]\n  $0\n[] desc: application named... pos: [21.3]-[21.6] kind: 22 format: snippet
-label: TimeStepper    text: TimeStepper]\n  $0\n[]    desc: application named... pos: [21.3]-[21.6] kind: 22 format: snippet
-label: TimeSteppers   text: TimeSteppers]\n  $0\n[]   desc: application named... pos: [21.3]-[21.6] kind: 22 format: snippet
+label: TimeIntegrator  text: TimeIntegrator]\n  type = \n  $0\n[] desc: application named... pos: [21.3]-[21.6] kind: 22 format: snippet
+label: TimeStepper     text: TimeStepper]\n  type = \n  $0\n[]    desc: application named... pos: [21.3]-[21.6] kind: 22 format: snippet
+label: TimeSteppers    text: TimeSteppers]\n  $0\n[]              desc: application named... pos: [21.3]-[21.6] kind: 22 format: snippet
 )INPUT";
   check_completions(request_id, doc_uri, request_line, request_char, expect_count, expect_items);
 
@@ -1804,38 +1459,99 @@ label: linear_residual_start_time text: linear_residual_start_time =           d
 
 TEST_F(MooseServerTest, DocumentReferencesRequest)
 {
-  // references test parameters
+  // didchange test parameters - update input to set up document references
+  std::string doc_uri = wasp::lsp::m_uri_prefix + std::string("/test/input/path");
+  int doc_version = 5;
+  std::string doc_text_change = R"INPUT(
+[Mesh]
+  type = GeneratedMesh
+  dim = 1
+[]
+[Variables]
+  [u][]
+  [v][]
+[]
+[Kernels]
+  [diff]
+    type = Diffusion
+    variable = "u"
+  []
+[]
+[BCs]
+  [left]
+    type = VacuumBC
+    boundary = left
+    variable = u
+    prop_getter_suffix = u
+  []
+  [right]
+    type = VacuumBC
+    boundary = right
+    variable = v
+    displacements = 'u v u v u'
+  []
+[]
+[Executioner]
+  type = Transient
+[]
+[Problem]
+  solve = false
+[]
+)INPUT";
 
+  // build didchange notification from parameters and handle it with server
+  wasp::DataObject didchange_notification, diagnostics_notification;
+  std::stringstream errors;
+  EXPECT_TRUE(wasp::lsp::buildDidChangeNotification(
+      didchange_notification, errors, doc_uri, doc_version, -1, -1, -1, -1, -1, doc_text_change));
+  EXPECT_TRUE(
+      moose_server->handleDidChangeNotification(didchange_notification, diagnostics_notification));
+
+  // references test parameters - on subblock declarator of variable name u
   int request_id = 25;
-  std::string document_uri = wasp::lsp::m_uri_prefix + std::string("/test/input/path");
-  int line = 0;
-  int character = 0;
-  bool include_declaration = false;
+  int request_line = 6;
+  int request_char = 4;
+  bool incl_decl = true;
 
-  // build references request with the test parameters
-
+  // build references request with the test parameters for the moose_server
   wasp::DataObject references_request;
   std::stringstream references_errors;
-
   EXPECT_TRUE(wasp::lsp::buildReferencesRequest(references_request,
                                                 references_errors,
                                                 request_id,
-                                                document_uri,
-                                                line,
-                                                character,
-                                                include_declaration));
-
+                                                doc_uri,
+                                                request_line,
+                                                request_char,
+                                                incl_decl));
   EXPECT_TRUE(references_errors.str().empty());
 
-  // handle the built references request with the moose_server
-
+  // handle references request built from parameters using the moose_server
   wasp::DataObject references_response;
-
   EXPECT_TRUE(moose_server->handleReferencesRequest(references_request, references_response));
-
   EXPECT_TRUE(moose_server->getErrors().empty());
 
-  // references response will be checked when capability is implemented
+  // check dissected values of references response sent by the moose_server
+  std::stringstream response_errors;
+  int response_id;
+  wasp::DataArray locations_array;
+  EXPECT_TRUE(wasp::lsp::dissectLocationsResponse(
+      references_response, response_errors, response_id, locations_array));
+  EXPECT_TRUE(response_errors.str().empty());
+  EXPECT_EQ(request_id, response_id);
+  EXPECT_EQ(6u, locations_array.size());
+
+  // make formatted list of response references and check it is as expected
+  std::ostringstream locations_actual;
+  format_locations(locations_array, locations_actual);
+  std::string locations_expect = R"INPUT(
+document_uri: "file:///test/input/path"    location_start: [6.3]    location_end: [6.4]
+document_uri: "file:///test/input/path"    location_start: [12.15]    location_end: [12.18]
+document_uri: "file:///test/input/path"    location_start: [19.15]    location_end: [19.16]
+document_uri: "file:///test/input/path"    location_start: [26.21]    location_end: [26.22]
+document_uri: "file:///test/input/path"    location_start: [26.25]    location_end: [26.26]
+document_uri: "file:///test/input/path"    location_start: [26.29]    location_end: [26.30]
+)INPUT";
+  EXPECT_EQ(locations_expect, "\n" + locations_actual.str());
 }
 
 TEST_F(MooseServerTest, DocumentFormattingRequest)
@@ -1849,7 +1565,7 @@ TEST_F(MooseServerTest, DocumentFormattingRequest)
   // didchange test parameters - update input to set up document formatting
 
   std::string doc_uri = wasp::lsp::m_uri_prefix + std::string("/test/input/path");
-  int doc_version = 5;
+  int doc_version = 6;
   std::string doc_text_change = R"INPUT(
 
 num_dim = 2
@@ -2047,7 +1763,7 @@ TEST_F(MooseServerTest, DiagnosticsEmptyMessageSkip)
 {
   // didchange test parameters - create empty diagnostic which is not added
   std::string doc_uri = wasp::lsp::m_uri_prefix + std::string("/test/input/path");
-  int doc_version = 6;
+  int doc_version = 7;
   std::string doc_text_change = R"INPUT(
 [Mesh]
   type = GeneratedMesh

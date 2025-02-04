@@ -48,7 +48,7 @@ protected:
    *
    * @param[in] mass_matrix   Mass matrix
    */
-  bool performExplicitSolve(SparseMatrix<Number> & mass_matrix);
+  virtual bool performExplicitSolve(SparseMatrix<Number> & mass_matrix);
 
   /**
    * Solves a linear system
@@ -66,13 +66,13 @@ protected:
   MooseEnum _solve_type;
 
   /// Residual used for the RHS
-  NumericVector<Real> & _explicit_residual;
+  NumericVector<Real> * _explicit_residual;
 
   /// Solution vector for the linear solve
-  NumericVector<Real> & _solution_update;
+  NumericVector<Real> * _solution_update;
 
   /// Diagonal of the lumped mass matrix (and its inversion)
-  NumericVector<Real> & _mass_matrix_diag;
+  NumericVector<Real> * _mass_matrix_diag;
 
   /// Vector of 1's to help with creating the lumped mass matrix
   NumericVector<Real> * _ones;
@@ -81,7 +81,7 @@ protected:
   TagID _Ke_time_tag;
 
   /// For solving with the consistent matrix
-  std::unique_ptr<LinearSolver<Number>> _linear_solver;
+  std::unique_ptr<libMesh::LinearSolver<Number>> _linear_solver;
 
   /// For solving with lumped preconditioning
   std::unique_ptr<LumpedPreconditioner> _preconditioner;

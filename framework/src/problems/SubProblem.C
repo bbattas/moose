@@ -30,6 +30,8 @@
 
 #include <regex>
 
+using namespace libMesh;
+
 InputParameters
 SubProblem::validParams()
 {
@@ -133,6 +135,18 @@ SubProblem::vectorTagExists(const TagName & tag_name) const
       return true;
 
   return false;
+}
+
+void
+SubProblem::addNotZeroedVectorTag(const TagID tag)
+{
+  _not_zeroed_tagged_vectors.insert(tag);
+}
+
+bool
+SubProblem::vectorTagNotZeroed(const TagID tag) const
+{
+  return _not_zeroed_tagged_vectors.count(tag);
 }
 
 const VectorTag &
@@ -690,6 +704,14 @@ SubProblem::checkBoundaryMatProps()
     mooseError(errors.str());
 }
 
+bool
+SubProblem::nlConverged(const unsigned int nl_sys_num)
+{
+  mooseAssert(nl_sys_num < numNonlinearSystems(),
+              "The nonlinear system number is higher than the number of systems we have!");
+  return solverSystemConverged(nl_sys_num);
+}
+
 void
 SubProblem::markMatPropRequested(const std::string & prop_name)
 {
@@ -774,6 +796,21 @@ SubProblem::getAxisymmetricRadialCoord() const
   return mesh().getAxisymmetricRadialCoord();
 }
 
+bool
+SubProblem::hasLinearVariable(const std::string & var_name) const
+{
+  for (const auto i : make_range(numLinearSystems()))
+    if (systemBaseLinear(i).hasVariable(var_name))
+      return true;
+  return false;
+}
+
+bool
+SubProblem::hasAuxiliaryVariable(const std::string & var_name) const
+{
+  return systemBaseAuxiliary().hasVariable(var_name);
+}
+
 template <typename T>
 MooseVariableFEBase &
 SubProblem::getVariableHelper(const THREAD_ID tid,
@@ -842,7 +879,6 @@ SubProblem::getVariableHelper(const THREAD_ID tid,
 void
 SubProblem::reinitElemFaceRef(const Elem * elem,
                               unsigned int side,
-                              BoundaryID bnd_id,
                               Real tolerance,
                               const std::vector<Point> * const pts,
                               const std::vector<Real> * const weights,
@@ -863,12 +899,12 @@ SubProblem::reinitElemFaceRef(const Elem * elem,
     nl.prepare(tid);
 
     // Let's finally compute our variable values!
-    nl.reinitElemFace(elem, side, bnd_id, tid);
+    nl.reinitElemFace(elem, side, tid);
   }
 
   // do same for aux as for nl
   systemBaseAuxiliary().prepare(tid);
-  systemBaseAuxiliary().reinitElemFace(elem, side, bnd_id, tid);
+  systemBaseAuxiliary().reinitElemFace(elem, side, tid);
 
   // With the dof indices set in the moose variables, now let's properly size
   // our local residuals/Jacobians
@@ -882,7 +918,6 @@ SubProblem::reinitElemFaceRef(const Elem * elem,
 void
 SubProblem::reinitNeighborFaceRef(const Elem * neighbor_elem,
                                   unsigned int neighbor_side,
-                                  BoundaryID bnd_id,
                                   Real tolerance,
                                   const std::vector<Point> * const pts,
                                   const std::vector<Real> * const weights,
@@ -904,12 +939,12 @@ SubProblem::reinitNeighborFaceRef(const Elem * neighbor_elem,
     nl.prepareNeighbor(tid);
 
     // Let's finally compute our variable values!
-    nl.reinitNeighborFace(neighbor_elem, neighbor_side, bnd_id, tid);
+    nl.reinitNeighborFace(neighbor_elem, neighbor_side, tid);
   }
 
   // do same for aux as for nl
   systemBaseAuxiliary().prepareNeighbor(tid);
-  systemBaseAuxiliary().reinitNeighborFace(neighbor_elem, neighbor_side, bnd_id, tid);
+  systemBaseAuxiliary().reinitNeighborFace(neighbor_elem, neighbor_side, tid);
 
   // With the dof indices set in the moose variables, now let's properly size
   // our local residuals/Jacobians

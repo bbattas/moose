@@ -175,7 +175,7 @@ InputParameters::operator=(const InputParameters & rhs)
   _old_to_new_name_and_dep = rhs._old_to_new_name_and_dep;
   _new_to_old_names = rhs._new_to_old_names;
   _hit_node = rhs._hit_node;
-  _finalized = rhs._finalized;
+  _finalized = false;
 
   return *this;
 }
@@ -356,6 +356,20 @@ InputParameters::setDocString(const std::string & name_in, const std::string & d
   it->second._doc_string = doc;
 }
 
+std::string
+InputParameters::getDocUnit(const std::string & name_in) const
+{
+  const auto name = checkForRename(name_in);
+  return _params.at(name)._doc_unit;
+}
+
+void
+InputParameters::setDocUnit(const std::string & name_in, const std::string & doc_unit)
+{
+  const auto name = checkForRename(name_in);
+  _params[name]._doc_unit = doc_unit;
+}
+
 bool
 InputParameters::isParamRequired(const std::string & name_in) const
 {
@@ -389,6 +403,15 @@ InputParameters::isParamValid(const std::string & name_in) const
   }
   else if (have_parameter<MultiMooseEnum>(name))
     return get<MultiMooseEnum>(name).isValid();
+  else if (have_parameter<std::vector<MultiMooseEnum>>(name))
+  {
+    for (auto it = get<std::vector<MultiMooseEnum>>(name).begin();
+         it != get<std::vector<MultiMooseEnum>>(name).end();
+         ++it)
+      if (!it->isValid())
+        return false;
+    return true;
+  }
   else if (have_parameter<ExecFlagEnum>(name))
     return get<ExecFlagEnum>(name).isValid();
   else
@@ -640,7 +663,7 @@ InputParameters::finalize(const std::string & parsing_syntax)
       return;
 
     // The base by which to make things relative to
-    const auto file_base = getParamFileBase(param_name);
+    const auto file_base = getFileBase(param_name);
     value = std::filesystem::absolute(file_base / value_path).c_str();
   };
 
@@ -661,20 +684,52 @@ InputParameters::finalize(const std::string & parsing_syntax)
     set_if_filename(FileName);
     set_if_filename(FileNameNoExtension);
     set_if_filename(MeshFileName);
+    set_if_filename(MatrixFileName);
 #undef set_if_filename
+    // Set paths for data files
+    else if (auto data_file_name =
+                 dynamic_cast<Parameters::Parameter<DataFileName> *>(param_value.get()))
+    {
+      Moose::DataFileUtils::Path found_path;
+      std::optional<std::string> error;
+
+      // Catch this so that we can add additional error context if it fails (the param path)
+      const auto throw_on_error_before = Moose::_throw_on_error;
+      Moose::_throw_on_error = true;
+      try
+      {
+        found_path = Moose::DataFileUtils::getPath(data_file_name->get(), getFileBase(param_name));
+      }
+      catch (std::exception & e)
+      {
+        error = errorPrefix(param_name) + " " + e.what();
+      }
+      Moose::_throw_on_error = throw_on_error_before;
+
+      if (error)
+        mooseError(*error);
+
+      // Set the value to the absolute searched path
+      data_file_name->set() = found_path.path;
+      // And store the path in metadata so that we can dump it later
+      at(param_name)._data_file_name_path = found_path;
+    }
   }
 
   _finalized = true;
 }
 
 std::filesystem::path
-InputParameters::getParamFileBase(const std::string & param_name) const
+InputParameters::getFileBase(const std::optional<std::string> & param_name) const
 {
   mooseAssert(!have_parameter<std::string>("_app_name"),
               "Not currently setup to work with app FileName parameters");
 
+  const hit::Node * hit_node = nullptr;
+
   // Context from the individual parameter
-  const hit::Node * hit_node = getHitNode(param_name);
+  if (param_name)
+    hit_node = getHitNode(*param_name);
   // Context from the parameters
   if (!hit_node)
     hit_node = getHitNode();
@@ -688,10 +743,15 @@ InputParameters::getParamFileBase(const std::string & param_name) const
 
   // Failed to find a node up the tree that isn't a command line argument
   if (!hit_node)
-    mooseError(
-        errorPrefix(param_name),
-        " Parameter was set via a command-line argument and does not have sufficient context for "
-        "determining a file path.");
+  {
+    std::string prefix = "";
+    if (param_name)
+      prefix = errorPrefix(*param_name) + " ";
+    mooseError(prefix,
+               "Input context was set via a command-line argument and does not have sufficient "
+               "context for "
+               "determining a file path.");
+  }
 
   return std::filesystem::absolute(std::filesystem::path(hit_node->filename()).parent_path());
 }
@@ -889,22 +949,60 @@ InputParameters::addParamNamesToGroup(const std::string & space_delim_names,
                  '.');
 }
 
+void
+InputParameters::renameParameterGroup(const std::string & old_name, const std::string & new_name)
+{
+  for (auto & param : _params)
+    if (param.second._group == old_name)
+      param.second._group = new_name;
+}
+
+void
+InputParameters::setGlobalCommandLineParam(const std::string & name)
+{
+  auto & cl_data = at(checkForRename(name))._cl_data;
+  if (!cl_data)
+    mooseError("InputParameters::setGlobalCommandLineParam: The parameter '",
+               name,
+               "' is not a command line parameter");
+  cl_data->global = true;
+}
+
 bool
 InputParameters::isCommandLineParameter(const std::string & name) const
 {
   return at(checkForRename(name))._cl_data.has_value();
 }
 
-const std::vector<std::string> &
-InputParameters::getCommandLineSyntax(const std::string & name) const
+std::optional<InputParameters::CommandLineMetadata>
+InputParameters::queryCommandLineMetadata(const std::string & name) const
 {
-  return getCommandLineMetadata(name).syntax;
+  const auto & cl_data = at(checkForRename(name))._cl_data;
+  if (!cl_data)
+    return {};
+  return *cl_data;
 }
 
-InputParameters::CommandLineMetadata::ArgumentType
-InputParameters::getCommandLineArgumentType(const std::string & name) const
+const InputParameters::CommandLineMetadata &
+InputParameters::getCommandLineMetadata(const std::string & name) const
 {
-  return getCommandLineMetadata(name).argument_type;
+  const auto & cl_data = at(checkForRename(name))._cl_data;
+  if (!cl_data)
+    mooseError("InputParameters::getCommandLineMetadata: The parameter '",
+               name,
+               "' is not a command line parameter");
+  return *cl_data;
+}
+
+void
+InputParameters::commandLineParamSet(const std::string & name, const CommandLineParamSetKey)
+{
+  auto & cl_data = at(checkForRename(name))._cl_data;
+  if (!cl_data)
+    mooseError("InputParameters::commandLineParamSet: The parameter '",
+               name,
+               "' is not a command line parameter");
+  cl_data->set_by_command_line = true;
 }
 
 std::string
@@ -1019,7 +1117,8 @@ InputParameters::applyCoupledVar(const InputParameters & common, const std::stri
 void
 InputParameters::applyParameter(const InputParameters & common,
                                 const std::string & common_name,
-                                bool allow_private)
+                                bool allow_private,
+                                bool override_default)
 {
   // Disable the display of deprecated message when applying common parameters, this avoids a dump
   // of messages
@@ -1036,7 +1135,7 @@ InputParameters::applyParameter(const InputParameters & common,
   // Extract the properties from the common parameter
   const bool common_exist = common._values.find(common_name) != common._values.end();
   const bool common_priv = allow_private ? false : common.isPrivate(common_name);
-  const bool common_valid = common.isParamValid(common_name);
+  const bool common_valid = common.isParamValid(common_name) || override_default;
 
   /* In order to apply a common parameter 4 statements must be satisfied
    * (1) A local parameter must exist with the same name as the common parameter
@@ -1074,14 +1173,17 @@ bool
 InputParameters::isParamSetByUser(const std::string & name_in) const
 {
   const auto name = checkForRename(name_in);
+  // Invalid; for sure not set by the user
   if (!isParamValid(name))
-    // if the parameter is invalid, it is for sure not set by the user
     return false;
-  else
-    // If the parameters is not located in the list, then it was set by the user
-    // If the parameter is private, and present in global params, it is ignored, therefore not set
-    return _params.count(name) > 0 && !_params.at(name)._set_by_add_param &&
-           !_params.at(name)._is_private;
+  // Parameter is not located in the list (called Parameters::set)
+  if (!_params.count(name))
+    return false;
+  // Special case for a command line option, which is a private parameter
+  if (const auto cl_data = queryCommandLineMetadata(name))
+    return cl_data->set_by_command_line;
+  // Not a command line option, not set by addParam and not private
+  return !_params.at(name)._set_by_add_param && !_params.at(name)._is_private;
 }
 
 const std::string &
@@ -1135,6 +1237,27 @@ InputParameters::addRequiredParam<std::vector<MooseEnum>>(
 
 template <>
 void
+InputParameters::addRequiredParam<std::vector<MultiMooseEnum>>(
+    const std::string & name,
+    const std::vector<MultiMooseEnum> & moose_enums,
+    const std::string & doc_string)
+{
+  mooseAssert(
+      moose_enums.size() == 1,
+      "Only 1 MultiMooseEnum is supported in addRequiredParam<std::vector<MultiMooseEnum>> for " +
+          name);
+  mooseAssert(!moose_enums[0].items().empty(),
+              "The MultiMooseEnum in addRequiredParam<std::vector<MultiMooseEnum>> is empty for " +
+                  name);
+  InputParameters::set<std::vector<MultiMooseEnum>>(name) =
+      moose_enums; // valid parameter is set by set_attributes
+  auto & metadata = _params[name];
+  metadata._required = true;
+  metadata._doc_string = doc_string;
+}
+
+template <>
+void
 InputParameters::addParam<MooseEnum>(const std::string & /*name*/,
                                      const std::string & /*doc_string*/)
 {
@@ -1158,6 +1281,24 @@ InputParameters::addParam<std::vector<MooseEnum>>(const std::string & /*name*/,
 {
   mooseError("You must supply a vector of MooseEnum object(s) when using addParam, even if the "
              "parameter is not required!");
+}
+
+template <>
+void
+InputParameters::addParam<std::vector<MultiMooseEnum>>(const std::string & /*name*/,
+                                                       const std::string & /*doc_string*/)
+{
+  mooseError(
+      "You must supply a vector of MultiMooseEnum object(s) when using addParam, even if the "
+      "parameter is not required!");
+}
+
+template <>
+void
+InputParameters::addRequiredParam<std::vector<MultiMooseEnum>>(const std::string & /*name*/,
+                                                               const std::string & /*doc_string*/)
+{
+  mooseError("You must supply a vector of MultiMooseEnum object(s) when using addRequiredParam!");
 }
 
 template <>
@@ -1406,15 +1547,6 @@ InputParameters::checkParamName(const std::string & name) const
     mooseError("Invalid parameter name: '", name, "'");
 }
 
-const InputParameters::CommandLineMetadata &
-InputParameters::getCommandLineMetadata(const std::string & name) const
-{
-  const auto & cl_data = at(checkForRename(name))._cl_data;
-  if (!cl_data)
-    mooseError("The parameter '", name, "' is not a command line parameter.");
-  return *cl_data;
-}
-
 bool
 InputParameters::shouldIgnore(const std::string & name_in)
 {
@@ -1606,6 +1738,12 @@ InputParameters::paramAliases(const std::string & param_name) const
     aliases.push_back(pr.second);
 
   return aliases;
+}
+
+std::optional<Moose::DataFileUtils::Path>
+InputParameters::queryDataFileNamePath(const std::string & name) const
+{
+  return at(checkForRename(name))._data_file_name_path;
 }
 
 void

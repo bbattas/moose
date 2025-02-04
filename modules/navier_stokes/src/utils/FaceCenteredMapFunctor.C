@@ -17,6 +17,8 @@
 #include "libmesh/elem.h"
 #include "libmesh/point.h"
 
+using namespace libMesh;
+
 namespace Moose
 {
 template <typename T, typename T2, typename std::enable_if<ScalarTraits<T>::value, int>::type = 0>
@@ -162,3 +164,4 @@ template class FaceCenteredMapFunctor<ADRealVectorValue,
                                       std::unordered_map<dof_id_type, ADRealVectorValue>>;
 template class FaceCenteredMapFunctor<RealVectorValue,
                                       std::unordered_map<dof_id_type, RealVectorValue>>;
+template class FaceCenteredMapFunctor<Real, std::unordered_map<dof_id_type, Real>>;

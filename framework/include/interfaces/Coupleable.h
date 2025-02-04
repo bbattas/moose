@@ -242,6 +242,28 @@ protected:
                                                              unsigned int comp = 0) const;
 
   /**
+   * Returns time derivative of a coupled variable for use in templated automatic differentiation
+   * classes
+   * @param var_name Name of coupled variable
+   * @param comp Component number for vector of coupled variables
+   * @return Reference to a GenericVariableValue for the coupled variable time derivative
+   */
+  template <bool is_ad>
+  const GenericVariableValue<is_ad> & coupledGenericDot(const std::string & var_name,
+                                                        unsigned int comp = 0) const;
+
+  /**
+   * Returns the second time derivative of a coupled variable for use in templated automatic
+   * differentiation classes
+   * @param var_name Name of coupled variable
+   * @param comp Component number for vector of coupled variables
+   * @return Reference to a GenericVariableValue for the coupled variable second time derivative
+   */
+  template <bool is_ad>
+  const GenericVariableValue<is_ad> & coupledGenericDotDot(const std::string & var_name,
+                                                           unsigned int comp = 0) const;
+
+  /**
    * Returns value of a coupled lower-dimensional variable
    * @param var_name Name of coupled variable
    * @param comp Component number for vector of coupled variables
@@ -1655,7 +1677,7 @@ public:
    * Helper method to return (and insert if necessary) the default value for Automatic
    * Differentiation for an uncoupled variable.
    * @param var_name the name of the variable for which to retrieve a default value
-   * @return VariableValue * a pointer to the associated VarirableValue.
+   * @return VariableValue * a pointer to the associated VariableValue.
    */
   const ADVariableValue * getADDefaultValue(const std::string & var_name) const;
 
@@ -1663,7 +1685,7 @@ public:
    * Helper method to return (and insert if necessary) the default vector value for Automatic
    * Differentiation for an uncoupled variable.
    * @param var_name the name of the vector variable for which to retrieve a default value
-   * @return VariableVectorValue * a pointer to the associated VarirableVectorValue.
+   * @return VectorVariableValue * a pointer to the associated VectorVariableValue.
    */
   const ADVectorVariableValue * getADDefaultVectorValue(const std::string & var_name) const;
 

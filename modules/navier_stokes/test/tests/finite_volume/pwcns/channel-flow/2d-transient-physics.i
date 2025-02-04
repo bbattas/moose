@@ -75,13 +75,16 @@ top_side_temperature = 150
     [FluidHeatTransfer]
       [fluid]
         thermal_conductivity = 'k'
+        effective_conductivity = true
         specific_heat = 'cp'
 
         initial_temperature = '${T_inlet}'
 
+        # See 'flow' for inlet boundaries
         energy_inlet_types = 'fixed-temperature'
         energy_inlet_function = '${T_inlet}'
 
+        # See 'flow' for wall boundaries
         energy_wall_types = 'heatflux heatflux'
         energy_wall_function = '0 0'
 

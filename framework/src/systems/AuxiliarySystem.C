@@ -29,6 +29,9 @@
 #include "libmesh/numeric_vector.h"
 #include "libmesh/default_coupling.h"
 #include "libmesh/string_to_enum.h"
+#include "libmesh/fe_interface.h"
+
+using namespace libMesh;
 
 // AuxiliarySystem ////////
 
@@ -212,8 +215,7 @@ AuxiliarySystem::addVariable(const std::string & var_type,
 
   for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
   {
-    if (fe_type.family == LAGRANGE_VEC || fe_type.family == NEDELEC_ONE ||
-        fe_type.family == MONOMIAL_VEC || fe_type.family == RAVIART_THOMAS)
+    if (FEInterface::field_type(fe_type) == TYPE_VECTOR)
     {
       auto * var = _vars[tid].getActualFieldVariable<RealVectorValue>(name);
       if (var)
@@ -250,16 +252,6 @@ AuxiliarySystem::addVariable(const std::string & var_type,
       }
     }
   }
-}
-
-void
-AuxiliarySystem::addTimeIntegrator(const std::string & type,
-                                   const std::string & name,
-                                   InputParameters & parameters)
-{
-  parameters.set<SystemBase *>("_sys") = this;
-  std::shared_ptr<TimeIntegrator> ti = _factory.create<TimeIntegrator>(type, name, parameters);
-  _time_integrator = ti;
 }
 
 void
@@ -347,10 +339,7 @@ AuxiliarySystem::reinitElem(const Elem * /*elem*/, THREAD_ID tid)
 }
 
 void
-AuxiliarySystem::reinitElemFace(const Elem * /*elem*/,
-                                unsigned int /*side*/,
-                                BoundaryID /*bnd_id*/,
-                                THREAD_ID tid)
+AuxiliarySystem::reinitElemFace(const Elem * /*elem*/, unsigned int /*side*/, THREAD_ID tid)
 {
   for (auto * var : _nodal_vars[tid])
     var->computeElemValuesFace();
@@ -383,8 +372,9 @@ void
 AuxiliarySystem::compute(ExecFlagType type)
 {
   // avoid division by dt which might be zero.
-  if (_fe_problem.dt() > 0. && _time_integrator)
-    _time_integrator->preStep();
+  if (_fe_problem.dt() > 0.)
+    for (auto & ti : _time_integrators)
+      ti->preStep();
 
   // We need to compute time derivatives every time each kind of the variables is finished, because:
   //
@@ -398,8 +388,9 @@ AuxiliarySystem::compute(ExecFlagType type)
   {
     computeScalarVars(type);
     // compute time derivatives of scalar aux variables _after_ the values were updated
-    if (_fe_problem.dt() > 0. && _time_integrator)
-      _time_integrator->computeTimeDerivatives();
+    if (_fe_problem.dt() > 0.)
+      for (auto & ti : _time_integrators)
+        ti->computeTimeDerivatives();
   }
 
   if (_vars[0].fieldVariables().size() > 0)
@@ -413,8 +404,9 @@ AuxiliarySystem::compute(ExecFlagType type)
     computeElementalVars(type);
 
     // compute time derivatives of nodal aux variables _after_ the values were updated
-    if (_fe_problem.dt() > 0. && _time_integrator)
-      _time_integrator->computeTimeDerivatives();
+    if (_fe_problem.dt() > 0.)
+      for (auto & ti : _time_integrators)
+        ti->computeTimeDerivatives();
   }
 
   if (_serialized_solution.get())
@@ -795,10 +787,10 @@ AuxiliarySystem::needMaterialOnSide(BoundaryID bnd_id)
 }
 
 void
-AuxiliarySystem::setPreviousNewtonSolution()
+AuxiliarySystem::copyCurrentIntoPreviousNL()
 {
-  // Evaluate aux variables to get the solution vector
-  compute(EXEC_LINEAR);
+  if (solutionPreviousNewton())
+    *solutionPreviousNewton() = *currentSolution();
 }
 
 template <typename AuxKernelType>

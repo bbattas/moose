@@ -4,18 +4,24 @@
 # If adding a new control key, a change to versioner.py:influential_list will be required
 # (add that control key to 'not_libraries').
 packages:
-  mpich:
+  tools:
     influential:
-      - apptainer/mpich.def
-      - conda/mpich/meta.yaml
-      - conda/mpich/conda_build_config.yaml
-      - conda/mpich/build.sh
+      - conda/tools/meta.yaml
+      - conda/tools/conda_build_config.yaml
+  mpi:
+    influential:
+      - apptainer/set_prompt.bash
+      - apptainer/mpi.def
+      - apptainer/files/mpi
+      - conda/mpi/meta.yaml
+      - conda/mpi/conda_build_config.yaml
+      - conda/mpi/base_build.sh
     apptainer:
   petsc:
     dependencies:
-      - mpich
+      - mpi
     apptainer:
-      from: mpich
+      from: mpi
     influential:
       - petsc
       - apptainer/petsc.def
@@ -24,9 +30,11 @@ packages:
       - conda/petsc/build.sh
       - scripts/configure_petsc.sh
       - scripts/update_and_rebuild_petsc.sh
+      - scripts/apple-silicon-hdf5-autogen.patch
   libmesh:
     dependencies:
       - petsc
+      - libmesh-vtk
     apptainer:
       from: petsc
     influential:
@@ -37,31 +45,60 @@ packages:
       - conda/libmesh/build.sh
       - scripts/configure_libmesh.sh
       - scripts/update_and_rebuild_libmesh.sh
-      - conda/libmesh-vtk/meta.yaml
-      - conda/libmesh-vtk/conda_build_config.yaml
-      - conda/libmesh-vtk/build.sh
   wasp:
     influential:
       - scripts/update_and_rebuild_wasp.sh
       - framework/contrib/wasp
       - conda/wasp/meta.yaml
       - conda/wasp/conda_build_config.yaml
-      - conda/wasp/build.sh
+      - conda/wasp/build_wasp.sh
+      - conda/wasp/pyhit
+      - conda/wasp/build_pyhit.sh
+      - conda/wasp/pyhit.patch
+      - python/moosetree
+      - python/mooseutils/message.py
+      - python/mooseutils/mooseutils.py
+      - python/pyhit/pyhit.py
   moose-dev:
     dependencies:
       - libmesh
       - wasp
+      - peacock
+      - tools
     apptainer:
       from: libmesh
     influential:
       - apptainer/moose-dev.def
       - apptainer/remove_channels.def
-      - conda/peacock/meta.yaml
-      - conda/peacock/conda_build_config.yaml
-      - conda/tools/meta.yaml
-      - conda/tools/conda_build_config.yaml
+      - apptainer/files/moose-dev
       - conda/moose-dev/meta.yaml
       - conda/moose-dev/conda_build_config.yaml
+      - scripts/setup_libtorch.sh
+  libmesh-vtk:
+    dependencies:
+      - mpi
+    influential:
+      - conda/libmesh-vtk/build.sh
+      - conda/libmesh-vtk/meta.yaml
+      - conda/libmesh-vtk/conda_build_config.yaml
+  peacock:
+    dependencies:
+      - mpi
+    influential:
+      - conda/peacock/meta.yaml
+      - conda/peacock/conda_build_config.yaml
+  pprof:
+    influential:
+      - conda/pprof/build.sh
+      - conda/pprof/meta.yaml
+      - conda/pprof/conda_build_config.yaml
+  pyhit:
+    dependencies:
+      - wasp
+  seacas:
+    influential:
+      - conda/seacas/meta.yaml
+      - conda/seacas/conda_build_config.yaml
   app:
     dependencies:
       - moose-dev

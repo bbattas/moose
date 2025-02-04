@@ -31,6 +31,16 @@ InputParameters
 MaterialOutputAction::validParams()
 {
   InputParameters params = Action::validParams();
+  params.addClassDescription("Outputs material properties to various Outputs objects, based on the "
+                             "parameters set in each Material");
+  /// A flag to tell this action whether or not to print the unsupported properties
+  /// Note: A derived class can set this to false, override materialOutput and output
+  ///       a particular property that is not supported by this class.
+  params.addPrivateParam("print_unsupported_prop_names", true);
+  params.addParam<bool>("print_automatic_aux_variable_creation",
+                        true,
+                        "Flag to print list of aux variables created for automatic output by "
+                        "MaterialOutputAction.");
   return params;
 }
 
@@ -151,7 +161,8 @@ MaterialOutputAction::act()
                                                            _material_variable_names.end());
     }
   }
-  if (unsupported_names.size() > 0 && get_names_only)
+  if (unsupported_names.size() > 0 && get_names_only &&
+      getParam<bool>("print_unsupported_prop_names"))
   {
     std::ostringstream oss;
     for (const auto & name : unsupported_names)
@@ -184,7 +195,8 @@ MaterialOutputAction::act()
                    " to restrict the material properties to output");
       _problem->addAuxVariable("MooseVariableConstMonomial", var_name, params);
     }
-    if (material_names.size() > 0)
+
+    if (material_names.size() > 0 && getParam<bool>("print_automatic_aux_variable_creation"))
       _console << COLOR_CYAN << "The following total " << material_names.size()
                << " aux variables:" << oss.str() << "\nare added for automatic output by " << type()
                << "." << COLOR_DEFAULT << std::endl;
@@ -245,6 +257,13 @@ MaterialOutputAction::materialOutput(const std::string & property_name,
                          material,
                          get_names_only);
 
+  else if (hasADProperty<RealTensorValue>(property_name))
+    names = outputHelper({"ADMaterialRealTensorValueAux", "012", {"row", "column"}},
+                         property_name,
+                         property_name + "_",
+                         material,
+                         get_names_only);
+
   else if (hasProperty<RankTwoTensor>(property_name))
     names = outputHelper({"MaterialRankTwoTensorAux", "012", {"i", "j"}},
                          property_name,
@@ -266,6 +285,13 @@ MaterialOutputAction::materialOutput(const std::string & property_name,
                          material,
                          get_names_only);
 
+  else if (hasADProperty<RankFourTensor>(property_name))
+    names = outputHelper({"ADMaterialRankFourTensorAux", "012", {"i", "j", "k", "l"}},
+                         property_name,
+                         property_name + "_",
+                         material,
+                         get_names_only);
+
   else if (hasProperty<SymmetricRankTwoTensor>(property_name))
     names = outputHelper({"MaterialSymmetricRankTwoTensorAux", "012345", {"component"}},
                          property_name,
@@ -273,8 +299,22 @@ MaterialOutputAction::materialOutput(const std::string & property_name,
                          material,
                          get_names_only);
 
+  else if (hasADProperty<SymmetricRankTwoTensor>(property_name))
+    names = outputHelper({"ADMaterialSymmetricRankTwoTensorAux", "012345", {"component"}},
+                         property_name,
+                         property_name + "_",
+                         material,
+                         get_names_only);
+
   else if (hasProperty<SymmetricRankFourTensor>(property_name))
     names = outputHelper({"MaterialSymmetricRankFourTensorAux", "012345", {"i", "j"}},
+                         property_name,
+                         property_name + "_",
+                         material,
+                         get_names_only);
+
+  else if (hasADProperty<SymmetricRankFourTensor>(property_name))
+    names = outputHelper({"ADMaterialSymmetricRankFourTensorAux", "012345", {"i", "j"}},
                          property_name,
                          property_name + "_",
                          material,

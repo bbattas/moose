@@ -9,6 +9,7 @@
 
 #include "AdvancedExtruderGenerator.h"
 #include "MooseUtils.h"
+#include "MooseMeshUtils.h"
 
 #include "libmesh/boundary_info.h"
 #include "libmesh/function_base.h"
@@ -18,8 +19,15 @@
 #include "libmesh/cell_hex8.h"
 #include "libmesh/cell_hex20.h"
 #include "libmesh/cell_hex27.h"
+#include "libmesh/edge_edge2.h"
+#include "libmesh/edge_edge3.h"
+#include "libmesh/edge_edge4.h"
 #include "libmesh/face_quad4.h"
+#include "libmesh/face_quad8.h"
 #include "libmesh/face_quad9.h"
+#include "libmesh/face_tri3.h"
+#include "libmesh/face_tri6.h"
+#include "libmesh/face_tri7.h"
 #include "libmesh/libmesh_logging.h"
 #include "libmesh/mesh_communication.h"
 #include "libmesh/mesh_modification.h"
@@ -176,54 +184,36 @@ AdvancedExtruderGenerator::AdvancedExtruderGenerator(const InputParameters & par
 
   if (_subdomain_swaps.size() && (_subdomain_swaps.size() != num_elevations))
     paramError("subdomain_swaps",
-               "If specified, 'subdomain_swaps' must be the same length as 'heights' in ",
+               "If specified, 'subdomain_swaps' (" + std::to_string(_subdomain_swaps.size()) +
+                   ") must be the same length as 'heights' (" + std::to_string(num_elevations) +
+                   ") in ",
                name());
 
-  _subdomain_swap_pairs.resize(_subdomain_swaps.size());
-
-  // Reprocess the subdomain swaps to make pairs out of them so they are easier to use
-  for (unsigned int i = 0; i < _subdomain_swaps.size(); i++)
+  try
   {
-    const auto & elevation_swaps = _subdomain_swaps[i];
-    auto & elevation_swap_pairs = _subdomain_swap_pairs[i];
-
-    if (elevation_swaps.size() % 2)
-      paramError("subdomain_swaps",
-                 "Row ",
-                 i + 1,
-                 " of subdomain_swaps in ",
-                 name(),
-                 " does not contain an even number of entries! Num entries: ",
-                 elevation_swaps.size());
-
-    for (unsigned int j = 0; j < elevation_swaps.size(); j += 2)
-      elevation_swap_pairs[elevation_swaps[j]] = elevation_swaps[j + 1];
+    MooseMeshUtils::idSwapParametersProcessor(
+        name(), "subdomain_swaps", _subdomain_swaps, _subdomain_swap_pairs);
+  }
+  catch (const MooseException & e)
+  {
+    paramError("subdomain_swaps", e.what());
   }
 
   if (_boundary_swaps.size() && (_boundary_swaps.size() != num_elevations))
     paramError("boundary_swaps",
-               "If specified, 'boundary_swaps' must be the same length as 'heights' in ",
+               "If specified, 'boundary_swaps' (" + std::to_string(_boundary_swaps.size()) +
+                   ") must be the same length as 'heights' (" + std::to_string(num_elevations) +
+                   ") in ",
                name());
 
-  _boundary_swap_pairs.resize(_boundary_swaps.size());
-
-  // Reprocess the boundary swaps to make pairs out of them so they are easier to use
-  for (unsigned int i = 0; i < _boundary_swaps.size(); i++)
+  try
   {
-    const auto & elevation_bdry_swaps = _boundary_swaps[i];
-    auto & elevation_bdry_swap_pairs = _boundary_swap_pairs[i];
-
-    if (elevation_bdry_swaps.size() % 2)
-      paramError("boundary_swaps",
-                 "Row ",
-                 i + 1,
-                 " of boundary_swaps in ",
-                 name(),
-                 " does not contain an even number of entries! Num entries: ",
-                 elevation_bdry_swaps.size());
-
-    for (unsigned int j = 0; j < elevation_bdry_swaps.size(); j += 2)
-      elevation_bdry_swap_pairs[elevation_bdry_swaps[j]] = elevation_bdry_swaps[j + 1];
+    MooseMeshUtils::idSwapParametersProcessor(
+        name(), "boundary_swaps", _boundary_swaps, _boundary_swap_pairs);
+  }
+  catch (const MooseException & e)
+  {
+    paramError("boundary_swaps", e.what());
   }
 
   if (_elem_integers_swaps.size() &&
@@ -238,26 +228,17 @@ AdvancedExtruderGenerator::AdvancedExtruderGenerator(const InputParameters & par
                  "If specified, each element of 'elem_integers_swaps' must have the same length as "
                  "the length of 'heights'.");
 
-  _elem_integers_swap_pairs.resize(num_elevations * _elem_integer_names_to_swap.size());
-  // Reprocess the elem_integers_swaps to make pairs out of them so they are easier to use
-  for (unsigned int i = 0; i < _elem_integer_names_to_swap.size(); i++)
+  try
   {
-    for (unsigned int j = 0; j < num_elevations; j++)
-    {
-      const auto & elevation_extra_swaps = _elem_integers_swaps[i][j];
-      auto & elevation_extra_swap_pairs = _elem_integers_swap_pairs[i * num_elevations + j];
-
-      if (elevation_extra_swaps.size() % 2)
-        paramError("elem_integers_swaps",
-                   "Row ",
-                   i * num_elevations + j + 1,
-                   " of elem_integers_swaps in ",
-                   name(),
-                   " does not contain an even number of entries! Num entries: ",
-                   elevation_extra_swaps.size());
-      for (unsigned int k = 0; k < elevation_extra_swaps.size(); k += 2)
-        elevation_extra_swap_pairs[elevation_extra_swaps[k]] = elevation_extra_swaps[k + 1];
-    }
+    MooseMeshUtils::extraElemIntegerSwapParametersProcessor(name(),
+                                                            num_elevations,
+                                                            _elem_integer_names_to_swap.size(),
+                                                            _elem_integers_swaps,
+                                                            _elem_integers_swap_pairs);
+  }
+  catch (const MooseException & e)
+  {
+    paramError("elem_integers_swaps", e.what());
   }
 
   bool has_negative_entry = false;
@@ -276,25 +257,31 @@ AdvancedExtruderGenerator::AdvancedExtruderGenerator(const InputParameters & par
     paramError("biases", "Size of this parameter, if provided, must be the same as heights.");
 
   if (_upward_boundary_source_blocks.size() != _upward_boundary_ids.size() ||
-      _upward_boundary_ids.size() != _heights.size())
-    paramError(
-        "upward_boundary_ids",
-        "This parameter must have the same length as upward_boundary_source_blocks and heights.");
+      _upward_boundary_ids.size() != num_elevations)
+    paramError("upward_boundary_ids",
+               "This parameter must have the same length (" +
+                   std::to_string(_upward_boundary_ids.size()) +
+                   ") as upward_boundary_source_blocks (" +
+                   std::to_string(_upward_boundary_source_blocks.size()) + ") and heights (" +
+                   std::to_string(num_elevations) + ")");
   for (unsigned int i = 0; i < _upward_boundary_source_blocks.size(); i++)
     if (_upward_boundary_source_blocks[i].size() != _upward_boundary_ids[i].size())
       paramError("upward_boundary_ids",
-                 "Every element of this parameter must have the same length as the corrresponding "
+                 "Every element of this parameter must have the same length as the corresponding "
                  "element of upward_boundary_source_blocks.");
 
   if (_downward_boundary_source_blocks.size() != _downward_boundary_ids.size() ||
-      _downward_boundary_ids.size() != _heights.size())
-    paramError(
-        "downward_boundary_ids",
-        "This parameter must have the same length as downward_boundary_source_blocks and heights.");
+      _downward_boundary_ids.size() != num_elevations)
+    paramError("downward_boundary_ids",
+               "This parameter must have the same length (" +
+                   std::to_string(_downward_boundary_ids.size()) +
+                   ") as downward_boundary_source_blocks (" +
+                   std::to_string(_downward_boundary_source_blocks.size()) + ") and heights (" +
+                   std::to_string(num_elevations) + ")");
   for (unsigned int i = 0; i < _downward_boundary_source_blocks.size(); i++)
     if (_downward_boundary_source_blocks[i].size() != _downward_boundary_ids[i].size())
       paramError("downward_boundary_ids",
-                 "Every element of this parameter must have the same length as the corrresponding "
+                 "Every element of this parameter must have the same length as the corresponding "
                  "element of downward_boundary_source_blocks.");
 }
 
@@ -335,6 +322,32 @@ AdvancedExtruderGenerator::generate()
   const auto & input_subdomain_map = _input->get_subdomain_name_map();
   const auto & input_sideset_map = _input->get_boundary_info().get_sideset_name_map();
   const auto & input_nodeset_map = _input->get_boundary_info().get_nodeset_name_map();
+
+  // Check that the swaps source blocks are present in the mesh
+  for (const auto & swap : _subdomain_swaps)
+    for (const auto i : index_range(swap))
+      if (i % 2 == 0 && !MooseMeshUtils::hasSubdomainID(*_input, swap[i]))
+        paramError("subdomain_swaps", "The block '", swap[i], "' was not found within the mesh");
+
+  // Check that the swaps source boundaries are present in the mesh
+  for (const auto & swap : _boundary_swaps)
+    for (const auto i : index_range(swap))
+      if (i % 2 == 0 && !MooseMeshUtils::hasBoundaryID(*_input, swap[i]))
+        paramError("boundary_swaps", "The boundary '", swap[i], "' was not found within the mesh");
+
+  // Check that the source blocks for layer top/bottom boundaries exist in the mesh
+  for (const auto & layer_vec : _upward_boundary_source_blocks)
+    for (const auto bid : layer_vec)
+      if (!MooseMeshUtils::hasSubdomainID(*_input, bid))
+        paramError(
+            "upward_boundary_source_blocks", "The block '", bid, "' was not found within the mesh");
+  for (const auto & layer_vec : _downward_boundary_source_blocks)
+    for (const auto bid : layer_vec)
+      if (!MooseMeshUtils::hasSubdomainID(*_input, bid))
+        paramError("downward_boundary_source_blocks",
+                   "The block '",
+                   bid,
+                   "' was not found within the mesh");
 
   std::unique_ptr<MeshBase> input = std::move(_input);
 
@@ -502,7 +515,7 @@ AdvancedExtruderGenerator::generate()
       for (unsigned int k = 0; k != num_layers; ++k)
       {
         std::unique_ptr<Elem> new_elem;
-        bool isFlipped(false);
+        bool is_flipped(false);
         switch (etype)
         {
           case EDGE2:
@@ -578,10 +591,10 @@ AdvancedExtruderGenerator::generate()
 
             if (new_elem->volume() < 0.0)
             {
-              swapNodesInElem(*new_elem, 0, 3);
-              swapNodesInElem(*new_elem, 1, 4);
-              swapNodesInElem(*new_elem, 2, 5);
-              isFlipped = true;
+              MooseMeshUtils::swapNodesInElem(*new_elem, 0, 3);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 1, 4);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 2, 5);
+              is_flipped = true;
             }
 
             break;
@@ -635,13 +648,13 @@ AdvancedExtruderGenerator::generate()
 
             if (new_elem->volume() < 0.0)
             {
-              swapNodesInElem(*new_elem, 0, 3);
-              swapNodesInElem(*new_elem, 1, 4);
-              swapNodesInElem(*new_elem, 2, 5);
-              swapNodesInElem(*new_elem, 6, 12);
-              swapNodesInElem(*new_elem, 7, 13);
-              swapNodesInElem(*new_elem, 8, 14);
-              isFlipped = true;
+              MooseMeshUtils::swapNodesInElem(*new_elem, 0, 3);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 1, 4);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 2, 5);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 6, 12);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 7, 13);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 8, 14);
+              is_flipped = true;
             }
 
             break;
@@ -701,14 +714,14 @@ AdvancedExtruderGenerator::generate()
 
             if (new_elem->volume() < 0.0)
             {
-              swapNodesInElem(*new_elem, 0, 3);
-              swapNodesInElem(*new_elem, 1, 4);
-              swapNodesInElem(*new_elem, 2, 5);
-              swapNodesInElem(*new_elem, 6, 12);
-              swapNodesInElem(*new_elem, 7, 13);
-              swapNodesInElem(*new_elem, 8, 14);
-              swapNodesInElem(*new_elem, 18, 19);
-              isFlipped = true;
+              MooseMeshUtils::swapNodesInElem(*new_elem, 0, 3);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 1, 4);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 2, 5);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 6, 12);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 7, 13);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 8, 14);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 18, 19);
+              is_flipped = true;
             }
 
             break;
@@ -744,11 +757,11 @@ AdvancedExtruderGenerator::generate()
 
             if (new_elem->volume() < 0.0)
             {
-              swapNodesInElem(*new_elem, 0, 4);
-              swapNodesInElem(*new_elem, 1, 5);
-              swapNodesInElem(*new_elem, 2, 6);
-              swapNodesInElem(*new_elem, 3, 7);
-              isFlipped = true;
+              MooseMeshUtils::swapNodesInElem(*new_elem, 0, 4);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 1, 5);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 2, 6);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 3, 7);
+              is_flipped = true;
             }
 
             break;
@@ -808,15 +821,15 @@ AdvancedExtruderGenerator::generate()
 
             if (new_elem->volume() < 0.0)
             {
-              swapNodesInElem(*new_elem, 0, 4);
-              swapNodesInElem(*new_elem, 1, 5);
-              swapNodesInElem(*new_elem, 2, 6);
-              swapNodesInElem(*new_elem, 3, 7);
-              swapNodesInElem(*new_elem, 8, 16);
-              swapNodesInElem(*new_elem, 9, 17);
-              swapNodesInElem(*new_elem, 10, 18);
-              swapNodesInElem(*new_elem, 11, 19);
-              isFlipped = true;
+              MooseMeshUtils::swapNodesInElem(*new_elem, 0, 4);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 1, 5);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 2, 6);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 3, 7);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 8, 16);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 9, 17);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 10, 18);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 11, 19);
+              is_flipped = true;
             }
 
             break;
@@ -890,16 +903,16 @@ AdvancedExtruderGenerator::generate()
 
             if (new_elem->volume() < 0.0)
             {
-              swapNodesInElem(*new_elem, 0, 4);
-              swapNodesInElem(*new_elem, 1, 5);
-              swapNodesInElem(*new_elem, 2, 6);
-              swapNodesInElem(*new_elem, 3, 7);
-              swapNodesInElem(*new_elem, 8, 16);
-              swapNodesInElem(*new_elem, 9, 17);
-              swapNodesInElem(*new_elem, 10, 18);
-              swapNodesInElem(*new_elem, 11, 19);
-              swapNodesInElem(*new_elem, 20, 25);
-              isFlipped = true;
+              MooseMeshUtils::swapNodesInElem(*new_elem, 0, 4);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 1, 5);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 2, 6);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 3, 7);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 8, 16);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 9, 17);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 10, 18);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 11, 19);
+              MooseMeshUtils::swapNodesInElem(*new_elem, 20, 25);
+              is_flipped = true;
             }
 
             break;
@@ -938,7 +951,7 @@ AdvancedExtruderGenerator::generate()
           for (unsigned int i = 0; i < _upward_boundary_source_blocks[e].size(); i++)
             if (new_elem->subdomain_id() == _upward_boundary_source_blocks[e][i])
               boundary_info.add_side(
-                  new_elem.get(), isFlipped ? 0 : top_id, _upward_boundary_ids[e][i]);
+                  new_elem.get(), is_flipped ? 0 : top_id, _upward_boundary_ids[e][i]);
         }
         // define downward boundaries
         if (k == 0)
@@ -948,9 +961,10 @@ AdvancedExtruderGenerator::generate()
           for (unsigned int i = 0; i < _downward_boundary_source_blocks[e].size(); i++)
             if (new_elem->subdomain_id() == _downward_boundary_source_blocks[e][i])
               boundary_info.add_side(
-                  new_elem.get(), isFlipped ? top_id : 0, _downward_boundary_ids[e][i]);
+                  new_elem.get(), is_flipped ? top_id : 0, _downward_boundary_ids[e][i]);
         }
 
+        // perform subdomain swaps
         if (_subdomain_swap_pairs.size())
         {
           auto & elevation_swap_pairs = _subdomain_swap_pairs[e];
@@ -1029,9 +1043,9 @@ AdvancedExtruderGenerator::generate()
           const unsigned short top_id =
               added_elem->dim() == 3 ? cast_int<unsigned short>(elem->n_sides() + 1) : 2;
           if (_has_bottom_boundary)
-            boundary_info.add_side(added_elem, isFlipped ? top_id : 0, _bottom_boundary);
+            boundary_info.add_side(added_elem, is_flipped ? top_id : 0, _bottom_boundary);
           else
-            boundary_info.add_side(added_elem, isFlipped ? top_id : 0, next_side_id);
+            boundary_info.add_side(added_elem, is_flipped ? top_id : 0, next_side_id);
         }
 
         if (current_layer == total_num_layers - 1)
@@ -1043,10 +1057,10 @@ AdvancedExtruderGenerator::generate()
               added_elem->dim() == 3 ? cast_int<unsigned short>(elem->n_sides() + 1) : 2;
 
           if (_has_top_boundary)
-            boundary_info.add_side(added_elem, isFlipped ? 0 : top_id, _top_boundary);
+            boundary_info.add_side(added_elem, is_flipped ? 0 : top_id, _top_boundary);
           else
             boundary_info.add_side(
-                added_elem, isFlipped ? 0 : top_id, cast_int<boundary_id_type>(next_side_id + 1));
+                added_elem, is_flipped ? 0 : top_id, cast_int<boundary_id_type>(next_side_id + 1));
         }
 
         current_layer++;
@@ -1054,12 +1068,14 @@ AdvancedExtruderGenerator::generate()
     }
   }
 
+#ifdef LIBMESH_ENABLE_UNIQUE_ID
   // Update the value of next_unique_id based on newly created nodes and elements
   // Note: Number of element layers is one less than number of node layers
   unsigned int total_new_node_layers = total_num_layers * order;
   unsigned int new_unique_ids = orig_unique_ids + (total_new_node_layers - 1) * orig_elem +
                                 total_new_node_layers * orig_nodes;
   mesh->set_next_unique_id(new_unique_ids);
+#endif
 
   // Copy all the subdomain/sideset/nodeset name maps to the extruded mesh
   if (!input_subdomain_map.empty())
@@ -1078,14 +1094,4 @@ AdvancedExtruderGenerator::generate()
     mesh->prepare_for_use();
 
   return mesh;
-}
-
-void
-AdvancedExtruderGenerator::swapNodesInElem(Elem & elem,
-                                           const unsigned int nd1,
-                                           const unsigned int nd2)
-{
-  Node * n_temp = elem.node_ptr(nd1);
-  elem.set_node(nd1) = elem.node_ptr(nd2);
-  elem.set_node(nd2) = n_temp;
 }

@@ -461,9 +461,10 @@ MooseVariableFV<OutputType>::getElemValue(const Elem * const elem, const StateAr
   // which is wrong during things like finite difference Jacobian evaluation, e.g. when PETSc
   // perturbs the solution vector we feed these perturbations into the current_local_solution
   // while the libMesh solution is frozen in the non-perturbed state
-  const auto & global_soln = (state.state == 0)
-                                 ? *this->_sys.currentSolution()
-                                 : this->_sys.solutionState(state.state, state.iteration_type);
+  const auto & global_soln =
+      (state.state == 0)
+          ? *this->_sys.currentSolution()
+          : std::as_const(this->_sys).solutionState(state.state, state.iteration_type);
 
   ADReal value = global_soln(index);
 
@@ -488,16 +489,12 @@ MooseVariableFV<OutputType>::isDirichletBoundaryFace(const FaceInfo & fi,
 
 template <typename OutputType>
 ADReal
-MooseVariableFV<OutputType>::getDirichletBoundaryFaceValue(
-    const FaceInfo & fi,
-    const Elem * const libmesh_dbg_var(elem),
-    const Moose::StateArg & libmesh_dbg_var(state)) const
+MooseVariableFV<OutputType>::getDirichletBoundaryFaceValue(const FaceInfo & fi,
+                                                           const Elem * const libmesh_dbg_var(elem),
+                                                           const Moose::StateArg & state) const
 {
   mooseAssert(isDirichletBoundaryFace(fi, elem, state),
               "This function should only be called on Dirichlet boundary faces.");
-  mooseAssert(state.state == 0,
-              "getDirichletBoundaryFaceValue currently only supports evaluating at the current "
-              "time/iteration state");
 
   const auto & diri_pr = getDirichletBC(fi);
 
@@ -506,7 +503,7 @@ MooseVariableFV<OutputType>::getDirichletBoundaryFaceValue(
 
   const FVDirichletBCBase & bc = *diri_pr.second;
 
-  return ADReal(bc.boundaryValue(fi));
+  return ADReal(bc.boundaryValue(fi, state));
 }
 
 template <typename OutputType>
@@ -735,12 +732,7 @@ MooseVariableFV<OutputType>::evaluate(const FaceArg & face, const StateArg & sta
   const FaceInfo * const fi = face.fi;
   mooseAssert(fi, "The face information must be non-null");
   if (isDirichletBoundaryFace(*fi, face.face_side, state))
-  {
-    mooseAssert(state.state == 0,
-                "We have not yet added support for evaluating Dirichlet boundary conditions at "
-                "states other than the current solution state (e.g. current time)");
     return getDirichletBoundaryFaceValue(*fi, face.face_side, state);
-  }
   else if (isExtrapolatedBoundaryFace(*fi, face.face_side, state))
   {
     bool two_term_boundary_expansion = _two_term_boundary_expansion;

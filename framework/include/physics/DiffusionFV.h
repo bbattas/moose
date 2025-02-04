@@ -23,8 +23,9 @@ public:
   DiffusionFV(const InputParameters & parameters);
 
 private:
-  virtual void addNonlinearVariables() override;
+  virtual void addSolverVariables() override;
   virtual void addFVKernels() override;
   virtual void addFVBCs() override;
+  virtual void initializePhysicsAdditional() override;
   virtual InputParameters getAdditionalRMParams() const override;
 };

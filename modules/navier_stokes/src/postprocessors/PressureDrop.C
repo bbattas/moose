@@ -225,14 +225,20 @@ PressureDrop::computeFaceInfoWeightedPressureIntegral(const FaceInfo * const fi)
   const Moose::ElemQpArg elem_arg = {_current_elem, _qp, _qrule, _q_point[_qp]};
   const auto state = determineState();
   mooseAssert(_qp == 0, "Only one quadrature point");
+  mooseAssert(_pressure.hasFaceSide(*fi, true) || _pressure.hasFaceSide(*fi, true),
+              "Pressure must be defined at least on one side of the face!");
+  const auto * elem = _pressure.hasFaceSide(*fi, true) ? fi->elemPtr() : fi->neighborPtr();
 
   if (_weighting_functor)
   {
+    mooseAssert(_pressure.hasFaceSide(*fi, true) == _weighting_functor->hasFaceSide(*fi, true),
+                "Pressure and weighting functor have to be defined on the same side of the face!");
     const auto ssf = Moose::FaceArg(
         {fi,
          Moose::FV::limiterType(_weight_interp_method),
          MetaPhysicL::raw_value((*_weighting_functor)(elem_arg, state)) * fi->normal() > 0,
          correct_skewness,
+         elem,
          nullptr});
     const auto face_weighting = MetaPhysicL::raw_value((*_weighting_functor)(ssf, state));
     return fi->normal() * face_weighting * _pressure(ssf, state);
@@ -240,7 +246,7 @@ PressureDrop::computeFaceInfoWeightedPressureIntegral(const FaceInfo * const fi)
   else
   {
     const auto ssf = Moose::FaceArg(
-        {fi, Moose::FV::limiterType(_weight_interp_method), true, correct_skewness, nullptr});
+        {fi, Moose::FV::limiterType(_weight_interp_method), true, correct_skewness, elem, nullptr});
     return _pressure(ssf, state);
   }
 }
@@ -263,6 +269,7 @@ PressureDrop::computeFaceInfoWeightIntegral(const FaceInfo * fi) const
          Moose::FV::limiterType(_weight_interp_method),
          MetaPhysicL::raw_value((*_weighting_functor)(elem_arg, state)) * fi->normal() > 0,
          correct_skewness,
+         _weighting_functor->hasFaceSide(*fi, true) ? fi->elemPtr() : fi->neighborPtr(),
          nullptr});
     return fi->normal() * MetaPhysicL::raw_value((*_weighting_functor)(ssf, state));
   }

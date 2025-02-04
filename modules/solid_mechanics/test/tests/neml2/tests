@@ -1,12 +1,11 @@
 [Tests]
   # The original issue is idaholab/blackbear#333
-  issues = '#26450'
-  design = 'CauchyStressFromNEML2.md CauchyStressFromNEML2UO.md CauchyStressFromNEML2Receiver.md'
+  issues = '#26450 #26920'
+  design = 'NEML2/index.md NEML2Action.md'
   [neml2_error]
-    type = RunException
-    input = 'fem.i'
-    cli_args = 'neml2_input=error'
     requirement = 'The system shall be capable of capturing errors occurring during the evaluation of a NEML2 model.'
+    type = RunException
+    input = 'error.i'
     expect_err = 'To debug NEML2 related issues'
     collections = 'SYSTEM'
     required_submodule = 'contrib/neml2'
@@ -14,268 +13,177 @@
     valgrind = none
   []
   [no_neml2]
-    type = RunException
-    input = 'fem.i'
-    cli_args = 'neml2_input=elasticity'
     requirement = 'The system shall throw an error upon instantiation of NEML2 interface objects if NEML2 is not available.'
-    expect_err = 'To use this object, you need to have the `NEML2` library installed'
+    type = RunException
+    input = 'elasticity.i'
+    expect_err = 'The `NEML2` library is required but not enabled'
     collections = 'SYSTEM'
     libtorch = false
+  []
+  [model_parameter]
+    requirement = 'The system shall be capable of using MOOSE data as NEML2 model parameters.'
+    type = Exodiff
+    input = 'parameter.i'
+    exodiff = 'parameter_out.e'
+    required_submodule = 'contrib/neml2'
+    libtorch = true
+    recover = false
+    valgrind = heavy
+  []
+  [custom_model]
+    requirement = 'The system shall be capable of running custom NEML2 model implemented in MOOSE (optionally with automatic differentiation).'
+    type = Exodiff
+    input = 'custom_model.i'
+    exodiff = 'custom_model_out.e'
+    required_submodule = 'contrib/neml2'
+    libtorch = true
+    recover = false
+    valgrind = heavy
+  []
+  [block_restriction]
+    issues = '#27493'
+    collections = 'SYSTEM'
+    requirement = 'The system shall be capable of defining, for multiple subdomains, '
+    [same_model]
+      detail = 'the same NEML2 model running on the same device.'
+      type = Exodiff
+      input = 'blocks_same_model.i'
+      exodiff = 'blocks_same_model_out.e'
+      required_submodule = 'contrib/neml2'
+      libtorch = true
+      recover = false
+      valgrind = heavy
+    []
+    [different_model]
+      detail = 'different NEML2 models running on the same device.'
+      type = Exodiff
+      input = 'blocks_different_model.i'
+      exodiff = 'blocks_different_model_out.e'
+      required_submodule = 'contrib/neml2'
+      libtorch = true
+      recover = false
+      valgrind = heavy
+    []
   []
   [neml2_modular]
     issues = '#27493'
     collections = 'SYSTEM'
     requirement = 'The system shall be capable of modularly interfacing with the NEML2 library to perform constitutive update '
-    [elasticity]
+    [crystal_plasticity]
+      detail = 'in a crystal plasticity problem.'
       type = Exodiff
-      input = 'fem_modular.i'
-      cli_args = 'neml2_input=elasticity'
-      exodiff = 'elasticity.e'
+      input = 'crystal_plasticity.i'
+      exodiff = 'crystal_plasticity.e'
+      required_submodule = 'contrib/neml2'
+      libtorch = true
+      recover = false
+      valgrind = heavy
+    []
+    [elasticity]
       detail = 'to solve an elasticity problem;'
+      type = Exodiff
+      input = 'elasticity.i'
+      exodiff = 'elasticity.e'
       required_submodule = 'contrib/neml2'
       libtorch = true
       recover = false
       valgrind = heavy
     []
     [viscoplasticity_perfect]
-      type = Exodiff
-      input = 'fem_modular.i'
-      cli_args = 'neml2_input=viscoplasticity_perfect'
-      exodiff = 'viscoplasticity_perfect.e'
       detail = 'to solve a perfect viscoplasticity problem;'
+      type = Exodiff
+      input = 'viscoplasticity_perfect.i'
+      exodiff = 'viscoplasticity_perfect.e'
       required_submodule = 'contrib/neml2'
       libtorch = true
       recover = false
       valgrind = heavy
     []
     [viscoplasticity_isoharden]
-      type = Exodiff
-      input = 'fem_modular.i'
-      cli_args = 'neml2_input=viscoplasticity_isoharden'
-      exodiff = 'viscoplasticity_isoharden.e'
       detail = 'to solve a viscoplasticity problem with isotropic hardening;'
+      type = Exodiff
+      input = 'viscoplasticity_isoharden.i'
+      exodiff = 'viscoplasticity_isoharden.e'
       required_submodule = 'contrib/neml2'
       libtorch = true
       recover = false
       valgrind = heavy
     []
     [viscoplasticity_kinharden]
-      type = Exodiff
-      input = 'fem_modular.i'
-      cli_args = 'neml2_input=viscoplasticity_kinharden'
-      exodiff = 'viscoplasticity_kinharden.e'
       detail = 'to solve a viscoplasticity problem with kinematic hardening;'
+      type = Exodiff
+      input = 'viscoplasticity_kinharden.i'
+      exodiff = 'viscoplasticity_kinharden.e'
       required_submodule = 'contrib/neml2'
       libtorch = true
       recover = false
       valgrind = heavy
     []
     [viscoplasticity_isokinharden]
-      type = Exodiff
-      input = 'fem_modular.i'
-      cli_args = 'neml2_input=viscoplasticity_isokinharden'
-      exodiff = 'viscoplasticity_isokinharden.e'
       detail = 'to solve a viscoplasticity problem with both isotropic and kinematic hardening;'
+      type = Exodiff
+      input = 'viscoplasticity_isokinharden.i'
+      exodiff = 'viscoplasticity_isokinharden.e'
       required_submodule = 'contrib/neml2'
       libtorch = true
       recover = false
       valgrind = heavy
     []
     [viscoplasticity_chaboche]
-      type = Exodiff
-      input = 'fem_modular.i'
-      cli_args = 'neml2_input=viscoplasticity_chaboche'
-      exodiff = 'viscoplasticity_chaboche.e'
       detail = 'to solve a viscoplasticity problem with non-associative Chaboche hardening;'
+      type = Exodiff
+      input = 'viscoplasticity_chaboche.i'
+      exodiff = 'viscoplasticity_chaboche.e'
       required_submodule = 'contrib/neml2'
       libtorch = true
       recover = false
       valgrind = heavy
     []
     [viscoplasticity_radial_return]
-      type = Exodiff
-      input = 'fem_modular.i'
-      cli_args = 'neml2_input=viscoplasticity_radial_return'
-      exodiff = 'viscoplasticity_radial_return.e'
       detail = 'to solve a viscoplasticity problem using radial return;'
+      type = Exodiff
+      input = 'viscoplasticity_radial_return.i'
+      exodiff = 'viscoplasticity_radial_return.e'
       required_submodule = 'contrib/neml2'
       libtorch = true
+      recover = false
       valgrind = heavy
     []
     [rate_independent_plasticity_perfect]
-      type = Exodiff
-      input = 'fem_modular.i'
-      cli_args = 'neml2_input=rate_independent_plasticity_perfect'
-      exodiff = 'rate_independent_plasticity_perfect.e'
       detail = 'to solve a rate-independent problem with perfect plasticity;'
+      type = Exodiff
+      input = 'rate_independent_plasticity_perfect.i'
+      exodiff = 'rate_independent_plasticity_perfect.e'
       required_submodule = 'contrib/neml2'
       libtorch = true
       recover = false
       valgrind = heavy
     []
     [rate_independent_plasticity_isoharden]
-      type = Exodiff
-      input = 'fem_modular.i'
-      cli_args = 'neml2_input=rate_independent_plasticity_isoharden'
-      exodiff = 'rate_independent_plasticity_isoharden.e'
       detail = 'to solve a rate-independent problem with isotropic hardening;'
+      type = Exodiff
+      input = 'rate_independent_plasticity_isoharden.i'
+      exodiff = 'rate_independent_plasticity_isoharden.e'
       required_submodule = 'contrib/neml2'
       libtorch = true
       recover = false
       valgrind = heavy
     []
     [rate_independent_plasticity_kinharden]
-      type = Exodiff
-      input = 'fem_modular.i'
-      cli_args = 'neml2_input=rate_independent_plasticity_kinharden'
-      exodiff = 'rate_independent_plasticity_kinharden.e'
       detail = 'to solve a rate-independent problem with kinematic hardening;'
+      type = Exodiff
+      input = 'rate_independent_plasticity_kinharden.i'
+      exodiff = 'rate_independent_plasticity_kinharden.e'
       required_submodule = 'contrib/neml2'
       libtorch = true
       recover = false
       valgrind = heavy
     []
     [rate_independent_plasticity_isokinharden]
-      type = Exodiff
-      input = 'fem_modular.i'
-      cli_args = 'neml2_input=rate_independent_plasticity_isokinharden'
-      exodiff = 'rate_independent_plasticity_isokinharden.e'
       detail = 'to solve a rate-independent problem with both isotropic and kinematic hardening.'
-      required_submodule = 'contrib/neml2'
-      libtorch = true
-      recover = false
-      valgrind = heavy
-    []
-  []
-  [neml2_to_moose_material]
-    type = Exodiff
-    input = 'neml2_to_moose_material.i'
-    exodiff = 'neml2_to_moose_material_out.e'
-    requirement = 'The system shall provide for a modular way to transfer NEML2 results to material properties..'
-    required_submodule = 'contrib/neml2'
-    libtorch = true
-    recover = false
-  []
-  [neml2_legacy]
-    collections = 'SYSTEM'
-    requirement = 'The system shall be capable of interfacing with the NEML2 library to perform constitutive update '
-    [elasticity]
       type = Exodiff
-      input = 'fem.i'
-      cli_args = 'neml2_input=elasticity'
-      exodiff = 'elasticity.e'
-      detail = 'to solve an elasticity problem;'
-      required_submodule = 'contrib/neml2'
-      libtorch = true
-      valgrind = heavy
-    []
-    [viscoplasticity_perfect]
-      type = Exodiff
-      input = 'fem.i'
-      cli_args = 'neml2_input=viscoplasticity_perfect'
-      exodiff = 'viscoplasticity_perfect.e'
-      detail = 'to solve a perfect viscoplasticity problem;'
-      required_submodule = 'contrib/neml2'
-      libtorch = true
-      valgrind = heavy
-    []
-    [viscoplasticity_isoharden]
-      type = Exodiff
-      input = 'fem.i'
-      cli_args = 'neml2_input=viscoplasticity_isoharden'
-      exodiff = 'viscoplasticity_isoharden.e'
-      detail = 'to solve a viscoplasticity problem with isotropic hardening;'
-      required_submodule = 'contrib/neml2'
-      libtorch = true
-      valgrind = heavy
-    []
-    [viscoplasticity_kinharden]
-      type = Exodiff
-      input = 'fem.i'
-      cli_args = 'neml2_input=viscoplasticity_kinharden'
-      exodiff = 'viscoplasticity_kinharden.e'
-      detail = 'to solve a viscoplasticity problem with kinematic hardening;'
-      required_submodule = 'contrib/neml2'
-      libtorch = true
-      valgrind = heavy
-    []
-    [viscoplasticity_isokinharden]
-      type = Exodiff
-      input = 'fem.i'
-      cli_args = 'neml2_input=viscoplasticity_isokinharden'
-      exodiff = 'viscoplasticity_isokinharden.e'
-      detail = 'to solve a viscoplasticity problem with both isotropic and kinematic hardening;'
-      required_submodule = 'contrib/neml2'
-      libtorch = true
-      valgrind = heavy
-    []
-    [viscoplasticity_chaboche]
-      type = Exodiff
-      input = 'fem.i'
-      cli_args = 'neml2_input=viscoplasticity_chaboche'
-      exodiff = 'viscoplasticity_chaboche.e'
-      detail = 'to solve a viscoplasticity problem with non-associative Chaboche hardening;'
-      required_submodule = 'contrib/neml2'
-      libtorch = true
-      valgrind = heavy
-    []
-    [viscoplasticity_radial_return]
-      type = Exodiff
-      input = 'fem.i'
-      cli_args = 'neml2_input=viscoplasticity_radial_return'
-      exodiff = 'viscoplasticity_radial_return.e'
-      detail = 'to solve a viscoplasticity problem using radial return;'
-      required_submodule = 'contrib/neml2'
-      libtorch = true
-      valgrind = heavy
-    []
-    [rate_independent_plasticity_perfect]
-      type = Exodiff
-      input = 'fem.i'
-      cli_args = 'neml2_input=rate_independent_plasticity_perfect'
-      exodiff = 'rate_independent_plasticity_perfect.e'
-      detail = 'to solve a rate-independent problem with perfect plasticity;'
-      required_submodule = 'contrib/neml2'
-      libtorch = true
-      valgrind = heavy
-    []
-    [rate_independent_plasticity_isoharden]
-      type = Exodiff
-      input = 'fem.i'
-      cli_args = 'neml2_input=rate_independent_plasticity_isoharden'
-      exodiff = 'rate_independent_plasticity_isoharden.e'
-      detail = 'to solve a rate-independent problem with isotropic hardening;'
-      required_submodule = 'contrib/neml2'
-      libtorch = true
-      valgrind = heavy
-    []
-    [rate_independent_plasticity_kinharden]
-      type = Exodiff
-      input = 'fem.i'
-      cli_args = 'neml2_input=rate_independent_plasticity_kinharden'
-      exodiff = 'rate_independent_plasticity_kinharden.e'
-      detail = 'to solve a rate-independent problem with kinematic hardening;'
-      required_submodule = 'contrib/neml2'
-      libtorch = true
-      valgrind = heavy
-    []
-    [rate_independent_plasticity_isokinharden]
-      type = Exodiff
-      input = 'fem.i'
-      cli_args = 'neml2_input=rate_independent_plasticity_isokinharden'
+      input = 'rate_independent_plasticity_isokinharden.i'
       exodiff = 'rate_independent_plasticity_isokinharden.e'
-      detail = 'to solve a rate-independent problem with both isotropic and kinematic hardening.'
-      required_submodule = 'contrib/neml2'
-      libtorch = true
-      valgrind = heavy
-    []
-    [batched]
-      type = Exodiff
-      prereq = 'neml2_legacy/viscoplasticity_isokinharden'
-      input = 'fem.i'
-      cli_args = 'neml2_input=viscoplasticity_isokinharden NEML2/mode=ALL'
-      exodiff = 'viscoplasticity_isokinharden.e'
-      detail = 'in a batched fashion.'
       required_submodule = 'contrib/neml2'
       libtorch = true
       recover = false

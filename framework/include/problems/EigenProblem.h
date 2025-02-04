@@ -35,7 +35,7 @@ public:
 
   virtual void init() override;
 
-  virtual bool nlConverged(const unsigned int nl_sys_num) override;
+  virtual bool solverSystemConverged(const unsigned int solver_sys_num) override;
 
   unsigned int getNEigenPairsRequired() const { return _n_eigen_pairs_required; }
   void setNEigenPairsRequired(unsigned int n_eigen_pairs)
@@ -128,7 +128,7 @@ public:
    * Form several matrices simultaneously
    */
   void computeMatricesTags(const NumericVector<Number> & soln,
-                           const std::vector<std::unique_ptr<SparseMatrix<Number>>> & jacobians,
+                           const std::vector<SparseMatrix<Number> *> & jacobians,
                            const std::set<TagID> & tags);
 
   /**

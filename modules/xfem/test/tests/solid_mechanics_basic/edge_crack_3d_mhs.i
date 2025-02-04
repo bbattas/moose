@@ -33,6 +33,7 @@
     n_step_growth = 1
     growth_rate = growth_func_v
     crack_front_nodes = '7 6 5 4'
+    execution_order_group = -2
   [../]
 []
 
@@ -57,7 +58,7 @@
   incremental = true
 []
 
-[Modules/TensorMechanics/Master]
+[Physics/SolidMechanics/QuasiStatic]
   [./all]
     strain = FINITE
     add_variables = true

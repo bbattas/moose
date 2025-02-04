@@ -78,7 +78,8 @@ public:
    * Get a reference to a pointer that will be the output of the
    * MeshGenerator named name
    */
-  [[nodiscard]] std::unique_ptr<MeshBase> & getMeshGeneratorOutput(const MeshGeneratorName & name);
+  [[nodiscard]] std::unique_ptr<libMesh::MeshBase> &
+  getMeshGeneratorOutput(const MeshGeneratorName & name);
 
   /**
    * Creates (constructs) all of the MeshGenerators that have been
@@ -112,7 +113,7 @@ public:
   /**
    * Get the saved mesh by name
    */
-  [[nodiscard]] std::unique_ptr<MeshBase> getSavedMesh(const std::string & name);
+  [[nodiscard]] std::unique_ptr<libMesh::MeshBase> getSavedMesh(const std::string & name);
 
   /**
    * Get all user-defined saved meshes except main and main_displaced
@@ -167,6 +168,9 @@ public:
    * Should be used to throw errors from within a MeshGenerator with more context.
    */
   void dataDrivenError(const MeshGenerator & generator, const std::string & message) const;
+
+  /// Get the name of the final mesh generator
+  MeshGeneratorName getFinalMeshGeneratorName() const { return _final_generator_name; }
 
 private:
   /**
@@ -224,13 +228,13 @@ private:
   std::vector<std::vector<MeshGenerator *>> _ordered_mesh_generators;
 
   /// Holds the output for each mesh generator - including duplicates needed downstream
-  std::map<std::string, std::list<std::unique_ptr<MeshBase>>> _mesh_generator_outputs;
+  std::map<std::string, std::list<std::unique_ptr<libMesh::MeshBase>>> _mesh_generator_outputs;
 
   /// The final mesh generator name to use
   std::string _final_generator_name;
 
   /// Holds the map of save in mesh -> name
-  std::map<std::string, std::unique_ptr<MeshBase>> _save_in_meshes;
+  std::map<std::string, std::unique_ptr<libMesh::MeshBase>> _save_in_meshes;
 
   /// The name of the data driven generator, if any
   std::optional<std::string> _data_driven_generator_name;

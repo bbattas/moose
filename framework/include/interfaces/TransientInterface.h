@@ -37,7 +37,6 @@ public:
 
   bool isImplicit() { return _is_implicit; }
 
-protected:
   /**
    * Create a functor state argument that corresponds to the implicit state of this object. If we
    * are implicit then we will return the current state. If we are not, then we will return the old
@@ -45,6 +44,7 @@ protected:
    */
   Moose::StateArg determineState() const;
 
+protected:
   const InputParameters & _ti_params;
 
   FEProblemBase & _ti_feproblem;
@@ -59,6 +59,9 @@ protected:
 
   /// Time
   Real & _t;
+
+  /// Old time
+  const Real & _t_old;
 
   /// The number of the time step
   int & _t_step;

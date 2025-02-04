@@ -13,8 +13,9 @@
 #include "INSFVFluxKernel.h"
 #include "INSFVMomentumResidualObject.h"
 #include "INSFVVelocityVariable.h"
+#include "SolutionInvalidInterface.h"
 
-class INSFVMomentumDiffusion : public INSFVFluxKernel
+class INSFVMomentumDiffusion : public INSFVFluxKernel, public SolutionInvalidInterface
 {
 public:
   static InputParameters validParams();
@@ -58,4 +59,7 @@ protected:
 
   /// dimension
   const unsigned int _dim;
+
+  /// For Newton solves we want to add extra zero-valued terms to avoid sparsity pattern changes
+  const bool _newton_solve;
 };

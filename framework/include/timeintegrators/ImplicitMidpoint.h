@@ -53,6 +53,7 @@ public:
                                 ADReal & ad_u_dotdot) const override;
   virtual void solve() override;
   virtual void postResidual(NumericVector<Number> & residual) override;
+  virtual bool overridesSolve() const override { return true; }
 
 protected:
   /**
@@ -64,7 +65,7 @@ protected:
   unsigned int _stage;
 
   /// Buffer to store non-time residual from the first stage.
-  NumericVector<Number> & _residual_stage1;
+  NumericVector<Number> * _residual_stage1;
 };
 
 template <typename T, typename T2>

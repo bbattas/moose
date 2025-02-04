@@ -28,6 +28,7 @@ public:
   virtual void solve() override;
   virtual void postResidual(NumericVector<Number> & residual) override;
   virtual int order() override { return _order; }
+  virtual bool overridesSolve() const override { return true; }
 
 protected:
   /**
@@ -36,6 +37,8 @@ protected:
    * @returns true if converged, false if not
    */
   bool solveStage();
+
+  virtual Real duDotDuCoeff() const override;
 
   /// Order of time integration
   const MooseEnum & _order;
@@ -54,9 +57,9 @@ protected:
   std::vector<const NumericVector<Number> *> _solution_stage;
 
   /// Solution vector for intermediate stage
-  NumericVector<Number> & _solution_intermediate_stage;
+  NumericVector<Number> * _solution_intermediate_stage;
   /// Temporary solution vector
-  NumericVector<Number> & _tmp_solution;
+  NumericVector<Number> * _tmp_solution;
   /// Temporary mass-matrix/solution vector product
-  NumericVector<Number> & _tmp_mass_solution_product;
+  NumericVector<Number> * _tmp_mass_solution_product;
 };

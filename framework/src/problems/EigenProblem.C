@@ -19,11 +19,15 @@
 #include "OutputWarehouse.h"
 #include "Function.h"
 #include "MooseVariableScalar.h"
+#include "UserObject.h"
 
 // libMesh includes
 #include "libmesh/system.h"
 #include "libmesh/eigen_solver.h"
 #include "libmesh/enum_eigen_solver_type.h"
+
+// Needed for LIBMESH_CHECK_ERR
+using libMesh::PetscSolverException;
 
 registerMooseObject("MooseApp", EigenProblem);
 
@@ -43,6 +47,9 @@ EigenProblem::validParams()
       0,
       "Which eigenvector is used to compute residual and also associated to nonlinear variable");
   params.addParam<PostprocessorName>("bx_norm", "A postprocessor describing the norm of Bx");
+
+  params.addParamNamesToGroup("negative_sign_eigen_kernel active_eigen_index bx_norm",
+                              "Eigenvalue solve");
 
   return params;
 }
@@ -194,10 +201,9 @@ EigenProblem::computeJacobianTag(const NumericVector<Number> & soln,
 }
 
 void
-EigenProblem::computeMatricesTags(
-    const NumericVector<Number> & soln,
-    const std::vector<std::unique_ptr<SparseMatrix<Number>>> & jacobians,
-    const std::set<TagID> & tags)
+EigenProblem::computeMatricesTags(const NumericVector<Number> & soln,
+                                  const std::vector<SparseMatrix<Number> *> & jacobians,
+                                  const std::set<TagID> & tags)
 {
   TIME_SECTION("computeMatricesTags", 3);
 
@@ -293,8 +299,8 @@ EigenProblem::computeResidualTag(const NumericVector<Number> & soln,
   // specific system tags that we need for this instance
   _nl_eigen->disassociateDefaultVectorTags();
 
-  // Clear FE tags and first add the specific tag associated with the residual
-  _fe_vector_tags.clear();
+  // add the specific tag associated with the residual
+  mooseAssert(_fe_vector_tags.empty(), "This should be empty indicating a clean starting state");
   _fe_vector_tags.insert(tag);
 
   // Add any other user-added vector residual tags if they have associated vectors
@@ -309,6 +315,7 @@ EigenProblem::computeResidualTag(const NumericVector<Number> & soln,
 
   setCurrentNonlinearSystem(_nl_eigen->number());
   computeResidualTags(_fe_vector_tags);
+  _fe_vector_tags.clear();
 
   _nl_eigen->disassociateVectorFromTag(residual, tag);
 }
@@ -326,8 +333,8 @@ EigenProblem::computeResidualAB(const NumericVector<Number> & soln,
   // specific system tags that we need for this instance
   _nl_eigen->disassociateDefaultVectorTags();
 
-  // Clear FE tags and first add the specific tags associated with the residual
-  _fe_vector_tags.clear();
+  // add the specific tags associated with the residual
+  mooseAssert(_fe_vector_tags.empty(), "This should be empty indicating a clean starting state");
   _fe_vector_tags.insert(tagA);
   _fe_vector_tags.insert(tagB);
 
@@ -343,6 +350,7 @@ EigenProblem::computeResidualAB(const NumericVector<Number> & soln,
   _nl_eigen->setSolution(soln);
 
   computeResidualTags(_fe_vector_tags);
+  _fe_vector_tags.clear();
 
   _nl_eigen->disassociateVectorFromTag(residualA, tagA);
   _nl_eigen->disassociateVectorFromTag(residualB, tagB);
@@ -491,6 +499,16 @@ EigenProblem::checkProblemIntegrity()
 {
   FEProblemBase::checkProblemIntegrity();
   _nl_eigen->checkIntegrity();
+  if (_bx_norm_name)
+  {
+    if (!isNonlinearEigenvalueSolver())
+      paramWarning("bx_norm", "This parameter is only used for nonlinear solve types");
+    else if (auto & pp = getUserObjectBase(_bx_norm_name.value());
+             !pp.getExecuteOnEnum().contains(EXEC_LINEAR))
+      pp.paramError("execute_on",
+                    "If providing the Bx norm, this postprocessor must execute on linear e.g. "
+                    "during residual evaluations");
+  }
 }
 
 void
@@ -522,7 +540,7 @@ EigenProblem::solve(const unsigned int nl_sys_num)
 #if !PETSC_RELEASE_LESS_THAN(3, 12, 0)
   // Master has the default database
   if (!_app.isUltimateMaster())
-    PetscOptionsPush(_petsc_option_data_base);
+    LibmeshPetscCall(PetscOptionsPush(_petsc_option_data_base));
 #endif
 
   setCurrentNonlinearSystem(nl_sys_num);
@@ -594,7 +612,7 @@ EigenProblem::solve(const unsigned int nl_sys_num)
 
 #if !PETSC_RELEASE_LESS_THAN(3, 12, 0)
   if (!_app.isUltimateMaster())
-    PetscOptionsPop();
+    LibmeshPetscCall(PetscOptionsPop());
 #endif
 
   // sync solutions in displaced problem
@@ -616,7 +634,17 @@ EigenProblem::setNormalization(const PostprocessorName & pp, const Real value)
 void
 EigenProblem::init()
 {
-#if !PETSC_RELEASE_LESS_THAN(3, 13, 0)
+#if PETSC_RELEASE_LESS_THAN(3, 13, 0)
+  // Prior to Slepc 3.13 we did not have a nonlinear eigenvalue solver so we must always assemble
+  // before the solve
+  _nl_eigen->sys().attach_assemble_function(Moose::assemble_matrix);
+#else
+  if (isNonlinearEigenvalueSolver())
+    // We don't need to assemble before the solve
+    _nl_eigen->sys().assemble_before_solve = false;
+  else
+    _nl_eigen->sys().attach_assemble_function(Moose::assemble_matrix);
+
   // If matrix_free=true, this tells Libmesh to use shell matrices
   _nl_eigen->sys().use_shell_matrices(solverParams()._eigen_matrix_free &&
                                       !solverParams()._eigen_matrix_vector_mult);
@@ -628,7 +656,7 @@ EigenProblem::init()
 }
 
 bool
-EigenProblem::nlConverged(unsigned int)
+EigenProblem::solverSystemConverged(unsigned int)
 {
   if (_solve)
     return _nl_eigen->converged();

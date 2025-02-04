@@ -63,7 +63,7 @@ protected:
   /// Boundary ID of mesh's external boundary
   const boundary_id_type _external_boundary_id;
   /// Boundary name of mesh's external boundary
-  const std::string _external_boundary_name;
+  const BoundaryName _external_boundary_name;
   /// Whether inward interface boundaries are created
   const bool _create_inward_interface_boundaries;
   /// Whether outward interface boundaries are created
@@ -92,6 +92,8 @@ protected:
   const bool _use_interface_boundary_id_shift;
   /// hold user-defined shift values for each pattern cell
   std::vector<std::vector<boundary_id_type>> _interface_boundary_id_shift_pattern;
+  /// Type of quadrilateral elements to be generated in the periphery region
+  QUAD_ELEM_TYPE _boundary_quad_elem_type;
 
   /**
    * Adds background and duct region mesh to each part outer part of stitched square meshes. Note

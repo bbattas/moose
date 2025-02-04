@@ -15,6 +15,7 @@
 #include "Action.h"
 #include "Factory.h"
 #include "MooseObjectAction.h"
+#include "AddActionComponentAction.h"
 #include "ActionWarehouse.h"
 #include "EmptyAction.h"
 #include "FEProblem.h"
@@ -35,6 +36,7 @@
 #include "MooseUtils.h"
 #include "Conversion.h"
 #include "Units.h"
+#include "ActionComponent.h"
 
 #include "libmesh/parallel.h"
 #include "libmesh/fparser.hh"
@@ -287,6 +289,17 @@ Builder::walkRaw(std::string /*fullpath*/, std::string /*nodepath*/, hit::Node *
         object_params.set<std::vector<std::string>>("control_tags")
             .push_back(MooseUtils::baseName(curr_identifier));
       }
+      // extract the Component params if necessary
+      std::shared_ptr<AddActionComponentAction> component_action =
+          std::dynamic_pointer_cast<AddActionComponentAction>(action_obj);
+      if (component_action)
+      {
+        auto & component_params = component_action->getComponentParams();
+        component_params.setHitNode(*n, {});
+        extractParams(curr_identifier, component_params);
+        component_params.set<std::vector<std::string>>("control_tags")
+            .push_back(MooseUtils::baseName(curr_identifier));
+      }
     }
 
     // add it to the warehouse
@@ -304,97 +317,6 @@ Builder::walk(const std::string & fullpath, const std::string & nodepath, hit::N
   walkRaw(fullpath, nodepath, n);
 }
 
-std::string
-Builder::hitCLIFilter(std::string appname, const std::vector<std::string> & argv)
-{
-  std::string hit_text;
-  bool afterDoubleDash = false;
-  for (std::size_t i = 1; i < argv.size(); i++)
-  {
-    std::string arg(argv[i]);
-
-    // all args after a "--" are hit parameters
-    if (arg == "--")
-    {
-      afterDoubleDash = true;
-      continue;
-    } // otherwise try to guess if a hit params have started by looking for "=" and "/"
-    else if (arg.find("=", 0) != std::string::npos)
-      afterDoubleDash = true;
-
-    // skip over args that don't look like or are before hit parameters
-    if (!afterDoubleDash)
-      continue;
-    // skip arguments with no equals sign
-    if (arg.find("=", 0) == std::string::npos)
-      continue;
-    // skip cli flags (i.e. start with dash)
-    if (arg.find("-", 0) == 0)
-      continue;
-    if (appname == "main")
-    {
-      auto pos = arg.find(":", 0);
-      if (pos == 0) // trim leading colon
-        arg = arg.substr(pos + 1, arg.size() - pos - 1);
-      else if (pos != std::string::npos && pos < arg.find("=", 0)) // param is for non-main subapp
-        continue;
-    }
-    else // app we are loading is a multiapp subapp
-    {
-      std::string name;
-      std::string num;
-      pcrecpp::RE("(.*?)"  // Match the multiapp name
-                  "(\\d+)" // math the multiapp number
-                  )
-          .FullMatch(appname, &name, &num);
-      auto pos = arg.find(":", 0);
-      if (pos == 0)
-        ; // cli param is ":" prefixed meaning global for all main+subapps
-      else if (pos == std::string::npos) // param is for main app - skip
-        continue;
-      else if (arg.find(":", pos + 1) != std::string::npos) // param is for a nested multiapp -skip
-        continue;
-      else if (arg.substr(0, pos) != appname &&
-               arg.substr(0, pos) != name) // param is for different multiapp - skip
-      {
-        _app.commandLine()->markHitParam(i);
-        continue;
-      }
-      arg = arg.substr(pos + 1, arg.size() - pos - 1); // trim off subapp name prefix
-    }
-
-    try
-    {
-      hit::check("CLI_ARG", arg);
-      hit_text += " " + arg;
-      // handle case where bash ate quotes around an empty string after the "="
-      if (arg.find("=", 0) == arg.size() - 1)
-        hit_text += "''";
-      _app.commandLine()->markHitParamUsed(i);
-    }
-    catch (hit::ParseError & err)
-    {
-      // bash might have eaten quotes around a hit string value or vector
-      // so try quoting after the "=" and reparse
-      auto quoted = arg;
-      auto pos = quoted.find("=", 0);
-      if (pos != std::string::npos)
-        quoted = arg.substr(0, pos + 1) + "'" + arg.substr(pos + 1, quoted.size() - pos) + "'";
-      try
-      {
-        hit::check("CLI_ARG", quoted);
-        hit_text += " " + quoted;
-        _app.commandLine()->markHitParamUsed(i);
-      }
-      catch (hit::ParseError & err)
-      {
-        mooseError("invalid hit in arg '", arg, "': ", err.what());
-      }
-    }
-  }
-  return hit_text;
-}
-
 hit::Node *
 Builder::root()
 {
@@ -406,9 +328,9 @@ void
 Builder::build()
 {
   // add in command line arguments
+  const auto cli_input = _app.commandLine()->buildHitParams();
   try
   {
-    auto cli_input = hitCLIFilter(_app.name(), _app.commandLine()->getArguments());
     _cli_root.reset(hit::parse("CLI_ARGS", cli_input));
     hit::explode(_cli_root.get());
     hit::merge(_cli_root.get(), root());
@@ -510,13 +432,9 @@ Builder::errorCheck(const Parallel::Communicator & comm, bool warn_unused, bool 
   auto cli = _app.commandLine();
   if (warn_unused)
   {
-    for (auto arg : cli->unused(comm))
-      _warnmsg += hit::errormsg("CLI_ARG",
-                                nullptr,
-                                "unused command line parameter '",
-                                cli->getArguments()[arg],
-                                "'") +
-                  "\n";
+    for (const auto & arg : cli->unusedHitParams(comm))
+      _warnmsg +=
+          hit::errormsg("CLI_ARG", nullptr, "unused command line parameter '", arg, "'") + "\n";
     for (auto & msg : uwcli.errors)
       _warnmsg += msg + "\n";
     for (auto & msg : uw.errors)
@@ -524,13 +442,9 @@ Builder::errorCheck(const Parallel::Communicator & comm, bool warn_unused, bool 
   }
   else if (err_unused)
   {
-    for (auto arg : cli->unused(comm))
-      _errmsg += hit::errormsg("CLI_ARG",
-                               nullptr,
-                               "unused command line parameter '",
-                               cli->getArguments()[arg],
-                               "'") +
-                 "\n";
+    for (const auto & arg : cli->unusedHitParams(comm))
+      _errmsg +=
+          hit::errormsg("CLI_ARG", nullptr, "unused command line parameter '", arg, "'") + "\n";
     for (auto & msg : uwcli.errors)
       _errmsg += msg + "\n";
     for (auto & msg : uw.errors)
@@ -568,6 +482,7 @@ Builder::buildJsonSyntaxTree(JsonSyntaxTree & root) const
   for (const auto & iter : _syntax.getAssociatedTypes())
     root.addSyntaxType(iter.first, iter.second);
 
+  // Build a list of all the actions appearing in the syntax
   for (const auto & iter : _syntax.getAssociatedActions())
   {
     Syntax::ActionInfo act_info = iter.second;
@@ -582,20 +497,21 @@ Builder::buildJsonSyntaxTree(JsonSyntaxTree & root) const
     all_names.push_back(std::make_pair(iter.first, act_info));
   }
 
+  // Add all the actions to the JSON tree, except for ActionComponents (below)
   for (const auto & act_names : all_names)
   {
     const auto & act_info = act_names.second;
     const std::string & action = act_info._action;
     const std::string & task = act_info._task;
-    const std::string act_name = act_names.first;
+    const std::string syntax = act_names.first;
     InputParameters action_obj_params = _action_factory.getValidParams(action);
     bool params_added = root.addParameters("",
-                                           act_name,
+                                           syntax,
                                            false,
                                            action,
                                            true,
                                            &action_obj_params,
-                                           _syntax.getLineInfo(act_name, action, ""),
+                                           _syntax.getLineInfo(syntax, action, ""),
                                            "");
 
     if (params_added)
@@ -604,7 +520,7 @@ Builder::buildJsonSyntaxTree(JsonSyntaxTree & root) const
       for (auto & t : tasks)
       {
         auto info = _action_factory.getLineInfo(action, t);
-        root.addActionTask(act_name, action, t, info);
+        root.addActionTask(syntax, action, t, info);
       }
     }
 
@@ -638,28 +554,28 @@ Builder::buildJsonSyntaxTree(JsonSyntaxTree & root) const
           size_t pos = 0;
           bool is_action_params = false;
           bool is_type = false;
-          if (act_name[act_name.size() - 1] == '*')
+          if (syntax[syntax.size() - 1] == '*')
           {
-            pos = act_name.size();
+            pos = syntax.size();
 
             if (!action_obj_params.collapseSyntaxNesting())
-              name = act_name.substr(0, pos - 1) + moose_obj_name;
+              name = syntax.substr(0, pos - 1) + moose_obj_name;
             else
             {
-              name = act_name.substr(0, pos - 1) + "/<type>/" + moose_obj_name;
+              name = syntax.substr(0, pos - 1) + "/<type>/" + moose_obj_name;
               is_action_params = true;
             }
           }
           else
           {
-            name = act_name + "/<type>/" + moose_obj_name;
+            name = syntax + "/<type>/" + moose_obj_name;
             is_type = true;
           }
           moose_obj_params.set<std::string>("type") = moose_obj_name;
 
           auto lineinfo = _factory.getLineInfo(moose_obj_name);
           std::string classname = _factory.associatedClassName(moose_obj_name);
-          root.addParameters(act_name,
+          root.addParameters(syntax,
                              name,
                              is_type,
                              moose_obj_name,
@@ -667,6 +583,50 @@ Builder::buildJsonSyntaxTree(JsonSyntaxTree & root) const
                              &moose_obj_params,
                              lineinfo,
                              classname);
+        }
+      }
+
+      // Same thing for ActionComponents, which, while they are not MooseObjects, should behave
+      // similarly syntax-wise
+      if (syntax != "ActionComponents/*")
+        continue;
+
+      auto iters = _action_factory.getActionsByTask("list_component");
+
+      for (auto it = iters.first; it != iters.second; ++it)
+      {
+        // Get the name and parameters
+        const auto component_name = it->second;
+        auto component_params = _action_factory.getValidParams(component_name);
+
+        // We currently do not have build-type restrictions on this action that adds
+        // action-components
+
+        // See if the current Moose Object syntax belongs under this Action's block
+        if (action_obj_params.mooseObjectSyntaxVisibility() // and the Action says it's visible
+        )
+        {
+          // The logic for Components is a little simpler here for now because syntax like
+          // Executioner/TimeIntegrator/type= do not exist for components
+          std::string name;
+          if (syntax[syntax.size() - 1] == '*')
+          {
+            size_t pos = syntax.size();
+            name = syntax.substr(0, pos - 1) + component_name;
+          }
+          component_params.set<std::string>("type") = component_name;
+
+          auto lineinfo = _action_factory.getLineInfo(component_name, "list_component");
+          // We add the parameters as for an object, because we want to fit them to be
+          // added to json["AddActionComponentAction"]["subblock_types"]
+          root.addParameters(syntax,
+                             /*syntax_path*/ name,
+                             /*is_type*/ false,
+                             "AddActionComponentAction",
+                             /*is_action=*/false,
+                             &component_params,
+                             lineinfo,
+                             component_name);
         }
       }
     }
@@ -882,6 +842,14 @@ void Builder::setVectorParameter<MooseEnum, MooseEnum>(
     GlobalParamsAction * global_block);
 
 template <>
+void Builder::setVectorParameter<MultiMooseEnum, MultiMooseEnum>(
+    const std::string & full_name,
+    const std::string & short_name,
+    InputParameters::Parameter<std::vector<MultiMooseEnum>> * param,
+    bool in_global,
+    GlobalParamsAction * global_block);
+
+template <>
 void Builder::setVectorParameter<VariableName, VariableName>(
     const std::string & full_name,
     const std::string & short_name,
@@ -1064,16 +1032,20 @@ Builder::extractParams(const std::string & prefix, InputParameters & p)
         setscalar(BoundaryName, string);
         setscalar(FileName, string);
         setscalar(MeshFileName, string);
+        setscalar(MatrixFileName, string);
         setscalar(FileNameNoExtension, string);
         setscalar(RelativeFileName, string);
         setscalar(DataFileName, string);
+        setscalar(ComponentName, string);
         setscalar(PhysicsName, string);
         setscalar(OutFileBase, string);
         setscalar(VariableName, string);
         setscalar(NonlinearVariableName, string);
         setscalar(LinearVariableName, string);
+        setscalar(SolverVariableName, string);
         setscalar(AuxVariableName, string);
         setscalar(FunctionName, string);
+        setscalar(ConvergenceName, string);
         setscalar(MeshDivisionName, string);
         setscalar(UserObjectName, string);
         setscalar(VectorPostprocessorName, string);
@@ -1134,6 +1106,7 @@ Builder::extractParams(const std::string & prefix, InputParameters & p)
         setvector(RealVectorValue, RealVectorValue);
         setvector(Point, Point);
         setvector(MooseEnum, MooseEnum);
+        setvector(MultiMooseEnum, MultiMooseEnum);
 
         setvector(string, string);
         setvector(FileName, string);
@@ -1141,12 +1114,15 @@ Builder::extractParams(const std::string & prefix, InputParameters & p)
         setvector(RelativeFileName, string);
         setvector(DataFileName, string);
         setvector(MeshFileName, string);
+        setvector(MatrixFileName, string);
         setvector(SubdomainName, string);
         setvector(BoundaryName, string);
         setvector(NonlinearVariableName, string);
         setvector(LinearVariableName, string);
+        setvector(SolverVariableName, string);
         setvector(AuxVariableName, string);
         setvector(FunctionName, string);
+        setvector(ConvergenceName, string);
         setvector(MeshDivisionName, string);
         setvector(UserObjectName, string);
         setvector(IndicatorName, string);
@@ -1166,6 +1142,7 @@ Builder::extractParams(const std::string & prefix, InputParameters & p)
         setvector(ExtraElementIDName, string);
         setvector(ReporterName, string);
         setvector(CLIArgString, string);
+        setvector(ComponentName, string);
         setvector(PhysicsName, string);
         setvector(PositionsName, string);
         setvector(TimesName, string);
@@ -1202,13 +1179,16 @@ Builder::extractParams(const std::string & prefix, InputParameters & p)
         setvectorvector(FileNameNoExtension);
         setvectorvector(DataFileName);
         setvectorvector(MeshFileName);
+        setvectorvector(MatrixFileName);
         setvectorvector(SubdomainName);
         setvectorvector(BoundaryName);
         setvectorvector(VariableName);
         setvectorvector(NonlinearVariableName);
         setvectorvector(LinearVariableName);
+        setvectorvector(SolverVariableName);
         setvectorvector(AuxVariableName);
         setvectorvector(FunctionName);
+        setvectorvector(ConvergenceName);
         setvectorvector(UserObjectName);
         setvectorvector(IndicatorName);
         setvectorvector(MarkerName);
@@ -1243,6 +1223,7 @@ Builder::extractParams(const std::string & prefix, InputParameters & p)
         setvectorvectorvector(FileNameNoExtension);
         setvectorvectorvector(DataFileName);
         setvectorvectorvector(MeshFileName);
+        setvectorvectorvector(MatrixFileName);
         setvectorvectorvector(SubdomainName);
         setvectorvectorvector(BoundaryName);
         setvectorvectorvector(VariableName);
@@ -1573,17 +1554,26 @@ Builder::setDoubleIndexParameter(const std::string & full_name,
                                  bool in_global,
                                  GlobalParamsAction * global_block)
 {
+  auto & value = param->set();
+
   // Get the full string assigned to the variable full_name
-  std::string buffer = root()->param<std::string>(full_name);
+  const auto value_string = MooseUtils::trim(root()->param<std::string>(full_name));
 
   // split vector at delim ;
   // NOTE: the substrings are _not_ of type T yet
-  std::vector<std::string> first_tokenized_vector;
-  MooseUtils::tokenize(buffer, first_tokenized_vector, 1, ";");
-  param->set().resize(first_tokenized_vector.size());
+  // The zero length here is intentional, as we want something like:
+  // "abc; 123;" -> ["abc", "123", ""]
+  std::vector<std::string> outer_string_vectors;
+  // With split, we will get a single entry if the string value is empty. However,
+  // that should represent an empty vector<vector>. Therefore, only split if we have values.
+  if (!value_string.empty())
+    outer_string_vectors = MooseUtils::split(value_string, ";");
 
-  for (unsigned j = 0; j < first_tokenized_vector.size(); ++j)
-    if (!MooseUtils::tokenizeAndConvert<T>(first_tokenized_vector[j], param->set()[j]))
+  const auto outer_vector_size = outer_string_vectors.size();
+  value.resize(outer_vector_size);
+
+  for (const auto j : index_range(outer_string_vectors))
+    if (!MooseUtils::tokenizeAndConvert<T>(outer_string_vectors[j], value[j]))
     {
       _errmsg +=
           hit::errormsg(root()->find(full_name), "invalid format for parameter ", full_name) + "\n";
@@ -1593,12 +1583,12 @@ Builder::setDoubleIndexParameter(const std::string & full_name,
   if (in_global)
   {
     global_block->remove(short_name);
-    global_block->setDoubleIndexParam<T>(short_name).resize(first_tokenized_vector.size());
-    for (unsigned j = 0; j < first_tokenized_vector.size(); ++j)
+    global_block->setDoubleIndexParam<T>(short_name).resize(outer_vector_size);
+    for (const auto j : make_range(outer_vector_size))
     {
-      global_block->setDoubleIndexParam<T>(short_name)[j].resize(param->get()[j].size());
-      for (unsigned int i = 0; i < param->get()[j].size(); ++i)
-        global_block->setDoubleIndexParam<T>(short_name)[j][i] = param->get()[j][i];
+      global_block->setDoubleIndexParam<T>(short_name)[j].resize(value[j].size());
+      for (const auto i : index_range(value[j]))
+        global_block->setDoubleIndexParam<T>(short_name)[j][i] = value[j][i];
     }
   }
 }
@@ -1703,9 +1693,11 @@ Builder::setScalarComponentParameter(const std::string & full_name,
     _errmsg += hit::errormsg(root()->find(full_name),
                              "wrong number of values in scalar component parameter ",
                              full_name,
-                             ": size ",
+                             ": ",
+                             short_name,
+                             " was given ",
                              vec.size(),
-                             " is not a multiple of ",
+                             " components but should have ",
                              LIBMESH_DIM) +
                "\n";
     return;
@@ -2157,6 +2149,43 @@ Builder::setVectorParameter<MooseEnum, MooseEnum>(
 
 template <>
 void
+Builder::setVectorParameter<MultiMooseEnum, MultiMooseEnum>(
+    const std::string & full_name,
+    const std::string & short_name,
+    InputParameters::Parameter<std::vector<MultiMooseEnum>> * param,
+    bool in_global,
+    GlobalParamsAction * global_block)
+{
+  const std::vector<MultiMooseEnum> & enum_values = param->get();
+
+  // Get the full string assigned to the variable full_name
+  std::string buffer = root()->param<std::string>(full_name);
+
+  std::vector<std::string> first_tokenized_vector = MooseUtils::split(buffer, ";");
+  for (const auto & i : first_tokenized_vector)
+    if (MooseUtils::trim(i) == "")
+      mooseError("In " + full_name + ", one entry in the vector is empty.  This is not allowed.");
+
+  param->set().resize(first_tokenized_vector.size(), enum_values[0]);
+
+  std::vector<std::vector<std::string>> vecvec(first_tokenized_vector.size());
+  for (const auto i : index_range(vecvec))
+  {
+    MooseUtils::tokenize<std::string>(first_tokenized_vector[i], vecvec[i], 1, " ");
+    param->set()[i] = vecvec[i];
+  }
+
+  if (in_global)
+  {
+    global_block->remove(short_name);
+    global_block->setVectorParam<MultiMooseEnum>(short_name).resize(vecvec.size(), enum_values[0]);
+    for (unsigned int i = 0; i < vecvec.size(); ++i)
+      global_block->setVectorParam<MultiMooseEnum>(short_name)[i] = vecvec[i];
+  }
+}
+
+template <>
+void
 Builder::setVectorParameter<PostprocessorName, PostprocessorName>(
     const std::string & full_name,
     const std::string & short_name,
@@ -2223,15 +2252,14 @@ Builder::setVectorParameter<VariableName, VariableName>(
     for (unsigned int i = 0; i < vec.size(); ++i)
       if (var_names[i] == "")
       {
-        _errmsg +=
-            hit::errormsg(
-                root()->find(full_name),
-                "invalid value for ",
-                full_name,
-                ":\n"
-                "    MOOSE does not currently support a coupled vector where some parameters are ",
-                "reals and others are variables") +
-            "\n";
+        _errmsg += hit::errormsg(root()->find(full_name),
+                                 "invalid value for ",
+                                 full_name,
+                                 ":\n"
+                                 "    MOOSE does not currently support a coupled vector where "
+                                 "some parameters are ",
+                                 "reals and others are variables") +
+                   "\n";
         return;
       }
       else

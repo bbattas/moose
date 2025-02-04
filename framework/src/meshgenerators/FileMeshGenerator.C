@@ -15,6 +15,7 @@
 #include "libmesh/exodusII_io.h"
 #include "libmesh/mesh_communication.h"
 #include "libmesh/mesh_tools.h"
+#include "libmesh/sparse_matrix.h"
 
 registerMooseObject("MooseApp", FileMeshGenerator);
 
@@ -37,9 +38,9 @@ FileMeshGenerator::validParams()
                         "because the mesh was pre-split for example.");
   params.addParam<bool>("allow_renumbering",
                         true,
-                        "Whether to allow the mesh to renumber nodes and elements. Note that this "
-                        "parameter is only relevant for non-exodus files, e.g. if reading from "
-                        "checkpoint for example. For exodus we always disallow renumbering.");
+                        "Whether to allow the mesh to renumber nodes and elements, if not "
+                        "overridden by a global parameter or by a requirement (e.g. an exodus "
+                        "restart or a constraint matrix) that disables renumbering.");
   params.addParam<bool>("clear_spline_nodes",
                         false,
                         "If clear_spline_nodes=true, IsoGeometric Analyis spline nodes "
@@ -53,13 +54,19 @@ FileMeshGenerator::validParams()
                         "their extraction operators.  This may be less efficient than the "
                         "default C^0 extracted mesh, but may be necessary if the extracted "
                         "mesh is non-conforming.");
+  params.addParam<MatrixFileName>(
+      "constraint_matrix", "", "The name of a constraint matrix file to apply to the mesh");
   params.addClassDescription("Read a mesh from a file.");
+  params.addParamNamesToGroup(
+      "clear_spline_nodes discontinuous_spline_extraction constraint_matrix",
+      "IsoGeometric Analysis (IGA) and other mesh constraint options");
   return params;
 }
 
 FileMeshGenerator::FileMeshGenerator(const InputParameters & parameters)
   : MeshGenerator(parameters),
     _file_name(getParam<MeshFileName>("file")),
+    _matrix_file_name(getParam<MatrixFileName>("constraint_matrix")),
     _skip_partitioning(getParam<bool>("skip_partitioning")),
     _allow_renumbering(getParam<bool>("allow_renumbering"))
 {
@@ -70,6 +77,14 @@ FileMeshGenerator::generate()
 {
   auto mesh = buildMeshBaseObject();
 
+  // Maybe we'll reallow renumbering after constraints are applied?
+  bool eventually_allow_renumbering = _allow_renumbering && mesh->allow_renumbering();
+
+  // If we have a constraint matrix, we need its numbering to match
+  // the numbering in the mesh file
+  if (!_matrix_file_name.empty())
+    mesh->allow_renumbering(false);
+
   // Figure out if we are reading an Exodus file, but not Tetgen (*.ele)
   bool exodus = (_file_name.rfind(".exd") < _file_name.size() ||
                  _file_name.rfind(".e") < _file_name.size()) &&
@@ -78,7 +93,7 @@ FileMeshGenerator::generate()
   bool restart_exodus = (getParam<bool>("use_for_exodus_restart") && _app.getExodusFileRestart());
   if (exodus)
   {
-    auto exreader = std::make_shared<ExodusII_IO>(*mesh);
+    auto exreader = std::make_shared<libMesh::ExodusII_IO>(*mesh);
     MooseUtils::checkFileReadable(_file_name);
 
     if (has_exodus_integers)
@@ -89,6 +104,7 @@ FileMeshGenerator::generate()
     {
       _app.setExReaderForRestart(std::move(exreader));
       exreader->read(_file_name);
+      eventually_allow_renumbering = false;
       mesh->allow_renumbering(false);
     }
     else
@@ -103,7 +119,7 @@ FileMeshGenerator::generate()
         if (getParam<bool>("clear_spline_nodes"))
           MeshTools::clear_spline_nodes(*mesh);
       }
-      MeshCommunication().broadcast(*mesh);
+      libMesh::MeshCommunication().broadcast(*mesh);
     }
     // Skip partitioning if the user requested it
     if (_skip_partitioning)
@@ -118,7 +134,6 @@ FileMeshGenerator::generate()
     if (_pars.isParamSetByUser("use_for_exodus_restart"))
       mooseError("\"use_for_exodus_restart\" should be given only for Exodus mesh files");
 
-    // Supports old suffix (xxxx_mesh.cpr -> xxxx-mesh.cpr) and LATEST
     const auto file_name = deduceCheckpointPath(*this, _file_name);
     MooseUtils::checkFileReadable(file_name);
 
@@ -130,6 +145,25 @@ FileMeshGenerator::generate()
     _app.possiblyLoadRestartableMetaData(MooseApp::MESH_META_DATA, (std::string)file_name);
   }
 
+  if (!_matrix_file_name.empty())
+  {
+    auto matrix = SparseMatrix<Number>::build(mesh->comm());
+    matrix->read_matlab(_matrix_file_name);
+
+    // In the future we might deduce matrix orientation via matrix
+    // size; for now we simply hardcode that the Flex IGA standard for
+    // projection operator matrices is the transpose of our standard
+    // for constraint equations.
+    matrix->get_transpose(*matrix);
+    mesh->copy_constraint_rows(*matrix);
+
+    // libMesh should probably update this in copy_constraint_rows();
+    // once it does this will be a redundant sweep we can remove.
+    mesh->cache_elem_data();
+  }
+
+  mesh->allow_renumbering(eventually_allow_renumbering);
+
   return dynamic_pointer_cast<MeshBase>(mesh);
 }
 
@@ -139,29 +173,6 @@ FileMeshGenerator::deduceCheckpointPath(const MooseObject & object, const std::s
   // Just exists, use it
   if (MooseUtils::pathExists(file_name))
     return file_name;
-
-  // xxxx_mesh.cpr -> xxxx-mesh.cpr
-  const std::string old_ending = "_mesh.cpr";
-  if (std::equal(old_ending.rbegin(), old_ending.rend(), file_name.rbegin()))
-  {
-    const std::string new_ending = "-mesh.cpr";
-    auto new_path = file_name;
-    new_path.replace(new_path.size() - old_ending.size(), old_ending.size(), new_ending, 0);
-    if (MooseUtils::pathExists(new_path))
-    {
-      std::stringstream warning;
-      warning
-          << "The supplied checkpoint " << std::filesystem::path(file_name).filename()
-          << " uses the previous default checkpoint suffix of \"" << old_ending
-          << "\".\nThe new default checkpoint suffix is \"" << new_ending << "\".\n\n"
-          << "Your supplied checkpoint was not found, but one with the new ending was found in\n\""
-          << new_path << "\".\n\n"
-          << "The above checkpoint is being used instead.\nYou should modify your input "
-             "accordingly.";
-      object.paramWarning("file", warning.str());
-      return new_path;
-    }
-  }
 
   // LATEST
   return MooseUtils::convertLatestCheckpoint(file_name) + object.getMooseApp().checkpointSuffix();

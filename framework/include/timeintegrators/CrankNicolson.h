@@ -34,6 +34,7 @@ public:
                                 ADReal & ad_u_dotdot) const override;
   virtual void postResidual(NumericVector<Number> & residual) override;
   virtual void postStep() override;
+  virtual bool overridesSolve() const override { return false; }
 
 protected:
   /**
@@ -42,7 +43,9 @@ protected:
   template <typename T, typename T2>
   void computeTimeDerivativeHelper(T & u_dot, const T2 & u_old) const;
 
-  NumericVector<Number> & _residual_old;
+  virtual Real duDotDuCoeff() const override;
+
+  NumericVector<Number> * _residual_old;
 };
 
 template <typename T, typename T2>

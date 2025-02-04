@@ -42,6 +42,8 @@ class DiracKernelBase;
 class NodalKernelBase;
 class Split;
 class KernelBase;
+class HDGKernel;
+class HDGIntegratedBC;
 class BoundaryCondition;
 class ResidualObject;
 class PenetrationInfo;
@@ -65,10 +67,10 @@ class DiagonalMatrix;
 class NonlinearSystemBase : public SolverSystem, public PerfGraphInterface
 {
 public:
-  NonlinearSystemBase(FEProblemBase & problem, System & sys, const std::string & name);
+  NonlinearSystemBase(FEProblemBase & problem, libMesh::System & sys, const std::string & name);
   virtual ~NonlinearSystemBase();
 
-  virtual void init() override;
+  virtual void preInit() override;
 
   bool computedScalingJacobian() const { return _computed_scaling; }
 
@@ -79,7 +81,7 @@ public:
 
   virtual void solve() override = 0;
 
-  virtual NonlinearSolver<Number> * nonlinearSolver() = 0;
+  virtual libMesh::NonlinearSolver<Number> * nonlinearSolver() = 0;
 
   virtual SNES getSNES() = 0;
 
@@ -108,23 +110,6 @@ public:
   bool haveFieldSplitPreconditioner() const { return _use_field_split_preconditioner; }
 
   /**
-   * Returns the convergence state
-   * @return true if converged, otherwise false
-   */
-  virtual bool converged() = 0;
-
-  /**
-   * Add a time integrator
-   * @param type Type of the integrator
-   * @param name The name of the integrator
-   * @param parameters Integrator params
-   */
-  void addTimeIntegrator(const std::string & type,
-                         const std::string & name,
-                         InputParameters & parameters) override;
-  using SystemBase::addTimeIntegrator;
-
-  /**
    * Adds a kernel
    * @param kernel_name The type of the kernel
    * @param name The name of the kernel
@@ -133,6 +118,26 @@ public:
   virtual void addKernel(const std::string & kernel_name,
                          const std::string & name,
                          InputParameters & parameters);
+
+  /**
+   * Adds a hybridized discontinuous Galerkin (HDG) kernel
+   * @param kernel_name The type of the hybridized kernel
+   * @param name The name of the hybridized kernel
+   * @param parameters HDG kernel parameters
+   */
+  virtual void addHDGKernel(const std::string & kernel_name,
+                            const std::string & name,
+                            InputParameters & parameters);
+
+  /**
+   * Adds a hybridized discontinuous Galerkin (HDG) bc
+   * @param bc_name The type of the hybridized bc
+   * @param name The name of the hybridized bc
+   * @param parameters HDG bc parameters
+   */
+  virtual void addHDGIntegratedBC(const std::string & bc_name,
+                                  const std::string & name,
+                                  InputParameters & parameters);
 
   /**
    * Adds a NodalKernel
@@ -343,12 +348,12 @@ public:
   /**
    * Associate jacobian to systemMatrixTag, and then form a matrix for all the tags
    */
-  void computeJacobian(SparseMatrix<Number> & jacobian, const std::set<TagID> & tags);
+  void computeJacobian(libMesh::SparseMatrix<Number> & jacobian, const std::set<TagID> & tags);
 
   /**
    * Take all tags in the system, and form a matrix for all tags in the system
    */
-  void computeJacobian(SparseMatrix<Number> & jacobian);
+  void computeJacobian(libMesh::SparseMatrix<Number> & jacobian);
 
   /**
    * Computes several Jacobian blocks simultaneously, summing their contributions into smaller
@@ -430,7 +435,7 @@ public:
 
   virtual NumericVector<Number> & RHS() = 0;
 
-  virtual void augmentSparsity(SparsityPattern::Graph & sparsity,
+  virtual void augmentSparsity(libMesh::SparsityPattern::Graph & sparsity,
                                std::vector<dof_id_type> & n_nz,
                                std::vector<dof_id_type> & n_oz) override;
 
@@ -489,7 +494,7 @@ public:
    * Attach a customized preconditioner that requires physics knowledge.
    * Generic preconditioners should be implemented in PETSc, instead.
    */
-  virtual void attachPreconditioner(Preconditioner<Number> * preconditioner) = 0;
+  virtual void attachPreconditioner(libMesh::Preconditioner<Number> * preconditioner) = 0;
 
   /**
    * Setup damping stuff (called before we actually start)
@@ -513,7 +518,8 @@ public:
   ///@{
   /// System Integrity Checks
   void checkKernelCoverage(const std::set<SubdomainID> & mesh_subdomains) const;
-  bool containsTimeKernel();
+  virtual bool containsTimeKernel() override;
+  virtual std::vector<std::string> timeKernelVariableNames() override;
   ///@}
 
   /**
@@ -583,6 +589,7 @@ public:
    * Access functions to Warehouses from outside NonlinearSystemBase
    */
   MooseObjectTagWarehouse<KernelBase> & getKernelWarehouse() { return _kernels; }
+  const MooseObjectTagWarehouse<KernelBase> & getKernelWarehouse() const { return _kernels; }
   MooseObjectTagWarehouse<DGKernelBase> & getDGKernelWarehouse() { return _dg_kernels; }
   MooseObjectTagWarehouse<InterfaceKernelBase> & getInterfaceKernelWarehouse()
   {
@@ -625,8 +632,8 @@ public:
    */
   bool hasDiagSaveIn() const { return _has_diag_save_in || _has_nodalbc_diag_save_in; }
 
-  virtual System & system() override { return _sys; }
-  virtual const System & system() const override { return _sys; }
+  virtual libMesh::System & system() override { return _sys; }
+  virtual const libMesh::System & system() const override { return _sys; }
 
   virtual void setSolutionUDotOld(const NumericVector<Number> & u_dot_old);
 
@@ -677,7 +684,7 @@ public:
     _off_diagonals_in_auto_scaling = off_diagonals_in_auto_scaling;
   }
 
-  System & _sys;
+  libMesh::System & _sys;
   // FIXME: make these protected and create getters/setters
   Real _last_nl_rnorm;
   std::vector<unsigned int> _current_l_its;
@@ -833,6 +840,7 @@ protected:
   ///@{
   /// Kernel Storage
   MooseObjectTagWarehouse<KernelBase> _kernels;
+  MooseObjectWarehouse<HDGKernel> _hybridized_kernels;
   MooseObjectTagWarehouse<ScalarKernelBase> _scalar_kernels;
   MooseObjectTagWarehouse<DGKernelBase> _dg_kernels;
   MooseObjectTagWarehouse<InterfaceKernelBase> _interface_kernels;
@@ -845,6 +853,7 @@ protected:
   MooseObjectTagWarehouse<NodalBCBase> _nodal_bcs;
   MooseObjectWarehouse<DirichletBCBase> _preset_nodal_bcs;
   MooseObjectWarehouse<ADDirichletBCBase> _ad_preset_nodal_bcs;
+  MooseObjectWarehouse<HDGIntegratedBC> _hybridized_ibcs;
   ///@}
 
   /// Dirac Kernel storage for each thread
@@ -966,7 +975,7 @@ protected:
   bool _off_diagonals_in_auto_scaling;
 
   /// A diagonal matrix used for computing scaling
-  std::unique_ptr<DiagonalMatrix<Number>> _scaling_matrix;
+  std::unique_ptr<libMesh::DiagonalMatrix<Number>> _scaling_matrix;
 
 private:
   /**

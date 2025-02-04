@@ -9,13 +9,38 @@
   []
 
   [allow_solution_invalid]
-    type = 'RunException'
+    type = 'RunApp'
     input = 'solution_invalid.i'
     cli_args = 'Problem/allow_invalid_solution=true'
-    expect_err = 'The Solution Invalidity warnings are detected but silenced! Use Problem/allow_invalid_solution=false to activate'
     design = 'SolutionInvalidity.md'
     issues = '#22814'
     requirement = 'The system shall allow overriding the solution validity checks.'
+  []
+
+  [solution_invalid_warning]
+    design = 'SolutionInvalidity.md'
+    issues = '#22814'
+    requirement = 'The system shall be able to count warnings through the solution invalidity interface and report them,'
+    [no_console_output]
+      type = 'RunException'
+      input = 'solution_invalid.i'
+      cli_args = 'Materials/filter/flag_solution_warning=true Problem/show_invalid_solution_console=false'
+      expect_err = 'The Solution Invalidity warnings are detected but silenced! Use Problem/show_invalid_solution_console=true to show solution counts'
+      detail = 'unless the user specifies to silence them,'
+    []
+    [console_output]
+      type = 'RunApp'
+      input = 'solution_invalid.i'
+      cli_args = "Materials/filter/flag_solution_warning=true Outputs/file_base='solution_invalid_warning'"
+      expect_out = "Solution Invalid Warnings:
+------------------------------------------------------------------------------
+|     Object      | Converged | Timestep | Total |          Message          |
+------------------------------------------------------------------------------
+| NonsafeMaterial |        16 |       48 |    48 | Solution invalid warning! |
+------------------------------------------------------------------------------
+"
+      detail = 'and otherwise both in the console window and a json file.'
+    []
   []
 
   [immediately_print_invalid_solution]
@@ -35,6 +60,7 @@
     type = JSONDiff
     input = solution_invalid.i
     jsondiff = 'solution_invalid.json'
+    hpc = false # iteration counts can be MPI dependent
     design = 'SolutionInvalidity.md'
     issues = '#22814'
     requirement = 'The system shall be able to output detailed reasons and occurrences as to why a solution is invalid to file'
@@ -47,6 +73,7 @@
     input = solution_invalid.i
     cli_args = "Executioner/type=Transient Executioner/num_steps=1 Executioner/dtmin=1e-13 Executioner/error_on_dtmin=false Outputs/file_base='solution_invalid_transient' "
     jsondiff = 'solution_invalid_transient.json'
+    hpc = false # iteration counts can be MPI dependent
     design = 'SolutionInvalidity.md'
     issues = '#22814'
     requirement = 'The system shall be able to output detailed information about why a solution is invalid to a file in transient simulations'
@@ -59,6 +86,7 @@
     input = solution_invalid.i
     cli_args = "Materials/filter/test_different_procs=true Outputs/file_base='solution_invalid_parallel'"
     jsondiff = 'solution_invalid_parallel.json'
+    hpc = false # iteration counts can be MPI dependent
     design = 'SolutionInvalidity.md'
     min_parallel = 3
     max_parallel = 3
@@ -88,6 +116,7 @@
       type = JSONDiff
       input = solution_invalid_recover.i
       jsondiff = 'solution_invalid_checkpoint.json'
+      hpc = false # iteration counts can be MPI dependent
       cli_args = "Outputs/file_base='solution_invalid_checkpoint' Outputs/checkpoint=true"
       detail = 'outputting of checkpoint files'
     []

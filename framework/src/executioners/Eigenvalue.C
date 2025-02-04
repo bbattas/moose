@@ -16,6 +16,11 @@
 #include "SlepcSupport.h"
 #include "UserObject.h"
 
+#include "libmesh/petsc_solver_exception.h"
+
+// Needed for LIBMESH_CHECK_ERR
+using libMesh::PetscSolverException;
+
 registerMooseObject("MooseApp", Eigenvalue);
 
 InputParameters
@@ -154,7 +159,7 @@ Eigenvalue::init()
   {
     const auto & normpp = getParam<PostprocessorName>("normalization");
     const auto & exec = _eigen_problem.getUserObject<UserObject>(normpp).getExecuteOnEnum();
-    if (!exec.contains(EXEC_LINEAR))
+    if (!exec.isValueSet(EXEC_LINEAR))
       mooseError("Normalization postprocessor ", normpp, " requires execute_on = 'linear'");
   }
 
@@ -192,10 +197,13 @@ Eigenvalue::prepareSolverOptions()
   {
     // Master app has the default data base
     if (!_app.isUltimateMaster())
-      PetscOptionsPush(_eigen_problem.petscOptionsDatabase());
+      LibmeshPetscCall(PetscOptionsPush(_eigen_problem.petscOptionsDatabase()));
+
     Moose::SlepcSupport::slepcSetOptions(_eigen_problem, _pars);
+
     if (!_app.isUltimateMaster())
-      PetscOptionsPop();
+      LibmeshPetscCall(PetscOptionsPop());
+
     _eigen_problem.petscOptionsInserted() = true;
   }
 #endif

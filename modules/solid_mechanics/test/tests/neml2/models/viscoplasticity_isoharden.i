@@ -46,26 +46,28 @@
     type = AssociativeIsotropicPlasticHardening
   []
   [Erate]
-    type = SR2ForceRate
-    force = 'E'
+    type = SR2VariableRate
+    variable = 'forces/E'
   []
   [Eerate]
-    type = ElasticStrain
-    rate_form = true
+    type = SR2LinearCombination
+    from_var = 'forces/E_rate state/internal/Ep_rate'
+    to_var = 'state/internal/Ee_rate'
+    coefficients = '1 -1'
   []
   [elasticity]
     type = LinearIsotropicElasticity
-    youngs_modulus = 1e5
-    poisson_ratio = 0.3
+    coefficients = '1e5 0.3'
+    coefficient_types = 'YOUNGS_MODULUS POISSONS_RATIO'
     rate_form = true
   []
   [integrate_stress]
     type = SR2BackwardEulerTimeIntegration
-    variable = 'S'
+    variable = 'state/S'
   []
   [integrate_ep]
     type = ScalarBackwardEulerTimeIntegration
-    variable = 'internal/ep'
+    variable = 'state/internal/ep'
   []
   [implicit_rate]
     type = ComposedModel

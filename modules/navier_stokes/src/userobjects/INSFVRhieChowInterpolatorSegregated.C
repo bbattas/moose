@@ -17,7 +17,7 @@
 #include "INSFVPressureVariable.h"
 #include "PiecewiseByBlockLambdaFunctor.h"
 #include "VectorCompositeFunctor.h"
-#include "SIMPLE.h"
+#include "SIMPLENonlinearAssembly.h"
 
 #include "libmesh/mesh_base.h"
 #include "libmesh/elem_range.h"
@@ -40,7 +40,7 @@ INSFVRhieChowInterpolatorSegregated::validParams()
                              "momentum-pressure equations.");
 
   // We disable the execution of this, should only provide functions
-  // for the SIMPLE executioner
+  // for the SIMPLENonlinearAssembly executioner
   ExecFlagEnum & exec_enum = params.set<ExecFlagEnum>("execute_on", true);
   exec_enum.addAvailableFlags(EXEC_NONE);
   exec_enum = {EXEC_NONE};
@@ -86,7 +86,7 @@ INSFVRhieChowInterpolatorSegregated::INSFVRhieChowInterpolatorSegregated(
     paramError("velocity_interp_method",
                "Segregated momentum-pressure solvers do not allow average interpolation methods!");
 
-  if (!dynamic_cast<SIMPLE *>(getMooseApp().getExecutioner()))
+  if (!dynamic_cast<SIMPLENonlinearAssembly *>(getMooseApp().getExecutioner()))
     mooseError(this->name(), " should only be used with a segregated thermal-hydraulics solver!");
 }
 
@@ -136,7 +136,7 @@ INSFVRhieChowInterpolatorSegregated::initFaceVelocities()
       if (_u->isInternalFace(*fi))
       {
         const Moose::FaceArg face{
-            fi, Moose::FV::LimiterType::CentralDifference, true, false, nullptr};
+            fi, Moose::FV::LimiterType::CentralDifference, true, false, nullptr, nullptr};
 
         _face_velocity[fi->id()] = MetaPhysicL::raw_value((*_vel)(face, Moose::currentState()));
       }
@@ -147,7 +147,7 @@ INSFVRhieChowInterpolatorSegregated::initFaceVelocities()
             hasBlocks(fi->elemPtr()->subdomain_id()) ? fi->elemPtr() : fi->neighborPtr();
 
         const Moose::FaceArg boundary_face{
-            fi, Moose::FV::LimiterType::CentralDifference, true, false, boundary_elem};
+            fi, Moose::FV::LimiterType::CentralDifference, true, false, boundary_elem, nullptr};
 
         _face_velocity[fi->id()] =
             MetaPhysicL::raw_value((*_vel)(boundary_face, Moose::currentState()));
@@ -185,7 +185,7 @@ INSFVRhieChowInterpolatorSegregated::computeFaceVelocity()
       if (_u->isInternalFace(*fi))
       {
         const Moose::FaceArg face{
-            fi, Moose::FV::LimiterType::CentralDifference, true, false, nullptr};
+            fi, Moose::FV::LimiterType::CentralDifference, true, false, nullptr, nullptr};
 
         RealVectorValue Ainv;
         RealVectorValue HbyA = MetaPhysicL::raw_value(_HbyA(face, time_arg));
@@ -207,7 +207,7 @@ INSFVRhieChowInterpolatorSegregated::computeFaceVelocity()
         const Elem * const boundary_elem =
             hasBlocks(fi->elemPtr()->subdomain_id()) ? fi->elemPtr() : fi->neighborPtr();
         const Moose::FaceArg boundary_face{
-            fi, Moose::FV::LimiterType::CentralDifference, true, false, boundary_elem};
+            fi, Moose::FV::LimiterType::CentralDifference, true, false, boundary_elem, nullptr};
 
         // If we have a dirichlet boundary conditions, this sill give us the exact value of the
         // velocity on the face as expected (see populateHbyA())
@@ -310,7 +310,7 @@ INSFVRhieChowInterpolatorSegregated::populateHbyA(
             hasBlocks(fi->elemPtr()->subdomain_id()) ? fi->elemPtr() : fi->neighborPtr();
 
         const Moose::FaceArg boundary_face{
-            fi, Moose::FV::LimiterType::CentralDifference, true, false, boundary_elem};
+            fi, Moose::FV::LimiterType::CentralDifference, true, false, boundary_elem, nullptr};
 
         if (_u->isDirichletBoundaryFace(*fi, boundary_elem, Moose::currentState()))
           _HbyA[fi->id()] = -MetaPhysicL::raw_value((*_vel)(boundary_face, Moose::currentState()));
@@ -423,7 +423,7 @@ INSFVRhieChowInterpolatorSegregated::computeHbyA(bool verbose)
     // Now we set the diagonal of our system matrix to 0 so we can create H*u
     // TODO: Add a function for this in libmesh
     *working_vector_petsc = 0.0;
-    MatDiagonalSet(mmat->mat(), working_vector_petsc->vec(), INSERT_VALUES);
+    LibmeshPetscCall(MatDiagonalSet(mmat->mat(), working_vector_petsc->vec(), INSERT_VALUES));
 
     if (verbose)
     {

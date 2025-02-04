@@ -78,6 +78,12 @@ protected:
   /// Type of algorithm used to find matching nodes (binary or exhaustive)
   const MooseEnum _algorithm;
 
+  /// Type of triangular elements to be generated
+  const MooseEnum _tri_elem_type;
+
   /// Whether mesh stitching should have verbose output
   const bool _verbose_stitching;
+
+  /// Desired interior node locations
+  std::vector<Point> _interior_points;
 };

@@ -19,7 +19,7 @@ class EigenProblem;
 class SubProblem;
 class SystemBase;
 class AuxiliarySystem;
-class Transient;
+class TransientBase;
 
 InputParameters
 MooseObject::validParams()
@@ -39,21 +39,17 @@ MooseObject::validParams()
   params.addPrivateParam<SubProblem *>("_subproblem", nullptr);
   params.addPrivateParam<SystemBase *>("_sys", nullptr);
   params.addPrivateParam<SystemBase *>("_nl_sys", nullptr);
-  params.addPrivateParam<Transient *>("_executioner", nullptr);
+  params.addPrivateParam<TransientBase *>("_executioner", nullptr);
   params.addPrivateParam<THREAD_ID>("_tid");
   params.addPrivateParam<bool>("_residual_object", false);
   return params;
 }
 
 MooseObject::MooseObject(const InputParameters & parameters)
-  : MooseBase(parameters.get<std::string>("_type"),
-              parameters.get<std::string>("_object_name"),
-              *parameters.getCheckedPointerParam<MooseApp *>("_moose_app"),
-              parameters),
-    MooseBaseParameterInterface(*this, parameters),
-    MooseBaseErrorInterface(static_cast<MooseBase &>(*this)),
-    ParallelObject(*parameters.getCheckedPointerParam<MooseApp *>("_moose_app")),
-    DataFileInterface<MooseObject>(*this),
+  : ParallelParamObject(parameters.get<std::string>("_type"),
+                        parameters.get<std::string>("_object_name"),
+                        *parameters.getCheckedPointerParam<MooseApp *>("_moose_app"),
+                        parameters),
     _enabled(getParam<bool>("enable"))
 {
   if (Registry::isRegisteredObj(type()) && _app.getFactory().currentlyConstructing() != &parameters)

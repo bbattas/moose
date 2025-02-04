@@ -33,7 +33,7 @@
   using FunctionParserUtils<T>::_eval_error_msg;                                                   \
   using FunctionParserUtils<T>::_func_params
 
-// Helper class to pic the correct function parser
+/// Helper class to pick the correct function parser
 template <bool is_ad>
 struct GenericSymFunctionTempl
 {
@@ -70,21 +70,31 @@ public:
 protected:
   /// Evaluate FParser object and check EvalError
   GenericReal<is_ad> evaluate(SymFunctionPtr &, const std::string & object_name = "");
+  /**
+   * Evaluate FParser object and check EvalError
+   *
+   * This version uses a supplied vector of function parameters, which is useful
+   * if an object uses more than one parsed function, which may have different
+   * function parameter values.
+   */
+  GenericReal<is_ad> evaluate(SymFunctionPtr &,
+                              const std::vector<GenericReal<is_ad>> &,
+                              const std::string & object_name = "");
 
   /// add constants (which can be complex expressions) to the parser object
   void addFParserConstants(SymFunctionPtr & parser,
                            const std::vector<std::string> & constant_names,
                            const std::vector<std::string> & constant_expressions);
 
-  // run FPOptimizer on the parsed function
+  /// run FPOptimizer on the parsed function
   virtual void functionsOptimize(SymFunctionPtr & parsed_function);
 
-  //@{ feature flags
+  ///@{ feature flags
   bool _enable_jit;
   bool _enable_ad_cache;
   bool _disable_fpoptimizer;
   bool _enable_auto_optimize;
-  //@}
+  ///@}
 
   /// Enum for failure method
   const enum class FailureMethod { nan, nan_warning, error, exception } _evalerror_behavior;
@@ -97,6 +107,9 @@ protected:
 
   /// Array to stage the parameters passed to the functions when calling Eval.
   std::vector<GenericReal<is_ad>> _func_params;
+
+  /// fuzzy comparison tolerance
+  const Real _epsilon;
 };
 
 template <>

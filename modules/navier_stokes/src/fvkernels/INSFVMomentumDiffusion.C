@@ -42,11 +42,14 @@ INSFVMomentumDiffusion::validParams()
   params.addParam<MooseFunctorName>("w", "The velocity in the z direction.");
   params.addParam<bool>(
       "limit_interpolation", false, "Flag to limit interpolation to positive values.");
+  params.addParam<bool>("newton_solve", false, "Whether a Newton nonlinear solve is being used");
+  params.addParamNamesToGroup("newton_solve", "Advanced");
   return params;
 }
 
 INSFVMomentumDiffusion::INSFVMomentumDiffusion(const InputParameters & params)
   : INSFVFluxKernel(params),
+    SolutionInvalidInterface(this),
     _mu(getFunctor<ADReal>(NS::mu)),
     _mu_interp_method(
         Moose::FV::selectInterpolationMethod(getParam<MooseEnum>("mu_interp_method"))),
@@ -55,7 +58,8 @@ INSFVMomentumDiffusion::INSFVMomentumDiffusion(const InputParameters & params)
     _w_var(params.isParamValid("w") ? &getFunctor<ADReal>("w") : nullptr),
     _complete_expansion(getParam<bool>("complete_expansion")),
     _limit_interpolation(getParam<bool>("limit_interpolation")),
-    _dim(_subproblem.mesh().dimension())
+    _dim(_subproblem.mesh().dimension()),
+    _newton_solve(getParam<bool>("newton_solve"))
 {
   if ((_var.faceInterpolationMethod() == Moose::FV::InterpMethod::SkewCorrectedAverage) &&
       (_tid == 0))
@@ -97,12 +101,18 @@ INSFVMomentumDiffusion::computeStrongResidual(const bool populate_a_coeffs)
   if (face_mu < 0.0)
   {
     if (!(_limit_interpolation))
-      mooseWarning("Negative face viscosity has been encountered. Value ",
-                   raw_value(face_mu),
-                   " at ",
-                   _face_info->faceCentroid(),
-                   " limiting it to 0!");
-    face_mu = 0;
+    {
+      mooseDoOnce(mooseWarning(
+          "Negative face viscosity has been encountered. Value ",
+          raw_value(face_mu),
+          " at ",
+          _face_info->faceCentroid(),
+          " limiting it to 0!\nFurther warnings for this issue will be silenced, but the "
+          "occurrences will be recorded through the solution invalidity interface."));
+      flagInvalidSolution("Negative face dynamic viscosity has been encountered.");
+    }
+    // Keep face_mu here for sparsity pattern detection
+    face_mu = 0 * face_mu;
   }
 
   if (populate_a_coeffs)

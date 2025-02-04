@@ -9,13 +9,13 @@
 
 #pragma once
 
-#include "HeatConductionPhysics.h"
+#include "HeatConductionPhysicsBase.h"
 
 /**
  * Creates all the objects needed to solve the heat conduction equations with a finite volume
  * discretization
  */
-class HeatConductionFV : public HeatConductionPhysics
+class HeatConductionFV : public HeatConductionPhysicsBase
 {
 public:
   static InputParameters validParams();
@@ -26,6 +26,6 @@ public:
 
 private:
   virtual void initializePhysicsAdditional() override;
-  virtual void addNonlinearVariables() override;
+  virtual void addSolverVariables() override;
   virtual void addFVKernels() override;
 };

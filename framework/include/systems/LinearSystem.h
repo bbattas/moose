@@ -40,10 +40,12 @@ public:
 
   virtual void solve() override;
 
-  virtual void addTimeIntegrator(const std::string & type,
-                                 const std::string & name,
-                                 InputParameters & parameters) override;
-  using SystemBase::addTimeIntegrator;
+  /**
+   * At the moment, this is only used for the multi-system fixed point
+   * iteration. We return true here since ther is no way to specify
+   * separate linear residuals in FEProblemSolve yet.
+   */
+  virtual bool converged() override { return _converged; }
 
   virtual void initialSetup() override;
 
@@ -55,21 +57,33 @@ public:
   /**
    * Quit the current solve as soon as possible.
    */
-  virtual void stopSolve(const ExecFlagType & exec_flag) override;
+  virtual void stopSolve(const ExecFlagType & exec_flag,
+                         const std::set<TagID> & vector_tags_to_close) override;
+
+  /**
+   * If the system has a kernel that corresponds to a time derivative.
+   * Considering that we don't have transient capabilities for linear
+   * systems at the moment, this is false.
+   */
+  virtual bool containsTimeKernel() override;
+  virtual std::vector<std::string> timeKernelVariableNames() override { return {}; }
 
   /**
    * Compute the right hand side and the system matrix of the system for given tags.
    * @param vector_tags The IDs of the vector tags whose right hand side contribution should be
    * included
    * @param matrix_tags The IDs of the matrix tags whose matrix contribution should be included
+   * @param compute_gradients A flag to disable the computation of new gradients during the
+   * assembly, can be used to lag gradients
    */
   void computeLinearSystemTags(const std::set<TagID> & vector_tags,
-                               const std::set<TagID> & matrix_tags);
+                               const std::set<TagID> & matrix_tags,
+                               const bool compute_gradients = true);
 
   /**
    * Return a reference to the stored linear implicit system
    */
-  LinearImplicitSystem & linearImplicitSystem() { return _linear_implicit_system; }
+  libMesh::LinearImplicitSystem & linearImplicitSystem() { return _linear_implicit_system; }
 
   /**
    *  Return a numeric vector that is associated with the time tag.
@@ -119,9 +133,12 @@ protected:
    * Compute the right hand side and system matrix for given tags
    * @param vector_tags The tags of kernels for which the right hand side is to be computed.
    * @param matrix_tags The tags of kernels for which the system matrix is to be computed.
+   * @param compute_gradients A flag to disable the computation of new gradients during the
+   * assembly, can be used to lag gradients
    */
   void computeLinearSystemInternal(const std::set<TagID> & vector_tags,
-                                   const std::set<TagID> & matrix_tags);
+                                   const std::set<TagID> & matrix_tags,
+                                   const bool compute_gradients = true);
 
   /// Base class reference to the libmesh system
   System & _sys;
@@ -159,11 +176,17 @@ protected:
   /// Number of linear iterations
   unsigned int _n_linear_iters;
 
+  /// The initial linear residual
+  Real _initial_linear_residual;
+
   /// The final linear residual
   Real _final_linear_residual;
 
+  /// If the solve on the linear system converged
+  bool _converged;
+
   /// Base class reference to the linear implicit system in libmesh
-  LinearImplicitSystem & _linear_implicit_system;
+  libMesh::LinearImplicitSystem & _linear_implicit_system;
 
   /// Vectors to store the new gradients during the computation. This is needed
   /// because the old gradients might still be needed to determine boundary values

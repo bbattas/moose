@@ -28,6 +28,11 @@ public:
                                 const dof_id_type & dof,
                                 ADReal & ad_u_dotdot) const override;
   virtual void postResidual(NumericVector<Number> & residual) override;
+  virtual bool overridesSolve() const override { return false; }
+
+  virtual Real timeDerivativeRHSContribution(const dof_id_type dof_id,
+                                             const std::vector<Real> & factors) const override;
+  virtual Real timeDerivativeMatrixContribution(const Real factor) const override;
 
 protected:
   /**

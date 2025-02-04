@@ -70,8 +70,8 @@ public:
   Real v_from_p_T(Real p, Real T) const override;
   void v_from_p_T(Real p, Real T, Real & v, Real & dv_dp, Real & dv_dT) const override;
 
-  Real h_from_v_e(Real v, Real e) const;
-  void h_from_v_e(Real v, Real e, Real & h, Real & dh_dv, Real & dh_de) const;
+  Real h_from_v_e(Real v, Real e) const override;
+  void h_from_v_e(Real v, Real e, Real & h, Real & dh_dv, Real & dh_de) const override;
 
   Real h_from_p_T(Real p, Real T) const override;
   void h_from_p_T(Real p, Real T, Real & h, Real & dh_dp, Real & dh_dT) const override;
@@ -108,6 +108,6 @@ public:
 
 private:
   /// Melting temperature of 2LiF-BeF2
-  const Real _T_mo;
+  static constexpr Real _T_mo = 398.;
 };
 #pragma GCC diagnostic pop

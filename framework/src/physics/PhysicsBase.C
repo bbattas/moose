@@ -14,6 +14,7 @@
 #include "NonlinearSystemBase.h"
 #include "AuxiliarySystem.h"
 #include "BlockRestrictable.h"
+#include "ActionComponent.h"
 
 InputParameters
 PhysicsBase::validParams()
@@ -27,6 +28,12 @@ PhysicsBase::validParams()
   MooseEnum transient_options("true false same_as_problem", "same_as_problem");
   params.addParam<MooseEnum>(
       "transient", transient_options, "Whether the physics is to be solved as a transient");
+
+  params.addParam<std::vector<SolverSystemName>>(
+      "system_names",
+      {"nl0"},
+      "Name of the solver system(s) for the variables. If a single name is specified, "
+      "that system is used for all solver variables.");
 
   MooseEnum pc_options("default none", "none");
   params.addParam<MooseEnum>(
@@ -52,7 +59,7 @@ PhysicsBase::validParams()
 PhysicsBase::PhysicsBase(const InputParameters & parameters)
   : Action(parameters),
     InputParametersChecksUtils<PhysicsBase>(this),
-    _sys_number(0),
+    _system_names(getParam<std::vector<SolverSystemName>>("system_names")),
     _verbose(getParam<bool>("verbose")),
     _preconditioning(getParam<MooseEnum>("preconditioning")),
     _blocks(getParam<std::vector<SubdomainName>>("block")),
@@ -62,6 +69,8 @@ PhysicsBase::PhysicsBase(const InputParameters & parameters)
                                         "initial_from_file_timestep");
   prepareCopyVariablesFromMesh();
   addRequiredPhysicsTask("init_physics");
+  addRequiredPhysicsTask("copy_vars_physics");
+  addRequiredPhysicsTask("check_integrity_early_physics");
 }
 
 void
@@ -72,7 +81,7 @@ PhysicsBase::act()
   if (_current_task == "init_physics")
     initializePhysics();
   else if (_current_task == "add_variable")
-    addNonlinearVariables();
+    addSolverVariables();
   else if (_current_task == "add_ic")
     addInitialConditions();
 
@@ -80,7 +89,7 @@ PhysicsBase::act()
     addFEKernels();
   else if (_current_task == "add_nodal_kernel")
     addNodalKernels();
-  else if (_current_task == "add_fv_kernel")
+  else if (_current_task == "add_fv_kernel" || _current_task == "add_linear_fv_kernel")
     addFVKernels();
   else if (_current_task == "add_dirac_kernel")
     addDiracKernels();
@@ -97,7 +106,7 @@ PhysicsBase::act()
     addFEBCs();
   else if (_current_task == "add_nodal_bc")
     addNodalBCs();
-  else if (_current_task == "add_fv_bc")
+  else if (_current_task == "add_fv_bc" || _current_task == "add_linear_fv_bc")
     addFVBCs();
   else if (_current_task == "add_periodic_bc")
     addPeriodicBCs();
@@ -105,6 +114,8 @@ PhysicsBase::act()
     addFunctions();
   else if (_current_task == "add_user_object")
     addUserObjects();
+  else if (_current_task == "add_corrector")
+    addCorrectors();
 
   else if (_current_task == "add_aux_variable")
     addAuxiliaryVariables();
@@ -114,6 +125,11 @@ PhysicsBase::act()
     addMaterials();
   else if (_current_task == "add_functor_material")
     addFunctorMaterials();
+
+  else if (_current_task == "add_multi_app")
+    addMultiApps();
+  else if (_current_task == "add_transfer")
+    addTransfers();
 
   else if (_current_task == "add_postprocessor")
     addPostprocessors();
@@ -134,7 +150,11 @@ PhysicsBase::act()
 
   // Exodus restart capabilities
   if (_current_task == "copy_vars_physics")
-    copyVariablesFromMesh(nonlinearVariableNames());
+  {
+    copyVariablesFromMesh(solverVariableNames(), true);
+    if (_aux_var_names.size() > 0)
+      copyVariablesFromMesh(auxVariableNames(), false);
+  }
 
   // Lets a derived Physics class implement additional tasks
   actOnAdditionalTasks();
@@ -181,15 +201,51 @@ PhysicsBase::addBlocks(const std::vector<SubdomainName> & blocks)
 }
 
 void
+PhysicsBase::addBlocksById(const std::vector<SubdomainID> & block_ids)
+{
+  if (block_ids.size())
+  {
+    for (const auto bid : block_ids)
+      _blocks.push_back(_mesh->getSubdomainName(bid));
+    _dim = _mesh->getBlocksMaxDimension(_blocks);
+  }
+}
+
+void
+PhysicsBase::addComponent(const ActionComponent & component)
+{
+  for (const auto & block : component.blocks())
+    _blocks.push_back(block);
+}
+
+void
 PhysicsBase::addRelationshipManagers(Moose::RelationshipManagerType input_rm_type)
 {
   InputParameters params = getAdditionalRMParams();
   Action::addRelationshipManagers(input_rm_type, params);
 }
 
+const ActionComponent &
+PhysicsBase::getActionComponent(const ComponentName & comp_name)
+{
+  return _awh.getAction<ActionComponent>(comp_name);
+}
+
 void
 PhysicsBase::initializePhysics()
 {
+  // Annoying edge case. We cannot use ANY_BLOCK_ID for kernels and variables since errors got added
+  // downstream for using it, we cannot leave it empty as that sets all objects to not live on any
+  // block
+  if (isParamSetByUser("block") && _blocks.empty())
+    paramError("block",
+               "Empty block restriction is not supported. Comment out the Physics if you are "
+               "trying to disable it.");
+
+  // Components should have added their blocks already.
+  if (_blocks.empty())
+    _blocks.push_back("ANY_BLOCK_ID");
+
   mooseAssert(_mesh, "We should have a mesh to find the dimension");
   if (_blocks.size())
     _dim = _mesh->getBlocksMaxDimension(_blocks);
@@ -202,6 +258,24 @@ PhysicsBase::initializePhysics()
 
   // If the derived physics need additional initialization very early on
   initializePhysicsAdditional();
+
+  // Check that the systems exist in the Problem
+  // TODO: try to add the systems to the problem from here instead
+  // NOTE: this must be performed after the "Additional" initialization because the list
+  // of systems might have been adjusted once the dimension of the Physics is known
+  const auto & problem_nl_systems = getProblem().getNonlinearSystemNames();
+  const auto & problem_lin_systems = getProblem().getLinearSystemNames();
+  for (const auto & sys_name : _system_names)
+    if (std::find(problem_nl_systems.begin(), problem_nl_systems.end(), sys_name) ==
+            problem_nl_systems.end() &&
+        std::find(problem_lin_systems.begin(), problem_lin_systems.end(), sys_name) ==
+            problem_lin_systems.end() &&
+        solverVariableNames().size())
+      mooseError("System '", sys_name, "' is not found in the Problem");
+
+  // Cache system number as it makes some logic easier
+  for (const auto & sys_name : _system_names)
+    _system_numbers.push_back(getProblem().solverSysNum(sys_name));
 }
 
 void
@@ -209,35 +283,91 @@ PhysicsBase::checkIntegrityEarly() const
 {
   if (_is_transient == "true" && !getProblem().isTransient())
     paramError("transient", "We cannot solve a physics as transient in a steady problem");
+
+  // Check that there is a system for each variable
+  if (_system_names.size() != 1 && _system_names.size() != _solver_var_names.size())
+    paramError("system_names",
+               "There should be one system name per solver variable (potentially repeated), or a "
+               "single system name for all variables. Current you have '" +
+                   std::to_string(_system_names.size()) + "' systems specified for '" +
+                   std::to_string(_solver_var_names.size()) + "' solver variables.");
+
+  // Check that each variable is present in the expected system
+  unsigned int var_i = 0;
+  for (const auto & var_name : _solver_var_names)
+  {
+    const auto & sys_name = _system_names.size() == 1 ? _system_names[0] : _system_names[var_i++];
+    if (!_problem->getSolverSystem(_problem->solverSysNum(sys_name)).hasVariable(var_name))
+      paramError("system_names",
+                 "We expected system '" + sys_name + "' to contain variable '" + var_name +
+                     "' but it did not. Make sure the system names closely match the ordering of "
+                     "the variables in the Physics.");
+  }
 }
 
 void
-PhysicsBase::copyVariablesFromMesh(const std::vector<VariableName> & variables_to_copy)
+PhysicsBase::copyVariablesFromMesh(const std::vector<VariableName> & variables_to_copy,
+                                   bool are_nonlinear)
 {
   if (getParam<bool>("initialize_variables_from_mesh_file"))
   {
-    SystemBase & system = getProblem().getNonlinearSystemBase(_sys_number);
-    _console << "Adding restart for " << variables_to_copy.size() << " variables " << std::endl;
-
-    for (const auto & var_name : variables_to_copy)
+    mooseInfoRepeated("Adding Exodus restart for " + std::to_string(variables_to_copy.size()) +
+                      " variables: " + Moose::stringify(variables_to_copy));
+    // TODO Check that the variable types and orders are actually supported for exodus restart
+    for (const auto i : index_range(variables_to_copy))
+    {
+      SystemBase & system =
+          are_nonlinear ? getProblem().getNonlinearSystemBase(
+                              _system_numbers.size() == 1 ? _system_numbers[0] : _system_numbers[i])
+                        : getProblem().systemBaseAuxiliary();
+      const auto & var_name = variables_to_copy[i];
       system.addVariableToCopy(
           var_name, var_name, getParam<std::string>("initial_from_file_timestep"));
+    }
   }
 }
 
 bool
-PhysicsBase::nonlinearVariableExists(const VariableName & var_name, bool error_if_aux) const
+PhysicsBase::variableExists(const VariableName & var_name, bool error_if_aux) const
 {
-  if (_problem->getNonlinearSystemBase(_sys_number).hasVariable(var_name))
-    return true;
-  else if (error_if_aux && _problem->getAuxiliarySystem().hasVariable(var_name))
+  if (error_if_aux && _problem->getAuxiliarySystem().hasVariable(var_name))
     mooseError("Variable '",
                var_name,
                "' is supposed to be nonlinear for physics '",
                name(),
-               "' but it's already defined as auxiliary");
+               "' but it is already defined as auxiliary");
+  else if (_problem->hasVariable(var_name))
+    return true;
   else
     return false;
+}
+
+const SolverSystemName &
+PhysicsBase::getSolverSystem(unsigned int variable_index) const
+{
+  mooseAssert(!_system_names.empty(), "We should have a solver system name");
+  if (_system_names.size() == 1)
+    return _system_names[0];
+  else
+    // We trust that the system names and the variable names match one-to-one as it is enforced by
+    // the checkIntegrityEarly() routine.
+    return _system_names[variable_index];
+}
+
+const SolverSystemName &
+PhysicsBase::getSolverSystem(const VariableName & var_name) const
+{
+  mooseAssert(!_system_names.empty(), "We should have a solver system name");
+  // No need to look if only one system for the Physics
+  if (_system_names.size() == 1)
+    return _system_names[0];
+
+  // We trust that the system names and the variable names match one-to-one as it is enforced by the
+  // checkIntegrityEarly() routine.
+  for (const auto variable_index : index_range(_solver_var_names))
+    if (var_name == _solver_var_names[variable_index])
+      return _system_names[variable_index];
+  mooseError("Variable '", var_name, "' was not found within the Physics solver variables.");
 }
 
 void
@@ -265,8 +395,8 @@ PhysicsBase::assignBlocks(InputParameters & params, const std::vector<SubdomainN
   if (std::find(blocks.begin(), blocks.end(), "ANY_BLOCK_ID") == blocks.end())
     params.set<std::vector<SubdomainName>>("block") = blocks;
   if (blocks.empty())
-    _console << "Empty block restriction assigned to an object created by " << name()
-             << " did you mean to do this?" << std::endl;
+    mooseInfoRepeated("Empty block restriction assigned to an object created by Physics '" +
+                      name() + "'.\n Did you mean to do this?");
 }
 
 bool
@@ -319,6 +449,7 @@ PhysicsBase::checkBlockRestrictionIdentical(const std::string & object_name,
 bool
 PhysicsBase::allMeshBlocks(const std::vector<SubdomainName> & blocks) const
 {
+  mooseAssert(_mesh, "The mesh should exist already");
   for (const auto mesh_block : _mesh->meshSubdomains())
     if (std::find(blocks.begin(), blocks.end(), _mesh->getSubdomainName(mesh_block)) ==
         blocks.end())

@@ -36,6 +36,7 @@
 #include <filesystem>
 #include <ctime>
 #include <cstdlib>
+#include <regex>
 
 // System includes
 #include <sys/stat.h>
@@ -131,6 +132,12 @@ docsDir(const std::string & app_name)
 }
 
 std::string
+mooseDocsURL(const std::string & path)
+{
+  return "https://mooseframework.inl.gov/" + path;
+}
+
+std::string
 replaceAll(std::string str, const std::string & from, const std::string & to)
 {
   size_t start_pos = 0;
@@ -220,6 +227,12 @@ trim(const std::string & str, const std::string & white_space)
   return str.substr(begin, end - begin + 1);
 }
 
+std::string
+removeExtraWhitespace(const std::string & input)
+{
+  return std::regex_replace(input, std::regex("^\\s+|\\s+$|\\s+(?=\\s)"), "");
+}
+
 bool
 pathContains(const std::string & expression,
              const std::string & string_to_find,
@@ -241,15 +254,6 @@ pathExists(const std::string & path)
 {
   struct stat buffer;
   return (stat(path.c_str(), &buffer) == 0);
-}
-
-bool
-pathIsDirectory(const std::string & path)
-{
-  // We use the non-throwing overload of this so that we suppress any issues with
-  // reading and just report it as an unavailable directory
-  std::error_code ec;
-  return std::filesystem::is_directory(path, ec);
 }
 
 bool
@@ -410,12 +414,28 @@ hasExtension(const std::string & filename, std::string ext, bool strip_exodus_ex
 }
 
 std::string
-stripExtension(const std::string & s)
+getExtension(const std::string & filename, const bool rfind)
 {
-  auto pos = s.rfind(".");
-  if (pos != std::string::npos)
-    return s.substr(0, pos);
-  return s;
+  std::string file_ext = "";
+  if (filename != "")
+  {
+    // The next line splits filename at the last "/" and gives the file name after "/"
+    const std::string stripped_filename = splitFileName<std::string>(filename).second;
+    auto pos = rfind ? stripped_filename.rfind(".") : stripped_filename.find(".");
+    if (pos != std::string::npos)
+      file_ext += stripped_filename.substr(pos + 1, std::string::npos);
+  }
+
+  return file_ext;
+}
+
+std::string
+stripExtension(const std::string & s, const bool rfind)
+{
+  const std::string ext = getExtension(s, rfind);
+  const bool offset = (ext.size() != 0);
+  // -1 offset accounts for the extension's leading dot ("."), if there is an extension
+  return s.substr(0, s.size() - ext.size() - offset);
 }
 
 std::string
@@ -967,7 +987,7 @@ convertStringToInt(const std::string & str, bool throw_on_failure)
   }
 
   // Check to see if it's an integer (and within range of an integer)
-  if (double_val == static_cast<T>(double_val))
+  if (double_val == static_cast<long double>(static_cast<T>(double_val)))
     return use_int ? val : static_cast<T>(double_val);
 
   // Still failure
@@ -1050,6 +1070,23 @@ toLower(const std::string & name)
   std::string lower(name);
   std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
   return lower;
+}
+
+std::string
+stringJoin(const std::vector<std::string> & values, const std::string & separator)
+{
+  std::string combined;
+  for (const auto & value : values)
+    combined += value + separator;
+  if (values.size())
+    combined = combined.substr(0, combined.size() - separator.size());
+  return combined;
+}
+
+bool
+beginsWith(const std::string & value, const std::string & begin_value)
+{
+  return value.rfind(begin_value, 0) == 0;
 }
 
 ExecFlagEnum
@@ -1250,6 +1287,13 @@ prettyCppType(const std::string & cpp_type)
   r.GlobalReplace("std::vector<\\1>", &s);
   return s;
 }
+
+std::string
+canonicalPath(const std::string & path)
+{
+  return std::filesystem::weakly_canonical(path).c_str();
+}
+
 } // MooseUtils namespace
 
 void

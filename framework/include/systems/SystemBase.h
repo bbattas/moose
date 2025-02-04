@@ -56,7 +56,7 @@ void extraSendList(std::vector<dof_id_type> & send_list, void * context);
 /**
  * Free function used for a libMesh callback
  */
-void extraSparsity(SparsityPattern::Graph & sparsity,
+void extraSparsity(libMesh::SparsityPattern::Graph & sparsity,
                    std::vector<dof_id_type> & n_nz,
                    std::vector<dof_id_type> & n_oz,
                    void * context);
@@ -147,23 +147,36 @@ public:
   /**
    * Get the reference to the libMesh system
    */
-  virtual System & system() = 0;
-  virtual const System & system() const = 0;
+  virtual libMesh::System & system() = 0;
+  virtual const libMesh::System & system() const = 0;
 
   /**
-   * Initialize the system
+   * This is called prior to the libMesh system has been init'd. MOOSE system wrappers can use this
+   * method to add vectors and matrices to the libMesh system
    */
-  virtual void init(){};
+  virtual void preInit() {}
+
+  /*
+   * This is called after the libMesh system has been init'd. This can be used to initialize MOOSE
+   * system data that relies on the libMesh system data already being initialized
+   */
+  virtual void postInit() {}
+
+  /**
+   * Reinitialize the system when the degrees of freedom in this system have changed. This is called
+   * after the libMesh system has been reinit'd
+   */
+  virtual void reinit() {}
 
   /**
    * Called only once, just before the solve begins so objects can do some precalculations
    */
-  virtual void initializeObjects(){};
+  virtual void initializeObjects() {}
 
   /**
    * Update the system (doing libMesh magic)
    */
-  virtual void update(bool update_libmesh_system = true);
+  void update();
 
   /**
    * Solve the system (using libMesh magic)
@@ -171,6 +184,7 @@ public:
   virtual void solve();
 
   virtual void copyOldSolutions();
+  virtual void copyPreviousNonlinearSolutions();
   virtual void restoreSolutions();
 
   /**
@@ -231,9 +245,9 @@ public:
    */
   virtual void addDotVectors();
 
-  virtual Number & duDotDu() { return _du_dot_du; }
+  virtual std::vector<Number> & duDotDus() { return _du_dot_du; }
   virtual Number & duDotDotDu() { return _du_dotdot_du; }
-  virtual const Number & duDotDu() const { return _du_dot_du; }
+  virtual const Number & duDotDu(unsigned int var_num = 0) const;
   virtual const Number & duDotDotDu() const { return _du_dotdot_du; }
 
   virtual NumericVector<Number> * solutionUDot() { return _u_dot; }
@@ -343,12 +357,12 @@ public:
   /**
    * Get a raw SparseMatrix
    */
-  virtual SparseMatrix<Number> & getMatrix(TagID tag);
+  virtual libMesh::SparseMatrix<Number> & getMatrix(TagID tag);
 
   /**
    * Get a raw SparseMatrix
    */
-  virtual const SparseMatrix<Number> & getMatrix(TagID tag) const;
+  virtual const libMesh::SparseMatrix<Number> & getMatrix(TagID tag) const;
 
   /**
    *  Make all exsiting matrices ative
@@ -389,12 +403,12 @@ public:
   /**
    * Associate a matrix to a tag
    */
-  virtual void associateMatrixToTag(SparseMatrix<Number> & matrix, TagID tag);
+  virtual void associateMatrixToTag(libMesh::SparseMatrix<Number> & matrix, TagID tag);
 
   /**
    * Disassociate a matrix from a tag
    */
-  virtual void disassociateMatrixFromTag(SparseMatrix<Number> & matrix, TagID tag);
+  virtual void disassociateMatrixFromTag(libMesh::SparseMatrix<Number> & matrix, TagID tag);
 
   /**
    * Disassociate any matrix that is associated with a given tag
@@ -428,7 +442,7 @@ public:
   /**
    * Will modify the sparsity pattern to add logical geometric connections
    */
-  virtual void augmentSparsity(SparsityPattern::Graph & sparsity,
+  virtual void augmentSparsity(libMesh::SparsityPattern::Graph & sparsity,
                                std::vector<dof_id_type> & n_nz,
                                std::vector<dof_id_type> & n_oz) = 0;
 
@@ -625,7 +639,7 @@ public:
    * Get minimal quadrature order needed for integrating variables in this system
    * @return The minimal order of quadrature
    */
-  virtual Order getMinQuadratureOrder();
+  virtual libMesh::Order getMinQuadratureOrder();
 
   /**
    * Prepare the system for use
@@ -667,17 +681,14 @@ public:
    * Reinit assembly info for a side of an element
    * @param elem The element
    * @param side Side of of the element
-   * @param bnd_id Boundary id on that side
    * @param tid Thread ID
    */
-  virtual void
-  reinitElemFace(const Elem * elem, unsigned int side, BoundaryID bnd_id, THREAD_ID tid);
+  virtual void reinitElemFace(const Elem * elem, unsigned int side, THREAD_ID tid);
 
   /**
    * Compute the values of the variables at all the current points.
    */
-  virtual void
-  reinitNeighborFace(const Elem * elem, unsigned int side, BoundaryID bnd_id, THREAD_ID tid);
+  virtual void reinitNeighborFace(const Elem * elem, unsigned int side, THREAD_ID tid);
 
   /**
    * Compute the values of the variables at all the current points.
@@ -784,7 +795,7 @@ public:
    * vector.
    */
   NumericVector<Number> &
-  addVector(const std::string & vector_name, const bool project, const ParallelType type);
+  addVector(const std::string & vector_name, const bool project, const libMesh::ParallelType type);
 
   /**
    * Adds a solution length vector to the system with the specified TagID
@@ -799,7 +810,8 @@ public:
    *                                            The ghosting pattern is the same as the solution
    * vector.
    */
-  NumericVector<Number> & addVector(TagID tag, const bool project, const ParallelType type);
+  NumericVector<Number> &
+  addVector(TagID tag, const bool project, const libMesh::ParallelType type);
 
   /**
    * Close vector with the given tag
@@ -839,7 +851,7 @@ public:
    *
    * @param tag_name The name of the tag
    */
-  SparseMatrix<Number> & addMatrix(TagID tag);
+  libMesh::SparseMatrix<Number> & addMatrix(TagID tag);
 
   /**
    * Removes a matrix with a given tag
@@ -861,25 +873,16 @@ public:
 
   virtual void computeVariables(const NumericVector<Number> & /*soln*/) {}
 
-  void copyVars(ExodusII_IO & io);
+  void copyVars(libMesh::ExodusII_IO & io);
 
   /**
    * Copy current solution into old and older
    */
   virtual void copySolutionsBackwards();
 
-  virtual void addTimeIntegrator(const std::string & /*type*/,
-                                 const std::string & /*name*/,
-                                 InputParameters & /*parameters*/)
-  {
-  }
-
-  virtual void addTimeIntegrator(std::shared_ptr<TimeIntegrator> /*ti*/) {}
-
-  TimeIntegrator * getTimeIntegrator() { return _time_integrator.get(); }
-  const TimeIntegrator * getTimeIntegrator() const { return _time_integrator.get(); }
-
-  std::shared_ptr<TimeIntegrator> getSharedTimeIntegrator() { return _time_integrator; }
+  void addTimeIntegrator(const std::string & type,
+                         const std::string & name,
+                         InputParameters & parameters);
 
   /// Whether or not there are variables to be restarted from an Exodus mesh file
   bool hasVarCopy() const { return _var_to_copy.size() > 0; }
@@ -929,7 +932,7 @@ public:
    * Reference to the container vector which hold gradients at dofs (if it can be interpreted).
    * Mainly used for finite volume systems.
    */
-  std::vector<std::unique_ptr<NumericVector<Number>>> & gradientContainer()
+  const std::vector<std::unique_ptr<NumericVector<Number>>> & gradientContainer() const
   {
     return _raw_grad_container;
   }
@@ -939,6 +942,28 @@ public:
    * @param type Our current execution stage
    */
   virtual void compute(ExecFlagType type) = 0;
+
+  /**
+   * Copy time integrators from another system
+   */
+  void copyTimeIntegrators(const SystemBase & other_sys);
+
+  /**
+   * Retrieve the time integrator that integrates the given variable's equation
+   */
+  const TimeIntegrator & getTimeIntegrator(const unsigned int var_num) const;
+
+  /**
+   * Retrieve the time integrator that integrates the given variable's equation. If no suitable time
+   * integrator is found (this could happen for instance if we're solving a non-transient problem),
+   * then a nullptr will be returned
+   */
+  const TimeIntegrator * queryTimeIntegrator(const unsigned int var_num) const;
+
+  /**
+   * @returns All the time integrators owned by this system
+   */
+  const std::vector<std::shared_ptr<TimeIntegrator>> & getTimeIntegrators();
 
 protected:
   /**
@@ -980,13 +1005,15 @@ protected:
   /// old solution vector for u^dotdot
   NumericVector<Number> * _u_dotdot_old;
 
-  Real _du_dot_du;
+  /// Derivative of time derivative of u with respect to uj. This depends on the time integration
+  /// scheme
+  std::vector<Real> _du_dot_du;
   Real _du_dotdot_du;
 
   /// Tagged vectors (pointer)
   std::vector<NumericVector<Number> *> _tagged_vectors;
   /// Tagged matrices (pointer)
-  std::vector<SparseMatrix<Number> *> _tagged_matrices;
+  std::vector<libMesh::SparseMatrix<Number> *> _tagged_matrices;
   /// Active flags for tagged matrices
   std::vector<bool> _matrix_tag_active_flags;
 
@@ -1010,7 +1037,7 @@ protected:
   size_t _max_var_n_dofs_per_node;
 
   /// Time integrator
-  std::shared_ptr<TimeIntegrator> _time_integrator;
+  std::vector<std::shared_ptr<TimeIntegrator>> _time_integrators;
 
   /// Map variable number to its pointer
   std::vector<std::vector<MooseVariableFieldBase *>> _numbered_vars;

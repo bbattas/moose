@@ -12,6 +12,13 @@
 
       detail = 'outputting all properties within a material definition;'
     []
+    [ad_all]
+      type = 'Exodiff'
+      input = 'output.i'
+      exodiff = 'ad_output_out.e'
+      cli_args = "Materials/test_material/type=ADOutputTestMaterial Outputs/file_base=ad_output_out"
+      detail = 'outputting all AD properties within a material definition;'
+    []
     [all_via_outputs]
       # Test the ability for Output objects to enable all material property output
       type = 'Exodiff'
@@ -115,5 +122,14 @@
     expect_out = "The following total 145 aux variables:"
     requirement = "The system shall show the field variable names for outputting material data added by materials."
     prereq = warn_unsupported_types
+  []
+  [dont_show_added_aux_vars]
+    type = RunApp
+    input = output_warning.i
+    cli_args = Outputs/print_automatic_aux_variable_creation=false
+    allow_warnings = true
+    absent_out = "The following total 145 aux variables:"
+    requirement = "The system shall be able to not show the field variable names for outputting material data added by materials."
+    prereq = show_added_aux_vars
   []
 []

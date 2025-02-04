@@ -20,6 +20,9 @@
 #include "libmesh/elem.h"
 #include "libmesh/petsc_vector.h"
 #include "libmesh/enum_solver_package.h"
+#include "libmesh/petsc_solver_exception.h"
+
+using namespace libMesh;
 
 template <>
 void
@@ -43,6 +46,14 @@ dataStore(std::ostream & stream, std::string & v, void * /*context*/)
 template <>
 void
 dataStore(std::ostream & stream, VariableName & v, void * context)
+{
+  auto & name = static_cast<std::string &>(v);
+  dataStore(stream, name, context);
+}
+
+template <>
+void
+dataStore(std::ostream & stream, UserObjectName & v, void * context)
 {
   auto & name = static_cast<std::string &>(v);
   dataStore(stream, name, context);
@@ -317,7 +328,14 @@ dataStore(std::ostream & stream,
           std::unique_ptr<libMesh::NumericVector<Number>> & v,
           void * context)
 {
-  mooseAssert(v, "Null vector");
+  // Classes may declare unique pointers to vectors as restartable data and never actually create
+  // vector instances. This happens for example in the `TimeIntegrator` class where subvector
+  // instances are only created if multiple time integrators are present
+  bool have_vector = v.get();
+  dataStore(stream, have_vector, context);
+  if (!have_vector)
+    return;
+
   mooseAssert(context, "Needs a context of the communicator");
   const auto & comm = *static_cast<const libMesh::Parallel::Communicator *>(context);
   mooseAssert(&comm == &v->comm(), "Inconsistent communicator");
@@ -375,6 +393,14 @@ dataLoad(std::istream & stream, std::string & v, void * /*context*/)
 template <>
 void
 dataLoad(std::istream & stream, VariableName & v, void * context)
+{
+  auto & name = static_cast<std::string &>(v);
+  dataLoad(stream, name, context);
+}
+
+template <>
+void
+dataLoad(std::istream & stream, UserObjectName & v, void * context)
 {
   auto & name = static_cast<std::string &>(v);
   dataLoad(stream, name, context);
@@ -652,6 +678,12 @@ template <>
 void
 dataLoad(std::istream & stream, std::unique_ptr<libMesh::NumericVector<Number>> & v, void * context)
 {
+  bool have_vector;
+  dataLoad(stream, have_vector, context);
+
+  if (!have_vector)
+    return;
+
   mooseAssert(context, "Needs a context of the communicator");
   const auto & comm = *static_cast<const libMesh::Parallel::Communicator *>(context);
   if (v)
@@ -696,13 +728,13 @@ void
 dataLoad(std::istream & stream, Vec & v, void * context)
 {
   PetscInt local_size;
-  VecGetLocalSize(v, &local_size);
+  LibmeshPetscCallA(PETSC_COMM_WORLD, VecGetLocalSize(v, &local_size));
   PetscScalar * array;
-  VecGetArray(v, &array);
+  LibmeshPetscCallA(PETSC_COMM_WORLD, VecGetArray(v, &array));
   for (PetscInt i = 0; i < local_size; i++)
     dataLoad(stream, array[i], context);
 
-  VecRestoreArray(v, &array);
+  LibmeshPetscCallA(PETSC_COMM_WORLD, VecRestoreArray(v, &array));
 }
 
 template <>
@@ -710,11 +742,11 @@ void
 dataStore(std::ostream & stream, Vec & v, void * context)
 {
   PetscInt local_size;
-  VecGetLocalSize(v, &local_size);
+  LibmeshPetscCallA(PETSC_COMM_WORLD, VecGetLocalSize(v, &local_size));
   PetscScalar * array;
-  VecGetArray(v, &array);
+  LibmeshPetscCallA(PETSC_COMM_WORLD, VecGetArray(v, &array));
   for (PetscInt i = 0; i < local_size; i++)
     dataStore(stream, array[i], context);
 
-  VecRestoreArray(v, &array);
+  LibmeshPetscCallA(PETSC_COMM_WORLD, VecRestoreArray(v, &array));
 }

@@ -34,7 +34,7 @@ XFEMCutMeshOutput::filename()
 {
   // Append the .e extension to the base file name
   std::ostringstream output;
-  output << _file_base << ".e";
+  output << _file_base << "_XFEMCutMeshOutput.e";
 
   // Add the _000x extension to the file
   if (_file_num > 1)
@@ -52,7 +52,7 @@ XFEMCutMeshOutput::output()
   int exodus_num = 1;
   ++_file_num;
   _es = std::make_unique<EquationSystems>(_cutter_uo.getCutterMesh());
-  _exodus_io = std::make_unique<ExodusII_IO>(_es->get_mesh());
+  _exodus_io = std::make_unique<libMesh::ExodusII_IO>(_es->get_mesh());
   // Default to non-HDF5 output for wider compatibility
   _exodus_io->set_hdf5_writing(false);
   _exodus_io->write_timestep(

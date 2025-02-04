@@ -9,54 +9,43 @@
 
 #include "MOOSEMaterialPropertyToNEML2.h"
 
-registerMooseObject("SolidMechanicsApp", MOOSERealMaterialPropertyToNEML2);
-registerMooseObject("SolidMechanicsApp", MOOSERankTwoTensorMaterialPropertyToNEML2);
-registerMooseObject("SolidMechanicsApp", MOOSEStdVectorRealMaterialPropertyToNEML2);
+#define RegisterMOOSEMaterialPropertyToNEML2(alias)                                                \
+  registerMooseObject("SolidMechanicsApp", MOOSE##alias##MaterialPropertyToNEML2);                 \
+  registerMooseObject("SolidMechanicsApp", MOOSEOld##alias##MaterialPropertyToNEML2)
 
-#ifndef NEML2_ENABLED
-#define MOOSEMaterialPropertyToNEML2Stub(name)                                                     \
-  NEML2ObjectStubImplementationOpen(name, ElementUserObject);                                      \
-  NEML2ObjectStubParam(MaterialPropertyName, "moose_material_property");                           \
-  NEML2ObjectStubParam(std::string, "neml2_variable");                                             \
-  NEML2ObjectStubImplementationClose(name, ElementUserObject)
-MOOSEMaterialPropertyToNEML2Stub(MOOSERealMaterialPropertyToNEML2);
-MOOSEMaterialPropertyToNEML2Stub(MOOSERankTwoTensorMaterialPropertyToNEML2);
-MOOSEMaterialPropertyToNEML2Stub(MOOSEStdVectorRealMaterialPropertyToNEML2);
-#else
+RegisterMOOSEMaterialPropertyToNEML2(Real);
+RegisterMOOSEMaterialPropertyToNEML2(RankTwoTensor);
+RegisterMOOSEMaterialPropertyToNEML2(SymmetricRankTwoTensor);
+RegisterMOOSEMaterialPropertyToNEML2(RealVectorValue);
 
-template <typename T>
+template <typename T, unsigned int state>
 InputParameters
-MOOSEMaterialPropertyToNEML2<T>::validParams()
+MOOSEMaterialPropertyToNEML2<T, state>::validParams()
 {
-  auto params = MOOSEToNEML2::validParams();
-  params.addClassDescription("Gather a MOOSE material property of type " +
-                             demangle(typeid(T).name()) +
-                             " for insertion into the specified input of a "
-                             "NEML2 model.");
-
-  params.addRequiredParam<MaterialPropertyName>("moose_material_property",
-                                                "MOOSE material property to read from");
+  auto params = MOOSEToNEML2Batched<T>::validParams();
+  params.addClassDescription(NEML2Utils::docstring(
+      "Gather a MOOSE material property of type " + demangle(typeid(T).name()) +
+      " for insertion into the specified input or model parameter of a NEML2 model."));
+  params.template addRequiredParam<MaterialPropertyName>(
+      "from_moose", NEML2Utils::docstring("MOOSE material property to read from"));
   return params;
 }
 
-template <typename T>
-MOOSEMaterialPropertyToNEML2<T>::MOOSEMaterialPropertyToNEML2(const InputParameters & params)
-  : MOOSEToNEML2(params), _mat_prop(getMaterialProperty<T>("moose_material_property"))
-{
-}
-
-template <typename T>
-void
-MOOSEMaterialPropertyToNEML2<T>::execute()
-{
+template <typename T, unsigned int state>
+MOOSEMaterialPropertyToNEML2<T, state>::MOOSEMaterialPropertyToNEML2(const InputParameters & params)
+  : MOOSEToNEML2Batched<T>(params)
 #ifdef NEML2_ENABLED
-  for (unsigned int qp = 0; qp < _qrule->n_points(); qp++)
-    _buffer.push_back(NEML2Utils::toNEML2<T>(_mat_prop[qp]));
+    ,
+    _mat_prop(this->template getGenericMaterialProperty<T, false>("from_moose", state))
 #endif
+{
 }
 
-template class MOOSEMaterialPropertyToNEML2<Real>;
-template class MOOSEMaterialPropertyToNEML2<RankTwoTensor>;
-template class MOOSEMaterialPropertyToNEML2<std::vector<Real>>;
+#define InstantiateMOOSEMaterialPropertyToNEML2(T)                                                 \
+  template class MOOSEMaterialPropertyToNEML2<T, 0>;                                               \
+  template class MOOSEMaterialPropertyToNEML2<T, 1>
 
-#endif
+InstantiateMOOSEMaterialPropertyToNEML2(Real);
+InstantiateMOOSEMaterialPropertyToNEML2(RankTwoTensor);
+InstantiateMOOSEMaterialPropertyToNEML2(SymmetricRankTwoTensor);
+InstantiateMOOSEMaterialPropertyToNEML2(RealVectorValue);

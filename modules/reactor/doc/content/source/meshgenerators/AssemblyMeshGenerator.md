@@ -4,7 +4,7 @@
 
 ## Overview
 
-This object is designed to be used in the Reactor MeshGenerator workflow, which also consists of [`ReactorMeshParams`](ReactorMeshParams.md), [`PinMeshGenerator`](PinMeshGenerator.md), and [`CoreMeshGenerator`](CoreMeshGenerator.md).
+This object is designed to be used in the Reactor MeshGenerator workflow, which also consists of [`ReactorMeshParams`](ReactorMeshParams.md), [`PinMeshGenerator`](PinMeshGenerator.md), [`ControlDrumMeshGenerator`](ControlDrumMeshGenerator.md), and [`CoreMeshGenerator`](CoreMeshGenerator.md).
 
 The `AssemblyMeshGenerator` object generates assembly reactor geometry structures in either square or hexagonal geometries using component pin cell meshes from the [`PinMeshGenerator`](PinMeshGenerator.md) in [!param](/Mesh/AssemblyMeshGenerator/inputs). The component pin cell meshes are tagged with pin cell `reporting ID` values according to their location in the assembly grid. Any newly created regions such as ducts are given block ID assignments.
 
@@ -18,7 +18,7 @@ The [!param](/Mesh/AssemblyMeshGenerator/background_region_id) and [!param](/Mes
 
 The user defined ID assignment using [!param](/Mesh/AssemblyMeshGenerator/background_region_id) is given as a 1-D vector of size `A`, where `A` is the number of axial levels. This vector defines the background block IDs (single value per axial layer) starting from the bottom axial layer and ending with the top axial layer. Similarly, [!param](/Mesh/AssemblyMeshGenerator/duct_region_ids) is given as an `A` by `D` vector, where `D` is the number of duct intervals per axial layer. This vector assignment starts from the innermost duct region of the bottom axial layer, and extends out first radially and then axially.
 
-For ease of use, block ids are generated automatically by the mesh generator, and for users who require element identification by block name, the optional parameters [!param](/Mesh/AssemblyMeshGenerator/background_block_name) and [!param](/Mesh/AssemblyMeshGenerator/duct_block_names) can be defined to set block names for the assembly background and duct regions respectively, where each block name will be prepended with the prefix `RGMB_ASSEMBLY<assembly_type_id>_`, where `<assembly_type_id>` is the assembly ID provided by the user through [!param](/Mesh/AssemblyMeshGenerator/assembly_type). If block names are not provided, block names will be assigned automatically to have the name `RGMB_ASSEMBLY<assembly_type_id>`.
+For ease of use, block ids are generated automatically by the mesh generator, and for users who require element identification by block name, the optional parameters [!param](/Mesh/AssemblyMeshGenerator/background_block_name) and [!param](/Mesh/AssemblyMeshGenerator/duct_block_names) can be defined to set block names for the assembly background and duct regions respectively. In that case, each block name will be prepended with the prefix `RGMB_ASSEMBLY<assembly_type_id>_`, where `<assembly_type_id>` is the assembly ID provided by the user through [!param](/Mesh/AssemblyMeshGenerator/assembly_type). If not specified, the block names will be assigned automatically as `RGMB_ASSEMBLY<assembly_type_id>` by default. If [ReactorMeshParams](ReactorMeshParams.md)/[!param](/Mesh/ReactorMeshParams/region_id_as_block_name) is set to `true`, the resulting elements will have the block name `RGMB_ASSEMBLY<assembly_type_id>_REG<region_id>`, where `<region_id>` is the region ID of the element. Note that [!param](/Mesh/ReactorMeshParams/region_id_as_block_name) should not be used in conjunction with [!param](/Mesh/AssemblyMeshGenerator/background_block_name) or [!param](/Mesh/AssemblyMeshGenerator/duct_block_names).
 
 ## Reporting ID Information
 
@@ -43,7 +43,7 @@ If the assembly is extruded to three dimensions the top-most boundary ID must be
 
 ## Metadata Information
 
-Users may be interested in defining additional metadata to represent the reactor geometry and region IDs assigned to each geometry zone, which may be useful to users who want mesh geometry and composition information without having to inspect the generated mesh itself. [!param](/Mesh/AssemblyMeshGenerator/show_rgmb_metadata) can be set to true in order to see the values of these metadata entries as console output. The following metadata is defined on the assembly mesh:
+Users may be interested in defining additional metadata to represent the reactor geometry and region IDs assigned to each geometry zone, which may be useful to users who want mesh geometry and composition information without having to inspect the generated mesh itself. The following metadata is defined on the assembly mesh:
 
 - `assembly_type`: Value of type_id associated with assembly, equivalent to the input parameter [!param](/Mesh/AssemblyMeshGenerator/assembly_type)
 - `pitch`: Assembly pitch, equivalent to the input parameter [!param](/Mesh/ReactorMeshParams/assembly_pitch)

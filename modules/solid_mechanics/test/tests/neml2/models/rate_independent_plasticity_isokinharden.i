@@ -15,18 +15,24 @@
     hardening_modulus = 1000
   []
   [elastic_strain]
-    type = ElasticStrain
+    type = SR2LinearCombination
+    from_var = 'forces/E state/internal/Ep'
+    to_var = 'state/internal/Ee'
+    coefficients = '1 -1'
   []
   [elasticity]
     type = LinearIsotropicElasticity
-    youngs_modulus = 1e5
-    poisson_ratio = 0.3
+    coefficients = '1e5 0.3'
+    coefficient_types = 'YOUNGS_MODULUS POISSONS_RATIO'
   []
   [mandel_stress]
     type = IsotropicMandelStress
   []
   [overstress]
-    type = OverStress
+    type = SR2LinearCombination
+    to_var = 'state/internal/O'
+    from_var = 'state/internal/M state/internal/X'
+    coefficients = '1 -1'
   []
   [vonmises]
     type = SR2Invariant
@@ -61,15 +67,15 @@
   []
   [integrate_ep]
     type = ScalarBackwardEulerTimeIntegration
-    variable = 'internal/ep'
+    variable = 'state/internal/ep'
   []
   [integrate_Kp]
     type = SR2BackwardEulerTimeIntegration
-    variable = 'internal/Kp'
+    variable = 'state/internal/Kp'
   []
   [integrate_Ep]
     type = SR2BackwardEulerTimeIntegration
-    variable = 'internal/Ep'
+    variable = 'state/internal/Ep'
   []
   [consistency]
     type = RateIndependentPlasticFlowConstraint

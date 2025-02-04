@@ -19,6 +19,10 @@
 #include "MooseVariableScalar.h"
 #include "MooseTypes.h"
 #include "SolutionInvalidity.h"
+#include "HDGPrimalSolutionUpdateThread.h"
+#include "HDGKernel.h"
+#include "AuxiliarySystem.h"
+#include "Console.h"
 
 #include "libmesh/nonlinear_solver.h"
 #include "libmesh/petsc_nonlinear_solver.h"
@@ -26,6 +30,9 @@
 #include "libmesh/petsc_matrix.h"
 #include "libmesh/diagonal_matrix.h"
 #include "libmesh/default_coupling.h"
+#include "libmesh/petsc_solver_exception.h"
+
+using namespace libMesh;
 
 namespace Moose
 {
@@ -104,6 +111,7 @@ NonlinearSystem::NonlinearSystem(FEProblemBase & fe_problem, const std::string &
   nonlinearSolver()->nullspace = Moose::compute_nullspace;
   nonlinearSolver()->transpose_nullspace = Moose::compute_transpose_nullspace;
   nonlinearSolver()->nearnullspace = Moose::compute_nearnullspace;
+  nonlinearSolver()->precheck_object = this;
 
   PetscNonlinearSolver<Real> * petsc_solver =
       static_cast<PetscNonlinearSolver<Real> *>(_nl_implicit_sys.nonlinear_solver.get());
@@ -118,13 +126,16 @@ NonlinearSystem::NonlinearSystem(FEProblemBase & fe_problem, const std::string &
 NonlinearSystem::~NonlinearSystem() {}
 
 void
-NonlinearSystem::init()
+NonlinearSystem::preInit()
 {
-  NonlinearSystemBase::init();
+  NonlinearSystemBase::preInit();
 
   if (_automatic_scaling && _resid_vs_jac_scaling_param < 1. - TOLERANCE)
     // Add diagonal matrix that will be used for computing scaling factors
     _nl_implicit_sys.add_matrix<DiagonalMatrix>("scaling_matrix");
+
+  if (_hybridized_kernels.hasObjects())
+    addVector(HDGKernel::lm_increment_vector_name, true, GHOSTED);
 }
 
 void
@@ -155,7 +166,7 @@ NonlinearSystem::solve()
     _nl_implicit_sys.nonlinear_solver->postcheck = Moose::compute_postcheck;
 
   // reset solution invalid counter for the time step
-  if (_time_integrator)
+  if (!_time_integrators.empty())
     _app.solutionInvalidity().resetSolutionInvalidTimeStep();
 
   if (shouldEvaluatePreSMOResidual())
@@ -167,7 +178,10 @@ NonlinearSystem::solve()
     _computing_pre_smo_residual = false;
     _nl_implicit_sys.rhs->close();
     _pre_smo_residual = _nl_implicit_sys.rhs->l2_norm();
-    _console << "Pre-SMO residual: " << _pre_smo_residual << std::endl;
+    _console << " * Nonlinear |R| = "
+             << Console::outputNorm(std::numeric_limits<Real>::max(), _pre_smo_residual)
+             << " (Before preset BCs, predictors, correctors, and constraints)\n";
+    _console << std::flush;
   }
 
   const bool presolve_succeeded = preSolve();
@@ -176,16 +190,32 @@ NonlinearSystem::solve()
 
   potentiallySetupFiniteDifferencing();
 
-  if (_time_integrator)
+  const bool time_integrator_solve = std::any_of(_time_integrators.begin(),
+                                                 _time_integrators.end(),
+                                                 [](auto & ti) { return ti->overridesSolve(); });
+  if (time_integrator_solve)
+    mooseAssert(_time_integrators.size() == 1,
+                "If solve is overridden, then there must be only one time integrator");
+
+  if (time_integrator_solve)
+    _time_integrators.front()->solve();
+  else
+    system().solve();
+
+  for (auto & ti : _time_integrators)
   {
-    _time_integrator->solve();
-    _time_integrator->postSolve();
-    _n_iters = _time_integrator->getNumNonlinearIterations();
-    _n_linear_iters = _time_integrator->getNumLinearIterations();
+    if (!ti->overridesSolve())
+      ti->setNumIterationsLastSolve();
+    ti->postSolve();
+  }
+
+  if (!_time_integrators.empty())
+  {
+    _n_iters = _time_integrators.front()->getNumNonlinearIterations();
+    _n_linear_iters = _time_integrators.front()->getNumLinearIterations();
   }
   else
   {
-    system().solve();
     _n_iters = _nl_implicit_sys.n_nonlinear_iterations();
     _n_linear_iters = _nl_implicit_sys.nonlinear_solver->get_total_linear_iterations();
   }
@@ -200,29 +230,26 @@ NonlinearSystem::solve()
   checkInvalidSolution();
 
   if (_use_coloring_finite_difference)
-    MatFDColoringDestroy(&_fdcoloring);
+    LibmeshPetscCall(MatFDColoringDestroy(&_fdcoloring));
 }
 
 void
-NonlinearSystem::stopSolve(const ExecFlagType & exec_flag)
+NonlinearSystem::stopSolve(const ExecFlagType & exec_flag,
+                           const std::set<TagID> & vector_tags_to_close)
 {
   PetscNonlinearSolver<Real> & solver =
       static_cast<PetscNonlinearSolver<Real> &>(*sys().nonlinear_solver);
 
   if (exec_flag == EXEC_LINEAR || exec_flag == EXEC_POSTCHECK)
   {
-    SNESSetFunctionDomainError(solver.snes());
+    LibmeshPetscCall(SNESSetFunctionDomainError(solver.snes()));
 
     // Clean up by getting vectors into a valid state for a
-    // (possible) subsequent solve.  There may be more than just
-    // these...
-    _nl_implicit_sys.rhs->close();
-    if (_Re_time)
-      _Re_time->close();
-    _Re_non_time->close();
+    // (possible) subsequent solve.
+    closeTaggedVectors(vector_tags_to_close);
   }
   else if (exec_flag == EXEC_NONLINEAR)
-    SNESSetJacobianDomainError(solver.snes());
+    LibmeshPetscCall(SNESSetJacobianDomainError(solver.snes()));
   else
     mooseError("Unsupported execute flag: ", Moose::stringify(exec_flag));
 }
@@ -263,11 +290,11 @@ NonlinearSystem::setupStandardFiniteDifferencedPreconditioner()
   PetscMatrix<Number> * petsc_mat =
       static_cast<PetscMatrix<Number> *>(&_nl_implicit_sys.get_system_matrix());
 
-  SNESSetJacobian(petsc_nonlinear_solver->snes(),
-                  petsc_mat->mat(),
-                  petsc_mat->mat(),
-                  SNESComputeJacobianDefault,
-                  nullptr);
+  LibmeshPetscCall(SNESSetJacobian(petsc_nonlinear_solver->snes(),
+                                   petsc_mat->mat(),
+                                   petsc_mat->mat(),
+                                   SNESComputeJacobianDefault,
+                                   nullptr));
 }
 
 void
@@ -290,38 +317,35 @@ NonlinearSystem::setupColoringFiniteDifferencedPreconditioner()
 
   petsc_mat->close();
 
-  PetscErrorCode ierr = 0;
   ISColoring iscoloring;
 
   // PETSc 3.5.x
   MatColoring matcoloring;
-  ierr = MatColoringCreate(petsc_mat->mat(), &matcoloring);
-  CHKERRABORT(_communicator.get(), ierr);
-  ierr = MatColoringSetType(matcoloring, MATCOLORINGLF);
-  CHKERRABORT(_communicator.get(), ierr);
-  ierr = MatColoringSetFromOptions(matcoloring);
-  CHKERRABORT(_communicator.get(), ierr);
-  ierr = MatColoringApply(matcoloring, &iscoloring);
-  CHKERRABORT(_communicator.get(), ierr);
-  ierr = MatColoringDestroy(&matcoloring);
-  CHKERRABORT(_communicator.get(), ierr);
+  LibmeshPetscCallA(_communicator.get(), MatColoringCreate(petsc_mat->mat(), &matcoloring));
+  LibmeshPetscCallA(_communicator.get(), MatColoringSetType(matcoloring, MATCOLORINGLF));
+  LibmeshPetscCallA(_communicator.get(), MatColoringSetFromOptions(matcoloring));
+  LibmeshPetscCallA(_communicator.get(), MatColoringApply(matcoloring, &iscoloring));
+  LibmeshPetscCallA(_communicator.get(), MatColoringDestroy(&matcoloring));
 
-  MatFDColoringCreate(petsc_mat->mat(), iscoloring, &_fdcoloring);
-  MatFDColoringSetFromOptions(_fdcoloring);
+  LibmeshPetscCallA(_communicator.get(),
+                    MatFDColoringCreate(petsc_mat->mat(), iscoloring, &_fdcoloring));
+  LibmeshPetscCallA(_communicator.get(), MatFDColoringSetFromOptions(_fdcoloring));
   // clang-format off
-  MatFDColoringSetFunction(_fdcoloring,
-                           (PetscErrorCode(*)(void))(void (*)(void)) &
-                               libMesh::libmesh_petsc_snes_fd_residual,
-                           &petsc_nonlinear_solver);
+  LibmeshPetscCallA(_communicator.get(), MatFDColoringSetFunction(_fdcoloring,
+                                                                  (PetscErrorCode(*)(void))(void (*)(void)) &
+                                                                      libMesh::libmesh_petsc_snes_fd_residual,
+                                                                  &petsc_nonlinear_solver));
   // clang-format on
-  MatFDColoringSetUp(petsc_mat->mat(), iscoloring, _fdcoloring);
-  SNESSetJacobian(petsc_nonlinear_solver.snes(),
-                  petsc_mat->mat(),
-                  petsc_mat->mat(),
-                  SNESComputeJacobianDefaultColor,
-                  _fdcoloring);
+  LibmeshPetscCallA(_communicator.get(),
+                    MatFDColoringSetUp(petsc_mat->mat(), iscoloring, _fdcoloring));
+  LibmeshPetscCallA(_communicator.get(),
+                    SNESSetJacobian(petsc_nonlinear_solver.snes(),
+                                    petsc_mat->mat(),
+                                    petsc_mat->mat(),
+                                    SNESComputeJacobianDefaultColor,
+                                    _fdcoloring));
   // PETSc >=3.3.0
-  ISColoringDestroy(&iscoloring);
+  LibmeshPetscCallA(_communicator.get(), ISColoringDestroy(&iscoloring));
 }
 
 bool
@@ -329,7 +353,7 @@ NonlinearSystem::converged()
 {
   if (_fe_problem.hasException() || _fe_problem.getFailNextNonlinearConvergenceCheck())
     return false;
-  if (!_fe_problem.allowInvalidSolution() && _solution_is_invalid)
+  if (!_fe_problem.acceptInvalidSolution())
   {
     mooseWarning("The solution is not converged due to the solution being invalid.");
     return false;
@@ -378,4 +402,34 @@ NonlinearSystem::residualAndJacobianTogether()
   nonlinearSolver()->residual_object = nullptr;
   nonlinearSolver()->jacobian = nullptr;
   nonlinearSolver()->residual_and_jacobian_object = &_resid_and_jac_functor;
+}
+
+void
+NonlinearSystem::precheck(const NumericVector<Number> & /*precheck_soln*/,
+                          NumericVector<Number> & search_direction,
+                          bool & /*changed*/,
+                          NonlinearImplicitSystem & /*S*/)
+{
+  if (!_hybridized_kernels.hasActiveObjects())
+    return;
+
+  auto & ghosted_increment = getVector(HDGKernel::lm_increment_vector_name);
+  ghosted_increment.zero();
+  // The search direction coming from PETSc is the negative of the solution update
+  ghosted_increment -= search_direction;
+
+  PARALLEL_TRY
+  {
+    TIME_SECTION("HDG kernel primal solution update",
+                 3 /*, "Computing hybridized kernel primal solution update"*/);
+    ConstElemRange & elem_range = *_mesh.getActiveLocalElementRange();
+    HDGPrimalSolutionUpdateThread pre_thread(_fe_problem, _hybridized_kernels);
+    Threads::parallel_reduce(elem_range, pre_thread);
+  }
+  PARALLEL_CATCH;
+  // The primal variables live in the aux system
+  auto & aux = _fe_problem.getAuxiliarySystem();
+  aux.solution().close();
+  // scatter into ghosted current local solution
+  aux.update();
 }

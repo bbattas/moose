@@ -35,6 +35,8 @@
 #include "MooseObjectWarehouse.h"
 #include "MaterialPropertyRegistry.h"
 #include "RestartableEquationSystems.h"
+#include "SolutionInvalidity.h"
+#include "PetscSupport.h"
 
 #include "libmesh/enum_quadrature_type.h"
 #include "libmesh/equation_systems.h"
@@ -85,9 +87,10 @@ class LineSearch;
 class UserObject;
 class AutomaticMortarGeneration;
 class VectorPostprocessor;
-class Function;
+class Convergence;
 class MooseAppCoordTransform;
 class MortarUserObject;
+class SolutionInvalidity;
 
 // libMesh forward declarations
 namespace libMesh
@@ -97,26 +100,6 @@ class NonlinearImplicitSystem;
 class LinearImplicitSystem;
 } // namespace libMesh
 
-/// Enumeration for nonlinear convergence reasons
-enum class MooseNonlinearConvergenceReason
-{
-  ITERATING = 0,
-  CONVERGED_FNORM_ABS = 2,
-  CONVERGED_FNORM_RELATIVE = 3,
-  CONVERGED_SNORM_RELATIVE = 4,
-  DIVERGED_FUNCTION_COUNT = -2,
-  DIVERGED_FNORM_NAN = -4,
-  DIVERGED_LINE_SEARCH = -6,
-  DIVERGED_DTOL = -9,
-  DIVERGED_NL_RESIDUAL_PINGPONG = -10
-};
-
-// The idea with these enums is to abstract the reasons for
-// convergence/divergence, i.e. they could be used with linear algebra
-// packages other than PETSc.  They were directly inspired by PETSc,
-// though.  This enum could also be combined with the
-// MooseNonlinearConvergenceReason enum but there might be some
-// confusion (?)
 enum class MooseLinearConvergenceReason
 {
   ITERATING = 0,
@@ -153,7 +136,17 @@ public:
   FEProblemBase(const InputParameters & parameters);
   virtual ~FEProblemBase();
 
-  virtual EquationSystems & es() override { return _req.set().es(); }
+  enum class CoverageCheckMode
+  {
+    FALSE,
+    TRUE,
+    OFF,
+    ON,
+    SKIP_LIST,
+    ONLY_LIST,
+  };
+
+  virtual libMesh::EquationSystems & es() override { return _req.set().es(); }
   virtual MooseMesh & mesh() override { return _mesh; }
   virtual const MooseMesh & mesh() const override { return _mesh; }
   const MooseMesh & mesh(bool use_displaced) const override;
@@ -175,12 +168,13 @@ public:
    * @param cm coupling matrix to be set
    * @param nl_sys_num which nonlinear system we are setting the coupling matrix for
    */
-  void setCouplingMatrix(std::unique_ptr<CouplingMatrix> cm, const unsigned int nl_sys_num);
+  void setCouplingMatrix(std::unique_ptr<libMesh::CouplingMatrix> cm,
+                         const unsigned int nl_sys_num);
 
   // DEPRECATED METHOD
-  void setCouplingMatrix(CouplingMatrix * cm, const unsigned int nl_sys_num);
+  void setCouplingMatrix(libMesh::CouplingMatrix * cm, const unsigned int nl_sys_num);
 
-  const CouplingMatrix * couplingMatrix(const unsigned int nl_sys_num) const override;
+  const libMesh::CouplingMatrix * couplingMatrix(const unsigned int nl_sys_num) const override;
 
   /// Set custom coupling matrix for variables requiring nonlocal contribution
   void setNonlocalCouplingMatrix();
@@ -213,52 +207,6 @@ public:
   std::vector<std::pair<MooseVariableFEBase *, MooseVariableFEBase *>> &
   nonlocalCouplingEntries(const THREAD_ID tid, const unsigned int nl_sys_num);
 
-  /**
-   * Check for convergence of the nonlinear solution
-   * @param msg Error message that gets sent back to the solver
-   * @param it Iteration counter
-   * @param xnorm Norm of the solution vector
-   * @param snorm Norm of the change in the solution vector
-   * @param fnorm Norm of the residual vector
-   * @param rtol Relative residual convergence tolerance
-   * @param divtol Relative residual divergence tolerance
-   * @param stol Solution change convergence tolerance
-   * @param abstol Absolute residual convergence tolerance
-   * @param nfuncs Number of function evaluations
-   * @param max_funcs Maximum Number of function evaluations
-   * @param div_threshold Maximum value of residual before triggering divergence check
-   */
-  virtual MooseNonlinearConvergenceReason checkNonlinearConvergence(std::string & msg,
-                                                                    const PetscInt it,
-                                                                    const Real xnorm,
-                                                                    const Real snorm,
-                                                                    const Real fnorm,
-                                                                    const Real rtol,
-                                                                    const Real divtol,
-                                                                    const Real stol,
-                                                                    const Real abstol,
-                                                                    const PetscInt nfuncs,
-                                                                    const PetscInt max_funcs,
-                                                                    const Real div_threshold);
-
-  /// Perform steps required before checking nonlinear convergence
-  virtual void nonlinearConvergenceSetup() {}
-
-  /**
-   * Check the relative convergence of the nonlinear solution
-   * @param fnorm          Norm of the residual vector
-   * @param the_residual   The residual to check
-   * @param rtol           Relative tolerance
-   * @param abstol         Absolute tolerance
-   * @return               Bool signifying convergence
-   */
-  virtual bool checkRelativeConvergence(const PetscInt it,
-                                        const Real fnorm,
-                                        const Real the_residual,
-                                        const Real rtol,
-                                        const Real abstol,
-                                        std::ostringstream & oss);
-
   virtual bool hasVariable(const std::string & var_name) const override;
   using SubProblem::getVariable;
   virtual const MooseVariableFieldBase &
@@ -279,7 +227,7 @@ public:
   virtual bool hasScalarVariable(const std::string & var_name) const override;
   virtual MooseVariableScalar & getScalarVariable(const THREAD_ID tid,
                                                   const std::string & var_name) override;
-  virtual System & getSystem(const std::string & var_name) override;
+  virtual libMesh::System & getSystem(const std::string & var_name) override;
 
   /**
    * Set the MOOSE variables to be reinited on each element.
@@ -319,10 +267,10 @@ public:
   virtual void setActiveScalarVariableCoupleableMatrixTags(std::set<TagID> & mtags,
                                                            const THREAD_ID tid) override;
 
-  virtual void createQRules(QuadratureType type,
-                            Order order,
-                            Order volume_order = INVALID_ORDER,
-                            Order face_order = INVALID_ORDER,
+  virtual void createQRules(libMesh::QuadratureType type,
+                            libMesh::Order order,
+                            libMesh::Order volume_order = libMesh::INVALID_ORDER,
+                            libMesh::Order face_order = libMesh::INVALID_ORDER,
                             SubdomainID block = Moose::ANY_BLOCK_ID,
                             bool allow_negative_qweights = true);
 
@@ -333,9 +281,9 @@ public:
    * lower than or equal to the current volume/elem quadrature rule order,
    * then nothing is done (i.e. this function is idempotent).
    */
-  void bumpVolumeQRuleOrder(Order order, SubdomainID block);
+  void bumpVolumeQRuleOrder(libMesh::Order order, SubdomainID block);
 
-  void bumpAllQRuleOrder(Order order, SubdomainID block);
+  void bumpAllQRuleOrder(libMesh::Order order, SubdomainID block);
 
   /**
    * @return The maximum number of quadrature points in use on any element in this problem.
@@ -345,7 +293,7 @@ public:
   /**
    * @return The maximum order for all scalar variables in this problem's systems.
    */
-  Order getMaxScalarOrder() const;
+  libMesh::Order getMaxScalarOrder() const;
 
   /**
    * @return Flag indicating nonlocal coupling exists or not.
@@ -400,10 +348,8 @@ public:
   virtual void reinitElemPhys(const Elem * elem,
                               const std::vector<Point> & phys_points_in_elem,
                               const THREAD_ID tid) override;
-  virtual void reinitElemFace(const Elem * elem,
-                              unsigned int side,
-                              BoundaryID bnd_id,
-                              const THREAD_ID tid) override;
+  void reinitElemFace(const Elem * elem, unsigned int side, BoundaryID, const THREAD_ID tid);
+  virtual void reinitElemFace(const Elem * elem, unsigned int side, const THREAD_ID tid) override;
   virtual void reinitLowerDElem(const Elem * lower_d_elem,
                                 const THREAD_ID tid,
                                 const std::vector<Point> * const pts = nullptr,
@@ -446,8 +392,8 @@ public:
    * @param linear_sys_num The number of the linear system (1,..,num. of lin. systems)
    * @param po The petsc options for the solve, if not supplied, the defaults are used
    */
-  void solveLinearSystem(const unsigned int linear_sys_num,
-                         const Moose::PetscSupport::PetscOptions * po = nullptr);
+  virtual void solveLinearSystem(const unsigned int linear_sys_num,
+                                 const Moose::PetscSupport::PetscOptions * po = nullptr);
 
   ///@{
   /**
@@ -466,8 +412,8 @@ public:
    * getEvaluableElementRange() returns the element range that is evaluable based on both the
    * nonlinear dofmap and the auxliary dofmap.
    */
-  const ConstElemRange & getEvaluableElementRange();
-  const ConstElemRange & getNonlinearEvaluableElementRange();
+  const libMesh::ConstElemRange & getEvaluableElementRange();
+  const libMesh::ConstElemRange & getNonlinearEvaluableElementRange();
   ///@}
 
   ///@{
@@ -482,8 +428,8 @@ public:
    * getCurrentAlgebraicBndNodeRange returns the boundary node ranges that contributes
    * to the system
    */
-  const ConstElemRange & getCurrentAlgebraicElementRange();
-  const ConstNodeRange & getCurrentAlgebraicNodeRange();
+  const libMesh::ConstElemRange & getCurrentAlgebraicElementRange();
+  const libMesh::ConstNodeRange & getCurrentAlgebraicNodeRange();
   const ConstBndNodeRange & getCurrentAlgebraicBndNodeRange();
   ///@}
 
@@ -505,8 +451,8 @@ public:
    * @param range A pointer to the const range object representing the algebraic
    *              elements, nodes, or boundary nodes.
    */
-  void setCurrentAlgebraicElementRange(ConstElemRange * range);
-  void setCurrentAlgebraicNodeRange(ConstNodeRange * range);
+  void setCurrentAlgebraicElementRange(libMesh::ConstElemRange * range);
+  void setCurrentAlgebraicNodeRange(libMesh::ConstNodeRange * range);
   void setCurrentAlgebraicBndNodeRange(ConstBndNodeRange * range);
   ///@}
 
@@ -543,7 +489,7 @@ public:
    */
   virtual void checkExceptionAndStopSolve(bool print_message = true);
 
-  virtual bool nlConverged(const unsigned int nl_sys_num) override;
+  virtual bool solverSystemConverged(const unsigned int solver_sys_num) override;
   virtual unsigned int nNonlinearIterations(const unsigned int nl_sys_num) const override;
   virtual unsigned int nLinearIterations(const unsigned int nl_sys_num) const override;
   virtual Real finalNonlinearResidual(const unsigned int nl_sys_num) const override;
@@ -602,6 +548,13 @@ public:
   virtual void restoreOldSolutions();
 
   /**
+   * Declare that we need up to old (1) or older (2) solution states for a given type of iteration
+   * @param oldest_needed oldest solution state needed
+   * @param iteration_type the type of iteration for which old/older states are needed
+   */
+  void needSolutionState(unsigned int oldest_needed, Moose::SolutionIterationType iteration_type);
+
+  /**
    * Output the current step.
    * Will ensure that everything is in the proper state to be outputted.
    * Then tell the OutputWarehouse to do its thing
@@ -650,7 +603,10 @@ public:
   /**
    * Output information about the object just added to the problem
    */
-  void logAdd(const std::string & system, const std::string & name, const std::string & type) const;
+  void logAdd(const std::string & system,
+              const std::string & name,
+              const std::string & type,
+              const InputParameters & params) const;
 
   // Function /////
   virtual void
@@ -663,6 +619,43 @@ public:
   addMeshDivision(const std::string & type, const std::string & name, InputParameters & params);
   /// Get a MeshDivision
   MeshDivision & getMeshDivision(const std::string & name, const THREAD_ID tid = 0) const;
+
+  /// Adds a Convergence object
+  virtual void
+  addConvergence(const std::string & type, const std::string & name, InputParameters & parameters);
+  /// Gets a Convergence object
+  virtual Convergence & getConvergence(const std::string & name, const THREAD_ID tid = 0) const;
+  /// Gets the Convergence objects
+  virtual const std::vector<std::shared_ptr<Convergence>> &
+  getConvergenceObjects(const THREAD_ID tid = 0) const;
+  /// Returns true if the problem has a Convergence object of the given name
+  virtual bool hasConvergence(const std::string & name, const THREAD_ID tid = 0) const;
+  /// Returns true if the problem needs to add the default nonlinear convergence
+  bool needToAddDefaultNonlinearConvergence() const
+  {
+    return _need_to_add_default_nonlinear_convergence;
+  }
+  /// Sets _need_to_add_default_nonlinear_convergence to true
+  void setNeedToAddDefaultNonlinearConvergence()
+  {
+    _need_to_add_default_nonlinear_convergence = true;
+  }
+  /**
+   * Adds the default nonlinear Convergence associated with the problem
+   *
+   * This is called if the user does not supply 'nonlinear_convergence'.
+   *
+   * @param[in] params   Parameters to apply to Convergence parameters
+   */
+  virtual void addDefaultNonlinearConvergence(const InputParameters & params);
+  /**
+   * Returns true if an error will result if the user supplies 'nonlinear_convergence'
+   *
+   * Some problems are strongly tied to their convergence, and it does not make
+   * sense to use any convergence other than their default and additionally
+   * would be error-prone.
+   */
+  virtual bool onlyAllowDefaultNonlinearConvergence() const { return false; }
 
   /**
    * add a MOOSE line search
@@ -770,6 +763,9 @@ public:
   virtual void addKernel(const std::string & kernel_name,
                          const std::string & name,
                          InputParameters & parameters);
+  virtual void addHDGKernel(const std::string & kernel_name,
+                            const std::string & name,
+                            InputParameters & parameters);
   virtual void addNodalKernel(const std::string & kernel_name,
                               const std::string & name,
                               InputParameters & parameters);
@@ -779,6 +775,9 @@ public:
   virtual void addBoundaryCondition(const std::string & bc_name,
                                     const std::string & name,
                                     InputParameters & parameters);
+  virtual void addHDGIntegratedBC(const std::string & kernel_name,
+                                  const std::string & name,
+                                  InputParameters & parameters);
   virtual void
   addConstraint(const std::string & c_name, const std::string & name, InputParameters & parameters);
 
@@ -800,14 +799,14 @@ public:
                               InputParameters & params);
 
   virtual void addAuxVariable(const std::string & var_name,
-                              const FEType & type,
+                              const libMesh::FEType & type,
                               const std::set<SubdomainID> * const active_subdomains = NULL);
   virtual void addAuxArrayVariable(const std::string & var_name,
-                                   const FEType & type,
+                                   const libMesh::FEType & type,
                                    unsigned int components,
                                    const std::set<SubdomainID> * const active_subdomains = NULL);
   virtual void addAuxScalarVariable(const std::string & var_name,
-                                    Order order,
+                                    libMesh::Order order,
                                     Real scale_factor = 1.,
                                     const std::set<SubdomainID> * const active_subdomains = NULL);
   virtual void addAuxKernel(const std::string & kernel_name,
@@ -868,11 +867,17 @@ public:
   void projectSolution();
 
   /**
+   *  Retrieves the current initial condition state.
+   * @return  current initial condition state
+   */
+  unsigned short getCurrentICState();
+
+  /**
    * Project initial conditions for custom \p elem_range and \p bnd_node_range
    * This is needed when elements/boundary nodes are added to a specific subdomain
    * at an intermediate step
    */
-  void projectInitialConditionOnCustomRange(ConstElemRange & elem_range,
+  void projectInitialConditionOnCustomRange(libMesh::ConstElemRange & elem_range,
                                             ConstBndNodeRange & bnd_node_range);
 
   // Materials /////
@@ -886,9 +891,9 @@ public:
   virtual void addInterfaceMaterial(const std::string & material_name,
                                     const std::string & name,
                                     InputParameters & parameters);
-  void addFunctorMaterial(const std::string & functor_material_name,
-                          const std::string & name,
-                          InputParameters & parameters);
+  virtual void addFunctorMaterial(const std::string & functor_material_name,
+                                  const std::string & name,
+                                  InputParameters & parameters);
 
   /**
    * Add the MooseVariables and the material properties that the current materials depend on to the
@@ -1303,6 +1308,18 @@ public:
   void execTransfers(ExecFlagType type);
 
   /**
+   * Computes the residual of a nonlinear system using whatever is sitting in the current
+   * solution vector then returns the L2 norm.
+   */
+  Real computeResidualL2Norm(NonlinearSystemBase & sys);
+
+  /**
+   * Computes the residual of a linear system using whatever is sitting in the current
+   * solution vector then returns the L2 norm.
+   */
+  Real computeResidualL2Norm(LinearSystem & sys);
+
+  /**
    * Computes the residual using whatever is sitting in the current solution vector then returns the
    * L2 norm.
    *
@@ -1313,50 +1330,50 @@ public:
   /**
    * This function is called by Libmesh to form a residual.
    */
-  virtual void computeResidualSys(NonlinearImplicitSystem & sys,
-                                  const NumericVector<Number> & soln,
-                                  NumericVector<Number> & residual);
+  virtual void computeResidualSys(libMesh::NonlinearImplicitSystem & sys,
+                                  const NumericVector<libMesh::Number> & soln,
+                                  NumericVector<libMesh::Number> & residual);
   /**
    * This function is called by Libmesh to form a residual. This is deprecated.
    * We should remove this as soon as RattleSnake is fixed.
    */
-  void computeResidual(NonlinearImplicitSystem & sys,
-                       const NumericVector<Number> & soln,
-                       NumericVector<Number> & residual);
+  void computeResidual(libMesh::NonlinearImplicitSystem & sys,
+                       const NumericVector<libMesh::Number> & soln,
+                       NumericVector<libMesh::Number> & residual);
 
   /**
    * Form a residual with default tags (nontime, time, residual).
    */
-  virtual void computeResidual(const NumericVector<Number> & soln,
-                               NumericVector<Number> & residual,
+  virtual void computeResidual(const NumericVector<libMesh::Number> & soln,
+                               NumericVector<libMesh::Number> & residual,
                                const unsigned int nl_sys_num);
 
   /**
    * Form a residual and Jacobian with default tags
    */
-  void computeResidualAndJacobian(const NumericVector<Number> & soln,
-                                  NumericVector<Number> & residual,
-                                  SparseMatrix<Number> & jacobian);
+  void computeResidualAndJacobian(const NumericVector<libMesh::Number> & soln,
+                                  NumericVector<libMesh::Number> & residual,
+                                  libMesh::SparseMatrix<libMesh::Number> & jacobian);
 
   /**
    * Form a residual vector for a given tag
    */
-  virtual void computeResidualTag(const NumericVector<Number> & soln,
-                                  NumericVector<Number> & residual,
+  virtual void computeResidualTag(const NumericVector<libMesh::Number> & soln,
+                                  NumericVector<libMesh::Number> & residual,
                                   TagID tag);
   /**
    * Form a residual vector for a given tag and "residual" tag
    */
-  virtual void computeResidualType(const NumericVector<Number> & soln,
-                                   NumericVector<Number> & residual,
+  virtual void computeResidualType(const NumericVector<libMesh::Number> & soln,
+                                   NumericVector<libMesh::Number> & residual,
                                    TagID tag);
 
   /**
    * Form a residual vector for a set of tags. It should not be called directly
    * by users.
    */
-  virtual void computeResidualInternal(const NumericVector<Number> & soln,
-                                       NumericVector<Number> & residual,
+  virtual void computeResidualInternal(const NumericVector<libMesh::Number> & soln,
+                                       NumericVector<libMesh::Number> & residual,
                                        const std::set<TagID> & tags);
   /**
    * Form multiple residual vectors and each is associated with one tag
@@ -1366,28 +1383,28 @@ public:
   /**
    * Form a Jacobian matrix. It is called by Libmesh.
    */
-  virtual void computeJacobianSys(NonlinearImplicitSystem & sys,
-                                  const NumericVector<Number> & soln,
-                                  SparseMatrix<Number> & jacobian);
+  virtual void computeJacobianSys(libMesh::NonlinearImplicitSystem & sys,
+                                  const NumericVector<libMesh::Number> & soln,
+                                  libMesh::SparseMatrix<libMesh::Number> & jacobian);
   /**
    * Form a Jacobian matrix with the default tag (system).
    */
-  virtual void computeJacobian(const NumericVector<Number> & soln,
-                               SparseMatrix<Number> & jacobian,
+  virtual void computeJacobian(const NumericVector<libMesh::Number> & soln,
+                               libMesh::SparseMatrix<libMesh::Number> & jacobian,
                                const unsigned int nl_sys_num);
 
   /**
    * Form a Jacobian matrix for a given tag.
    */
-  virtual void computeJacobianTag(const NumericVector<Number> & soln,
-                                  SparseMatrix<Number> & jacobian,
+  virtual void computeJacobianTag(const NumericVector<libMesh::Number> & soln,
+                                  libMesh::SparseMatrix<libMesh::Number> & jacobian,
                                   TagID tag);
 
   /**
    * Form a Jacobian matrix for multiple tags. It should not be called directly by users.
    */
-  virtual void computeJacobianInternal(const NumericVector<Number> & soln,
-                                       SparseMatrix<Number> & jacobian,
+  virtual void computeJacobianInternal(const NumericVector<libMesh::Number> & soln,
+                                       libMesh::SparseMatrix<libMesh::Number> & jacobian,
                                        const std::set<TagID> & tags);
 
   /**
@@ -1419,7 +1436,7 @@ public:
    * @param jvar the block-column of the Jacobian
    *
    */
-  virtual void computeJacobianBlock(SparseMatrix<Number> & jacobian,
+  virtual void computeJacobianBlock(libMesh::SparseMatrix<libMesh::Number> & jacobian,
                                     libMesh::System & precond_system,
                                     unsigned int ivar,
                                     unsigned int jvar);
@@ -1430,10 +1447,13 @@ public:
    * @param sys The linear system which should be assembled
    * @param system_matrix The sparse matrix which should hold the system matrix
    * @param rhs The vector which should hold the right hand side
+   * @param compute_gradients A flag to disable the computation of new gradients during the
+   * assembly, can be used to lag gradients
    */
-  void computeLinearSystemSys(LinearImplicitSystem & sys,
-                              SparseMatrix<Number> & system_matrix,
-                              NumericVector<Number> & rhs);
+  void computeLinearSystemSys(libMesh::LinearImplicitSystem & sys,
+                              libMesh::SparseMatrix<libMesh::Number> & system_matrix,
+                              NumericVector<libMesh::Number> & rhs,
+                              const bool compute_gradients = true);
 
   /**
    * Assemble the current linear system given a set of vector and matrix tags.
@@ -1443,15 +1463,18 @@ public:
    * @param rhs The vector which should hold the right hand side
    * @param vector_tags The vector tags for the right hand side
    * @param matrix_tags The matrix tags for the matrix
+   * @param compute_gradients A flag to disable the computation of new gradients during the
+   * assembly, can be used to lag gradients
    */
-  void computeLinearSystemTags(const NumericVector<Number> & soln,
-                               SparseMatrix<Number> & system_matrix,
-                               NumericVector<Number> & rhs,
+  void computeLinearSystemTags(const NumericVector<libMesh::Number> & soln,
+                               libMesh::SparseMatrix<libMesh::Number> & system_matrix,
+                               NumericVector<libMesh::Number> & rhs,
                                const std::set<TagID> & vector_tags,
-                               const std::set<TagID> & matrix_tags);
+                               const std::set<TagID> & matrix_tags,
+                               const bool compute_gradients = true);
 
-  virtual Real computeDamping(const NumericVector<Number> & soln,
-                              const NumericVector<Number> & update);
+  virtual Real computeDamping(const NumericVector<libMesh::Number> & soln,
+                              const NumericVector<libMesh::Number> & update);
 
   /**
    * Check to see whether the problem should update the solution
@@ -1465,28 +1488,28 @@ public:
    * @param ghosted_solution  Ghosted solution vector
    * @return true if the solution was modified, false otherwise
    */
-  virtual bool updateSolution(NumericVector<Number> & vec_solution,
-                              NumericVector<Number> & ghosted_solution);
+  virtual bool updateSolution(NumericVector<libMesh::Number> & vec_solution,
+                              NumericVector<libMesh::Number> & ghosted_solution);
 
   /**
    * Perform cleanup tasks after application of predictor to solution vector
    * @param ghosted_solution  Ghosted solution vector
    */
-  virtual void predictorCleanup(NumericVector<Number> & ghosted_solution);
+  virtual void predictorCleanup(NumericVector<libMesh::Number> & ghosted_solution);
 
-  virtual void computeBounds(NonlinearImplicitSystem & sys,
-                             NumericVector<Number> & lower,
-                             NumericVector<Number> & upper);
-  virtual void computeNearNullSpace(NonlinearImplicitSystem & sys,
-                                    std::vector<NumericVector<Number> *> & sp);
-  virtual void computeNullSpace(NonlinearImplicitSystem & sys,
-                                std::vector<NumericVector<Number> *> & sp);
-  virtual void computeTransposeNullSpace(NonlinearImplicitSystem & sys,
-                                         std::vector<NumericVector<Number> *> & sp);
-  virtual void computePostCheck(NonlinearImplicitSystem & sys,
-                                const NumericVector<Number> & old_soln,
-                                NumericVector<Number> & search_direction,
-                                NumericVector<Number> & new_soln,
+  virtual void computeBounds(libMesh::NonlinearImplicitSystem & sys,
+                             NumericVector<libMesh::Number> & lower,
+                             NumericVector<libMesh::Number> & upper);
+  virtual void computeNearNullSpace(libMesh::NonlinearImplicitSystem & sys,
+                                    std::vector<NumericVector<libMesh::Number> *> & sp);
+  virtual void computeNullSpace(libMesh::NonlinearImplicitSystem & sys,
+                                std::vector<NumericVector<libMesh::Number> *> & sp);
+  virtual void computeTransposeNullSpace(libMesh::NonlinearImplicitSystem & sys,
+                                         std::vector<NumericVector<libMesh::Number> *> & sp);
+  virtual void computePostCheck(libMesh::NonlinearImplicitSystem & sys,
+                                const NumericVector<libMesh::Number> & old_soln,
+                                NumericVector<libMesh::Number> & search_direction,
+                                NumericVector<libMesh::Number> & new_soln,
                                 bool & changed_search_direction,
                                 bool & changed_new_soln);
 
@@ -1510,23 +1533,25 @@ public:
    * @param residual The vector to add the cached contributions to.
    * @param tid The thread id.
    */
-  virtual void addCachedResidualDirectly(NumericVector<Number> & residual, const THREAD_ID tid);
+  virtual void addCachedResidualDirectly(NumericVector<libMesh::Number> & residual,
+                                         const THREAD_ID tid);
 
-  virtual void setResidual(NumericVector<Number> & residual, const THREAD_ID tid) override;
-  virtual void setResidualNeighbor(NumericVector<Number> & residual, const THREAD_ID tid) override;
+  virtual void setResidual(NumericVector<libMesh::Number> & residual, const THREAD_ID tid) override;
+  virtual void setResidualNeighbor(NumericVector<libMesh::Number> & residual,
+                                   const THREAD_ID tid) override;
 
   virtual void addJacobian(const THREAD_ID tid) override;
   virtual void addJacobianNeighbor(const THREAD_ID tid) override;
   virtual void addJacobianNeighborLowerD(const THREAD_ID tid) override;
   virtual void addJacobianLowerD(const THREAD_ID tid) override;
-  virtual void addJacobianBlockTags(SparseMatrix<Number> & jacobian,
+  virtual void addJacobianBlockTags(libMesh::SparseMatrix<libMesh::Number> & jacobian,
                                     unsigned int ivar,
                                     unsigned int jvar,
                                     const DofMap & dof_map,
                                     std::vector<dof_id_type> & dof_indices,
                                     const std::set<TagID> & tags,
                                     const THREAD_ID tid);
-  virtual void addJacobianNeighbor(SparseMatrix<Number> & jacobian,
+  virtual void addJacobianNeighbor(libMesh::SparseMatrix<libMesh::Number> & jacobian,
                                    unsigned int ivar,
                                    unsigned int jvar,
                                    const DofMap & dof_map,
@@ -1702,7 +1727,7 @@ public:
    * This is needed when elements/boundary nodes are added to a specific subdomain
    * at an intermediate step
    */
-  void initElementStatefulProps(const ConstElemRange & elem_range, const bool threaded);
+  void initElementStatefulProps(const libMesh::ConstElemRange & elem_range, const bool threaded);
 
   /**
    * Method called to perform a series of sanity checks before a simulation is run. This method
@@ -1722,7 +1747,16 @@ public:
    * Set flag to indicate whether kernel coverage checks should be performed. This check makes
    * sure that at least one kernel is active on all subdomains in the domain (default: true).
    */
-  void setKernelCoverageCheck(bool flag) { _kernel_coverage_check = flag; }
+  void setKernelCoverageCheck(CoverageCheckMode mode) { _kernel_coverage_check = mode; }
+
+  /**
+   * Set flag to indicate whether kernel coverage checks should be performed. This check makes
+   * sure that at least one kernel is active on all subdomains in the domain (default: true).
+   */
+  void setKernelCoverageCheck(bool flag)
+  {
+    _kernel_coverage_check = flag ? CoverageCheckMode::TRUE : CoverageCheckMode::FALSE;
+  }
 
   /**
    * Set flag to indicate whether material coverage checks should be performed. This check makes
@@ -1730,7 +1764,18 @@ public:
    * supplied. If no materials are supplied anywhere, a simulation is still considered OK as long as
    * no properties are being requested anywhere.
    */
-  void setMaterialCoverageCheck(bool flag) { _material_coverage_check = flag; }
+  void setMaterialCoverageCheck(CoverageCheckMode mode) { _material_coverage_check = mode; }
+
+  /**
+   * Set flag to indicate whether material coverage checks should be performed. This check makes
+   * sure that at least one material is active on all subdomains in the domain if any material is
+   * supplied. If no materials are supplied anywhere, a simulation is still considered OK as long as
+   * no properties are being requested anywhere.
+   */
+  void setMaterialCoverageCheck(bool flag)
+  {
+    _material_coverage_check = flag ? CoverageCheckMode::TRUE : CoverageCheckMode::FALSE;
+  }
 
   /**
    * Toggle parallel barrier messaging (defaults to on).
@@ -1829,18 +1874,46 @@ public:
   }
 
   /**
-   * Whether or not the invalid solutions are allowed
+   * Will return True if the executioner in use requires preserving the sparsity pattern of the
+   * matrices being formed during the solve. This is usually the Jacobian.
+   */
+  bool preserveMatrixSparsityPattern() const { return _preserve_matrix_sparsity_pattern; };
+
+  /// Set whether the sparsity pattern of the matrices being formed during the solve (usually the Jacobian)
+  /// should be preserved. This global setting can be retrieved by kernels, notably those using AD, to decide
+  /// whether to take additional care to preserve the sparsity pattern
+  void setPreserveMatrixSparsityPattern(bool preserve);
+
+  /**
+   * Will return true if zeros in the Jacobian are to be dropped from the sparsity pattern.
+   * Note that this can make preserving the matrix sparsity pattern impossible.
+   */
+  bool ignoreZerosInJacobian() const { return _ignore_zeros_in_jacobian; }
+
+  /// Set whether the zeros in the Jacobian should be dropped from the sparsity pattern
+  void setIgnoreZerosInJacobian(bool state) { _ignore_zeros_in_jacobian = state; }
+
+  /**
+   * Whether or not to accept the solution based on its invalidity.
+   *
+   * If this returns false, it means that an invalid solution was encountered
+   * (an error) that was not allowed.
+   */
+  bool acceptInvalidSolution() const;
+  /**
+   * Whether to accept / allow an invalid solution
    */
   bool allowInvalidSolution() const { return _allow_invalid_solution; }
+
+  /**
+   * Whether or not to print out the invalid solutions summary table in console
+   */
+  bool showInvalidSolutionConsole() const { return _show_invalid_solution_console; }
 
   /**
    * Whether or not the solution invalid warnings are printed out immediately
    */
   bool immediatelyPrintInvalidSolution() const { return _immediately_print_invalid_solution; }
-
-  bool ignoreZerosInJacobian() const { return _ignore_zeros_in_jacobian; }
-
-  void setIgnoreZerosInJacobian(bool state) { _ignore_zeros_in_jacobian = state; }
 
   /// Returns whether or not this Problem has a TimeIntegrator
   bool hasTimeIntegrator() const { return _has_time_integrator; }
@@ -2097,7 +2170,6 @@ public:
    */
   virtual void reinitElemFaceRef(const Elem * elem,
                                  unsigned int side,
-                                 BoundaryID bnd_id,
                                  Real tolerance,
                                  const std::vector<Point> * const pts,
                                  const std::vector<Real> * const weights = nullptr,
@@ -2111,7 +2183,6 @@ public:
    */
   virtual void reinitNeighborFaceRef(const Elem * neighbor_elem,
                                      unsigned int neighbor_side,
-                                     BoundaryID bnd_id,
                                      Real tolerance,
                                      const std::vector<Point> * const pts,
                                      const std::vector<Real> * const weights = nullptr,
@@ -2152,26 +2223,15 @@ public:
 
   bool haveDisplaced() const override final { return _displaced_problem.get(); }
 
-  /// method setting the maximum number of allowable non linear residual pingpong
-  void setMaxNLPingPong(const unsigned int n_max_nl_pingpong)
-  {
-    _n_max_nl_pingpong = n_max_nl_pingpong;
-  }
+  /**
+   * Sets the nonlinear convergence object name if there is one
+   */
+  void setNonlinearConvergenceNames(const std::vector<ConvergenceName> & convergence_names);
 
-  /// method setting the minimum number of nonlinear iterations before performing divergence checks
-  void setNonlinearForcedIterations(const unsigned int nl_forced_its)
-  {
-    _nl_forced_its = nl_forced_its;
-  }
-
-  /// method returning the number of forced nonlinear iterations
-  unsigned int getNonlinearForcedIterations() const { return _nl_forced_its; }
-
-  /// method setting the absolute divergence tolerance
-  void setNonlinearAbsoluteDivergenceTolerance(const Real nl_abs_div_tol)
-  {
-    _nl_abs_div_tol = nl_abs_div_tol;
-  }
+  /**
+   * Gets the nonlinear convergence object name(s).
+   */
+  std::vector<ConvergenceName> getNonlinearConvergenceNames() const;
 
   /**
    * Setter for whether we're computing the scaling jacobian
@@ -2231,6 +2291,12 @@ public:
   unsigned int solverSysNum(const SolverSystemName & solver_sys_name) const override;
 
   /**
+   * @return the system number for the provided \p variable_name
+   * Can be nonlinear or auxiliary
+   */
+  unsigned int systemNumForVariable(const VariableName & variable_name) const;
+
+  /**
    * Whether it will skip further residual evaluations and fail the next nonlinear convergence check
    */
   bool getFailNextNonlinearConvergenceCheck() const
@@ -2243,6 +2309,10 @@ public:
    */
   void setFailNextNonlinearConvergenceCheck() { _fail_next_nonlinear_convergence_check = true; }
 
+  /**
+   * Do not skip further residual evaluations and fail the next nonlinear convergence check
+   */
+  void resetFailNextNonlinearConvergenceCheck() { _fail_next_nonlinear_convergence_check = false; }
   /*
    * Set the status of loop order of execution printing
    * @param print_exec set of execution flags to print on
@@ -2286,9 +2356,9 @@ public:
   void clearCurrentResidualVectorTags();
 
   /**
-   * Clear the current Jacobian vector tag data structure ... if someone creates it
+   * Clear the current Jacobian matrix tag data structure ... if someone creates it
    */
-  void clearCurrentJacobianVectorTags() {}
+  void clearCurrentJacobianMatrixTags() {}
 
   using SubProblem::doingPRefinement;
   virtual void doingPRefinement(bool doing_p_refinement,
@@ -2306,6 +2376,15 @@ public:
 
   virtual void setCurrentLowerDElem(const Elem * const lower_d_elem, const THREAD_ID tid) override;
   virtual void setCurrentBoundaryID(BoundaryID bid, const THREAD_ID tid) override;
+
+  /**
+   * @returns the nolinear system names in the problem
+   */
+  const std::vector<NonlinearSystemName> & getNonlinearSystemNames() const { return _nl_sys_names; }
+  /**
+   * @returns the linear system names in the problem
+   */
+  const std::vector<LinearSystemName> & getLinearSystemNames() const { return _linear_sys_names; }
 
 protected:
   /// Create extra tagged vectors and matrices
@@ -2325,8 +2404,29 @@ private:
   /// The EquationSystems object, wrapped for restart
   Restartable::ManagedValue<RestartableEquationSystems> _req;
 
+  /**
+   * Set the subproblem and system parameters for residual objects and log their addition
+   * @param ro_name The type of the residual object
+   * @param name The name of the residual object
+   * @param parameters The residual object parameters
+   * @param nl_sys_num The nonlinear system that the residual object belongs to
+   * @param base_name The base type of the residual object, e.g. Kernel, BoundaryCondition, etc.
+   * @param reinit_displaced A data member indicating whether a geometric concept should be reinit'd
+   * for the displaced problem. Examples of valid data members to pass in are \p
+   * _reinit_displaced_elem and \p _reinit_displaced_face
+   */
+  void setResidualObjectParamsAndLog(const std::string & ro_name,
+                                     const std::string & name,
+                                     InputParameters & params,
+                                     const unsigned int nl_sys_num,
+                                     const std::string & base_name,
+                                     bool & reinit_displaced);
+
 protected:
   bool _initialized;
+
+  /// Nonlinear system(s) convergence name(s)
+  std::vector<ConvergenceName> _nonlinear_convergence_names;
 
   std::set<TagID> _fe_vector_tags;
 
@@ -2348,15 +2448,10 @@ protected:
   Real & _dt;
   Real & _dt_old;
 
-  /// maximum numbver
-  unsigned int _n_nl_pingpong = 0;
-  unsigned int _n_max_nl_pingpong = std::numeric_limits<unsigned int>::max();
-
-  /// the number of forced nonlinear iterations
-  int _nl_forced_its = 0;
-
-  /// the absolute non linear divergence tolerance
-  Real _nl_abs_div_tol = -1;
+  /// Flag that the nonlinear convergence name has been set
+  bool _set_nonlinear_convergence_names;
+  /// Flag that the problem needs to add the default nonlinear convergence
+  bool _need_to_add_default_nonlinear_convergence;
 
   /// The linear system names
   const std::vector<LinearSystemName> _linear_sys_names;
@@ -2403,11 +2498,14 @@ protected:
   /// Map connecting solver system names with their respective systems
   std::map<SolverSystemName, unsigned int> _solver_sys_name_to_num;
 
+  /// The union of nonlinear and linear system names
+  std::vector<std::string> _solver_sys_names;
+
   /// The auxiliary system
   std::shared_ptr<AuxiliarySystem> _aux;
 
-  Moose::CouplingType _coupling;                    ///< Type of variable coupling
-  std::vector<std::unique_ptr<CouplingMatrix>> _cm; ///< Coupling matrix for variables.
+  Moose::CouplingType _coupling;                             ///< Type of variable coupling
+  std::vector<std::unique_ptr<libMesh::CouplingMatrix>> _cm; ///< Coupling matrix for variables.
 
   /// Dimension of the subspace spanned by the vectors with a given prefix
   std::map<std::string, unsigned int> _subspace_dim;
@@ -2423,6 +2521,9 @@ protected:
 
   /// functions
   MooseObjectWarehouse<Function> _functions;
+
+  /// convergence warehouse
+  MooseObjectWarehouse<Convergence> _convergences;
 
   /// nonlocal kernels
   MooseObjectWarehouse<KernelBase> _nonlocal_kernels;
@@ -2510,7 +2611,10 @@ protected:
   void meshChangedHelper(bool intermediate_change = false);
 
   /// Helper to check for duplicate variable names across systems or within a single system
-  bool duplicateVariableCheck(const std::string & var_name, const FEType & type, bool is_aux);
+  bool duplicateVariableCheck(const std::string & var_name,
+                              const libMesh::FEType & type,
+                              bool is_aux,
+                              const std::set<SubdomainID> * const active_subdomains);
 
   void computeUserObjectsInternal(const ExecFlagType & type,
                                   const Moose::AuxGroup & group,
@@ -2600,6 +2704,9 @@ protected:
   /// Indicates that we need to compute variable values for previous Newton iteration
   bool _needs_old_newton_iter;
 
+  /// Indicates we need to save the previous NL iteration variable values
+  bool _previous_nl_solution_required;
+
   /// Indicates if nonlocal coupling is required/exists
   bool _has_nonlocal_coupling;
   bool _calculate_jacobian_in_uo;
@@ -2611,8 +2718,9 @@ protected:
 
   SolverParams _solver_params;
 
-  /// Determines whether a check to verify an active kernel on every subdomain
-  bool _kernel_coverage_check;
+  /// Determines whether and which subdomains are to be checked to ensure that they have an active kernel
+  CoverageCheckMode _kernel_coverage_check;
+  std::vector<SubdomainName> _kernel_coverage_blocks;
 
   /// whether to perform checking of boundary restricted nodal object variable dependencies,
   /// e.g. whether the variable dependencies are defined on the selected boundaries
@@ -2622,8 +2730,9 @@ protected:
   /// e.g. whether the variable dependencies are defined on the selected boundaries
   const bool _boundary_restricted_elem_integrity_check;
 
-  /// Determines whether a check to verify an active material on every subdomain
-  bool _material_coverage_check;
+  /// Determines whether and which subdomains are to be checked to ensure that they have an active material
+  CoverageCheckMode _material_coverage_check;
+  std::vector<SubdomainName> _material_coverage_blocks;
 
   /// Whether to check overlapping Dirichlet and Flux BCs and/or multiple DirichletBCs per sideset
   bool _fv_bcs_integrity_check;
@@ -2638,7 +2747,7 @@ protected:
   unsigned int _max_qps;
 
   /// Maximum scalar variable order
-  Order _max_scalar_order;
+  libMesh::Order _max_scalar_order;
 
   /// Indicates whether or not this executioner has a time integrator (during setup)
   bool _has_time_integrator;
@@ -2650,7 +2759,7 @@ protected:
   bool _parallel_barrier_messaging;
 
   /// Whether or not to be verbose during setup
-  bool _verbose_setup;
+  MooseEnum _verbose_setup;
 
   /// Whether or not to be verbose with multiapps
   bool _verbose_multiapps;
@@ -2675,17 +2784,20 @@ protected:
 
   std::shared_ptr<LineSearch> _line_search;
 
-  std::unique_ptr<ConstElemRange> _evaluable_local_elem_range;
-  std::unique_ptr<ConstElemRange> _nl_evaluable_local_elem_range;
-  std::unique_ptr<ConstElemRange> _aux_evaluable_local_elem_range;
+  std::unique_ptr<libMesh::ConstElemRange> _evaluable_local_elem_range;
+  std::unique_ptr<libMesh::ConstElemRange> _nl_evaluable_local_elem_range;
+  std::unique_ptr<libMesh::ConstElemRange> _aux_evaluable_local_elem_range;
 
-  std::unique_ptr<ConstElemRange> _current_algebraic_elem_range;
-  std::unique_ptr<ConstNodeRange> _current_algebraic_node_range;
+  std::unique_ptr<libMesh::ConstElemRange> _current_algebraic_elem_range;
+  std::unique_ptr<libMesh::ConstNodeRange> _current_algebraic_node_range;
   std::unique_ptr<ConstBndNodeRange> _current_algebraic_bnd_node_range;
 
   /// Automatic differentiaion (AD) flag which indicates whether any consumer has
   /// requested an AD material property or whether any suppier has declared an AD material property
   bool _using_ad_mat_props;
+
+  // loop state during projection of initial conditions
+  unsigned short _current_ic_state;
 
 private:
   /**
@@ -2750,13 +2862,20 @@ private:
    */
   virtual void resetState();
 
+  // Parameters handling Jacobian sparsity pattern behavior
+  /// Whether to error when the Jacobian is re-allocated, usually because the sparsity pattern changed
   bool _error_on_jacobian_nonzero_reallocation;
+  /// Whether to ignore zeros in the Jacobian, thereby leading to a reduced sparsity pattern
   bool _ignore_zeros_in_jacobian;
+  /// Whether to preserve the system matrix / Jacobian sparsity pattern, using 0-valued entries usually
+  bool _preserve_matrix_sparsity_pattern;
+
   const bool _force_restart;
   const bool _allow_ics_during_restart;
   const bool _skip_nl_system_check;
   bool _fail_next_nonlinear_convergence_check;
-  const bool & _allow_invalid_solution;
+  const bool _allow_invalid_solution;
+  const bool _show_invalid_solution_console;
   const bool & _immediately_print_invalid_solution;
 
   /// At or beyond initialSteup stage
@@ -2820,6 +2939,10 @@ private:
   /// If we catch an exception during residual/Jacobian evaluaton for which we don't have specific
   /// handling, immediately error instead of allowing the time step to be cut
   const bool _regard_general_exceptions_as_errors;
+
+  friend void Moose::PetscSupport::setSinglePetscOption(const std::string & name,
+                                                        const std::string & value,
+                                                        FEProblemBase * const problem);
 };
 
 using FVProblemBase = FEProblemBase;
@@ -2883,7 +3006,7 @@ FEProblemBase::addObject(const std::string & type,
 {
   parallel_object_only();
 
-  logAdd(MooseUtils::prettyCppType<T>(), name, type);
+  logAdd(MooseUtils::prettyCppType<T>(), name, type, parameters);
   // Add the _subproblem and _sys parameters depending on use_displaced_mesh
   addObjectParamsHelper(parameters, name, var_param_name);
 
@@ -2991,7 +3114,7 @@ FEProblemBase::assembly(const THREAD_ID tid, const unsigned int sys_num) const
   return *_assembly[tid][sys_num];
 }
 
-inline const CouplingMatrix *
+inline const libMesh::CouplingMatrix *
 FEProblemBase::couplingMatrix(const unsigned int i) const
 {
   return _cm[i].get();

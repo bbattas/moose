@@ -24,6 +24,8 @@
 #include "libmesh/fe_interface.h"
 #include "libmesh/mesh_base.h"
 
+using namespace libMesh;
+
 registerMooseObject("MooseApp", DisplacedProblem);
 
 InputParameters
@@ -67,9 +69,6 @@ DisplacedProblem::DisplacedProblem(const InputParameters & parameters)
 
     for (unsigned int i = 0; i < n_threads; ++i)
       _assembly[i].emplace_back(std::make_unique<Assembly>(*displaced_nl, i));
-
-    displaced_nl->addTimeIntegrator(
-        _mproblem.getNonlinearSystemBase(nl_sys_num).getSharedTimeIntegrator());
   }
 
   _nl_solution.resize(_displaced_solver_systems.size(), nullptr);
@@ -80,7 +79,6 @@ DisplacedProblem::DisplacedProblem(const InputParameters & parameters)
                                         _mproblem.getAuxiliarySystem(),
                                         "displaced_" + _mproblem.getAuxiliarySystem().name(),
                                         Moose::VAR_AUXILIARY);
-  _displaced_aux->addTimeIntegrator(_mproblem.getAuxiliarySystem().getSharedTimeIntegrator());
 
   // // Generally speaking, the mesh is prepared for use, and consequently remote elements are deleted
   // // well before our Problem(s) are constructed. Historically, in MooseMesh we have a bunch of
@@ -168,21 +166,20 @@ DisplacedProblem::init()
   for (auto & nl : _displaced_solver_systems)
   {
     nl->dofMap().attach_extra_send_list_function(&extraSendList, nl.get());
-    nl->init();
+    nl->preInit();
   }
 
   _displaced_aux->dofMap().attach_extra_send_list_function(&extraSendList, _displaced_aux.get());
-  _displaced_aux->init();
+  _displaced_aux->preInit();
 
   {
     TIME_SECTION("eq::init", 2, "Initializing Displaced Equation System");
     _eq.init();
   }
 
-  /// Get face types properly set for variables
   for (auto & nl : _displaced_solver_systems)
-    nl->update(/*update_libmesh_system=*/false);
-  _displaced_aux->update(/*update_libmesh_system=*/false);
+    nl->postInit();
+  _displaced_aux->postInit();
 
   _mesh.meshChanged();
 
@@ -193,6 +190,15 @@ DisplacedProblem::init()
 void
 DisplacedProblem::initAdaptivity()
 {
+}
+
+void
+DisplacedProblem::addTimeIntegrator()
+{
+  for (const auto nl_sys_num : make_range(_mproblem.numNonlinearSystems()))
+    _displaced_solver_systems[nl_sys_num]->copyTimeIntegrators(
+        _mproblem.getNonlinearSystemBase(nl_sys_num));
+  _displaced_aux->copyTimeIntegrators(_mproblem.getAuxiliarySystem());
 }
 
 void
@@ -286,10 +292,6 @@ DisplacedProblem::updateMesh(bool mesh_changing)
   // The mesh has changed. Face information normals, areas, etc. must be re-calculated
   if (haveFV())
     _mesh.setupFiniteVolumeMeshData();
-
-  for (auto & disp_nl : _displaced_solver_systems)
-    disp_nl->update(false);
-  _displaced_aux->update(false);
 
   // Update the geometric searches that depend on the displaced mesh. This call can end up running
   // NearestNodeThread::operator() which has a throw inside of it. We need to catch it and make sure
@@ -730,17 +732,14 @@ DisplacedProblem::reinitElemPhys(const Elem * elem,
 }
 
 void
-DisplacedProblem::reinitElemFace(const Elem * elem,
-                                 unsigned int side,
-                                 BoundaryID bnd_id,
-                                 const THREAD_ID tid)
+DisplacedProblem::reinitElemFace(const Elem * elem, unsigned int side, const THREAD_ID tid)
 {
   for (const auto nl_sys_num : index_range(_displaced_solver_systems))
   {
     _assembly[tid][nl_sys_num]->reinit(elem, side);
-    _displaced_solver_systems[nl_sys_num]->reinitElemFace(elem, side, bnd_id, tid);
+    _displaced_solver_systems[nl_sys_num]->reinitElemFace(elem, side, tid);
   }
-  _displaced_aux->reinitElemFace(elem, side, bnd_id, tid);
+  _displaced_aux->reinitElemFace(elem, side, tid);
 }
 
 void
@@ -808,14 +807,13 @@ DisplacedProblem::reinitNeighbor(const Elem * elem,
   }
   _displaced_aux->prepareNeighbor(tid);
 
-  BoundaryID bnd_id = 0; // some dummy number (it is not really used for anything, right now)
   for (auto & nl : _displaced_solver_systems)
   {
-    nl->reinitElemFace(elem, side, bnd_id, tid);
-    nl->reinitNeighborFace(neighbor, neighbor_side, bnd_id, tid);
+    nl->reinitElemFace(elem, side, tid);
+    nl->reinitNeighborFace(neighbor, neighbor_side, tid);
   }
-  _displaced_aux->reinitElemFace(elem, side, bnd_id, tid);
-  _displaced_aux->reinitNeighborFace(neighbor, neighbor_side, bnd_id, tid);
+  _displaced_aux->reinitElemFace(elem, side, tid);
+  _displaced_aux->reinitNeighborFace(neighbor, neighbor_side, tid);
 }
 
 void
@@ -841,8 +839,8 @@ DisplacedProblem::reinitNeighborPhys(const Elem * neighbor,
 
   // Compute values at the points
   for (auto & nl : _displaced_solver_systems)
-    nl->reinitNeighborFace(neighbor, neighbor_side, 0, tid);
-  _displaced_aux->reinitNeighborFace(neighbor, neighbor_side, 0, tid);
+    nl->reinitNeighborFace(neighbor, neighbor_side, tid);
+  _displaced_aux->reinitNeighborFace(neighbor, neighbor_side, tid);
 }
 
 void
@@ -879,7 +877,7 @@ DisplacedProblem::reinitElemNeighborAndLowerD(const Elem * elem,
   reinitNeighbor(elem, side, tid);
 
   const Elem * lower_d_elem = _mesh.getLowerDElem(elem, side);
-  if (lower_d_elem && lower_d_elem->subdomain_id() == Moose::INTERNAL_SIDE_LOWERD_ID)
+  if (lower_d_elem && _mesh.interiorLowerDBlocks().count(lower_d_elem->subdomain_id()) > 0)
     reinitLowerDElem(lower_d_elem, tid);
   else
   {
@@ -888,7 +886,7 @@ DisplacedProblem::reinitElemNeighborAndLowerD(const Elem * elem,
     auto & neighbor_side = _assembly[tid][currentNlSysNum()]->neighborSide();
     const Elem * lower_d_elem_neighbor = _mesh.getLowerDElem(neighbor, neighbor_side);
     if (lower_d_elem_neighbor &&
-        lower_d_elem_neighbor->subdomain_id() == Moose::INTERNAL_SIDE_LOWERD_ID)
+        _mesh.interiorLowerDBlocks().count(lower_d_elem_neighbor->subdomain_id()) > 0)
     {
       auto qps = _assembly[tid][currentNlSysNum()]->qPointsFaceNeighbor().stdVector();
       std::vector<Point> reference_points;
@@ -1103,6 +1101,11 @@ DisplacedProblem::meshChanged()
   // EquationSystems::reinit only prolongs/restricts the solution vectors, which is something that
   // needs to happen for every step of mesh adaptivity.
   _eq.reinit();
+  // Since the mesh has changed, we need to make sure that we update any of our
+  // MOOSE-system specific data.
+  for (auto & nl : _displaced_solver_systems)
+    nl->reinit();
+  _displaced_aux->reinit();
 
   // We've performed some mesh adaptivity. We need to
   // clear any quadrature nodes such that when we build the boundary node lists in
@@ -1115,12 +1118,6 @@ DisplacedProblem::meshChanged()
   // then reinitialize GeometricSearchData such that we have all the correct geometric information
   // for the changed mesh
   updateMesh(/*mesh_changing=*/true);
-
-  // Since the mesh has changed, we need to make sure that we update any of our
-  // MOOSE-system specific data. libmesh system data has already been updated
-  for (auto & nl : _displaced_solver_systems)
-    nl->update(/*update_libmesh_system=*/false);
-  _displaced_aux->update(/*update_libmesh_system=*/false);
 }
 
 void
@@ -1148,9 +1145,9 @@ DisplacedProblem::refMesh()
 }
 
 bool
-DisplacedProblem::nlConverged(const unsigned int nl_sys_num)
+DisplacedProblem::solverSystemConverged(const unsigned int sys_num)
 {
-  return _mproblem.converged(nl_sys_num);
+  return _mproblem.converged(sys_num);
 }
 
 bool
