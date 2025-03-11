@@ -35,6 +35,7 @@ protected:
 
   // MaterialProperty<RealGradient> & _inclination;
   MaterialProperty<Real> & _inclination;
+  MaterialProperty<Real> & _inclination_distance;
   // MaterialProperty<Real> & _ang_dist;
   // std::vector<std::vector<Real>> & _inclination;
   // RealTensorValue
@@ -45,17 +46,31 @@ protected:
   /// EBSD reader user object
   const EBSDReader & _ebsd_reader;
 
-  MaterialProperty<Real> & _grains_on_gb;
-  MaterialProperty<Real> & _gb_id;
+  // MaterialProperty<Real> & _grains_on_gb;
+  // MaterialProperty<Real> & _gb_id;
+
+  // Inclination function constants
+  Real _delta_ij;
+  Real _inc_ij_0;
+
+  MaterialProperty<Real> & _temp_inclination;
+
+  /// inclination prefactor material
+  // const MaterialProperty<Real> & _pre_inc;
 
   /// parameters to store the EBSD id and corresponding value on GB
   std::vector<unsigned int> _gb_pairs;
   std::vector<Real> _gb_op_pairs;
   std::vector<unsigned int> _gb_ij_pairs;
+  std::vector<unsigned int> _gb_ij_sorted;
+
+  // For storing in inclination calc for combination at the end
+  std::vector<Real> _hgb_pairs;
+  std::vector<Real> _inc_pairs;
 
   // ij for temp output
-  const unsigned int _i_value;
-  const unsigned int _j_value;
+  // const unsigned int _i_value;
+  // const unsigned int _j_value;
 
   // ///Variable values
   // const VariableValue & _c;

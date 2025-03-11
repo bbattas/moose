@@ -4,8 +4,8 @@
 # Created Date: Friday March 7th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday March 10th 2025
-# Modified By: Brandon Battas
+# Last Modified: Tuesday March 11th 2025
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Testing with ebsd mesh for more grains than ops and trying to recreate
@@ -24,7 +24,7 @@
 []
 
 [GlobalParams]
-  op_num = 8
+  op_num = 10
   var_name_base = 'gr'
 []
 
@@ -47,8 +47,8 @@
   [grain_tracker]
     type = GrainTracker
     # variable = eta
-    threshold = 0.001
-    connecting_threshold = 0.008
+    threshold = 0.2
+    connecting_threshold = 0.08
     compute_halo_maps = true
     compute_var_to_feature_map = true
     execute_on = 'initial timestep_end'
@@ -217,11 +217,11 @@
   [incl_test01]
     type = GGInclinationMaterial
     inclination_name = inclination_mat01
-    i_value = 0
-    j_value = 1
+    # i_value = 0
+    # j_value = 1
     ebsd_reader = ebsd_reader
     grain_tracker = grain_tracker
-    output_properties = 'gb_id grains_on_gb'
+    output_properties = 'inclination_distance temp_inclination inclination_mat01'
     outputs = 'exodus'
   []
   # [incl_test02]
@@ -308,7 +308,7 @@
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
 
   start_time = 0.0
-  num_steps = 5
+  num_steps = 20
   dt = 0.1
 []
 
