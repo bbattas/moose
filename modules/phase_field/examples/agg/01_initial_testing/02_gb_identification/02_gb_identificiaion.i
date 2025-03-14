@@ -4,8 +4,8 @@
 # Created Date: Friday March 7th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday March 11th 2025
-# Modified By: Battas,Brandon Scott
+# Last Modified: Friday March 14th 2025
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Testing with ebsd mesh for more grains than ops and trying to recreate
@@ -217,11 +217,15 @@
   [incl_test01]
     type = GGInclinationMaterial
     inclination_name = inclination_mat01
+    gb_energy_input = sigma_preinc
+    kappa = 0.3
+    free_energy_m = 0.9375
     # i_value = 0
     # j_value = 1
     ebsd_reader = ebsd_reader
     grain_tracker = grain_tracker
-    output_properties = 'inclination_distance temp_inclination inclination_mat01'
+    output_properties = 'inclination_distance inclination_mat01 gamma_inc dgammadgrad_eta0
+    testout testout2 gb_energy'
     outputs = 'exodus'
   []
   # [incl_test02]
@@ -276,6 +280,13 @@
        gr0^2*gr1^2 + gr0^2*gr2^2 + gr0^2*gr3^2 + gr0^2*gr4^2 + gr0^2*gr5^2 + gr0^2*gr6^2 + gr0^2*gr7^2)'
     outputs = 'exodus'
   []
+  [sigma_preinc]
+    type = ParsedMaterial
+    property_name = sigma_preinc
+    # coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
+    expression = '0.25'
+    outputs = 'exodus'
+  []
 []
 
 # [Postprocessors]
@@ -308,7 +319,7 @@
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
 
   start_time = 0.0
-  num_steps = 20
+  num_steps = 5
   dt = 0.1
 []
 

@@ -15,78 +15,70 @@ InputParameters
 GGInclinationMaterial::validParams()
 {
   InputParameters params = Material::validParams();
-  params.addClassDescription(
-      "Phase field parameters for polynomial free energy for single component systems");
+  params.addClassDescription("Inclination dependent properties for AGG.");
   params.addRequiredCoupledVarWithAutoBuild(
       "v", "var_name_base", "op_num", "Array of coupled variables");
-  params.addParam<MaterialPropertyName>("inclination_name", "Name of inclination material");
+  params.addParam<MaterialPropertyName>("inclination_name",
+                                        "Name of inclination cos function material output");
   params.addParam<UserObjectName>("grain_tracker",
                                   "The GrainTracker UserObject to get values from.");
   params.addParam<UserObjectName>("ebsd_reader", "The EBSDReader GeneralUserObject");
   params.addParam<Real>("delta_ij", 0.05, "Anisotropy weight in cos function");
   params.addParam<Real>("inc_ij_0", 0.0, "Inclination function offset in cos function");
-  // params.addParam<unsigned int>("i_value", 0, "i of inclination_{ij} for output");
-  // params.addParam<unsigned int>("j_value", 0, "j of inclination_{ij} for output");
-  // params.addParam<MaterialPropertyName>("prefactor_name",
-  //                                       "Name of prefactor material to multiply by inclination");
-  // params.addCoupledVar("T", "Temperature variable in Kelvin");
-  // params.addRequiredCoupledVar("c", "Concentration");
-  // params.addRequiredParam<Real>(
-  //     "int_width", "The interfacial width of void surface in the length scale of the problem");
-  // params.addParam<Real>(
-  //     "length_scale", 1.0e-9, "defines the base length scale of the problem in m");
-  // params.addParam<Real>("time_scale", 1.0e-9, "defines the base time scale of the problem");
-  // MooseEnum poly_order("4 6 8");
-  // params.addRequiredParam<MooseEnum>(
-  //     "polynomial_order", poly_order, "Order of polynomial free energy");
-  // params.addRequiredParam<Real>("D0", "Diffusivity prefactor for vacancies in m^2/s");
-  // params.addRequiredParam<Real>("Em", "Migration energy in eV");
-  // params.addRequiredParam<Real>("Ef", "Formation energy in eV");
-  // params.addRequiredParam<Real>("surface_energy", "Surface energy in J/m2");
+  params.addParam<std::vector<MaterialPropertyName>>(
+      "gamma_grad_eta_names",
+      std::vector<MaterialPropertyName>(),
+      "Interfacial / grain boundary gamma parameter names (leave empty for gamma0... gammaN)");
+  params.addParam<MaterialPropertyName>("gb_energy_input",
+                                        "GB energy before inclination dependence");
+  params.addParam<MaterialPropertyName>(
+      "gb_energy", "gb_energy", "Inclination dependent GB energy output.");
+  params.addParam<Real>("kappa", 1, "Gradient energy constant kappa value");
+  params.addParam<Real>("free_energy_m", 1, "Free energy function constant m");
   return params;
 }
 
 GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
-  : Material(parameters),
+  : DerivativeMaterialInterface<Material>(parameters),
+    // : Material(parameters),
     _op_num(coupledComponents("v")),
     _vals(coupledValues("v")),
+    // Inclination cos function
     _inclination(declareProperty<Real>(getParam<MaterialPropertyName>("inclination_name"))),
+    // Angular distance to the x axis
     _inclination_distance(declareProperty<Real>("inclination_distance")),
     // Grain Tracker/EBSD for GB identification
     _grain_tracker(getUserObject<GrainTracker>("grain_tracker")),
     _ebsd_reader(getUserObject<EBSDReader>("ebsd_reader")),
     _delta_ij(getParam<Real>("delta_ij")),
     _inc_ij_0(getParam<Real>("inc_ij_0")),
-    _temp_inclination(declareProperty<Real>("temp_inclination"))
-// _grains_on_gb(declareProperty<Real>("grains_on_gb")),
-// _gb_id(declareProperty<Real>("gb_id")),
-// _pre_inc(getMaterialProperty<Real>("prefactor_name")),
-// RealGradient
-// _i_value(getParam<unsigned int>("i_value")),
-// _j_value(getParam<unsigned int>("j_value"))
-// RealTensorValue
-// _c(coupledValue("c")),
-// _T(coupledValue("T")),
-// _M(declareProperty<Real>("M")),
-// _grad_M(declareProperty<RealGradient>("grad_M")),
-// _kappa(declareProperty<Real>("kappa")),
-// _c_eq(declareProperty<Real>("c_eq")),
-// _W(declareProperty<Real>("barr_height")),
-// _Qstar(declareProperty<Real>("Qstar")),
-// _D(declareProperty<Real>("D")),
-// _int_width(getParam<Real>("int_width")),
-// _length_scale(getParam<Real>("length_scale")),
-// _time_scale(getParam<Real>("time_scale")),
-// _order(getParam<MooseEnum>("polynomial_order")),
-// _D0(getParam<Real>("D0")),
-// _Em(getParam<Real>("Em")),
-// _Ef(getParam<Real>("Ef")),
-// _surface_energy(getParam<Real>("surface_energy")),
-// _JtoeV(6.24150974e18), // joule to eV conversion
-// _kb(8.617343e-5)       // Boltzmann constant in eV/K
+    _gamma(declareProperty<Real>("gamma_inc")),
+    _dgammadgrad_eta_name(getParam<std::vector<MaterialPropertyName>>("gamma_grad_eta_names")),
+    _dgammadgrad_eta(_op_num),
+    // TEMP TEST OUTPUTS
+    _testout(declareProperty<Real>("testout")),
+    _testout2(declareProperty<Real>("testout2")),
+    _gbe(getMaterialProperty<Real>("gb_energy_input")),
+    _gbe_inc(declareProperty<Real>(getParam<MaterialPropertyName>("gb_energy"))),
+    _kappa(getParam<Real>("kappa")),
+    _const_m(getParam<Real>("free_energy_m"))
+
 {
   if (_op_num == 0)
     mooseError("Model requires op_num > 0");
+
+  if (_dgammadgrad_eta_name.size() != 0 && _dgammadgrad_eta_name.size() != _op_num)
+    paramError("gamma_grad_eta_names",
+               "Specify either as many entries as op_num values or none at all for auto-naming the "
+               "gamma gradients with respect to gradient of grain OPs.");
+
+  // automatic names for the gamma properties
+  if (_dgammadgrad_eta_name.size() == 0)
+  {
+    _dgammadgrad_eta_name.resize(_op_num);
+    for (unsigned int i = 0; i < _op_num; i++)
+      _dgammadgrad_eta_name[i] = "dgammadgrad_eta" + Moose::stringify(i);
+  }
 
   _vals.resize(_op_num);
   _grad_vals.resize(_op_num);
@@ -100,6 +92,7 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     // Build the ij tensor/matrix of inclinations
     _incl_tens[i].resize(_op_num);
     _ang_dist[i].resize(_op_num);
+    _dgammadgrad_eta[i] = &declareProperty<RealGradient>(_dgammadgrad_eta_name[i]);
   }
 }
 
@@ -206,22 +199,28 @@ GGInclinationMaterial::computeQpProperties()
     _inclination[_qp] = 1.0;
   }
 
-  // Testing temp outputs
-  RealGradient testgb = (*_grad_vals[0])[_qp] - (*_grad_vals[1])[_qp];
-  Real a_dist_test = 0.0;
-  if (testgb.norm() > 1.0e-10)
-  {
-    testgb /= testgb.norm();
-    Real Rtest = std::sqrt((testgb(1) * testgb(1)) + (testgb(2) * testgb(2)));
-    a_dist_test = std::atan2(Rtest, testgb(0));
-  }
-  else
-  {
-    testgb = 0.0;
-  }
-  _temp_inclination[_qp] = a_dist_test;
-  // Now calculate the inclination cos function
+  _gbe_inc[_qp] = _inclination[_qp] * _gbe[_qp];
+  Real g = _gbe_inc[_qp] / (std::sqrt(_kappa * _const_m));
+  Real g2 = g * g;
+  // Hard-coded coefficients (for example purposes)
+  constexpr Real a1 = -3.0944; // coefficient for g2^4
+  constexpr Real a2 = -1.8169; // coefficient for g2^3
+  constexpr Real a3 = 10.323;  // coefficient for g2^2
+  constexpr Real a4 = -8.1819; // coefficient for g2
+  constexpr Real a5 = 2.0033;  // constant term
 
+  Real poly_g = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
+
+  _gamma[_qp] = 1 / poly_g;
+  // // Test gamma function
+  // _gamma[_qp] = (((*_grad_vals[0])[_qp]).norm()) * (((*_grad_vals[0])[_qp]).norm());
+  for (unsigned int i = 0; i < _op_num; ++i)
+    (*_dgammadgrad_eta[i])[_qp] = 2 * ((*_grad_vals[i])[_qp]);
+
+  // _testout[_qp] = (*_grad_vals[0])[_qp](0);
+  // _testout2[_qp] = (*_dgammadgrad_eta[0])[_qp](0);
+  _testout[_qp] = _gbe_inc[_qp];
+  _testout2[_qp] = g;
   // // Calcluate for
   // // Compute GB type by the number of id
   // // _grains_on_gb[_qp] = _gb_pairs.size();

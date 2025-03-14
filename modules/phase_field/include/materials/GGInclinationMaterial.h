@@ -10,13 +10,14 @@
 #pragma once
 
 #include "Material.h"
+#include "DerivativeMaterialInterface.h"
 
 // Forward Declarations
 
 /**
- * Calculated properties for a single component phase field model using polynomial free energies
+ * Inclination dependent properties for AGG
  */
-class GGInclinationMaterial : public Material
+class GGInclinationMaterial : public DerivativeMaterialInterface<Material> // Material
 {
 public:
   static InputParameters validParams();
@@ -46,17 +47,28 @@ protected:
   /// EBSD reader user object
   const EBSDReader & _ebsd_reader;
 
-  // MaterialProperty<Real> & _grains_on_gb;
-  // MaterialProperty<Real> & _gb_id;
-
   // Inclination function constants
   Real _delta_ij;
   Real _inc_ij_0;
 
-  MaterialProperty<Real> & _temp_inclination;
+  // gamma testing
+  MaterialProperty<Real> & _gamma;
 
-  /// inclination prefactor material
-  // const MaterialProperty<Real> & _pre_inc;
+  /// gamma gradient names
+  std::vector<MaterialPropertyName> _dgammadgrad_eta_name;
+  /// All the actual gradients of gamma with respect to eta
+  std::vector<MaterialProperty<RealGradient> *> _dgammadgrad_eta;
+
+  MaterialProperty<Real> & _testout;
+  MaterialProperty<Real> & _testout2;
+
+  const MaterialProperty<Real> & _gbe;
+  MaterialProperty<Real> & _gbe_inc;
+
+  Real _kappa;
+  Real _const_m;
+
+  // other stuff
 
   /// parameters to store the EBSD id and corresponding value on GB
   std::vector<unsigned int> _gb_pairs;
@@ -67,35 +79,4 @@ protected:
   // For storing in inclination calc for combination at the end
   std::vector<Real> _hgb_pairs;
   std::vector<Real> _inc_pairs;
-
-  // ij for temp output
-  // const unsigned int _i_value;
-  // const unsigned int _j_value;
-
-  // ///Variable values
-  // const VariableValue & _c;
-  // const VariableValue & _T;
-
-  // ///Mateiral property declarations
-  // MaterialProperty<Real> & _M;
-  // MaterialProperty<RealGradient> & _grad_M;
-
-  // MaterialProperty<Real> & _kappa;
-  // MaterialProperty<Real> & _c_eq;
-  // MaterialProperty<Real> & _W;
-  // MaterialProperty<Real> & _Qstar;
-  // MaterialProperty<Real> & _D;
-
-  // ///Input parameters
-  // Real _int_width;
-  // Real _length_scale;
-  // Real _time_scale;
-  // MooseEnum _order;
-  // Real _D0;
-  // Real _Em;
-  // Real _Ef;
-  // Real _surface_energy;
-
-  // const Real _JtoeV;
-  // const Real _kb;
 };
