@@ -4,7 +4,7 @@
 # Created Date: Friday March 7th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday March 14th 2025
+# Last Modified: Friday March 28th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -225,7 +225,7 @@
     ebsd_reader = ebsd_reader
     grain_tracker = grain_tracker
     output_properties = 'inclination_distance inclination_mat01 gamma_inc dgammadgrad_eta0
-    testout testout2 gb_energy'
+    testout testout2 gb_energy dgammadgrad_eta0'
     outputs = 'exodus'
   []
   # [incl_test02]

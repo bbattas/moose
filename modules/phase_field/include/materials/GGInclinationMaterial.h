@@ -79,4 +79,5 @@ protected:
   // For storing in inclination calc for combination at the end
   std::vector<Real> _hgb_pairs;
   std::vector<Real> _inc_pairs;
+  std::vector<RealGradient> _dincdgradetai_pairs;
 };

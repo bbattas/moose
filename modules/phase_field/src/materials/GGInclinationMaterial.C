@@ -99,6 +99,9 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
 void
 GGInclinationMaterial::computeQpProperties()
 {
+  // Zero out the derivatives for gamma wrt grad_eta
+  for (unsigned int i = 0; i < _op_num; ++i)
+    (*_dgammadgrad_eta[i])[_qp] = RealGradient(0.0, 0.0, 0.0);
   // From the ComputeGBMisorientationType:
   // Find out the number of boundary unique_id and save them
   _gb_pairs.clear();
@@ -121,6 +124,9 @@ GGInclinationMaterial::computeQpProperties()
   std::sort(_gb_ij_sorted.begin(), _gb_ij_sorted.end());
   _hgb_pairs.clear();
   _inc_pairs.clear();
+  _dincdgradetai_pairs.clear();
+  // std::vector<Real> gb_i_list;
+  // gb_i_list.clear();
 
   switch (_gb_pairs.size())
   {
@@ -161,23 +167,43 @@ GGInclinationMaterial::computeQpProperties()
           RealGradient ngb = (*_grad_vals[i])[_qp] - (*_grad_vals[j])[_qp];
           Real R = 0.0;
           Real a_dist = 0.0;
+          RealGradient dincij_dgradetai(0.0, 0.0, 0.0);
           _hgb_pairs.push_back((*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] *
                                (*_vals[j])[_qp]);
           if (ngb.norm() > 1.0e-10)
           {
+            RealGradient uxyz = ngb;
+            Real alpha = 1 / uxyz.norm();
             ngb /= ngb.norm();
             R = std::sqrt((ngb(1) * ngb(1)) + (ngb(2) * ngb(2)));
             a_dist = std::atan2(R, ngb(0));
+            // Derivatives
+            Real temp_dincldgradetaix =
+                (-alpha / R) * ((1 - (uxyz(0) * uxyz(0) * alpha * alpha)) +
+                                (ngb(1) / ngb(0)) * (uxyz(0) * uxyz(1) * alpha * alpha) +
+                                (ngb(2) / ngb(0)) * (uxyz(0) * uxyz(2) * alpha * alpha));
+            Real temp_dincldgradetaiy =
+                (-alpha / R) * ((uxyz(0) * uxyz(1) * alpha * alpha) +
+                                (ngb(1) / ngb(0)) * (1 - (uxyz(1) * uxyz(1) * alpha * alpha)) +
+                                (ngb(2) / ngb(0)) * (uxyz(1) * uxyz(2) * alpha * alpha));
+            Real temp_dincldgradetaiz =
+                (-alpha / R) * ((uxyz(0) * uxyz(2) * alpha * alpha) +
+                                (ngb(1) / ngb(0)) * (uxyz(2) * uxyz(1) * alpha * alpha) +
+                                (ngb(2) / ngb(0)) * (1 - (uxyz(2) * uxyz(2) * alpha * alpha)));
+            dincij_dgradetai =
+                RealGradient(temp_dincldgradetaix, temp_dincldgradetaiy, temp_dincldgradetaiz);
           }
           else
           {
             ngb = 0.0;
           }
           _inc_pairs.push_back(a_dist); // Radians // * 180 / M_PI for degrees
+          _dincdgradetai_pairs.push_back(dincij_dgradetai);
         }
   }
   // Combine the inclination now!
   // temp weighted combination of just the angle
+  std::vector<RealGradient> dINC_dGradEta(_op_num, RealGradient(0.0));
   if (_inc_pairs.size() > 0)
   {
     Real numer = 0.0;
@@ -189,9 +215,47 @@ GGInclinationMaterial::computeQpProperties()
       numer += (1 + _delta_ij * std::cos(4 * (_inc_pairs[n] + _inc_ij_0))) * _hgb_pairs[n];
       denom += _hgb_pairs[n];
       ang_numer += _inc_pairs[n] * _hgb_pairs[n];
+      // Derivatives
+      // dinc_dgradeta_i += (-4 * _delta_ij * std::sin(4.0 * (_inc_pairs[n] + _inc_ij_0))) *
+      // _hgb_pairs[n] * _dincdgradetai_pairs[n];
     }
     _inclination_distance[_qp] = ang_numer / denom;
     _inclination[_qp] = numer / denom;
+    // Derivatives
+    std::size_t pair_index = 0;
+    for (std::size_t idx1 = 0; idx1 < _gb_ij_sorted.size(); ++idx1)
+    {
+      for (std::size_t idx2 = idx1 + 1; idx2 < _gb_ij_sorted.size(); ++idx2)
+      {
+        unsigned int p = _gb_ij_sorted[idx1];
+        unsigned int q = _gb_ij_sorted[idx2];
+
+        // 1 + delta * cos(...):
+        //   derivative wrt inc is   dF_dinc = -4 * delta * sin(4*(inc + inc0))
+        //   (if that is your function)
+        // Real inc_n = _inc_pairs[pair_index];
+        Real dF_dinc = -4.0 * _delta_ij * std::sin(4.0 * (_inc_pairs[pair_index] + _inc_ij_0));
+
+        // Weighted partial for p:
+        //   w_n * dF_dinc * dinc/d(grad eta_p)
+        // const RealGradient & dinc_dGradEta_p = _dincdgradetai_pairs[pair_index];
+        RealGradient partial_p =
+            _hgb_pairs[pair_index] * dF_dinc * _dincdgradetai_pairs[pair_index];
+
+        // Weighted partial for q:
+        //   w_n * dF_dinc * dinc/d(grad eta_q)
+        //   But inc = grad p - grad q => derivative wrt grad q is just - partial_p
+        RealGradient partial_q = -partial_p;
+
+        // Add to the correct OP i’s derivative
+        dINC_dGradEta[p] += partial_p;
+        dINC_dGradEta[q] += partial_q;
+
+        pair_index++;
+      }
+    }
+    for (unsigned int i = 0; i < _op_num; ++i)
+      dINC_dGradEta[i] /= denom;
   }
   else
   {
@@ -201,6 +265,7 @@ GGInclinationMaterial::computeQpProperties()
 
   _gbe_inc[_qp] = _inclination[_qp] * _gbe[_qp];
   Real g = _gbe_inc[_qp] / (std::sqrt(_kappa * _const_m));
+  Real dg_dinc = _gbe[_qp] / (std::sqrt(_kappa * _const_m));
   Real g2 = g * g;
   // Hard-coded coefficients (for example purposes)
   constexpr Real a1 = -3.0944; // coefficient for g2^4
@@ -210,60 +275,20 @@ GGInclinationMaterial::computeQpProperties()
   constexpr Real a5 = 2.0033;  // constant term
 
   Real poly_g = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
+  Real dpoly_g_dg2 = 4 * a1 * g2 * g2 * g2 + 3 * a2 * g2 * g2 + 2 * a3 * g2 + a4;
 
   _gamma[_qp] = 1 / poly_g;
   // // Test gamma function
   // _gamma[_qp] = (((*_grad_vals[0])[_qp]).norm()) * (((*_grad_vals[0])[_qp]).norm());
   for (unsigned int i = 0; i < _op_num; ++i)
-    (*_dgammadgrad_eta[i])[_qp] = 2 * ((*_grad_vals[i])[_qp]);
+    (*_dgammadgrad_eta[i])[_qp] =
+        -2 * g * _gamma[_qp] * _gamma[_qp] * dpoly_g_dg2 * dg_dinc * dINC_dGradEta[i];
+
+  // REMEMBER INC here is the f = cos (phi^{\prime})
 
   // _testout[_qp] = (*_grad_vals[0])[_qp](0);
   // _testout2[_qp] = (*_dgammadgrad_eta[0])[_qp](0);
-  _testout[_qp] = _gbe_inc[_qp];
-  _testout2[_qp] = g;
-  // // Calcluate for
-  // // Compute GB type by the number of id
-  // // _grains_on_gb[_qp] = _gb_pairs.size();
-  // _grains_on_gb[_qp] = 0;
-  // _gb_id[_qp] = 0;
-  // switch (_gb_pairs.size())
-  // {
-  //   case 0:
-  //     break;
-  //   case 1:
-  //     _gb_id[_qp] = _gb_ij_pairs[0];
-  //     break;
-  //   case 2:
-  //     // get type by Misorientation angle
-  //     _gb_id[_qp] = _gb_ij_pairs[0];
-  //     _grains_on_gb[_qp] = _gb_ij_pairs[1];
-  //     break;
-  //   default:
-  //     // get continuous type at triple junction
-  //     _gb_id[_qp] = -1;
-  // }
-
-  // // Vector of vectors to 1 ij pair output
-  // for (unsigned int i = 0; i < _op_num - 1; ++i)
-  //   for (unsigned int j = i + 1; j < _op_num; ++j)
-  //   {
-  //     RealGradient ngb = (*_grad_vals[i])[_qp] - (*_grad_vals[j])[_qp];
-  //     Real R = 0.0;
-  //     if (ngb.norm() > 1.0e-10)
-  //     {
-  //       ngb /= ngb.norm();
-  //       R = std::sqrt((ngb(1) * ngb(1)) + (ngb(2) * ngb(2)));
-  //       _ang_dist[i][j] = std::atan2(R, ngb(0));
-  //     }
-  //     else
-  //     {
-  //       ngb = 0.0;
-  //       _ang_dist[i][j] = 0.0;
-  //     }
-  //     // Store to inclination matrix
-  //     _incl_tens[i][j] = ngb;
-  //   }
-
-  // _inclination[_qp] = _ang_dist[_i_value][_j_value]; // Radians
-  // _inclination[_qp] = _ang_dist[_i_value][_j_value] * 180 / M_PI; // Degrees
+  _testout[_qp] = (*_grad_vals[0])[_qp].norm();
+  // _testout2[_qp] = testout_x;
+  _testout2[_qp] = dINC_dGradEta[0].norm();
 }
