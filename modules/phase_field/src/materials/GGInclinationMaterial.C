@@ -114,7 +114,7 @@ GGInclinationMaterial::computeQpProperties()
     if (op_to_grains[i] == FeatureFloodCount::invalid_id)
       continue;
 
-    _gb_pairs.push_back(_ebsd_reader.getFeatureID(op_to_grains[i]));
+    // _gb_pairs.push_back(_ebsd_reader.getFeatureID(op_to_grains[i]));
     _gb_op_pairs.push_back((*_vals[i])[_qp]);
     _gb_ij_pairs.push_back(i);
   }
@@ -128,7 +128,12 @@ GGInclinationMaterial::computeQpProperties()
   // std::vector<Real> gb_i_list;
   // gb_i_list.clear();
 
-  switch (_gb_pairs.size())
+  std::vector<RealGradient> dinc_dgeta_list;
+  std::vector<RealTensorValue> d2inc_dgeta2_list;
+  dinc_dgeta_list.clear();
+  d2inc_dgeta2_list.clear();
+
+  switch (_gb_ij_pairs.size())
   {
     case 0:
       break;
@@ -178,6 +183,61 @@ GGInclinationMaterial::computeQpProperties()
             R = std::sqrt((ngb(1) * ngb(1)) + (ngb(2) * ngb(2)));
             a_dist = std::atan2(R, ngb(0));
             // Derivatives
+            RealTensorValue dij(1, 0, 0, 0, 1, 0, 0, 0, 1);
+            RankTwoTensor dphi_dgradetai;
+            RankThreeTensor d2phi_dgradetai2;
+            RealGradient dAdphi(1.0, 0.0, 0.0);
+            RealGradient dBdphi(0.0, ngb(1) / R, ngb(2) / R);
+            RealTensorValue d2Adphiji(0, 0, 0, 0, 0, 0, 0, 0, 0);
+            RealTensorValue d2Bdphiji(0,
+                                      0,
+                                      0,
+                                      0,
+                                      ngb(2) * ngb(2) / (R * R * R),
+                                      -ngb(1) * ngb(2) / (R * R * R),
+                                      0,
+                                      -ngb(1) * ngb(2) / (R * R * R),
+                                      ngb(1) * ngb(1) / (R * R * R));
+            Real dincdA = -R;
+            Real dincdB = ngb(0);
+            Real d2incdA2 = 2 * R * ngb(0);
+            Real d2incdB2 = -2 * R * ngb(0);
+            Real d2incdAB = R * R - ngb(0) * ngb(0);
+            RealGradient dincdphi(0, 0, 0);
+            RealTensorValue d2incdphi2;
+            RealGradient dinc_dgetai;
+            RealTensorValue d2inc_dgetai2;
+            for (unsigned int p = 0; p < 3; ++p)
+            {
+              dincdphi(p) = dincdA * dAdphi(p) + dincdA * dBdphi(p);
+              for (unsigned int q = 0; q < 3; ++q)
+              {
+                dphi_dgradetai(p, q) =
+                    alpha * dij(p, q) - alpha * alpha * alpha * uxyz(p) * uxyz(q);
+                d2incdphi2(p, q) = (d2incdA2 * dAdphi(q) * dAdphi(p)) +
+                                   d2incdAB * (dAdphi(q) * dBdphi(p) + dAdphi(p) * dBdphi(q)) +
+                                   (d2incdB2 * dBdphi(q) * dBdphi(p)) + (dincdA * d2Adphiji(p, q)) +
+                                   (dincdB * d2Bdphiji(p, q));
+                for (unsigned int r = 0; r < 3; ++r)
+                {
+                  d2phi_dgradetai2(p, q, r) =
+                      alpha * alpha * alpha *
+                      (3 * alpha * alpha * uxyz(p) * uxyz(q) * uxyz(r) - uxyz(p) * dij(q, r) -
+                       uxyz(q) * dij(p, r) - uxyz(r) * dij(p, q));
+                }
+              }
+              for (unsigned int q = 0; q < 3; ++q)
+              {
+                dinc_dgetai(p) += dincdphi(q) * dphi_dgradetai(q, p);
+                for (unsigned int r = 0; r < 3; ++r)
+                  for (unsigned int s = 0; s < 3; ++s)
+                  {
+                    d2inc_dgetai2(q, r) +=
+                        d2incdphi2(p, s) * dphi_dgradetai(p, r) * dphi_dgradetai(s, q) +
+                        dincdphi(p) * d2phi_dgradetai2(p, q, r);
+                  }
+              }
+            }
             Real temp_dincldgradetaix =
                 (-alpha / R) * ((1 - (uxyz(0) * uxyz(0) * alpha * alpha)) +
                                 (ngb(1) / ngb(0)) * (uxyz(0) * uxyz(1) * alpha * alpha) +
@@ -192,6 +252,8 @@ GGInclinationMaterial::computeQpProperties()
                                 (ngb(2) / ngb(0)) * (1 - (uxyz(2) * uxyz(2) * alpha * alpha)));
             dincij_dgradetai =
                 RealGradient(temp_dincldgradetaix, temp_dincldgradetaiy, temp_dincldgradetaiz);
+            dinc_dgetai = dincdphi * dphi_dgradetai;
+            d2inc_dgetai2 = d2incdphi2 * dphi;
           }
           else
           {
@@ -199,6 +261,8 @@ GGInclinationMaterial::computeQpProperties()
           }
           _inc_pairs.push_back(a_dist); // Radians // * 180 / M_PI for degrees
           _dincdgradetai_pairs.push_back(dincij_dgradetai);
+          dinc_dgeta_list.push_back(dinc_dgetai);
+          d2inc_dgeta2_list.push_back(d2inc_dgetai2);
         }
   }
   // Combine the inclination now!
