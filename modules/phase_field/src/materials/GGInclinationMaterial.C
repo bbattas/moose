@@ -58,6 +58,7 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     // TEMP TEST OUTPUTS
     _testout(declareProperty<Real>("testout")),
     _testout2(declareProperty<Real>("testout2")),
+    _incder_temp(declareProperty<RealGradient>("incder")),
     _gbe(getMaterialProperty<Real>("gb_energy_input")),
     _gbe_inc(declareProperty<Real>(getParam<MaterialPropertyName>("gb_energy"))),
     _kappa(getParam<Real>("kappa")),
@@ -173,6 +174,8 @@ GGInclinationMaterial::computeQpProperties()
           Real R = 0.0;
           Real a_dist = 0.0;
           RealGradient dincij_dgradetai(0.0, 0.0, 0.0);
+          RealGradient dinc_dgetai;
+          RealTensorValue d2inc_dgetai2;
           _hgb_pairs.push_back((*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] *
                                (*_vals[j])[_qp]);
           if (ngb.norm() > 1.0e-10)
@@ -205,8 +208,6 @@ GGInclinationMaterial::computeQpProperties()
             Real d2incdAB = R * R - ngb(0) * ngb(0);
             RealGradient dincdphi(0, 0, 0);
             RealTensorValue d2incdphi2;
-            RealGradient dinc_dgetai;
-            RealTensorValue d2inc_dgetai2;
             for (unsigned int p = 0; p < 3; ++p)
             {
               dincdphi(p) = dincdA * dAdphi(p) + dincdA * dBdphi(p);
@@ -252,8 +253,6 @@ GGInclinationMaterial::computeQpProperties()
                                 (ngb(2) / ngb(0)) * (1 - (uxyz(2) * uxyz(2) * alpha * alpha)));
             dincij_dgradetai =
                 RealGradient(temp_dincldgradetaix, temp_dincldgradetaiy, temp_dincldgradetaiz);
-            dinc_dgetai = dincdphi * dphi_dgradetai;
-            d2inc_dgetai2 = d2incdphi2 * dphi;
           }
           else
           {
@@ -268,6 +267,8 @@ GGInclinationMaterial::computeQpProperties()
   // Combine the inclination now!
   // temp weighted combination of just the angle
   std::vector<RealGradient> dINC_dGradEta(_op_num, RealGradient(0.0));
+  std::vector<RealGradient> dfinc_dgeta(_op_num, RealGradient(0.0));
+  std::vector<RealTensorValue> d2finc_dgeta2(_op_num, RealTensorValue(0.0));
   if (_inc_pairs.size() > 0)
   {
     Real numer = 0.0;
@@ -299,27 +300,44 @@ GGInclinationMaterial::computeQpProperties()
         //   (if that is your function)
         // Real inc_n = _inc_pairs[pair_index];
         Real dF_dinc = -4.0 * _delta_ij * std::sin(4.0 * (_inc_pairs[pair_index] + _inc_ij_0));
+        Real d2F_dinc2 = -16.0 * _delta_ij * std::cos(4.0 * (_inc_pairs[pair_index] + _inc_ij_0));
 
         // Weighted partial for p:
         //   w_n * dF_dinc * dinc/d(grad eta_p)
         // const RealGradient & dinc_dGradEta_p = _dincdgradetai_pairs[pair_index];
         RealGradient partial_p =
             _hgb_pairs[pair_index] * dF_dinc * _dincdgradetai_pairs[pair_index];
+        RealGradient df_dgeta_p = _hgb_pairs[pair_index] * dF_dinc * dinc_dgeta_list[pair_index];
+        RealTensorValue d2f_dgeta2_p =
+            _hgb_pairs[pair_index] *
+            (d2F_dinc2 *
+                 libMesh::outer_product(dinc_dgeta_list[pair_index], dinc_dgeta_list[pair_index]) +
+             dF_dinc * d2inc_dgeta2_list[pair_index]);
 
         // Weighted partial for q:
         //   w_n * dF_dinc * dinc/d(grad eta_q)
         //   But inc = grad p - grad q => derivative wrt grad q is just - partial_p
         RealGradient partial_q = -partial_p;
+        RealGradient df_dgeta_q = -df_dgeta_p;
 
         // Add to the correct OP i’s derivative
         dINC_dGradEta[p] += partial_p;
         dINC_dGradEta[q] += partial_q;
+        // Alternate
+        dfinc_dgeta[p] += df_dgeta_p;
+        dfinc_dgeta[q] -= df_dgeta_p;
+        d2finc_dgeta2[p] += d2f_dgeta2_p;
+        d2finc_dgeta2[q] += d2f_dgeta2_p;
 
         pair_index++;
       }
     }
     for (unsigned int i = 0; i < _op_num; ++i)
+    {
       dINC_dGradEta[i] /= denom;
+      dfinc_dgeta[i] /= denom;
+      d2finc_dgeta2[i] /= denom;
+    }
   }
   else
   {
@@ -355,4 +373,6 @@ GGInclinationMaterial::computeQpProperties()
   _testout[_qp] = (*_grad_vals[0])[_qp].norm();
   // _testout2[_qp] = testout_x;
   _testout2[_qp] = dINC_dGradEta[0].norm();
+
+  _incder_temp[_qp] = dfinc_dgeta[0];
 }

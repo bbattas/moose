@@ -61,6 +61,7 @@ protected:
 
   MaterialProperty<Real> & _testout;
   MaterialProperty<Real> & _testout2;
+  MaterialProperty<RealGradient> & _incder_temp;
 
   const MaterialProperty<Real> & _gbe;
   MaterialProperty<Real> & _gbe_inc;
