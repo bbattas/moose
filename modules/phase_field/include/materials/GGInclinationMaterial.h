@@ -45,7 +45,7 @@ protected:
   const GrainTracker & _grain_tracker;
 
   /// EBSD reader user object
-  const EBSDReader & _ebsd_reader;
+  // const EBSDReader & _ebsd_reader;
 
   // Inclination function constants
   Real _delta_ij;
@@ -58,6 +58,9 @@ protected:
   std::vector<MaterialPropertyName> _dgammadgrad_eta_name;
   /// All the actual gradients of gamma with respect to eta
   std::vector<MaterialProperty<RealGradient> *> _dgammadgrad_eta;
+  // Second derivatives
+  std::vector<MaterialPropertyName> _d2gammadgrad_eta2_name;
+  std::vector<MaterialProperty<RealTensorValue> *> _d2gammadgrad_eta2;
 
   MaterialProperty<Real> & _testout;
   MaterialProperty<Real> & _testout2;
@@ -72,7 +75,7 @@ protected:
   // other stuff
 
   /// parameters to store the EBSD id and corresponding value on GB
-  std::vector<unsigned int> _gb_pairs;
+  // std::vector<unsigned int> _gb_pairs;
   std::vector<Real> _gb_op_pairs;
   std::vector<unsigned int> _gb_ij_pairs;
   std::vector<unsigned int> _gb_ij_sorted;
@@ -80,5 +83,5 @@ protected:
   // For storing in inclination calc for combination at the end
   std::vector<Real> _hgb_pairs;
   std::vector<Real> _inc_pairs;
-  std::vector<RealGradient> _dincdgradetai_pairs;
+  // std::vector<RealGradient> _dincdgradetai_pairs;
 };

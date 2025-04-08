@@ -4,8 +4,8 @@
 # Created Date: Friday March 7th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday April 7th 2025
-# Modified By: Brandon Battas
+# Last Modified: Tuesday April 8th 2025
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Testing with ebsd mesh for more grains than ops and trying to recreate
@@ -222,10 +222,10 @@
     free_energy_m = 0.9375
     # i_value = 0
     # j_value = 1
-    ebsd_reader = ebsd_reader
+    # ebsd_reader = ebsd_reader
     grain_tracker = grain_tracker
     output_properties = 'inclination_distance inclination_mat01 gamma_inc dgammadgrad_eta0
-    testout testout2 gb_energy dgammadgrad_eta0 incder'
+    testout testout2 gb_energy dgammadgrad_eta_0 d2gammadgrad_eta2_0 incder'
     outputs = 'exodus'
   []
   # [incl_test02]

@@ -22,11 +22,15 @@ GGInclinationMaterial::validParams()
                                         "Name of inclination cos function material output");
   params.addParam<UserObjectName>("grain_tracker",
                                   "The GrainTracker UserObject to get values from.");
-  params.addParam<UserObjectName>("ebsd_reader", "The EBSDReader GeneralUserObject");
+  // params.addParam<UserObjectName>("ebsd_reader", "The EBSDReader GeneralUserObject");
   params.addParam<Real>("delta_ij", 0.05, "Anisotropy weight in cos function");
   params.addParam<Real>("inc_ij_0", 0.0, "Inclination function offset in cos function");
   params.addParam<std::vector<MaterialPropertyName>>(
-      "gamma_grad_eta_names",
+      "dgamma_grad_eta_names",
+      std::vector<MaterialPropertyName>(),
+      "Interfacial / grain boundary gamma parameter names (leave empty for gamma0... gammaN)");
+  params.addParam<std::vector<MaterialPropertyName>>(
+      "d2gamma_grad_eta2_names",
       std::vector<MaterialPropertyName>(),
       "Interfacial / grain boundary gamma parameter names (leave empty for gamma0... gammaN)");
   params.addParam<MaterialPropertyName>("gb_energy_input",
@@ -49,12 +53,14 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _inclination_distance(declareProperty<Real>("inclination_distance")),
     // Grain Tracker/EBSD for GB identification
     _grain_tracker(getUserObject<GrainTracker>("grain_tracker")),
-    _ebsd_reader(getUserObject<EBSDReader>("ebsd_reader")),
+    // _ebsd_reader(getUserObject<EBSDReader>("ebsd_reader")),
     _delta_ij(getParam<Real>("delta_ij")),
     _inc_ij_0(getParam<Real>("inc_ij_0")),
     _gamma(declareProperty<Real>("gamma_inc")),
-    _dgammadgrad_eta_name(getParam<std::vector<MaterialPropertyName>>("gamma_grad_eta_names")),
+    _dgammadgrad_eta_name(getParam<std::vector<MaterialPropertyName>>("dgamma_grad_eta_names")),
     _dgammadgrad_eta(_op_num),
+    _d2gammadgrad_eta2_name(getParam<std::vector<MaterialPropertyName>>("d2gamma_grad_eta2_names")),
+    _d2gammadgrad_eta2(_op_num),
     // TEMP TEST OUTPUTS
     _testout(declareProperty<Real>("testout")),
     _testout2(declareProperty<Real>("testout2")),
@@ -69,7 +75,11 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     mooseError("Model requires op_num > 0");
 
   if (_dgammadgrad_eta_name.size() != 0 && _dgammadgrad_eta_name.size() != _op_num)
-    paramError("gamma_grad_eta_names",
+    paramError("dgamma_grad_eta_names",
+               "Specify either as many entries as op_num values or none at all for auto-naming the "
+               "gamma gradients with respect to gradient of grain OPs.");
+  if (_d2gammadgrad_eta2_name.size() != 0 && _d2gammadgrad_eta2_name.size() != _op_num)
+    paramError("d2gamma_grad_eta2_names",
                "Specify either as many entries as op_num values or none at all for auto-naming the "
                "gamma gradients with respect to gradient of grain OPs.");
 
@@ -78,7 +88,13 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
   {
     _dgammadgrad_eta_name.resize(_op_num);
     for (unsigned int i = 0; i < _op_num; i++)
-      _dgammadgrad_eta_name[i] = "dgammadgrad_eta" + Moose::stringify(i);
+      _dgammadgrad_eta_name[i] = "dgammadgrad_eta_" + Moose::stringify(i);
+  }
+  if (_d2gammadgrad_eta2_name.size() == 0)
+  {
+    _d2gammadgrad_eta2_name.resize(_op_num);
+    for (unsigned int i = 0; i < _op_num; i++)
+      _d2gammadgrad_eta2_name[i] = "d2gammadgrad_eta2_" + Moose::stringify(i);
   }
 
   _vals.resize(_op_num);
@@ -94,6 +110,7 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _incl_tens[i].resize(_op_num);
     _ang_dist[i].resize(_op_num);
     _dgammadgrad_eta[i] = &declareProperty<RealGradient>(_dgammadgrad_eta_name[i]);
+    _d2gammadgrad_eta2[i] = &declareProperty<RealTensorValue>(_d2gammadgrad_eta2_name[i]);
   }
 }
 
@@ -105,7 +122,7 @@ GGInclinationMaterial::computeQpProperties()
     (*_dgammadgrad_eta[i])[_qp] = RealGradient(0.0, 0.0, 0.0);
   // From the ComputeGBMisorientationType:
   // Find out the number of boundary unique_id and save them
-  _gb_pairs.clear();
+  // _gb_pairs.clear();
   _gb_op_pairs.clear();
   _gb_ij_pairs.clear();
 
@@ -125,7 +142,7 @@ GGInclinationMaterial::computeQpProperties()
   std::sort(_gb_ij_sorted.begin(), _gb_ij_sorted.end());
   _hgb_pairs.clear();
   _inc_pairs.clear();
-  _dincdgradetai_pairs.clear();
+  // _dincdgradetai_pairs.clear();
   // std::vector<Real> gb_i_list;
   // gb_i_list.clear();
 
@@ -239,27 +256,27 @@ GGInclinationMaterial::computeQpProperties()
                   }
               }
             }
-            Real temp_dincldgradetaix =
-                (-alpha / R) * ((1 - (uxyz(0) * uxyz(0) * alpha * alpha)) +
-                                (ngb(1) / ngb(0)) * (uxyz(0) * uxyz(1) * alpha * alpha) +
-                                (ngb(2) / ngb(0)) * (uxyz(0) * uxyz(2) * alpha * alpha));
-            Real temp_dincldgradetaiy =
-                (-alpha / R) * ((uxyz(0) * uxyz(1) * alpha * alpha) +
-                                (ngb(1) / ngb(0)) * (1 - (uxyz(1) * uxyz(1) * alpha * alpha)) +
-                                (ngb(2) / ngb(0)) * (uxyz(1) * uxyz(2) * alpha * alpha));
-            Real temp_dincldgradetaiz =
-                (-alpha / R) * ((uxyz(0) * uxyz(2) * alpha * alpha) +
-                                (ngb(1) / ngb(0)) * (uxyz(2) * uxyz(1) * alpha * alpha) +
-                                (ngb(2) / ngb(0)) * (1 - (uxyz(2) * uxyz(2) * alpha * alpha)));
-            dincij_dgradetai =
-                RealGradient(temp_dincldgradetaix, temp_dincldgradetaiy, temp_dincldgradetaiz);
+            // Real temp_dincldgradetaix =
+            //     (-alpha / R) * ((1 - (uxyz(0) * uxyz(0) * alpha * alpha)) +
+            //                     (ngb(1) / ngb(0)) * (uxyz(0) * uxyz(1) * alpha * alpha) +
+            //                     (ngb(2) / ngb(0)) * (uxyz(0) * uxyz(2) * alpha * alpha));
+            // Real temp_dincldgradetaiy =
+            //     (-alpha / R) * ((uxyz(0) * uxyz(1) * alpha * alpha) +
+            //                     (ngb(1) / ngb(0)) * (1 - (uxyz(1) * uxyz(1) * alpha * alpha)) +
+            //                     (ngb(2) / ngb(0)) * (uxyz(1) * uxyz(2) * alpha * alpha));
+            // Real temp_dincldgradetaiz =
+            //     (-alpha / R) * ((uxyz(0) * uxyz(2) * alpha * alpha) +
+            //                     (ngb(1) / ngb(0)) * (uxyz(2) * uxyz(1) * alpha * alpha) +
+            //                     (ngb(2) / ngb(0)) * (1 - (uxyz(2) * uxyz(2) * alpha * alpha)));
+            // dincij_dgradetai =
+            //     RealGradient(temp_dincldgradetaix, temp_dincldgradetaiy, temp_dincldgradetaiz);
           }
           else
           {
             ngb = 0.0;
           }
           _inc_pairs.push_back(a_dist); // Radians // * 180 / M_PI for degrees
-          _dincdgradetai_pairs.push_back(dincij_dgradetai);
+          // _dincdgradetai_pairs.push_back(dincij_dgradetai);
           dinc_dgeta_list.push_back(dinc_dgetai);
           d2inc_dgeta2_list.push_back(d2inc_dgetai2);
         }
@@ -305,8 +322,8 @@ GGInclinationMaterial::computeQpProperties()
         // Weighted partial for p:
         //   w_n * dF_dinc * dinc/d(grad eta_p)
         // const RealGradient & dinc_dGradEta_p = _dincdgradetai_pairs[pair_index];
-        RealGradient partial_p =
-            _hgb_pairs[pair_index] * dF_dinc * _dincdgradetai_pairs[pair_index];
+        // RealGradient partial_p =
+        //     _hgb_pairs[pair_index] * dF_dinc * _dincdgradetai_pairs[pair_index];
         RealGradient df_dgeta_p = _hgb_pairs[pair_index] * dF_dinc * dinc_dgeta_list[pair_index];
         RealTensorValue d2f_dgeta2_p =
             _hgb_pairs[pair_index] *
@@ -317,12 +334,12 @@ GGInclinationMaterial::computeQpProperties()
         // Weighted partial for q:
         //   w_n * dF_dinc * dinc/d(grad eta_q)
         //   But inc = grad p - grad q => derivative wrt grad q is just - partial_p
-        RealGradient partial_q = -partial_p;
-        RealGradient df_dgeta_q = -df_dgeta_p;
+        // RealGradient partial_q = -partial_p;
+        // RealGradient df_dgeta_q = -df_dgeta_p;
 
         // Add to the correct OP i’s derivative
-        dINC_dGradEta[p] += partial_p;
-        dINC_dGradEta[q] += partial_q;
+        // dINC_dGradEta[p] += partial_p;
+        // dINC_dGradEta[q] += partial_q;
         // Alternate
         dfinc_dgeta[p] += df_dgeta_p;
         dfinc_dgeta[q] -= df_dgeta_p;
@@ -334,7 +351,7 @@ GGInclinationMaterial::computeQpProperties()
     }
     for (unsigned int i = 0; i < _op_num; ++i)
     {
-      dINC_dGradEta[i] /= denom;
+      // dINC_dGradEta[i] /= denom;
       dfinc_dgeta[i] /= denom;
       d2finc_dgeta2[i] /= denom;
     }
@@ -347,7 +364,7 @@ GGInclinationMaterial::computeQpProperties()
 
   _gbe_inc[_qp] = _inclination[_qp] * _gbe[_qp];
   Real g = _gbe_inc[_qp] / (std::sqrt(_kappa * _const_m));
-  Real dg_dinc = _gbe[_qp] / (std::sqrt(_kappa * _const_m));
+  Real dg_dfinc = _gbe[_qp] / (std::sqrt(_kappa * _const_m));
   Real g2 = g * g;
   // Hard-coded coefficients (for example purposes)
   constexpr Real a1 = -3.0944; // coefficient for g2^4
@@ -358,13 +375,26 @@ GGInclinationMaterial::computeQpProperties()
 
   Real poly_g = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
   Real dpoly_g_dg2 = 4 * a1 * g2 * g2 * g2 + 3 * a2 * g2 * g2 + 2 * a3 * g2 + a4;
+  Real d2poly_g_dg22 = 12 * a1 * g2 * g2 + 6 * a2 * g2 + 2 * a3;
 
   _gamma[_qp] = 1 / poly_g;
   // // Test gamma function
   // _gamma[_qp] = (((*_grad_vals[0])[_qp]).norm()) * (((*_grad_vals[0])[_qp]).norm());
   for (unsigned int i = 0; i < _op_num; ++i)
+  {
     (*_dgammadgrad_eta[i])[_qp] =
-        -2 * g * _gamma[_qp] * _gamma[_qp] * dpoly_g_dg2 * dg_dinc * dINC_dGradEta[i];
+        -2 * g * _gamma[_qp] * _gamma[_qp] * dpoly_g_dg2 * dg_dfinc * dfinc_dgeta[i];
+    (*_d2gammadgrad_eta2[i])[_qp] =
+        8 * _gamma[_qp] * _gamma[_qp] * _gamma[_qp] * dpoly_g_dg2 * dpoly_g_dg2 * g2 * dg_dfinc *
+            dg_dfinc * libMesh::outer_product(dfinc_dgeta[i], dfinc_dgeta[i]) -
+        _gamma[_qp] * (d2poly_g_dg22 * 4 * g2 * dg_dfinc * dg_dfinc *
+                           libMesh::outer_product(dfinc_dgeta[i], dfinc_dgeta[i]) +
+                       dpoly_g_dg2 * (2 * dg_dfinc * dg_dfinc *
+                                          libMesh::outer_product(dfinc_dgeta[i], dfinc_dgeta[i]) +
+                                      2 * g * dg_dfinc * d2finc_dgeta2[i]));
+  }
+
+  // dINC_dGradEta[i];
 
   // REMEMBER INC here is the f = cos (phi^{\prime})
 
@@ -372,7 +402,7 @@ GGInclinationMaterial::computeQpProperties()
   // _testout2[_qp] = (*_dgammadgrad_eta[0])[_qp](0);
   _testout[_qp] = (*_grad_vals[0])[_qp].norm();
   // _testout2[_qp] = testout_x;
-  _testout2[_qp] = dINC_dGradEta[0].norm();
+  _testout2[_qp] = dfinc_dgeta[0].norm();
 
   _incder_temp[_qp] = dfinc_dgeta[0];
 }
