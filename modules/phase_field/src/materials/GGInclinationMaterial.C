@@ -349,12 +349,13 @@ GGInclinationMaterial::computeQpProperties()
         pair_index++;
       }
     }
-    for (unsigned int i = 0; i < _op_num; ++i)
-    {
-      // dINC_dGradEta[i] /= denom;
-      dfinc_dgeta[i] /= denom;
-      d2finc_dgeta2[i] /= denom;
-    }
+    // for (unsigned int i = 0; i < _op_num; ++i)
+    // {
+    //   // dINC_dGradEta[i] /= denom;
+    //   // Removed the denominator division since the kernels use the grads *eta2*eta2
+    //   // dfinc_dgeta[i] /= denom;
+    //   // d2finc_dgeta2[i] /= denom;
+    // }
   }
   else
   {
