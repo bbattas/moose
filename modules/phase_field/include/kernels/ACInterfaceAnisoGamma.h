@@ -22,18 +22,31 @@ protected:
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
   RealGradient gradL();
-  RealGradient gradKappa();
+  // RealGradient gradKappa();
 
   /// the \f$ \nabla(L\psi) \f$ term
   RealGradient nablaLPsi();
 
-  /// the \f$ \kappa\nabla(L\psi) \f$ term
-  RealGradient kappaNablaLPsi();
+  Real sumSqEtaj();
+
+  // /// the \f$ \kappa\nabla(L\psi) \f$ term
+  // RealGradient kappaNablaLPsi();
 
   /// Mobility
   const MaterialProperty<Real> & _L;
-  /// Interfacial parameter
-  const MaterialProperty<Real> & _kappa;
+
+  // Gamma
+  const MaterialProperty<Real> & _gamma;
+  const MaterialProperty<RealGradient> & _dgammadgrad_op;
+  const MaterialProperty<RealTensorValue> & _d2gammadgrad_op2;
+
+  /// Grain op values from input v = (all other grain ops)
+  const unsigned int _op_num;
+  const std::vector<const VariableValue *> _vals;
+  const std::vector<unsigned int> _vals_var;
+
+  // /// Interfacial parameter
+  // const MaterialProperty<Real> & _kappa;
 
   /// flag set if L is a function of non-linear variables in args
   const bool _variable_L;
@@ -43,8 +56,8 @@ protected:
   const MaterialProperty<Real> & _d2Ldop2;
   /// @}
 
-  /// kappa derivative w.r.t. order parameter
-  const MaterialProperty<Real> & _dkappadop;
+  // /// kappa derivative w.r.t. order parameter
+  // const MaterialProperty<Real> & _dkappadop;
 
   /// @{ Mobility derivative w.r.t. other coupled variables
   std::vector<const MaterialProperty<Real> *> _dLdarg;
@@ -52,8 +65,11 @@ protected:
   std::vector<std::vector<const MaterialProperty<Real> *>> _d2Ldarg2;
   /// @}
 
-  /// kappa derivative w.r.t. other coupled variables
-  std::vector<const MaterialProperty<Real> *> _dkappadarg;
+  // /// kappa derivative w.r.t. other coupled variables
+  // std::vector<const MaterialProperty<Real> *> _dkappadarg;
+  /// Arg values for etsj^2
+  // std::vector<const VariableValue *> _arg;
+  // const std::vector<const VariableValue *> _arg;
 
   /// Gradients for all coupled variables
   std::vector<const VariableGradient *> _gradarg;

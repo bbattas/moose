@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 02_gb_identificiaion.i
-# File Location: /examples/agg/01_initial_testing/02_gb_identification
-# Created Date: Friday March 7th 2025
+# File: 03_kernel_first_tests.i
+# File Location: /examples/agg/01_initial_testing/03_kernel_first_tests
+# Created Date: Wednesday April 16th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Wednesday April 16th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing with ebsd mesh for more grains than ops and trying to recreate
-#   the GB identification for ij from ComputeGBMisorientationType
+#  Still using the same ebsd input from 02 but with the new kernel added?
+#
 #
 #
 ##############################################################################
@@ -17,7 +17,7 @@
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    filename = '2D_500x500_ggTest3.txt'
+    filename = '../02_gb_identification/2D_500x500_ggTest3.txt'
   []
   # uniform_refine = 1
   parallel_type = DISTRIBUTED
@@ -113,6 +113,70 @@
 
 [Kernels]
   [PolycrystalKernel]
+  []
+  [gr0_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr0
+    v = 'gr1 gr2 gr3 gr4 gr5 gr6 gr7'
+    dgamma_dgradop_name = dgammadgrad_eta_0
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_0
+    variable_L = false
+  []
+  [gr1_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr1
+    v = 'gr0 gr2 gr3 gr4 gr5 gr6 gr7'
+    dgamma_dgradop_name = dgammadgrad_eta_1
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_1
+    variable_L = false
+  []
+  [gr2_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr2
+    v = 'gr0 gr1 gr3 gr4 gr5 gr6 gr7'
+    dgamma_dgradop_name = dgammadgrad_eta_2
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_2
+    variable_L = false
+  []
+  [gr3_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr3
+    v = 'gr0 gr1 gr2 gr4 gr5 gr6 gr7'
+    dgamma_dgradop_name = dgammadgrad_eta_3
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_3
+    variable_L = false
+  []
+  [gr4_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr4
+    v = 'gr0 gr1 gr2 gr3 gr5 gr6 gr7'
+    dgamma_dgradop_name = dgammadgrad_eta_4
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_4
+    variable_L = false
+  []
+  [gr5_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr5
+    v = 'gr0 gr1 gr2 gr3 gr4 gr6 gr7'
+    dgamma_dgradop_name = dgammadgrad_eta_5
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_5
+    variable_L = false
+  []
+  [gr6_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr6
+    v = 'gr0 gr1 gr2 gr3 gr4 gr5 gr7'
+    dgamma_dgradop_name = dgammadgrad_eta_6
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_6
+    variable_L = false
+  []
+  [gr7_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr7
+    v = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6'
+    dgamma_dgradop_name = dgammadgrad_eta_7
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_7
+    variable_L = false
   []
 []
 
@@ -269,15 +333,22 @@
     expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5 + gr6 + gr7'
     outputs = 'exodus'
   []
-  [Lij_test]
+  # [Lij_test]
+  #   type = ParsedMaterial
+  #   property_name = Lij_test
+  #   constant_names = 'L01 L02 L03 L04 L05 L06 L07'
+  #   constant_expressions = '1 2 3 4 5 6 7'
+  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
+  #   expression = '(L01*(gr0^2*gr1^2) + L02*(gr0^2*gr2^2) + L03*(gr0^2*gr3^2)
+  #    + L04*(gr0^2*gr4^2) + L05*(gr0^2*gr5^2) + L06*(gr0^2*gr6^2) + L07*(gr0^2*gr7^2)) / (
+  #      gr0^2*gr1^2 + gr0^2*gr2^2 + gr0^2*gr3^2 + gr0^2*gr4^2 + gr0^2*gr5^2 + gr0^2*gr6^2 + gr0^2*gr7^2)'
+  #   outputs = 'exodus'
+  # []
+  [L_check]
     type = ParsedMaterial
-    property_name = Lij_test
-    constant_names = 'L01 L02 L03 L04 L05 L06 L07'
-    constant_expressions = '1 2 3 4 5 6 7'
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-    expression = '(L01*(gr0^2*gr1^2) + L02*(gr0^2*gr2^2) + L03*(gr0^2*gr3^2)
-     + L04*(gr0^2*gr4^2) + L05*(gr0^2*gr5^2) + L06*(gr0^2*gr6^2) + L07*(gr0^2*gr7^2)) / (
-       gr0^2*gr1^2 + gr0^2*gr2^2 + gr0^2*gr3^2 + gr0^2*gr4^2 + gr0^2*gr5^2 + gr0^2*gr6^2 + gr0^2*gr7^2)'
+    property_name = L_check
+    material_property_names = 'L'
+    expression = 'L'
     outputs = 'exodus'
   []
   [sigma_preinc]
@@ -319,7 +390,7 @@
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
 
   start_time = 0.0
-  num_steps = 5
+  num_steps = 25
   dt = 0.1
 []
 
