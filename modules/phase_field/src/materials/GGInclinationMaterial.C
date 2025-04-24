@@ -39,6 +39,10 @@ GGInclinationMaterial::validParams()
       "gb_energy", "gb_energy", "Inclination dependent GB energy output.");
   params.addParam<Real>("kappa", 1, "Gradient energy constant kappa value");
   params.addParam<Real>("free_energy_m", 1, "Free energy function constant m");
+  params.addParam<bool>(
+      "L_of_eta", false, "Is L a function of eta, requiring those derivatives to be defined.");
+  params.addParam<MaterialPropertyName>("L0", "AC mobility prefactor/reference value material.");
+  params.addParam<MaterialPropertyName>("L_name", "L_aniso", "Name of anisotropic L output.");
   return params;
 }
 
@@ -47,6 +51,7 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     // : Material(parameters),
     _op_num(coupledComponents("v")),
     _vals(coupledValues("v")),
+    _vals_name(_op_num),
     // Inclination cos function
     _inclination(declareProperty<Real>(getParam<MaterialPropertyName>("inclination_name"))),
     // Angular distance to the x axis
@@ -61,18 +66,34 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _dgammadgrad_eta(_op_num),
     _d2gammadgrad_eta2_name(getParam<std::vector<MaterialPropertyName>>("d2gamma_grad_eta2_names")),
     _d2gammadgrad_eta2(_op_num),
+    // Inclincation dependent L
+    _L_of_eta(getParam<bool>("L_of_eta")),
+    _L_name(getParam<MaterialPropertyName>("L_name")),
+    _L(declareProperty<Real>(_L_name)),
+    _dLdeta(_op_num),
+    _d2Ldetadeta(_op_num),
+    _dLdgrad_eta_name(_op_num),
+    _dLdgrad_eta(_op_num),
+    _d2Ldgrad_eta2_name(_op_num),
+    _d2Ldgrad_eta2(_op_num),
+    _d2Ldetadgrad_eta(_op_num),
     // TEMP TEST OUTPUTS
     _testout(declareProperty<Real>("testout")),
     _testout2(declareProperty<Real>("testout2")),
     _incder_temp(declareProperty<RealGradient>("incder")),
+    // Other material properties
     _gbe(getMaterialProperty<Real>("gb_energy_input")),
     _gbe_inc(declareProperty<Real>(getParam<MaterialPropertyName>("gb_energy"))),
     _kappa(getParam<Real>("kappa")),
-    _const_m(getParam<Real>("free_energy_m"))
+    _const_m(getParam<Real>("free_energy_m")),
+    _L0(getMaterialProperty<Real>("L0"))
 
 {
   if (_op_num == 0)
     mooseError("Model requires op_num > 0");
+
+  if (_L_of_eta)
+    mooseError("Inclination L currently only coded for grad u dependent, not u dependent.");
 
   if (_dgammadgrad_eta_name.size() != 0 && _dgammadgrad_eta_name.size() != _op_num)
     paramError("dgamma_grad_eta_names",
@@ -105,12 +126,27 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
   for (unsigned int i = 0; i < _op_num; ++i)
   {
     _vals[i] = &coupledValue("v", i);
+    _vals_name[i] = coupledName("v", i);
     _grad_vals[i] = &coupledGradient("v", i);
     // Build the ij tensor/matrix of inclinations
     _incl_tens[i].resize(_op_num);
     _ang_dist[i].resize(_op_num);
     _dgammadgrad_eta[i] = &declareProperty<RealGradient>(_dgammadgrad_eta_name[i]);
     _d2gammadgrad_eta2[i] = &declareProperty<RealTensorValue>(_d2gammadgrad_eta2_name[i]);
+    // L derivatives
+    _dLdeta[i] = &declarePropertyDerivative<Real>(_L_name, _vals_name[i]);
+    _d2Ldetadeta[i].resize(_op_num);
+    _dLdgrad_eta_name[i] = "dLdgrad_eta_" + Moose::stringify(i);
+    _dLdgrad_eta[i] = &declareProperty<RealGradient>(_dLdgrad_eta_name[i]);
+    _d2Ldgrad_eta2_name[i] = "d2Ldgrad_eta2_" + Moose::stringify(i);
+    _d2Ldgrad_eta2[i] = &declareProperty<RealTensorValue>(_d2Ldgrad_eta2_name[i]);
+    _d2Ldetadgrad_eta[i] =
+        &declarePropertyDerivative<RealGradient>(_dLdgrad_eta_name[i], _vals_name[i]);
+    // _d2Ldetadgrad_eta[i].resize(_op_num); // only using same eta for eta and grad eta here
+    for (unsigned int j = 0; j <= i; ++j)
+    {
+      _d2Ldetadeta[j][i] = &declarePropertyDerivative<Real>(_L_name, _vals_name[j], _vals_name[i]);
+    }
   }
 }
 
@@ -389,10 +425,18 @@ GGInclinationMaterial::computeQpProperties()
   Real d2poly_g_dg22 = 12 * a1 * g2 * g2 + 6 * a2 * g2 + 2 * a3;
 
   _gamma[_qp] = 1 / poly_g;
-  // // Test gamma function
-  // _gamma[_qp] = (((*_grad_vals[0])[_qp]).norm()) * (((*_grad_vals[0])[_qp]).norm());
+  // Build Anisotropic L
+  // If gb mobility were a different f we would use that instead of 2 of the gb energy ones
+  // These are basically placeholders so that the L derivations will still work if we change these
+  Real & finc_m = _inclination[_qp];
+  std::vector<RealGradient> & dfinc_m_dgeta = dfinc_dgeta;
+  std::vector<RealTensorValue> & d2finc_m_dgeta2 = d2finc_dgeta2;
+  // Now for L
+  _L[_qp] = _L0[_qp] * _inclination[_qp] * finc_m;
+
   for (unsigned int i = 0; i < _op_num; ++i)
   {
+    // gamma derivatives
     (*_dgammadgrad_eta[i])[_qp] =
         -2 * g * _gamma[_qp] * _gamma[_qp] * dpoly_g_dg2 * dg_dfinc * dfinc_dgeta[i];
     (*_d2gammadgrad_eta2[i])[_qp] =
@@ -403,6 +447,34 @@ GGInclinationMaterial::computeQpProperties()
                        dpoly_g_dg2 * (2 * dg_dfinc * dg_dfinc *
                                           libMesh::outer_product(dfinc_dgeta[i], dfinc_dgeta[i]) +
                                       2 * g * dg_dfinc * d2finc_dgeta2[i]));
+    if (_L_of_eta)
+    {
+      // Put the actual derivative here if L = f(u)
+      // (*_dLdeta[i])[_qp] = 0.0;
+      // for (unsigned int j = 0; j < i; ++j)
+      //   (*_d2Ldetadeta[j][i])[_qp] = 0.0;
+      // (*_d2Ldetadgrad_eta[i])[_qp] = RealGradient(0.0);
+      // (*_dLdgrad_eta[i])[_qp] =
+      //     _L0[_qp] * (_inclination[_qp] * dfinc_m_dgeta[i] + dfinc_dgeta[i] * finc_m);
+      // (*_d2Ldgrad_eta2[i])[_qp] =
+      //     _L0[_qp] * (_inclination[_qp] * d2finc_m_dgeta2[i] +
+      //                 2 * libMesh::outer_product(dfinc_m_dgeta[i], dfinc_dgeta[i]) +
+      //                 d2finc_dgeta2[i] * finc_m);
+    }
+    else
+    {
+      // Not a function of u
+      (*_dLdeta[i])[_qp] = 0.0;
+      for (unsigned int j = 0; j < i; ++j)
+        (*_d2Ldetadeta[j][i])[_qp] = 0.0;
+      (*_d2Ldetadgrad_eta[i])[_qp] = RealGradient(0.0);
+      (*_dLdgrad_eta[i])[_qp] =
+          _L0[_qp] * (_inclination[_qp] * dfinc_m_dgeta[i] + dfinc_dgeta[i] * finc_m);
+      (*_d2Ldgrad_eta2[i])[_qp] =
+          _L0[_qp] * (_inclination[_qp] * d2finc_m_dgeta2[i] +
+                      2 * libMesh::outer_product(dfinc_m_dgeta[i], dfinc_dgeta[i]) +
+                      d2finc_dgeta2[i] * finc_m);
+    }
   }
 
   // dINC_dGradEta[i];

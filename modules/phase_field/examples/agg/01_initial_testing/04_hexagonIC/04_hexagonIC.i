@@ -1,30 +1,38 @@
 ##############################################################################
-# File: 02_gb_identificiaion.i
-# File Location: /examples/agg/01_initial_testing/02_gb_identification
-# Created Date: Friday March 7th 2025
+# File: 04_hexagonIC.i
+# File Location: /examples/agg/01_initial_testing/04_hexagonIC
+# Created Date: Thursday April 24th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday April 24th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing with ebsd mesh for more grains than ops and trying to recreate
-#   the GB identification for ij from ComputeGBMisorientationType
+#  a hexagon IC for the kernel building tests instead of the previous ebsd one
+#
 #
 #
 ##############################################################################
 
 [Mesh]
-  [ebsd_mesh]
-    type = EBSDMeshGenerator
-    filename = '2D_500x500_ggTest3.txt'
-  []
-  # uniform_refine = 1
+  type = GeneratedMesh
+  dim = 2
+  nx = 40
+  ny = 40
+  nz = 0
+  xmin = 0
+  xmax = 1000
+  ymin = 0
+  ymax = 1000
+  zmin = 0
+  zmax = 0
+  elem_type = QUAD4
   parallel_type = DISTRIBUTED
+  uniform_refine = 1
 []
 
 [GlobalParams]
-  op_num = 10
+  op_num = 4
   var_name_base = 'gr'
 []
 
@@ -34,15 +42,11 @@
 []
 
 [UserObjects]
-  [ebsd_reader]
-    type = EBSDReader
-  []
-  [ebsd]
-    type = PolycrystalEBSD
+  [hex_ic]
+    type = PolycrystalHex
     coloring_algorithm = bt
-    ebsd_reader = ebsd_reader
-    enable_var_coloring = true
-    # output_adjacency_matrix = true
+    x_offset = .5
+    grain_num = 4
   []
   [grain_tracker]
     type = GrainTracker
@@ -58,7 +62,15 @@
 [ICs]
   [PolycrystalICs]
     [PolycrystalColoringIC]
-      polycrystal_ic_uo = ebsd
+      polycrystal_ic_uo = hex_ic
+    []
+  []
+[]
+
+[BCs]
+  [Periodic]
+    [All]
+      auto_direction = 'x y'
     []
   []
 []
@@ -80,14 +92,14 @@
     order = CONSTANT
     family = MONOMIAL
   []
-  [ebsd_ic]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [ebsd_grains]
-    order = CONSTANT
-    family = MONOMIAL
-  []
+  # [ebsd_ic]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [ebsd_grains]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
   # Halos
   [halos]
     order = CONSTANT
@@ -114,6 +126,38 @@
 [Kernels]
   [PolycrystalKernel]
   []
+  # [gr0_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr0
+  #   v = 'gr1 gr2 gr3'
+  #   dgamma_dgradop_name = dgammadgrad_eta_0
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_0
+  #   variable_L = false
+  # []
+  # [gr1_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr1
+  #   v = 'gr0 gr2 gr3'
+  #   dgamma_dgradop_name = dgammadgrad_eta_1
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_1
+  #   variable_L = false
+  # []
+  # [gr2_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr2
+  #   v = 'gr0 gr1 gr3'
+  #   dgamma_dgradop_name = dgammadgrad_eta_2
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_2
+  #   variable_L = false
+  # []
+  # [gr3_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr3
+  #   v = 'gr0 gr1 gr2'
+  #   dgamma_dgradop_name = dgammadgrad_eta_3
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_3
+  #   variable_L = false
+  # []
 []
 
 [AuxKernels]
@@ -143,21 +187,21 @@
     field_display = GHOSTED_ENTITIES
     execute_on = 'initial timestep_end'
   []
-  [ebsd_ic_aux]
-    type = EBSDReaderPointDataAux
-    variable = ebsd_ic
-    ebsd_reader = ebsd_reader
-    data_name = 'feature_id'
-    execute_on = 'initial timestep_end'
-  []
-  [ebsd_grains]
-    type = EBSDReaderAvgDataAux
-    data_name = 'feature_id'
-    ebsd_reader = ebsd_reader
-    grain_tracker = grain_tracker
-    variable = ebsd_grains
-    execute_on = 'initial timestep_end'
-  []
+  # [ebsd_ic_aux]
+  #   type = EBSDReaderPointDataAux
+  #   variable = ebsd_ic
+  #   ebsd_reader = ebsd_reader
+  #   data_name = 'feature_id'
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [ebsd_grains]
+  #   type = EBSDReaderAvgDataAux
+  #   data_name = 'feature_id'
+  #   ebsd_reader = ebsd_reader
+  #   grain_tracker = grain_tracker
+  #   variable = ebsd_grains
+  #   execute_on = 'initial timestep_end'
+  # []
   [halos]
     type = FeatureFloodCountAux
     variable = halos
@@ -220,12 +264,15 @@
     gb_energy_input = sigma_preinc
     kappa = 0.3
     free_energy_m = 0.9375
+    L0 = L_0
+    L_name = L_aniso
     # i_value = 0
     # j_value = 1
     # ebsd_reader = ebsd_reader
     grain_tracker = grain_tracker
-    output_properties = 'inclination_distance inclination_mat01 gamma_aniso dgammadgrad_eta0
-    testout testout2 gb_energy dgammadgrad_eta_0 d2gammadgrad_eta2_0 incder'
+    # output_properties = 'inclination_distance inclination_mat01 gamma_aniso dgammadgrad_eta0
+    # testout testout2 gb_energy dgammadgrad_eta_0 d2gammadgrad_eta2_0 incder'
+    output_properties = 'gamma_aniso L_aniso gb_energy'
     outputs = 'exodus'
   []
   # [incl_test02]
@@ -241,13 +288,13 @@
   #   j_value = 2
   #   outputs = 'exodus'
   # []
-  [incl_01]
-    type = ParsedMaterial
-    property_name = incl_01
-    material_property_names = 'inclination_mat01'
-    expression = 'inclination_mat01'
-    outputs = 'exodus'
-  []
+  # [incl_01]
+  #   type = ParsedMaterial
+  #   property_name = incl_01
+  #   material_property_names = 'inclination_mat01'
+  #   expression = 'inclination_mat01'
+  #   outputs = 'exodus'
+  # []
   # [incl_02]
   #   type = ParsedMaterial
   #   property_name = incl_02
@@ -265,19 +312,31 @@
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9'
-    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9'
+    coupled_variables = 'gr0 gr1 gr2 gr3'
+    expression = 'gr0 + gr1 + gr2 + gr3'
     outputs = 'exodus'
   []
-  [Lij_test]
+  # [Lij_test]
+  #   type = ParsedMaterial
+  #   property_name = Lij_test
+  #   constant_names = 'L01 L02 L03 L04 L05 L06 L07'
+  #   constant_expressions = '1 2 3 4 5 6 7'
+  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
+  #   expression = '(L01*(gr0^2*gr1^2) + L02*(gr0^2*gr2^2) + L03*(gr0^2*gr3^2)
+  #    + L04*(gr0^2*gr4^2) + L05*(gr0^2*gr5^2) + L06*(gr0^2*gr6^2) + L07*(gr0^2*gr7^2)) / (
+  #      gr0^2*gr1^2 + gr0^2*gr2^2 + gr0^2*gr3^2 + gr0^2*gr4^2 + gr0^2*gr5^2 + gr0^2*gr6^2 + gr0^2*gr7^2)'
+  #   outputs = 'exodus'
+  # []
+  [L_0]
     type = ParsedMaterial
-    property_name = Lij_test
-    constant_names = 'L01 L02 L03 L04 L05 L06 L07'
-    constant_expressions = '1 2 3 4 5 6 7'
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-    expression = '(L01*(gr0^2*gr1^2) + L02*(gr0^2*gr2^2) + L03*(gr0^2*gr3^2)
-     + L04*(gr0^2*gr4^2) + L05*(gr0^2*gr5^2) + L06*(gr0^2*gr6^2) + L07*(gr0^2*gr7^2)) / (
-       gr0^2*gr1^2 + gr0^2*gr2^2 + gr0^2*gr3^2 + gr0^2*gr4^2 + gr0^2*gr5^2 + gr0^2*gr6^2 + gr0^2*gr7^2)'
+    property_name = L_0
+    expression = '1.0'
+  []
+  [L_check]
+    type = ParsedMaterial
+    property_name = L_check
+    material_property_names = 'L'
+    expression = 'L'
     outputs = 'exodus'
   []
   [sigma_preinc]
@@ -319,7 +378,7 @@
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
 
   start_time = 0.0
-  num_steps = 5
+  num_steps = 50
   dt = 0.1
 []
 

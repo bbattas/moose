@@ -30,6 +30,7 @@ protected:
   const unsigned int _op_num;
 
   std::vector<const VariableValue *> _vals;
+  std::vector<VariableName> _vals_name;
   std::vector<const VariableGradient *> _grad_vals;
   std::vector<std::vector<RealGradient>> _incl_tens;
   std::vector<std::vector<Real>> _ang_dist;
@@ -62,6 +63,19 @@ protected:
   std::vector<MaterialPropertyName> _d2gammadgrad_eta2_name;
   std::vector<MaterialProperty<RealTensorValue> *> _d2gammadgrad_eta2;
 
+  // L mobility parameters
+  const bool _L_of_eta;
+  const MaterialPropertyName _L_name;
+  MaterialProperty<Real> & _L;
+  std::vector<MaterialProperty<Real> *> _dLdeta;
+  std::vector<std::vector<MaterialProperty<Real> *>> _d2Ldetadeta;
+  // Gradient derivatives
+  std::vector<MaterialPropertyName> _dLdgrad_eta_name;
+  std::vector<MaterialProperty<RealGradient> *> _dLdgrad_eta;
+  std::vector<MaterialPropertyName> _d2Ldgrad_eta2_name;
+  std::vector<MaterialProperty<RealTensorValue> *> _d2Ldgrad_eta2;
+  std::vector<MaterialProperty<RealGradient> *> _d2Ldetadgrad_eta;
+
   MaterialProperty<Real> & _testout;
   MaterialProperty<Real> & _testout2;
   MaterialProperty<RealGradient> & _incder_temp;
@@ -71,6 +85,8 @@ protected:
 
   Real _kappa;
   Real _const_m;
+
+  const MaterialProperty<Real> & _L0;
 
   // other stuff
 
