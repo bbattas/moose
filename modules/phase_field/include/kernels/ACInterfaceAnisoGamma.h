@@ -32,6 +32,12 @@ protected:
   // /// the \f$ \kappa\nabla(L\psi) \f$ term
   // RealGradient kappaNablaLPsi();
 
+  ///@{ Variables for second order derivatives
+  const VariableSecond & _second_u;
+  const VariableTestSecond & _second_test;
+  const VariablePhiSecond & _second_phi;
+  ///@}
+
   /// Mobility
   const MaterialProperty<Real> & _L;
 
@@ -56,6 +62,10 @@ protected:
   const MaterialProperty<Real> & _d2Ldop2;
   /// @}
 
+  const MaterialProperty<RealGradient> & _dLdgrad_op;
+  const MaterialProperty<RealTensorValue> & _d2Ldgrad_op2;
+  const MaterialProperty<RealGradient> & _dLdopdgrad_op;
+
   // /// kappa derivative w.r.t. order parameter
   // const MaterialProperty<Real> & _dkappadop;
 
@@ -64,6 +74,8 @@ protected:
   std::vector<const MaterialProperty<Real> *> _d2Ldargdop;
   std::vector<std::vector<const MaterialProperty<Real> *>> _d2Ldarg2;
   /// @}
+  std::vector<const MaterialProperty<RealGradient> *> _dLdgradarg;
+  std::vector<const MaterialProperty<RealTensorValue> *> _d2Ldgradarg2;
 
   // /// kappa derivative w.r.t. other coupled variables
   // std::vector<const MaterialProperty<Real> *> _dkappadarg;
@@ -73,4 +85,5 @@ protected:
 
   /// Gradients for all coupled variables
   std::vector<const VariableGradient *> _gradarg;
+  std::vector<const VariableSecond *> _second_arg;
 };

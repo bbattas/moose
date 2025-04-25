@@ -4,7 +4,7 @@
 # Created Date: Thursday April 24th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday April 24th 2025
+# Last Modified: Friday April 25th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -126,14 +126,17 @@
 [Kernels]
   [PolycrystalKernel]
   []
-  # [gr0_ACIaniso]
-  #   type = ACInterfaceAnisoGamma
-  #   variable = gr0
-  #   v = 'gr1 gr2 gr3'
-  #   dgamma_dgradop_name = dgammadgrad_eta_0
-  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_0
-  #   variable_L = false
-  # []
+  [gr0_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr0
+    v = 'gr1 gr2 gr3'
+    # coupled_variables = 'gr1 gr2 gr3'
+    dgamma_dgradop_name = dgammadgrad_eta_0
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_0
+    dL_dgradop_name = dLdgrad_eta_0
+    d2L_dgradop2_name = d2Ldgrad_eta2_0
+    variable_L = false
+  []
   # [gr1_ACIaniso]
   #   type = ACInterfaceAnisoGamma
   #   variable = gr1
@@ -384,4 +387,5 @@
 
 [Outputs]
   exodus = true
+  console = true
 []

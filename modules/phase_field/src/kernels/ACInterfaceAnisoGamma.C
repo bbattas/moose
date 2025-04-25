@@ -23,6 +23,12 @@ ACInterfaceAnisoGamma::validParams()
   params.addParam<MaterialPropertyName>(
       "d2gamma_dgradop2_name",
       "The 2nd derivative of gamma with respect to the gradient of the variable being operated on");
+  params.addParam<MaterialPropertyName>(
+      "dL_dgradop_name",
+      "The derivative of L with respect to the gradient of the variable being operated on");
+  params.addParam<MaterialPropertyName>(
+      "d2L_dgradop2_name",
+      "The 2nd derivative of L with respect to the gradient of the variable being operated on");
   // params.addParam<MaterialPropertyName>("kappa_name", "kappa_op", "The kappa used with the
   // kernel");
   params.addParam<bool>("variable_L",
@@ -37,6 +43,10 @@ ACInterfaceAnisoGamma::validParams()
 
 ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
   : DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>>(parameters),
+    // Second order values needed for $L=f(\nabla u)$
+    _second_u(second()),
+    _second_test(secondTest()),
+    _second_phi(secondPhi()),
     _L(getMaterialProperty<Real>("mob_name")),
     _gamma(getMaterialProperty<Real>("gamma_aniso")), // gamma_asymm is the normal name change later
     _dgammadgrad_op(getMaterialProperty<RealGradient>("dgamma_dgradop_name")),
@@ -48,17 +58,23 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
     _variable_L(getParam<bool>("variable_L")),
     _dLdop(getMaterialPropertyDerivative<Real>("mob_name", _var.name())),
     _d2Ldop2(getMaterialPropertyDerivative<Real>("mob_name", _var.name(), _var.name())),
-    // _dkappadop(getMaterialPropertyDerivative<Real>("kappa_name", _var.name())),
+    _dLdgrad_op(getMaterialProperty<RealGradient>("dL_dgradop_name")),
+    _d2Ldgrad_op2(getMaterialProperty<RealTensorValue>("d2L_dgradop2_name")),
+    _dLdopdgrad_op(getMaterialPropertyDerivative<RealGradient>("dL_dgradop_name", _var.name())),
     _dLdarg(_n_args),
     _d2Ldargdop(_n_args),
     _d2Ldarg2(_n_args),
+    _dLdgradarg(_n_args),
+    _d2Ldgradarg2(_n_args),
     // _dkappadarg(_n_args),
     // _arg(_n_args),
-    _gradarg(_n_args)
+    _gradarg(_n_args),
+    _second_arg(_n_args)
 {
   // Get mobility and kappa derivatives and coupled variable gradients
   for (unsigned int i = 0; i < _n_args; ++i)
   {
+    mooseWarning("Into initial");
     MooseVariable * ivar = _coupled_standard_moose_vars[i];
     const VariableName iname = ivar->name();
     if (iname == _var.name())
@@ -71,18 +87,31 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
                    "The kernel variable should not be specified in the coupled `coupled_variables` "
                    "parameter.");
     }
+    // ID the number at the end of the args to determine which dLdgrad to use
+    const std::size_t pos = iname.find_last_not_of("0123456789");
+    if (pos == std::string::npos || pos + 1 == iname.size())
+      mooseError("Variable '", iname, "' does not end in a numeric suffix.");
+    const std::string digits = iname.substr(pos + 1);
 
     _dLdarg[i] = &getMaterialPropertyDerivative<Real>("mob_name", i);
     // _dkappadarg[i] = &getMaterialPropertyDerivative<Real>("kappa_name", i);
     _d2Ldargdop[i] = &getMaterialPropertyDerivative<Real>("mob_name", iname, _var.name());
 
-    // _arg[i] = ivar;
     _gradarg[i] = &(ivar->gradSln());
+    // _gradarg[i] = &coupledGradient(ivar->name());
+    _second_arg[i] = &(ivar->secondSln());
 
     _d2Ldarg2[i].resize(_n_args);
     for (unsigned int j = 0; j < _n_args; ++j)
       _d2Ldarg2[i][j] = &getMaterialPropertyDerivative<Real>("mob_name", i, j);
+
+    _dLdgradarg[i] = &getMaterialProperty<RealGradient>("dLdgrad_eta_" + digits);
+    _d2Ldgradarg2[i] = &getMaterialProperty<RealTensorValue>("d2Ldgrad_eta2_" + digits);
+
+    // mooseWarning("debug: _n_args = ", _coupled_standard_moose_vars[i]->name());
+    // mooseWarning("debug: number = ", "dLdgrad_eta_" + digits);
   }
+  // mooseWarning("debug: _n_args = ", _n_args);
 }
 
 void
@@ -96,8 +125,12 @@ RealGradient
 ACInterfaceAnisoGamma::gradL() // no changes yet
 {
   RealGradient g = _grad_u[_qp] * _dLdop[_qp];
+  g += _second_u[_qp] * _dLdgrad_op[_qp];
   for (unsigned int i = 0; i < _n_args; ++i)
+  {
     g += (*_gradarg[i])[_qp] * (*_dLdarg[i])[_qp];
+    g += (*_second_arg[i])[_qp] * (*_dLdgradarg[i])[_qp];
+  }
   return g;
 }
 
