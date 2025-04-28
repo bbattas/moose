@@ -1,16 +1,16 @@
 ##############################################################################
-# File: 04_hexagonIC.i
-# File Location: /examples/agg/01_initial_testing/04_hexagonIC
-# Created Date: Thursday April 24th 2025
-# Author: Brandon Battas (bbattas@ufl.edu)
+# File: 05.2_hexagon_manual_isoPlusMyKernel.i
+# File Location: /examples/agg/01_initial_testing/05_hexagon_manual
+# Created Date: Monday April 28th 2025
+# Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday April 28th 2025
 # Modified By: Battas,Brandon Scott
 # -----
 # Description:
-#  a hexagon IC for the kernel building tests instead of the previous ebsd one
-#
-#
+#  Hexagon IC but without the GBEvolution material so i can specify things
+#   all manually for the GG problem
+#  Fully Iso version PLUS my new kernel (using the aniso parts only for that)
 #
 ##############################################################################
 
@@ -21,9 +21,9 @@
   ny = 40
   nz = 0
   xmin = 0
-  xmax = 1000
+  xmax = 16 #1000
   ymin = 0
-  ymax = 1000
+  ymax = 16 #1000
   zmin = 0
   zmax = 0
   elem_type = QUAD4
@@ -123,9 +123,18 @@
   []
 []
 
-[Kernels]
-  [PolycrystalKernel]
+[Modules]
+  [PhaseField]
+    [GrainGrowth]
+      mobility = L0
+      kappa = kappa
+    []
   []
+[]
+
+[Kernels]
+  # [PolycrystalKernel]
+  # []
   [gr0_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr0
@@ -133,34 +142,44 @@
     # coupled_variables = 'gr1 gr2 gr3'
     dgamma_dgradop_name = dgammadgrad_eta_0
     d2gamma_dgradop2_name = d2gammadgrad_eta2_0
+    mob_name = L_aniso
     dL_dgradop_name = dLdgrad_eta_0
     d2L_dgradop2_name = d2Ldgrad_eta2_0
     variable_L = true
   []
-  # [gr1_ACIaniso]
-  #   type = ACInterfaceAnisoGamma
-  #   variable = gr1
-  #   v = 'gr0 gr2 gr3'
-  #   dgamma_dgradop_name = dgammadgrad_eta_1
-  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_1
-  #   variable_L = false
-  # []
-  # [gr2_ACIaniso]
-  #   type = ACInterfaceAnisoGamma
-  #   variable = gr2
-  #   v = 'gr0 gr1 gr3'
-  #   dgamma_dgradop_name = dgammadgrad_eta_2
-  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_2
-  #   variable_L = false
-  # []
-  # [gr3_ACIaniso]
-  #   type = ACInterfaceAnisoGamma
-  #   variable = gr3
-  #   v = 'gr0 gr1 gr2'
-  #   dgamma_dgradop_name = dgammadgrad_eta_3
-  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_3
-  #   variable_L = false
-  # []
+  [gr1_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr1
+    v = 'gr0 gr2 gr3'
+    dgamma_dgradop_name = dgammadgrad_eta_1
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_1
+    mob_name = L_aniso
+    dL_dgradop_name = dLdgrad_eta_1
+    d2L_dgradop2_name = d2Ldgrad_eta2_1
+    variable_L = true
+  []
+  [gr2_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr2
+    v = 'gr0 gr1 gr3'
+    dgamma_dgradop_name = dgammadgrad_eta_2
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_2
+    mob_name = L_aniso
+    dL_dgradop_name = dLdgrad_eta_2
+    d2L_dgradop2_name = d2Ldgrad_eta2_2
+    variable_L = true
+  []
+  [gr3_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr3
+    v = 'gr0 gr1 gr2'
+    dgamma_dgradop_name = dgammadgrad_eta_3
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_3
+    mob_name = L_aniso
+    dL_dgradop_name = dLdgrad_eta_3
+    d2L_dgradop2_name = d2Ldgrad_eta2_3
+    variable_L = true
+  []
 []
 
 [AuxKernels]
@@ -252,101 +271,46 @@
 # []
 
 [Materials]
-  [Moly_GB]
-    type = GBEvolution
-    time_scale = 1.0
-    GBmob0 = 3.986e-6
-    T = 500 # K
-    wGB = 60 # nm
-    Q = 1.0307
-    GBenergy = 2.4
+  # [Moly_GB]
+  #   type = GBEvolution
+  #   time_scale = 1.0
+  #   GBmob0 = 3.986e-6
+  #   T = 500 # K
+  #   wGB = 60 # nm
+  #   Q = 1.0307
+  #   GBenergy = 2.4
+  # []
+  # [constants]
+  #   type = GenericConstantMaterial
+  #   prop_names = 'L0 kappa const_m gamma_iso iw_iso gbe_iso'
+  #   prop_values = '1.0 0.3 0.9375   1.5       1.55    0.25'
+  # []
+  [iso_constants]
+    type = GenericConstantMaterial
+    prop_names = 'L0 kappa const_m gamma_asymm gamma_iso iw_iso gbe_iso mu'
+    prop_values = '1.0 0.3 0.9375   1.5           1.5     1.55   0.25  0.85'
   []
   [incl_test01]
     type = GGInclinationMaterial
-    inclination_name = inclination_mat01
-    gb_energy_input = sigma_preinc
-    kappa = 0.3
-    free_energy_m = 0.9375
-    L0 = L_0
-    L_name = L_aniso
-    # i_value = 0
-    # j_value = 1
-    # ebsd_reader = ebsd_reader
     grain_tracker = grain_tracker
-    # output_properties = 'inclination_distance inclination_mat01 gamma_aniso dgammadgrad_eta0
-    # testout testout2 gb_energy dgammadgrad_eta_0 d2gammadgrad_eta2_0 incder'
-    output_properties = 'gamma_aniso L_aniso gb_energy'
+    gb_energy_input = gbe_iso
+    kappa = 0.3 #kappa
+    free_energy_m = 0.9375 #const_m
+    L0 = L0
+    gamma0 = gamma_iso
+    # Output Names
+    inclination_name = inclination_mat
+    L_name = L_aniso
+    gamma_name = gamma_aniso
+    mu_name = mu_aniso
+    output_properties = 'gamma_aniso L_aniso mu_aniso gb_energy int_width'
     outputs = 'exodus'
   []
-  # [incl_test02]
-  #   type = GGInclinationMaterial
-  #   inclination_name = inclination_mat02
-  #   i_value = 0
-  #   j_value = 2
-  # []
-  # [incl_test12]
-  #   type = GGInclinationMaterial
-  #   inclination_name = inclination_mat12
-  #   i_value = 1
-  #   j_value = 2
-  #   outputs = 'exodus'
-  # []
-  # [incl_01]
-  #   type = ParsedMaterial
-  #   property_name = incl_01
-  #   material_property_names = 'inclination_mat01'
-  #   expression = 'inclination_mat01'
-  #   outputs = 'exodus'
-  # []
-  # [incl_02]
-  #   type = ParsedMaterial
-  #   property_name = incl_02
-  #   material_property_names = 'inclination_mat02'
-  #   expression = 'inclination_mat02'
-  #   outputs = 'exodus'
-  # []
-  # [incl_12]
-  #   type = ParsedMaterial
-  #   property_name = incl_12
-  #   material_property_names = 'inclination_mat12'
-  #   expression = 'inclination_mat12'
-  #   outputs = 'exodus'
-  # []
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
     coupled_variables = 'gr0 gr1 gr2 gr3'
     expression = 'gr0 + gr1 + gr2 + gr3'
-    outputs = 'exodus'
-  []
-  # [Lij_test]
-  #   type = ParsedMaterial
-  #   property_name = Lij_test
-  #   constant_names = 'L01 L02 L03 L04 L05 L06 L07'
-  #   constant_expressions = '1 2 3 4 5 6 7'
-  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-  #   expression = '(L01*(gr0^2*gr1^2) + L02*(gr0^2*gr2^2) + L03*(gr0^2*gr3^2)
-  #    + L04*(gr0^2*gr4^2) + L05*(gr0^2*gr5^2) + L06*(gr0^2*gr6^2) + L07*(gr0^2*gr7^2)) / (
-  #      gr0^2*gr1^2 + gr0^2*gr2^2 + gr0^2*gr3^2 + gr0^2*gr4^2 + gr0^2*gr5^2 + gr0^2*gr6^2 + gr0^2*gr7^2)'
-  #   outputs = 'exodus'
-  # []
-  [L_0]
-    type = ParsedMaterial
-    property_name = L_0
-    expression = '1.0'
-  []
-  [L_check]
-    type = ParsedMaterial
-    property_name = L_check
-    material_property_names = 'L'
-    expression = 'L'
-    outputs = 'exodus'
-  []
-  [sigma_preinc]
-    type = ParsedMaterial
-    property_name = sigma_preinc
-    # coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-    expression = '0.25'
     outputs = 'exodus'
   []
 []
@@ -381,8 +345,8 @@
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
 
   start_time = 0.0
-  num_steps = 50
-  dt = 0.1
+  end_time = 50
+  dt = 1
 []
 
 [Outputs]

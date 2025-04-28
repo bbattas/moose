@@ -87,6 +87,10 @@ protected:
   Real _const_m;
 
   const MaterialProperty<Real> & _L0;
+  const MaterialProperty<Real> & _gamma0;
+
+  MaterialProperty<Real> & _int_width;
+  MaterialProperty<Real> & _mu;
 
   // other stuff
 

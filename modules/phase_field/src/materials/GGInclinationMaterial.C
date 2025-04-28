@@ -42,7 +42,12 @@ GGInclinationMaterial::validParams()
   params.addParam<bool>(
       "L_of_eta", false, "Is L a function of eta, requiring those derivatives to be defined.");
   params.addParam<MaterialPropertyName>("L0", "AC mobility prefactor/reference value material.");
+  params.addParam<MaterialPropertyName>("gamma0",
+                                        "gamma prefactor/reference value material (for mu calc).");
   params.addParam<MaterialPropertyName>("L_name", "L_aniso", "Name of anisotropic L output.");
+  params.addParam<MaterialPropertyName>(
+      "gamma_name", "gamma_aniso", "Name of anisotropic gamma output.");
+  params.addParam<MaterialPropertyName>("mu_name", "mu_aniso", "Name of anisotropic mu output.");
   return params;
 }
 
@@ -61,7 +66,7 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     // _ebsd_reader(getUserObject<EBSDReader>("ebsd_reader")),
     _delta_ij(getParam<Real>("delta_ij")),
     _inc_ij_0(getParam<Real>("inc_ij_0")),
-    _gamma(declareProperty<Real>("gamma_aniso")),
+    _gamma(declareProperty<Real>(getParam<MaterialPropertyName>("gamma_name"))),
     _dgammadgrad_eta_name(getParam<std::vector<MaterialPropertyName>>("dgamma_grad_eta_names")),
     _dgammadgrad_eta(_op_num),
     _d2gammadgrad_eta2_name(getParam<std::vector<MaterialPropertyName>>("d2gamma_grad_eta2_names")),
@@ -86,7 +91,10 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _gbe_inc(declareProperty<Real>(getParam<MaterialPropertyName>("gb_energy"))),
     _kappa(getParam<Real>("kappa")),
     _const_m(getParam<Real>("free_energy_m")),
-    _L0(getMaterialProperty<Real>("L0"))
+    _L0(getMaterialProperty<Real>("L0")),
+    _gamma0(getMaterialProperty<Real>("gamma0")),
+    _int_width(declareProperty<Real>("int_width")),
+    _mu(declareProperty<Real>(getParam<MaterialPropertyName>("mu_name")))
 
 {
   if (_op_num == 0)
@@ -425,6 +433,14 @@ GGInclinationMaterial::computeQpProperties()
   Real d2poly_g_dg22 = 12 * a1 * g2 * g2 + 6 * a2 * g2 + 2 * a3;
 
   _gamma[_qp] = 1 / poly_g;
+  // Int width
+  Real f0_int =
+      (((((0.0788 * poly_g - 0.4955) * poly_g + 1.2244) * poly_g - 1.5281) * poly_g + 1.0686) *
+           poly_g -
+       0.5563) *
+          poly_g +
+      0.2907;
+  _int_width[_qp] = (std::sqrt(_kappa / _const_m)) * (std::sqrt(1 / f0_int));
   // Build Anisotropic L
   // If gb mobility were a different f we would use that instead of 2 of the gb energy ones
   // These are basically placeholders so that the L derivations will still work if we change these
@@ -476,6 +492,9 @@ GGInclinationMaterial::computeQpProperties()
                       d2finc_dgeta2[i] * finc_m);
     }
   }
+
+  // mu calc
+  _mu[_qp] = _L0[_qp] * _gamma0[_qp] * std::sqrt(_kappa / _const_m) * finc_m;
 
   // dINC_dGradEta[i];
 
