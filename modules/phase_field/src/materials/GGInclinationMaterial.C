@@ -81,7 +81,7 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _dLdgrad_eta(_op_num),
     _d2Ldgrad_eta2_name(_op_num),
     _d2Ldgrad_eta2(_op_num),
-    _d2Ldetadgrad_eta(_op_num),
+    _d2Ldgrad_etadeta(_op_num),
     // TEMP TEST OUTPUTS
     _testout(declareProperty<Real>("testout")),
     _testout2(declareProperty<Real>("testout2")),
@@ -148,12 +148,15 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _dLdgrad_eta[i] = &declareProperty<RealGradient>(_dLdgrad_eta_name[i]);
     _d2Ldgrad_eta2_name[i] = "d2Ldgrad_eta2_" + Moose::stringify(i);
     _d2Ldgrad_eta2[i] = &declareProperty<RealTensorValue>(_d2Ldgrad_eta2_name[i]);
-    _d2Ldetadgrad_eta[i] =
-        &declarePropertyDerivative<RealGradient>(_dLdgrad_eta_name[i], _vals_name[i]);
+    _d2Ldgrad_etadeta[i].resize(_op_num);
+    // _d2Ldetadgrad_eta[i] =
+    //     &declarePropertyDerivative<RealGradient>(_dLdgrad_eta_name[i], _vals_name[i]);
     // _d2Ldetadgrad_eta[i].resize(_op_num); // only using same eta for eta and grad eta here
     for (unsigned int j = 0; j <= i; ++j)
     {
       _d2Ldetadeta[j][i] = &declarePropertyDerivative<Real>(_L_name, _vals_name[j], _vals_name[i]);
+      _d2Ldgrad_etadeta[i][j] =
+          &declarePropertyDerivative<RealGradient>(_dLdgrad_eta_name[i], _vals_name[j]);
     }
   }
 }
@@ -482,8 +485,10 @@ GGInclinationMaterial::computeQpProperties()
       // Not a function of u
       (*_dLdeta[i])[_qp] = 0.0;
       for (unsigned int j = 0; j < i; ++j)
+      {
         (*_d2Ldetadeta[j][i])[_qp] = 0.0;
-      (*_d2Ldetadgrad_eta[i])[_qp] = RealGradient(0.0);
+        (*_d2Ldgrad_etadeta[i][j])[_qp] = RealGradient(0.0);
+      }
       (*_dLdgrad_eta[i])[_qp] =
           _L0[_qp] * (_inclination[_qp] * dfinc_m_dgeta[i] + dfinc_dgeta[i] * finc_m);
       (*_d2Ldgrad_eta2[i])[_qp] =

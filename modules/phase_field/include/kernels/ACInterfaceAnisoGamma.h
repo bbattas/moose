@@ -50,9 +50,9 @@ protected:
   // std::unordered_set<unsigned int> grain_set;
 
   /// Grain op values from input v = (all other grain ops)
-  const unsigned int _op_num;
-  const std::vector<const VariableValue *> _vals;
-  const std::vector<unsigned int> _vals_var;
+  // const unsigned int _op_num;
+  // const std::vector<const VariableValue *> _vals;
+  // const std::vector<unsigned int> _vals_var;
   const std::string _var_name_base;
 
   // /// Interfacial parameter
@@ -68,7 +68,7 @@ protected:
 
   const MaterialProperty<RealGradient> & _dLdgrad_op;
   const MaterialProperty<RealTensorValue> & _d2Ldgrad_op2;
-  const MaterialProperty<RealGradient> & _dLdopdgrad_op;
+  const MaterialProperty<RealGradient> & _d2Ldopdgrad_op;
 
   // /// kappa derivative w.r.t. order parameter
   // const MaterialProperty<Real> & _dkappadop;
@@ -79,8 +79,10 @@ protected:
   std::vector<std::vector<const MaterialProperty<Real> *>> _d2Ldarg2;
   /// @}
   std::vector<const MaterialProperty<RealGradient> *> _dLdgradarg;
+  std::vector<const MaterialProperty<RealGradient> *> _d2Ldgradargdop;
+  std::vector<const MaterialProperty<RealGradient> *> _d2Ldargdgradop;
   std::vector<const MaterialProperty<RealTensorValue> *> _d2Ldgradarg2;
-  std::vector<const MaterialProperty<RealGradient> *> _d2Ldargdgradarg;
+  std::vector<std::vector<const MaterialProperty<RealGradient> *>> _d2Ldgradargdarg;
 
   // /// kappa derivative w.r.t. other coupled variables
   // std::vector<const MaterialProperty<Real> *> _dkappadarg;

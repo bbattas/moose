@@ -4,8 +4,8 @@
 # Created Date: Monday April 28th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday April 29th 2025
-# Modified By: Battas,Brandon Scott
+# Last Modified: Wednesday April 30th 2025
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Manual GG property definitions
@@ -119,27 +119,27 @@
   #   order = CONSTANT
   #   family = MONOMIAL
   # []
-  # Halos
-  [halos]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [halo0]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [halo1]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [halo2]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [halo3]
-    order = CONSTANT
-    family = MONOMIAL
-  []
+  # # Halos
+  # [halos]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [halo0]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [halo1]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [halo2]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [halo3]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
 []
 
 [Modules]
@@ -158,8 +158,8 @@
   [gr0_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr0
-    v = 'gr1 gr2 gr3'
-    # coupled_variables = 'gr1 gr2 gr3'
+    # v = 'gr1 gr2 gr3'
+    coupled_variables = 'gr1 gr2 gr3'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_0
     d2gamma_dgradop2_name = d2gammadgrad_eta2_0
@@ -171,7 +171,8 @@
   [gr1_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr1
-    v = 'gr0 gr2 gr3'
+    # v = 'gr0 gr2 gr3'
+    coupled_variables = 'gr0 gr2 gr3'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_1
     d2gamma_dgradop2_name = d2gammadgrad_eta2_1
@@ -183,7 +184,8 @@
   [gr2_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr2
-    v = 'gr0 gr1 gr3'
+    # v = 'gr0 gr1 gr3'
+    coupled_variables = 'gr0 gr1 gr3'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_2
     d2gamma_dgradop2_name = d2gammadgrad_eta2_2
@@ -195,7 +197,8 @@
   [gr3_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr3
-    v = 'gr0 gr1 gr2'
+    # v = 'gr0 gr1 gr2'
+    coupled_variables = 'gr0 gr1 gr2'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_3
     d2gamma_dgradop2_name = d2gammadgrad_eta2_3
@@ -210,7 +213,7 @@
   [BndsCalc]
     type = BndsCalcAux
     variable = bnds
-    execute_on = 'timestep_end'
+    execute_on = 'initial timestep_end'
   []
   [unique_grains]
     type = FeatureFloodCountAux
@@ -248,42 +251,42 @@
   #   variable = ebsd_grains
   #   execute_on = 'initial timestep_end'
   # []
-  [halos]
-    type = FeatureFloodCountAux
-    variable = halos
-    flood_counter = grain_tracker
-    field_display = HALOS
-    execute_on = 'initial timestep_end'
-  []
+  # [halos]
+  #   type = FeatureFloodCountAux
+  #   variable = halos
+  #   flood_counter = grain_tracker
+  #   field_display = HALOS
+  #   execute_on = 'initial timestep_end'
+  # []
   # HALOS
-  [halo0]
-    type = FeatureFloodCountAux
-    variable = halo0
-    map_index = 0
-    field_display = HALOS
-    flood_counter = grain_tracker
-  []
-  [halo1]
-    type = FeatureFloodCountAux
-    variable = halo1
-    map_index = 1
-    field_display = HALOS
-    flood_counter = grain_tracker
-  []
-  [halo2]
-    type = FeatureFloodCountAux
-    variable = halo2
-    map_index = 2
-    field_display = HALOS
-    flood_counter = grain_tracker
-  []
-  [halo3]
-    type = FeatureFloodCountAux
-    variable = halo3
-    map_index = 3
-    field_display = HALOS
-    flood_counter = grain_tracker
-  []
+  # [halo0]
+  #   type = FeatureFloodCountAux
+  #   variable = halo0
+  #   map_index = 0
+  #   field_display = HALOS
+  #   flood_counter = grain_tracker
+  # []
+  # [halo1]
+  #   type = FeatureFloodCountAux
+  #   variable = halo1
+  #   map_index = 1
+  #   field_display = HALOS
+  #   flood_counter = grain_tracker
+  # []
+  # [halo2]
+  #   type = FeatureFloodCountAux
+  #   variable = halo2
+  #   map_index = 2
+  #   field_display = HALOS
+  #   flood_counter = grain_tracker
+  # []
+  # [halo3]
+  #   type = FeatureFloodCountAux
+  #   variable = halo3
+  #   map_index = 3
+  #   field_display = HALOS
+  #   flood_counter = grain_tracker
+  # []
 []
 
 # [BCs]
@@ -364,7 +367,7 @@
 
   nl_max_its = 30
   l_max_its = 60
-  l_tol = 1e-06 #4
+  l_tol = 1e-05
   nl_rel_tol = 1e-8 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
 
