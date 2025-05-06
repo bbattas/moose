@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 06_hexagon_2ndOrder.i
-# File Location: /examples/agg/01_initial_testing/06_hexagon_2ndOrder
-# Created Date: Monday April 28th 2025
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 02_hex_2ndL.i
+# File Location: /examples/agg/01_initial_testing/08_hexagon_order/02_hex_2ndL
+# Created Date: Monday May 5th 2025
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday May 5th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Manual GG property definitions
-#  Second order mesh and stuff to test my kernel and anisotropy
+#  Using the hex ic to test 1st/2nd/3rd order to see what difference it makes
+#
 #
 #
 ##############################################################################
@@ -148,6 +148,7 @@
       mobility = L_aniso
       kappa = kappa
       order = SECOND
+      family = LAGRANGE
     []
   []
 []
@@ -373,6 +374,23 @@
   [fe_total]
     type = ElementIntegralMaterialProperty
     mat_prop = fe_bulk_manual
+  []
+  # Variable Residuals
+  [R_gr0]
+    type = VariableResidual
+    variable = gr0
+  []
+  [R_gr1]
+    type = VariableResidual
+    variable = gr1
+  []
+  [R_gr2]
+    type = VariableResidual
+    variable = gr2
+  []
+  [R_gr3]
+    type = VariableResidual
+    variable = gr3
   []
 []
 

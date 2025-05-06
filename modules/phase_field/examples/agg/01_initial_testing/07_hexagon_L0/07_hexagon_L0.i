@@ -1,18 +1,20 @@
 ##############################################################################
-# File: 06_hexagon_2ndOrder.i
-# File Location: /examples/agg/01_initial_testing/06_hexagon_2ndOrder
-# Created Date: Monday April 28th 2025
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 07_hexagon_L0.i
+# File Location: /examples/agg/01_initial_testing/07_hexagon_L0
+# Created Date: Monday May 5th 2025
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday May 5th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Manual GG property definitions
-#  Second order mesh and stuff to test my kernel and anisotropy
+#  Testing different values for L0 in the anisotropic hexagon ic
+#  Want to see if it causes more movement or longer or not
 #
 #
 ##############################################################################
+
+L0val = 1
 
 [Mesh]
   type = GeneratedMesh
@@ -310,7 +312,7 @@
   [constants]
     type = GenericConstantMaterial
     prop_names = 'L0 kappa const_m gamma_iso iw_iso gbe_iso'
-    prop_values = '1.0 0.3 0.9375   1.5       1.55    0.25'
+    prop_values = '${L0val} 0.3 0.9375   1.5       1.55    0.25'
   []
   # [iso_constants]
   #   type = GenericConstantMaterial
@@ -406,4 +408,5 @@
   exodus = true
   console = true
   csv = true
+  file_base = '07_hexagon_L0_${L0val}'
 []

@@ -76,9 +76,9 @@ protected:
   std::vector<MaterialProperty<RealTensorValue> *> _d2Ldgrad_eta2;
   std::vector<std::vector<MaterialProperty<RealGradient> *>> _d2Ldgrad_etadeta;
 
-  MaterialProperty<Real> & _testout;
-  MaterialProperty<Real> & _testout2;
-  MaterialProperty<RealGradient> & _incder_temp;
+  // MaterialProperty<Real> & _testout;
+  // MaterialProperty<Real> & _testout2;
+  // MaterialProperty<RealGradient> & _incder_temp;
 
   const MaterialProperty<Real> & _gbe;
   MaterialProperty<Real> & _gbe_inc;

@@ -1,18 +1,20 @@
 ##############################################################################
-# File: 06_hexagon_2ndOrder.i
-# File Location: /examples/agg/01_initial_testing/06_hexagon_2ndOrder
-# Created Date: Monday April 28th 2025
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 07_iso_hexagon_L0.i
+# File Location: /examples/agg/01_initial_testing/07_hexagon_L0
+# Created Date: Monday May 5th 2025
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday May 5th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Manual GG property definitions
-#  Second order mesh and stuff to test my kernel and anisotropy
-#
+#  Testing different values for L0 in the anisotropic hexagon ic
+#  Want to see if it causes more movement or longer or not
+#  This is using the roughly isotropic version for comparison
 #
 ##############################################################################
+
+L0val = 1
 
 [Mesh]
   type = GeneratedMesh
@@ -145,7 +147,7 @@
 [Modules]
   [PhaseField]
     [GrainGrowth]
-      mobility = L_aniso
+      mobility = L0#_aniso
       kappa = kappa
       order = SECOND
     []
@@ -155,58 +157,58 @@
 [Kernels]
   # [PolycrystalKernel]
   # []
-  [gr0_ACIaniso]
-    type = ACInterfaceAnisoGamma
-    variable = gr0
-    # v = 'gr1 gr2 gr3'
-    coupled_variables = 'gr1 gr2 gr3'
-    gamma_name = gamma_asymm
-    dgamma_dgradop_name = dgammadgrad_eta_0
-    d2gamma_dgradop2_name = d2gammadgrad_eta2_0
-    mob_name = L_aniso
-    dL_dgradop_name = dLdgrad_eta_0
-    d2L_dgradop2_name = d2Ldgrad_eta2_0
-    variable_L = true
-  []
-  [gr1_ACIaniso]
-    type = ACInterfaceAnisoGamma
-    variable = gr1
-    # v = 'gr0 gr2 gr3'
-    coupled_variables = 'gr0 gr2 gr3'
-    gamma_name = gamma_asymm
-    dgamma_dgradop_name = dgammadgrad_eta_1
-    d2gamma_dgradop2_name = d2gammadgrad_eta2_1
-    mob_name = L_aniso
-    dL_dgradop_name = dLdgrad_eta_1
-    d2L_dgradop2_name = d2Ldgrad_eta2_1
-    variable_L = true
-  []
-  [gr2_ACIaniso]
-    type = ACInterfaceAnisoGamma
-    variable = gr2
-    # v = 'gr0 gr1 gr3'
-    coupled_variables = 'gr0 gr1 gr3'
-    gamma_name = gamma_asymm
-    dgamma_dgradop_name = dgammadgrad_eta_2
-    d2gamma_dgradop2_name = d2gammadgrad_eta2_2
-    mob_name = L_aniso
-    dL_dgradop_name = dLdgrad_eta_2
-    d2L_dgradop2_name = d2Ldgrad_eta2_2
-    variable_L = true
-  []
-  [gr3_ACIaniso]
-    type = ACInterfaceAnisoGamma
-    variable = gr3
-    # v = 'gr0 gr1 gr2'
-    coupled_variables = 'gr0 gr1 gr2'
-    gamma_name = gamma_asymm
-    dgamma_dgradop_name = dgammadgrad_eta_3
-    d2gamma_dgradop2_name = d2gammadgrad_eta2_3
-    mob_name = L_aniso
-    dL_dgradop_name = dLdgrad_eta_3
-    d2L_dgradop2_name = d2Ldgrad_eta2_3
-    variable_L = true
-  []
+  # [gr0_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr0
+  #   # v = 'gr1 gr2 gr3'
+  #   coupled_variables = 'gr1 gr2 gr3'
+  #   gamma_name = gamma_asymm
+  #   dgamma_dgradop_name = dgammadgrad_eta_0
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_0
+  #   mob_name = L_aniso
+  #   dL_dgradop_name = dLdgrad_eta_0
+  #   d2L_dgradop2_name = d2Ldgrad_eta2_0
+  #   variable_L = true
+  # []
+  # [gr1_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr1
+  #   # v = 'gr0 gr2 gr3'
+  #   coupled_variables = 'gr0 gr2 gr3'
+  #   gamma_name = gamma_asymm
+  #   dgamma_dgradop_name = dgammadgrad_eta_1
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_1
+  #   mob_name = L_aniso
+  #   dL_dgradop_name = dLdgrad_eta_1
+  #   d2L_dgradop2_name = d2Ldgrad_eta2_1
+  #   variable_L = true
+  # []
+  # [gr2_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr2
+  #   # v = 'gr0 gr1 gr3'
+  #   coupled_variables = 'gr0 gr1 gr3'
+  #   gamma_name = gamma_asymm
+  #   dgamma_dgradop_name = dgammadgrad_eta_2
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_2
+  #   mob_name = L_aniso
+  #   dL_dgradop_name = dLdgrad_eta_2
+  #   d2L_dgradop2_name = d2Ldgrad_eta2_2
+  #   variable_L = true
+  # []
+  # [gr3_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr3
+  #   # v = 'gr0 gr1 gr2'
+  #   coupled_variables = 'gr0 gr1 gr2'
+  #   gamma_name = gamma_asymm
+  #   dgamma_dgradop_name = dgammadgrad_eta_3
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_3
+  #   mob_name = L_aniso
+  #   dL_dgradop_name = dLdgrad_eta_3
+  #   d2L_dgradop2_name = d2Ldgrad_eta2_3
+  #   variable_L = true
+  # []
 []
 
 [AuxKernels]
@@ -307,32 +309,44 @@
   #   Q = 1.0307
   #   GBenergy = 2.4
   # []
-  [constants]
+  # [constants]
+  #   type = GenericConstantMaterial
+  #   prop_names = 'L0 kappa const_m gamma_iso iw_iso gbe_iso'
+  #   prop_values = '${L0val} 0.3 0.9375   1.5       1.55    0.25'
+  # []
+  [iso_constants]
     type = GenericConstantMaterial
-    prop_names = 'L0 kappa const_m gamma_iso iw_iso gbe_iso'
-    prop_values = '1.0 0.3 0.9375   1.5       1.55    0.25'
+    prop_names = 'L0 kappa const_m gamma_asymm gamma_iso iw_iso int_width gbe_iso gb_energy'
+    prop_values = '${L0val} 0.3 0.9375   1.5       1.5     1.55   1.55      0.25   0.25  '
+  []
+  [iso_mu]
+    type = ParsedMaterial
+    property_name = mu
+    material_property_names = 'L0 kappa const_m gamma_asymm'
+    expression = 'L0 * gamma_asymm * (kappa / const_m)^(1/2)'
+    outputs = exodus
   []
   # [iso_constants]
   #   type = GenericConstantMaterial
   #   prop_names = 'L0 kappa const_m gamma_asymm gamma_iso iw_iso gbe_iso mu'
   #   prop_values = '1.0 0.3 0.9375   1.5           1.5     1.55   0.25  0.85'
   # []
-  [incl_test01]
-    type = GGInclinationMaterial
-    grain_tracker = grain_tracker
-    gb_energy_input = gbe_iso
-    kappa = 0.3 #kappa
-    free_energy_m = 0.9375 #const_m
-    L0 = L0
-    gamma0 = gamma_iso
-    # Output Names
-    inclination_name = inclination_mat
-    L_name = L_aniso
-    gamma_name = gamma_asymm
-    mu_name = mu
-    output_properties = 'gamma_asymm L_aniso mu gb_energy int_width'
-    outputs = 'exodus'
-  []
+  # [incl_test01]
+  #   type = GGInclinationMaterial
+  #   grain_tracker = grain_tracker
+  #   gb_energy_input = gbe_iso
+  #   kappa = 0.3 #kappa
+  #   free_energy_m = 0.9375 #const_m
+  #   L0 = L0
+  #   gamma0 = gamma_iso
+  #   # Output Names
+  #   inclination_name = inclination_mat
+  #   L_name = L_aniso
+  #   gamma_name = gamma_asymm
+  #   mu_name = mu
+  #   output_properties = 'gamma_asymm L_aniso mu gb_energy int_width'
+  #   outputs = 'exodus'
+  # []
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
@@ -406,4 +420,5 @@
   exodus = true
   console = true
   csv = true
+  file_base = '07_iso_hexagon_L0_${L0val}'
 []

@@ -87,7 +87,7 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
   // std::vector<unsigned int> _grain_ids;
   for (unsigned int i = 0; i < _n_args; ++i)
   {
-    mooseWarning("Into initial");
+    // mooseWarning("Into initial");
     MooseVariable * ivar = _coupled_standard_moose_vars[i];
     const VariableName iname = ivar->name();
     if (iname == _var.name())
@@ -126,7 +126,7 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
                    iname,
                    "' does not end in a numeric suffix, despite starting with var_name_base.");
       const std::string digits = iname.substr(pos + 1);
-      mooseWarning("digits = ", digits);
+      // mooseWarning("digits = ", digits);
       _dLdgradarg[i] = &getMaterialProperty<RealGradient>("dLdgrad_eta_" + digits);
       _d2Ldgradarg2[i] = &getMaterialProperty<RealTensorValue>("d2Ldgrad_eta2_" + digits);
       _d2Ldgradargdarg[i].resize(_n_args);
