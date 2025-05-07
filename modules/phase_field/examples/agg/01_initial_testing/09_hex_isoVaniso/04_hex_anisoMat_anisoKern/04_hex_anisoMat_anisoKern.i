@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 03_hex_3rdH.i
-# File Location: /examples/agg/01_initial_testing/08_hexagon_order/03_hex_3rdH
-# Created Date: Monday May 5th 2025
+# File: 04_hex_anisoMat_anisoKern.i
+# File Location: /examples/agg/01_initial_testing/09_hex_isoVaniso/04_hex_anisoMat_anisoKern
+# Created Date: Wednesday May 7th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Wednesday May 7th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Using the hex ic to test 1st/2nd/3rd order to see what difference it makes
-#  This one might need a mesh refine since its not 2nd order?
+#  2nd order hexagon IC, testing levels of anisotropy
+#  Full aniso- aniso mat props for all kernels, plus my kernel
 #
 #
 ##############################################################################
@@ -29,7 +29,7 @@
   elem_type = QUAD4
   parallel_type = DISTRIBUTED
   uniform_refine = 0
-  second_order = false
+  second_order = true
 []
 
 [GlobalParams]
@@ -147,8 +147,8 @@
     [GrainGrowth]
       mobility = L_aniso
       kappa = kappa
-      order = THIRD
-      family = HERMITE
+      order = SECOND
+      family = LAGRANGE
     []
   []
 []

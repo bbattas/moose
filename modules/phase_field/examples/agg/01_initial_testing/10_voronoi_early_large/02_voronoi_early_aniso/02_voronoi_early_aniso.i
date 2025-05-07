@@ -1,39 +1,56 @@
 ##############################################################################
-# File: 03_hex_3rdH.i
-# File Location: /examples/agg/01_initial_testing/08_hexagon_order/03_hex_3rdH
-# Created Date: Monday May 5th 2025
+# File: 02_voronoi_early_aniso.i
+# File Location: /examples/agg/01_initial_testing/10_voronoi_early_large/02_voronoi_early_aniso
+# Created Date: Wednesday May 7th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Wednesday May 7th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Using the hex ic to test 1st/2nd/3rd order to see what difference it makes
-#  This one might need a mesh refine since its not 2nd order?
+#  Building a polycrystalline input so i can do aniso vs iso on a longer gg problem
+#
 #
 #
 ##############################################################################
 
 [Mesh]
+  # [gmg]
+  #   type = DistributedRectilinearMeshGenerator
+  #   dim = 2
+  #   nx = 40
+  #   ny = 40
+  #   nz = 0
+  #   xmin = 0
+  #   xmax = 16 #1000
+  #   ymin = 0
+  #   ymax = 16 #1000
+  #   zmin = 0
+  #   zmax = 0
+  #   # elem_type = QUAD4
+  #   parallel_type = DISTRIBUTED
+  #   uniform_refine = 0
+  #   second_order = true
+  # []
   type = GeneratedMesh
   dim = 2
-  nx = 40
-  ny = 40
+  nx = 80
+  ny = 80
   nz = 0
   xmin = 0
-  xmax = 16 #1000
+  xmax = 40 #1000
   ymin = 0
-  ymax = 16 #1000
+  ymax = 40 #1000
   zmin = 0
   zmax = 0
-  elem_type = QUAD4
+  # elem_type = QUAD4
   parallel_type = DISTRIBUTED
   uniform_refine = 0
-  second_order = false
+  second_order = true
 []
 
 [GlobalParams]
-  op_num = 4
+  op_num = 8
   var_name_base = 'gr'
 []
 
@@ -61,11 +78,11 @@
 # []
 
 [UserObjects]
-  [hex_ic]
-    type = PolycrystalHex
-    coloring_algorithm = bt
-    x_offset = .5
-    grain_num = 4
+  [voronoi]
+    type = PolycrystalVoronoi
+    grain_num = 16 # Number of grains
+    rand_seed = 10
+    int_width = 1.55
   []
   [grain_tracker]
     type = GrainTracker
@@ -76,23 +93,28 @@
     compute_var_to_feature_map = true
     execute_on = 'initial timestep_end'
   []
+  [terminator]
+    type = Terminator
+    expression = 'grain_tracker < 3'
+    execute_on = TIMESTEP_END
+  []
 []
 
 [ICs]
   [PolycrystalICs]
     [PolycrystalColoringIC]
-      polycrystal_ic_uo = hex_ic
+      polycrystal_ic_uo = voronoi
     []
   []
 []
 
-[BCs]
-  [Periodic]
-    [All]
-      auto_direction = 'x y'
-    []
-  []
-[]
+# [BCs]
+#   [Periodic]
+#     [All]
+#       auto_direction = 'x y'
+#     []
+#   []
+# []
 
 [AuxVariables]
   [bnds]
@@ -147,8 +169,8 @@
     [GrainGrowth]
       mobility = L_aniso
       kappa = kappa
-      order = THIRD
-      family = HERMITE
+      order = SECOND
+      family = LAGRANGE
     []
   []
 []
@@ -337,8 +359,8 @@
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
-    coupled_variables = 'gr0 gr1 gr2 gr3'
-    expression = 'gr0 + gr1 + gr2 + gr3'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
+    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5 + gr7 + gr7'
     outputs = 'exodus'
   []
   # Variable Gradients
@@ -362,29 +384,53 @@
     prop = ng_gr3
     variable = gr3
   []
+  [ng_gr4]
+    type = VariableGradientMaterial
+    prop = ng_gr4
+    variable = gr4
+  []
+  [ng_gr5]
+    type = VariableGradientMaterial
+    prop = ng_gr5
+    variable = gr5
+  []
+  [ng_gr6]
+    type = VariableGradientMaterial
+    prop = ng_gr6
+    variable = gr6
+  []
+  [ng_gr7]
+    type = VariableGradientMaterial
+    prop = ng_gr7
+    variable = gr7
+  []
   # Free energies
   [fe_bulk_manual]
     type = ParsedMaterial
     property_name = fe_bulk_manual
-    coupled_variables = 'gr0 gr1 gr2 gr3'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
     material_property_names = 'gamma_asymm'
-    expression = 'gmeta:= gr0^2 * gr1^2 + gr0^2 * gr2^2 + gr0^2 * gr3^2 + gr1^2 * gr2^2 + gr1^2 * gr3^2 + gr2^2 * gr3^3;
-    etaover:= 0.25*gr0^4 - 0.5*gr0^2 + 0.25*gr1^4 - 0.5*gr1^2 + 0.25*gr2^4 - 0.5*gr2^2 + 0.25*gr3^4 - 0.5*gr3^2;
+    expression = 'gmeta:= gr0^2 * gr1^2 + gr0^2 * gr2^2 + gr0^2 * gr3^2 + gr0^2 * gr4^2 + gr0^2 * gr5^2 + gr0^2 * gr6^2 + gr0^2 * gr7^2 +
+     gr1^2 * gr2^2 + gr1^2 * gr3^2 + gr1^2 * gr4^2 + gr1^2 * gr5^2 + gr1^2 * gr6^2 + gr1^2 * gr7^2 +
+     gr2^2 * gr3^2 + gr2^2 * gr4^2 + gr2^2 * gr5^2 + gr2^2 * gr6^2 + gr2^2 * gr7^2 +
+     gr3^2 * gr4^2 + gr3^2 * gr5^2 + gr3^2 * gr6^2 + gr3^2 * gr7^2 +
+     gr4^2 * gr5^2 + gr4^2 * gr6^2 + gr4^2 * gr7^2 + gr5^2 * gr6^2 + gr5^2 * gr7^2 + gr6^2 * gr7^2;
+    etaover:= 0.25*(gr0^4 + gr1^4 + gr2^4 + gr3^4 + gr4^4 + gr5^4 + gr6^4 + gr7^4) - 0.5*(gr0^2 + gr1^2 + gr2^2 + gr3^2 + gr4^2 + gr5^2 + gr6^2 + gr7^2);
     etaover + gamma_asymm * gmeta + 0.25'
     outputs = 'exodus'
   []
   [fe_grad_manual]
     type = ParsedMaterial
     property_name = fe_grad_manual
-    coupled_variables = 'gr0 gr1 gr2 gr3'
-    material_property_names = 'kappa ng_gr0 ng_gr1 ng_gr2 ng_gr3'
-    expression = '0.5 * kappa * (ng_gr0^2 + ng_gr1^2 + ng_gr2^2 + ng_gr3^3)'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
+    material_property_names = 'kappa ng_gr0 ng_gr1 ng_gr2 ng_gr3 ng_gr4 ng_gr5 ng_gr6 ng_gr7'
+    expression = '0.5 * kappa * (ng_gr0^2 + ng_gr1^2 + ng_gr2^2 + ng_gr3^2 + ng_gr4^2 + ng_gr5^2 + ng_gr6^2 + ng_gr7^2)'
     outputs = 'exodus'
   []
   [fe_tot_manual]
     type = ParsedMaterial
     property_name = fe_tot_manual
-    coupled_variables = 'gr0 gr1 gr2 gr3'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
     material_property_names = 'fe_bulk_manual fe_grad_manual'
     expression = 'fe_bulk_manual + fe_grad_manual'
     outputs = 'exodus'
@@ -392,11 +438,11 @@
 []
 
 [Postprocessors]
-  [ctr_grain_area]
-    type = ElementIntegralVariablePostprocessor
-    variable = gr2
-    execute_on = 'initial timestep_end'
-  []
+  # [ctr_grain_area]
+  #   type = ElementIntegralVariablePostprocessor
+  #   variable = gr2
+  #   execute_on = 'initial timestep_end'
+  # []
   [tot_grain_area]
     type = ElementIntegralMaterialProperty
     mat_prop = sumgr
@@ -422,22 +468,22 @@
     mat_prop = fe_tot_manual
   []
   # Variable Residuals
-  [R_gr0]
-    type = VariableResidual
-    variable = gr0
-  []
-  [R_gr1]
-    type = VariableResidual
-    variable = gr1
-  []
-  [R_gr2]
-    type = VariableResidual
-    variable = gr2
-  []
-  [R_gr3]
-    type = VariableResidual
-    variable = gr3
-  []
+  # [R_gr0]
+  #   type = VariableResidual
+  #   variable = gr0
+  # []
+  # [R_gr1]
+  #   type = VariableResidual
+  #   variable = gr1
+  # []
+  # [R_gr2]
+  #   type = VariableResidual
+  #   variable = gr2
+  # []
+  # [R_gr3]
+  #   type = VariableResidual
+  #   variable = gr3
+  # []
 []
 
 [Preconditioning]
@@ -462,8 +508,14 @@
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
 
   start_time = 0.0
-  end_time = 20
-  dt = 1
+  # end_time = 20
+  # dt = 1
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    optimal_iterations = 6
+    linear_iteration_ratio = 1e5
+    dt = 1
+  []
 []
 
 [Outputs]

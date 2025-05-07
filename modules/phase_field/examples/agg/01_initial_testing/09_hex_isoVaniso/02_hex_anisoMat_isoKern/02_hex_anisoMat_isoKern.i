@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 03_hex_3rdH.i
-# File Location: /examples/agg/01_initial_testing/08_hexagon_order/03_hex_3rdH
-# Created Date: Monday May 5th 2025
+# File: 02_hex_anisoMat_isoKern.i
+# File Location: /examples/agg/01_initial_testing/09_hex_isoVaniso/02_hex_anisoMat_isoKern
+# Created Date: Wednesday May 7th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Wednesday May 7th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Using the hex ic to test 1st/2nd/3rd order to see what difference it makes
-#  This one might need a mesh refine since its not 2nd order?
+#  2nd order hexagon IC, testing levels of anisotropy
+#  Partial aniso- aniso mat props for all kernels, but without my kernel
 #
 #
 ##############################################################################
@@ -29,7 +29,7 @@
   elem_type = QUAD4
   parallel_type = DISTRIBUTED
   uniform_refine = 0
-  second_order = false
+  second_order = true
 []
 
 [GlobalParams]
@@ -147,8 +147,8 @@
     [GrainGrowth]
       mobility = L_aniso
       kappa = kappa
-      order = THIRD
-      family = HERMITE
+      order = SECOND
+      family = LAGRANGE
     []
   []
 []
@@ -156,58 +156,58 @@
 [Kernels]
   # [PolycrystalKernel]
   # []
-  [gr0_ACIaniso]
-    type = ACInterfaceAnisoGamma
-    variable = gr0
-    # v = 'gr1 gr2 gr3'
-    coupled_variables = 'gr1 gr2 gr3'
-    gamma_name = gamma_asymm
-    dgamma_dgradop_name = dgammadgrad_eta_0
-    d2gamma_dgradop2_name = d2gammadgrad_eta2_0
-    mob_name = L_aniso
-    dL_dgradop_name = dLdgrad_eta_0
-    d2L_dgradop2_name = d2Ldgrad_eta2_0
-    variable_L = true
-  []
-  [gr1_ACIaniso]
-    type = ACInterfaceAnisoGamma
-    variable = gr1
-    # v = 'gr0 gr2 gr3'
-    coupled_variables = 'gr0 gr2 gr3'
-    gamma_name = gamma_asymm
-    dgamma_dgradop_name = dgammadgrad_eta_1
-    d2gamma_dgradop2_name = d2gammadgrad_eta2_1
-    mob_name = L_aniso
-    dL_dgradop_name = dLdgrad_eta_1
-    d2L_dgradop2_name = d2Ldgrad_eta2_1
-    variable_L = true
-  []
-  [gr2_ACIaniso]
-    type = ACInterfaceAnisoGamma
-    variable = gr2
-    # v = 'gr0 gr1 gr3'
-    coupled_variables = 'gr0 gr1 gr3'
-    gamma_name = gamma_asymm
-    dgamma_dgradop_name = dgammadgrad_eta_2
-    d2gamma_dgradop2_name = d2gammadgrad_eta2_2
-    mob_name = L_aniso
-    dL_dgradop_name = dLdgrad_eta_2
-    d2L_dgradop2_name = d2Ldgrad_eta2_2
-    variable_L = true
-  []
-  [gr3_ACIaniso]
-    type = ACInterfaceAnisoGamma
-    variable = gr3
-    # v = 'gr0 gr1 gr2'
-    coupled_variables = 'gr0 gr1 gr2'
-    gamma_name = gamma_asymm
-    dgamma_dgradop_name = dgammadgrad_eta_3
-    d2gamma_dgradop2_name = d2gammadgrad_eta2_3
-    mob_name = L_aniso
-    dL_dgradop_name = dLdgrad_eta_3
-    d2L_dgradop2_name = d2Ldgrad_eta2_3
-    variable_L = true
-  []
+  # [gr0_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr0
+  #   # v = 'gr1 gr2 gr3'
+  #   coupled_variables = 'gr1 gr2 gr3'
+  #   gamma_name = gamma_aniso
+  #   dgamma_dgradop_name = dgammadgrad_eta_0
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_0
+  #   mob_name = L_aniso
+  #   dL_dgradop_name = dLdgrad_eta_0
+  #   d2L_dgradop2_name = d2Ldgrad_eta2_0
+  #   variable_L = true
+  # []
+  # [gr1_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr1
+  #   # v = 'gr0 gr2 gr3'
+  #   coupled_variables = 'gr0 gr2 gr3'
+  #   gamma_name = gamma_aniso
+  #   dgamma_dgradop_name = dgammadgrad_eta_1
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_1
+  #   mob_name = L_aniso
+  #   dL_dgradop_name = dLdgrad_eta_1
+  #   d2L_dgradop2_name = d2Ldgrad_eta2_1
+  #   variable_L = true
+  # []
+  # [gr2_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr2
+  #   # v = 'gr0 gr1 gr3'
+  #   coupled_variables = 'gr0 gr1 gr3'
+  #   gamma_name = gamma_aniso
+  #   dgamma_dgradop_name = dgammadgrad_eta_2
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_2
+  #   mob_name = L_aniso
+  #   dL_dgradop_name = dLdgrad_eta_2
+  #   d2L_dgradop2_name = d2Ldgrad_eta2_2
+  #   variable_L = true
+  # []
+  # [gr3_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr3
+  #   # v = 'gr0 gr1 gr2'
+  #   coupled_variables = 'gr0 gr1 gr2'
+  #   gamma_name = gamma_aniso
+  #   dgamma_dgradop_name = dgammadgrad_eta_3
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_3
+  #   mob_name = L_aniso
+  #   dL_dgradop_name = dLdgrad_eta_3
+  #   d2L_dgradop2_name = d2Ldgrad_eta2_3
+  #   variable_L = true
+  # []
 []
 
 [AuxKernels]

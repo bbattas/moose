@@ -4,7 +4,7 @@
 # Created Date: Monday May 5th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday May 5th 2025
+# Last Modified: Wednesday May 7th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -341,6 +341,32 @@
     expression = 'gr0 + gr1 + gr2 + gr3'
     outputs = 'exodus'
   []
+  # Variable Gradients
+  [ng_gr0]
+    type = VariableGradientMaterial
+    prop = ng_gr0
+    variable = gr0
+    outputs = 'exodus'
+  []
+  [ng_gr1]
+    type = VariableGradientMaterial
+    prop = ng_gr1
+    variable = gr1
+    outputs = 'exodus'
+  []
+  [ng_gr2]
+    type = VariableGradientMaterial
+    prop = ng_gr2
+    variable = gr2
+    outputs = 'exodus'
+  []
+  [ng_gr3]
+    type = VariableGradientMaterial
+    prop = ng_gr3
+    variable = gr3
+    outputs = 'exodus'
+  []
+  # Free energies
   [fe_bulk_manual]
     type = ParsedMaterial
     property_name = fe_bulk_manual
@@ -349,6 +375,22 @@
     expression = 'gmeta:= gr0^2 * gr1^2 + gr0^2 * gr2^2 + gr0^2 * gr3^2 + gr1^2 * gr2^2 + gr1^2 * gr3^2 + gr2^2 * gr3^3;
     etaover:= 0.25*gr0^4 - 0.5*gr0^2 + 0.25*gr1^4 - 0.5*gr1^2 + 0.25*gr2^4 - 0.5*gr2^2 + 0.25*gr3^4 - 0.5*gr3^2;
     etaover + gamma_asymm * gmeta + 0.25'
+    outputs = 'exodus'
+  []
+  [fe_grad_manual]
+    type = ParsedMaterial
+    property_name = fe_grad_manual
+    coupled_variables = 'gr0 gr1 gr2 gr3'
+    material_property_names = 'kappa ng_gr0 ng_gr1 ng_gr2 ng_gr3'
+    expression = '0.5 * kappa * (ng_gr0^2 + ng_gr1^2 + ng_gr2^2 + ng_gr3^3)'
+    outputs = 'exodus'
+  []
+  [fe_tot_manual]
+    type = ParsedMaterial
+    property_name = fe_tot_manual
+    coupled_variables = 'gr0 gr1 gr2 gr3'
+    material_property_names = 'fe_bulk_manual fe_grad_manual'
+    expression = 'fe_bulk_manual + fe_grad_manual'
     outputs = 'exodus'
   []
 []
@@ -371,9 +413,17 @@
     type = ElementIntegralMaterialProperty
     mat_prop = mu
   []
-  [fe_total]
+  [fe_bulk]
     type = ElementIntegralMaterialProperty
     mat_prop = fe_bulk_manual
+  []
+  [fe_grad]
+    type = ElementIntegralMaterialProperty
+    mat_prop = fe_grad_manual
+  []
+  [fe_tot]
+    type = ElementIntegralMaterialProperty
+    mat_prop = fe_tot_manual
   []
   # Variable Residuals
   [R_gr0]
