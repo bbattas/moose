@@ -1,7 +1,7 @@
 ##############################################################################
-# File: 02_voronoi_early_aniso.i
-# File Location: /examples/agg/01_initial_testing/10_voronoi_early_large/02_voronoi_early_aniso
-# Created Date: Wednesday May 7th 2025
+# File: 03_voronoi_early_anisoInverse.i
+# File Location: /examples/agg/01_initial_testing/10_voronoi_early_large/03_voronoi_early_anisoInverse
+# Created Date: Thursday May 8th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday May 8th 2025
@@ -9,7 +9,7 @@
 # -----
 # Description:
 #  Building a polycrystalline input so i can do aniso vs iso on a longer gg problem
-#
+#  Using a +pi/4 in the inclination function to invert the anisotropy
 #
 #
 ##############################################################################
@@ -400,6 +400,7 @@
     free_energy_m = 0.9375 #const_m
     L0 = L0
     gamma0 = gamma_iso
+    inc_ij_0 = 0.785
     # Output Names
     inclination_name = inclination_mat
     L_name = L_aniso
