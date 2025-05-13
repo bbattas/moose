@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 03_hex_3rdH.i
-# File Location: /examples/agg/01_initial_testing/08_hexagon_order/03_hex_3rdH
-# Created Date: Monday May 5th 2025
+# File: 06_hex_2ndL_newton.i
+# File Location: /examples/agg/01_initial_testing/08_hexagon_order/06_hex_2ndL_newton
+# Created Date: Tuesday May 13th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Tuesday May 13th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Using the hex ic to test 1st/2nd/3rd order to see what difference it makes
-#  This one might need a mesh refine since its not 2nd order?
+#  2nd order lagrange aniso, testing NEWTon solve!
+#
 #
 #
 ##############################################################################
@@ -29,7 +29,7 @@
   elem_type = QUAD4
   parallel_type = DISTRIBUTED
   uniform_refine = 0
-  second_order = false
+  second_order = true
 []
 
 [GlobalParams]
@@ -147,8 +147,8 @@
     [GrainGrowth]
       mobility = L_aniso
       kappa = kappa
-      order = THIRD
-      family = HERMITE
+      order = SECOND
+      family = LAGRANGE
     []
   []
 []
@@ -468,12 +468,14 @@
 [Executioner]
   type = Transient
   scheme = bdf2
-  solve_type = 'PJFNK'
+  solve_type = 'NEWTON'
 
   # petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart'
   # petsc_options_value = 'hypre boomeramg 31'
-  petsc_options_iname = '-pc_type -ksp_grmres_restart -sub_ksp_type -sub_pc_type -pc_asm_overlap'
-  petsc_options_value = 'asm      31                  preonly       lu           2'
+  # petsc_options_iname = '-pc_type -ksp_grmres_restart -sub_ksp_type -sub_pc_type -pc_asm_overlap'
+  # petsc_options_value = 'asm      31                  preonly       lu           2'
+  petsc_options_iname = '-pc_type'
+  petsc_options_value = 'lu'
 
   nl_max_its = 30
   l_max_its = 60
@@ -483,12 +485,13 @@
 
   start_time = 0.0
   end_time = 20
-  [TimeStepper]
-    type = IterationAdaptiveDT
-    optimal_iterations = 6
-    linear_iteration_ratio = 1e5
-    dt = 1
-  []
+  dt = 0.2
+  # [TimeStepper]
+  #   type = IterationAdaptiveDT
+  #   optimal_iterations = 1
+  #   linear_iteration_ratio = 1e5
+  #   dt = 1
+  # []
 []
 
 [Outputs]

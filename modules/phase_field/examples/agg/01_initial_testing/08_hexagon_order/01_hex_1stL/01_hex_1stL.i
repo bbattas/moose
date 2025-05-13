@@ -4,21 +4,21 @@
 # Created Date: Monday May 5th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday May 7th 2025
+# Last Modified: Tuesday May 13th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
 #  Using the hex ic to test 1st/2nd/3rd order to see what difference it makes
 #  This one might need a mesh refine since its first order?
-#
+#   Yeah i set the nx and ny to uniform+refine=1 equivalent (80 vs 40)
 #
 ##############################################################################
 
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 40
-  ny = 40
+  nx = 80 #40
+  ny = 80 #40
   nz = 0
   xmin = 0
   xmax = 16 #1000
@@ -372,7 +372,7 @@
     property_name = fe_bulk_manual
     coupled_variables = 'gr0 gr1 gr2 gr3'
     material_property_names = 'gamma_asymm'
-    expression = 'gmeta:= gr0^2 * gr1^2 + gr0^2 * gr2^2 + gr0^2 * gr3^2 + gr1^2 * gr2^2 + gr1^2 * gr3^2 + gr2^2 * gr3^3;
+    expression = 'gmeta:= gr0^2 * gr1^2 + gr0^2 * gr2^2 + gr0^2 * gr3^2 + gr1^2 * gr2^2 + gr1^2 * gr3^2 + gr2^2 * gr3^2;
     etaover:= 0.25*gr0^4 - 0.5*gr0^2 + 0.25*gr1^4 - 0.5*gr1^2 + 0.25*gr2^4 - 0.5*gr2^2 + 0.25*gr3^4 - 0.5*gr3^2;
     etaover + gamma_asymm * gmeta + 0.25'
     outputs = 'exodus'
@@ -382,7 +382,7 @@
     property_name = fe_grad_manual
     coupled_variables = 'gr0 gr1 gr2 gr3'
     material_property_names = 'kappa ng_gr0 ng_gr1 ng_gr2 ng_gr3'
-    expression = '0.5 * kappa * (ng_gr0^2 + ng_gr1^2 + ng_gr2^2 + ng_gr3^3)'
+    expression = '0.5 * kappa * (ng_gr0^2 + ng_gr1^2 + ng_gr2^2 + ng_gr3^2)'
     outputs = 'exodus'
   []
   [fe_tot_manual]
@@ -396,6 +396,24 @@
 []
 
 [Postprocessors]
+  [runtime]
+    type = PerfGraphData
+    section_name = "Root"
+    data_type = TOTAL
+  []
+  [nl_its]
+    type = NumNonlinearIterations
+  []
+  [l_its]
+    type = NumLinearIterations
+  []
+  [max_mpi_memory]
+    type = MemoryUsage
+    value_type = max_process
+    report_peak_value = True
+    mem_units = gigabytes
+    execute_on = 'NONLINEAR TIMESTEP_END'
+  []
   [ctr_grain_area]
     type = ElementIntegralVariablePostprocessor
     variable = gr2
@@ -456,8 +474,10 @@
   scheme = bdf2
   solve_type = 'PJFNK'
 
-  petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart'
-  petsc_options_value = 'hypre boomeramg 31'
+  # petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart'
+  # petsc_options_value = 'hypre boomeramg 31'
+  petsc_options_iname = '-pc_type -ksp_grmres_restart -sub_ksp_type -sub_pc_type -pc_asm_overlap'
+  petsc_options_value = 'asm      31                  preonly       lu           2'
 
   nl_max_its = 30
   l_max_its = 60
@@ -467,7 +487,12 @@
 
   start_time = 0.0
   end_time = 20
-  dt = 1
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    optimal_iterations = 6
+    linear_iteration_ratio = 1e5
+    dt = 1
+  []
 []
 
 [Outputs]
