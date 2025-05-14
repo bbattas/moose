@@ -5,7 +5,7 @@
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Wednesday May 14th 2025
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  circular bicrystal input to test iso and aniso things
@@ -17,8 +17,8 @@
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 40
-  ny = 40
+  nx = 60
+  ny = 60
   nz = 0
   xmin = 0
   xmax = 16 #1000
@@ -36,14 +36,15 @@
   op_num = 2
   var_name_base = 'gr'
   # profile = TANH
+  # int_width = int_width
 []
 
 [UserObjects]
   [grain_tracker]
     type = GrainTracker
     # variable = eta
-    threshold = 0.2
-    connecting_threshold = 0.08
+    threshold = 0.001 #0.2
+    connecting_threshold = 0.008 #0.08
     compute_halo_maps = true
     compute_var_to_feature_map = true
     execute_on = 'initial timestep_end'
@@ -51,12 +52,30 @@
 []
 
 [ICs]
-  [PolycrystalICs]
-    [BicrystalCircleGrainIC]
-      radius = 4
-      x = 8
-      y = 8
-    []
+  # [PolycrystalICs]
+  #   [BicrystalCircleGrainIC]
+  #     radius = 4
+  #     x = 8
+  #     y = 8
+  #   []
+  # []
+  [gr0_IC]
+    type = SmoothCircleIC
+    invalue = 1
+    outvalue = 0.0
+    radius = 4
+    variable = gr0
+    x1 = 8
+    y1 = 8
+  []
+  [gr1_IC]
+    type = SmoothCircleIC
+    invalue = 0.0
+    outvalue = 1.0
+    radius = 4
+    variable = gr1
+    x1 = 8
+    y1 = 8
   []
 []
 
@@ -85,35 +104,6 @@
     order = CONSTANT
     family = MONOMIAL
   []
-  # [ebsd_ic]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # []
-  # [ebsd_grains]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # []
-  # # Halos
-  # [halos]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # []
-  # [halo0]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # []
-  # [halo1]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # []
-  # [halo2]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # []
-  # [halo3]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # []
 []
 
 [Modules]
@@ -128,8 +118,6 @@
 []
 
 [Kernels]
-  # [PolycrystalKernel]
-  # []
   [gr0_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr0
@@ -187,14 +175,6 @@
   []
 []
 
-# [BCs]
-#   [Periodic]
-#     [All]
-#       auto_direction = 'x y'
-#     []
-#   []
-# []
-
 [Materials]
   [constants]
     type = GenericConstantMaterial
@@ -214,6 +194,7 @@
     free_energy_m = 0.9375 #const_m
     L0 = L0
     gamma0 = gamma_iso
+    theta_prefactor = 2
     # Output Names
     inclination_name = inclination_mat
     L_name = L_aniso
@@ -325,6 +306,18 @@
   [R_gr1]
     type = VariableResidual
     variable = gr1
+  []
+[]
+
+[VectorPostprocessors]
+  [0_line]
+    type = LineValueSampler
+    variable = gr0
+    start_point = '0 8 0'
+    end_point = '16 8 0'
+    sort_by = x
+    num_points = 61
+    outputs = csv
   []
 []
 

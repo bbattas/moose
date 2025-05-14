@@ -50,6 +50,7 @@ protected:
 
   // Inclination function constants
   Real _delta_ij;
+  Real _theta_pre;
   Real _inc_ij_0;
 
   // gamma testing

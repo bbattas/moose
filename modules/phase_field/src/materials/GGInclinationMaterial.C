@@ -24,6 +24,8 @@ GGInclinationMaterial::validParams()
                                   "The GrainTracker UserObject to get values from.");
   // params.addParam<UserObjectName>("ebsd_reader", "The EBSDReader GeneralUserObject");
   params.addParam<Real>("delta_ij", 0.05, "Anisotropy weight in cos function");
+  params.addParam<Real>(
+      "theta_prefactor", 4.0, "Multiplier in cos function (cos(n(theta + theta0)))");
   params.addParam<Real>("inc_ij_0", 0.0, "Inclination function offset in cos function");
   params.addParam<std::vector<MaterialPropertyName>>(
       "dgamma_grad_eta_names",
@@ -65,6 +67,7 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _grain_tracker(getUserObject<GrainTracker>("grain_tracker")),
     // _ebsd_reader(getUserObject<EBSDReader>("ebsd_reader")),
     _delta_ij(getParam<Real>("delta_ij")),
+    _theta_pre(getParam<Real>("theta_prefactor")),
     _inc_ij_0(getParam<Real>("inc_ij_0")),
     _gamma(declareProperty<Real>(getParam<MaterialPropertyName>("gamma_name"))),
     _dgammadgrad_eta_name(getParam<std::vector<MaterialPropertyName>>("dgamma_grad_eta_names")),
@@ -346,7 +349,7 @@ GGInclinationMaterial::computeQpProperties()
     for (std::size_t n = 0; n < _inc_pairs.size(); ++n)
     {
       // Real inc_func = 1 + _delta_ij * std::cos(4 * (_inc_pairs[n] + _inc_ij_0));
-      numer += (1 + _delta_ij * std::cos(4 * (_inc_pairs[n] + _inc_ij_0))) * _hgb_pairs[n];
+      numer += (1 + _delta_ij * std::cos(_theta_pre * (_inc_pairs[n] + _inc_ij_0))) * _hgb_pairs[n];
       denom += _hgb_pairs[n];
       ang_numer += _inc_pairs[n] * _hgb_pairs[n];
       // Derivatives
@@ -371,8 +374,10 @@ GGInclinationMaterial::computeQpProperties()
           //   derivative wrt inc is   dF_dinc = -4 * delta * sin(4*(inc + inc0))
           //   (if that is your function)
           // Real inc_n = _inc_pairs[pair_index];
-          Real dF_dinc = -4.0 * _delta_ij * std::sin(4.0 * (_inc_pairs[pair_index] + _inc_ij_0));
-          Real d2F_dinc2 = -16.0 * _delta_ij * std::cos(4.0 * (_inc_pairs[pair_index] + _inc_ij_0));
+          Real dF_dinc = -1 * _theta_pre * _delta_ij *
+                         std::sin(_theta_pre * (_inc_pairs[pair_index] + _inc_ij_0));
+          Real d2F_dinc2 = -1 * _theta_pre * _theta_pre * _delta_ij *
+                           std::cos(_theta_pre * (_inc_pairs[pair_index] + _inc_ij_0));
 
           // Weighted partial for p:
           //   w_n * dF_dinc * dinc/d(grad eta_p)
