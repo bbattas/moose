@@ -50,6 +50,8 @@ GGInclinationMaterial::validParams()
   params.addParam<MaterialPropertyName>(
       "gamma_name", "gamma_aniso", "Name of anisotropic gamma output.");
   params.addParam<MaterialPropertyName>("mu_name", "mu_aniso", "Name of anisotropic mu output.");
+  params.addParam<bool>(
+      "continuous", false, "Disregard GT and calculate for all variables everywhere.");
   return params;
 }
 
@@ -97,7 +99,8 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _L0(getMaterialProperty<Real>("L0")),
     _gamma0(getMaterialProperty<Real>("gamma0")),
     _int_width(declareProperty<Real>("int_width")),
-    _mu(declareProperty<Real>(getParam<MaterialPropertyName>("mu_name")))
+    _mu(declareProperty<Real>(getParam<MaterialPropertyName>("mu_name"))),
+    _continuous(getParam<bool>("continuous"))
 
 {
   if (_op_num == 0)
@@ -173,18 +176,26 @@ GGInclinationMaterial::computeQpProperties()
   // From the ComputeGBMisorientationType:
   // Find out the number of boundary unique_id and save them
   // _gb_pairs.clear();
-  _gb_op_pairs.clear();
+  // _gb_op_pairs.clear();
   _gb_ij_pairs.clear();
-
-  const auto & op_to_grains = _grain_tracker.getVarToFeatureVector(_current_elem->id());
-  for (auto i : index_range(op_to_grains))
+  if (_continuous)
   {
-    if (op_to_grains[i] == FeatureFloodCount::invalid_id)
-      continue;
+    // Give it every OP index once
+    _gb_ij_pairs.resize(_op_num);
+    std::iota(_gb_ij_pairs.begin(), _gb_ij_pairs.end(), 0);
+  }
+  else
+  {
+    const auto & op_to_grains = _grain_tracker.getVarToFeatureVector(_current_elem->id());
+    for (auto i : index_range(op_to_grains))
+    {
+      if (op_to_grains[i] == FeatureFloodCount::invalid_id)
+        continue;
 
-    // _gb_pairs.push_back(_ebsd_reader.getFeatureID(op_to_grains[i]));
-    _gb_op_pairs.push_back((*_vals[i])[_qp]);
-    _gb_ij_pairs.push_back(i);
+      // _gb_pairs.push_back(_ebsd_reader.getFeatureID(op_to_grains[i]));
+      // _gb_op_pairs.push_back((*_vals[i])[_qp]);
+      _gb_ij_pairs.push_back(i);
+    }
   }
 
   // Make a copy and sort

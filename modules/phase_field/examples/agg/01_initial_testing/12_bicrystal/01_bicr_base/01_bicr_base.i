@@ -4,7 +4,7 @@
 # Created Date: Monday May 12th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday May 14th 2025
+# Last Modified: Thursday May 15th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -62,20 +62,22 @@
   [gr0_IC]
     type = SmoothCircleIC
     invalue = 1
-    outvalue = 0.0
+    outvalue = 0
     radius = 4
     variable = gr0
     x1 = 8
     y1 = 8
+    int_width = 3.2
   []
   [gr1_IC]
     type = SmoothCircleIC
-    invalue = 0.0
-    outvalue = 1.0
+    invalue = 0
+    outvalue = 1
     radius = 4
     variable = gr1
     x1 = 8
     y1 = 8
+    int_width = 3.2
   []
 []
 
@@ -130,6 +132,7 @@
     dL_dgradop_name = dLdgrad_eta_0
     d2L_dgradop2_name = d2Ldgrad_eta2_0
     variable_L = true
+    skip_off = true
   []
   [gr1_ACIaniso]
     type = ACInterfaceAnisoGamma
@@ -143,6 +146,7 @@
     dL_dgradop_name = dLdgrad_eta_1
     d2L_dgradop2_name = d2Ldgrad_eta2_1
     variable_L = true
+    skip_off = true
   []
 []
 
@@ -195,12 +199,13 @@
     L0 = L0
     gamma0 = gamma_iso
     theta_prefactor = 2
+    continuous = False
     # Output Names
     inclination_name = inclination_mat
     L_name = L_aniso
     gamma_name = gamma_asymm
     mu_name = mu
-    output_properties = 'gamma_asymm L_aniso mu gb_energy int_width'
+    output_properties = 'gamma_asymm L_aniso mu gb_energy int_width inclination_mat inclination_distance'
     outputs = 'exodus'
   []
   [sumgr]
@@ -309,17 +314,17 @@
   []
 []
 
-[VectorPostprocessors]
-  [0_line]
-    type = LineValueSampler
-    variable = gr0
-    start_point = '0 8 0'
-    end_point = '16 8 0'
-    sort_by = x
-    num_points = 61
-    outputs = csv
-  []
-[]
+# [VectorPostprocessors]
+#   [0_line]
+#     type = LineValueSampler
+#     variable = gr0
+#     start_point = '0 8 0'
+#     end_point = '16 8 0'
+#     sort_by = x
+#     num_points = 61
+#     outputs = csv
+#   []
+# []
 
 [Preconditioning]
   [SMP]
@@ -337,8 +342,10 @@
   # petsc_options_value = 'hypre boomeramg 31'
   petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
   petsc_options_value = 'asm        preonly       lu           2'
+  # petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
+  # petsc_options_value = 'asm        preonly       ilu           2'
 
-  nl_max_its = 30
+  nl_max_its = 20
   l_max_its = 60
   l_tol = 1e-05
   nl_rel_tol = 1e-8 #default is 1e-8

@@ -38,6 +38,7 @@ ACInterfaceAnisoGamma::validParams()
                         "The mobility is a function of any MOOSE variable (if "
                         "this is set to false L must be constant over the "
                         "entire domain!)");
+  params.addParam<bool>("skip_off", false, "Skip the off-diagonal part, for testing/debugging.");
   // params.addRequiredCoupledVar("v",
   //                              "Array of coupled order parameter names for OTHER order
   //                              parameters");
@@ -56,6 +57,7 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
     _gamma(getMaterialProperty<Real>(getParam<MaterialPropertyName>("gamma_name"))),
     _dgammadgrad_op(getMaterialProperty<RealGradient>("dgamma_dgradop_name")),
     _d2gammadgrad_op2(getMaterialProperty<RealTensorValue>("d2gamma_dgradop2_name")),
+    _skip_off(getParam<bool>("skip_off")),
     // Grain OP list as per ACGrGrPoly
     _grain_ids(),
     // _grain_set(),
@@ -236,58 +238,65 @@ ACInterfaceAnisoGamma::computeQpJacobian()
 Real
 ACInterfaceAnisoGamma::computeQpOffDiagJacobian(unsigned int jvar)
 {
-  // get the coupled variable jvar is referring to
-  const unsigned int cvar = mapJvarToCvar(jvar);
-
-  // Check if the offdiag wrt variable is one of the grain ops
-  bool is_grain = std::find(_grain_ids.begin(), _grain_ids.end(), cvar) != _grain_ids.end();
-  if (is_grain)
+  if (_skip_off)
   {
-    // Direct dependence on arg
-    Real ddir = 2 * (*_coupled_standard_moose_vars[cvar]).sln()[_qp] * _u[_qp] * _u[_qp] *
-                _dgammadgrad_op[_qp] * _phi[_j][_qp] * nablaLPsi();
-    // Indirect dependence on grad_arg
-    Real dind = _u[_qp] * _u[_qp] * (-_d2gammadgrad_op2[_qp]) * sumSqEtaj() * _grad_phi[_j][_qp] *
-                nablaLPsi();
-
-    if (_variable_L)
-    {
-      // Grad L partials
-      static const RealTensorValue I(1, 0, 0, 0, 1, 0, 0, 0, 1);
-      // The direct u pieces
-      RealGradient dgradLdarg =
-          (*_d2Ldargdop[cvar])[_qp] * _grad_u[_qp] + (*_d2Ldargdgradop[cvar])[_qp] * _second_u[_qp];
-      RealTensorValue dgradLdgradarg =
-          libMesh::outer_product((*_d2Ldgradargdop[cvar])[_qp], _grad_u[_qp]) -
-          _d2Ldgrad_op2[_qp] * _second_u[_qp] + I * (*_dLdarg[cvar])[_qp] -
-          (*_d2Ldgradarg2[cvar])[_qp] * (*_second_arg[cvar])[_qp];
-      // Could have more of the dgradLdgradarg into cross terms if those were defined that way
-      // The cross terms with eta/gradeta dependence in grad L
-      for (unsigned int i = 0; i < _n_args; ++i)
-      {
-        dgradLdarg += (*_d2Ldarg2[cvar][i])[_qp] * (*_gradarg[i])[_qp] +
-                      (*_d2Ldgradargdarg[i][cvar])[_qp] * (*_second_arg[i])[_qp];
-        dgradLdgradarg +=
-            libMesh::outer_product((*_d2Ldgradargdarg[cvar][i])[_qp], (*_gradarg[i])[_qp]);
-      }
-      // Now combine the offdiag grad L pieces
-      // Direct L dependence
-      ddir += (*_dLdarg[cvar])[_qp] * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
-              _phi[_j][_qp] * _grad_test[_i][_qp];
-      // Direct grad L dependence
-      ddir += dgradLdarg * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() * _phi[_j][_qp] *
-              _test[_i][_qp];
-      // Indirect L dependence (of grad arg)
-      dind += (*_dLdgradarg[cvar])[_qp] * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
-              _grad_phi[_j][_qp] * _grad_test[_i][_qp];
-      // Indirect grad L dependence (of grad arg)
-      dind += dgradLdgradarg * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
-              _grad_phi[_j][_qp] * _test[_i][_qp];
-    }
-    // Output the grain_op based offdiagonal
-    return ddir + dind;
+    return 0.0;
   }
+  else
+  {
+    // get the coupled variable jvar is referring to
+    const unsigned int cvar = mapJvarToCvar(jvar);
 
-  // Non-grain OP offdiag
-  return 0.0;
+    // Check if the offdiag wrt variable is one of the grain ops
+    bool is_grain = std::find(_grain_ids.begin(), _grain_ids.end(), cvar) != _grain_ids.end();
+    if (is_grain)
+    {
+      // Direct dependence on arg
+      Real ddir = 2 * (*_coupled_standard_moose_vars[cvar]).sln()[_qp] * _u[_qp] * _u[_qp] *
+                  _dgammadgrad_op[_qp] * _phi[_j][_qp] * nablaLPsi();
+      // Indirect dependence on grad_arg
+      Real dind = _u[_qp] * _u[_qp] * (-_d2gammadgrad_op2[_qp]) * sumSqEtaj() * _grad_phi[_j][_qp] *
+                  nablaLPsi();
+
+      if (_variable_L)
+      {
+        // Grad L partials
+        static const RealTensorValue I(1, 0, 0, 0, 1, 0, 0, 0, 1);
+        // The direct u pieces
+        RealGradient dgradLdarg = (*_d2Ldargdop[cvar])[_qp] * _grad_u[_qp] +
+                                  (*_d2Ldargdgradop[cvar])[_qp] * _second_u[_qp];
+        RealTensorValue dgradLdgradarg =
+            libMesh::outer_product((*_d2Ldgradargdop[cvar])[_qp], _grad_u[_qp]) -
+            _d2Ldgrad_op2[_qp] * _second_u[_qp] + I * (*_dLdarg[cvar])[_qp] -
+            (*_d2Ldgradarg2[cvar])[_qp] * (*_second_arg[cvar])[_qp];
+        // Could have more of the dgradLdgradarg into cross terms if those were defined that way
+        // The cross terms with eta/gradeta dependence in grad L
+        for (unsigned int i = 0; i < _n_args; ++i)
+        {
+          dgradLdarg += (*_d2Ldarg2[cvar][i])[_qp] * (*_gradarg[i])[_qp] +
+                        (*_d2Ldgradargdarg[i][cvar])[_qp] * (*_second_arg[i])[_qp];
+          dgradLdgradarg +=
+              libMesh::outer_product((*_d2Ldgradargdarg[cvar][i])[_qp], (*_gradarg[i])[_qp]);
+        }
+        // Now combine the offdiag grad L pieces
+        // Direct L dependence
+        ddir += (*_dLdarg[cvar])[_qp] * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
+                _phi[_j][_qp] * _grad_test[_i][_qp];
+        // Direct grad L dependence
+        ddir += dgradLdarg * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
+                _phi[_j][_qp] * _test[_i][_qp];
+        // Indirect L dependence (of grad arg)
+        dind += (*_dLdgradarg[cvar])[_qp] * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
+                _grad_phi[_j][_qp] * _grad_test[_i][_qp];
+        // Indirect grad L dependence (of grad arg)
+        dind += dgradLdgradarg * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
+                _grad_phi[_j][_qp] * _test[_i][_qp];
+      }
+      // Output the grain_op based offdiagonal
+      return ddir + dind;
+    }
+
+    // Non-grain OP offdiag
+    return 0.0;
+  }
 }

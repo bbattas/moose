@@ -46,6 +46,8 @@ protected:
   const MaterialProperty<RealGradient> & _dgammadgrad_op;
   const MaterialProperty<RealTensorValue> & _d2gammadgrad_op2;
 
+  const bool _skip_off;
+
   std::vector<unsigned int> _grain_ids;
   // std::unordered_set<unsigned int> grain_set;
 

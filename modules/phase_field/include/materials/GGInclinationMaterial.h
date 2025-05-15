@@ -97,7 +97,7 @@ protected:
 
   /// parameters to store the EBSD id and corresponding value on GB
   // std::vector<unsigned int> _gb_pairs;
-  std::vector<Real> _gb_op_pairs;
+  // std::vector<Real> _gb_op_pairs;
   std::vector<unsigned int> _gb_ij_pairs;
   std::vector<unsigned int> _gb_ij_sorted;
 
@@ -105,4 +105,6 @@ protected:
   std::vector<Real> _hgb_pairs;
   std::vector<Real> _inc_pairs;
   // std::vector<RealGradient> _dincdgradetai_pairs;
+
+  const bool _continuous;
 };
