@@ -92,6 +92,7 @@ protected:
   // std::vector<const VariableValue *> _arg;
   // const std::vector<const VariableValue *> _arg;
 
+  std::vector<const VariableValue *> _eta_vals;
   /// Gradients for all coupled variables
   std::vector<const VariableGradient *> _gradarg;
   std::vector<const VariableSecond *> _second_arg;

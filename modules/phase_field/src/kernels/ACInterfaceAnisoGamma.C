@@ -44,6 +44,8 @@ ACInterfaceAnisoGamma::validParams()
   //                              parameters");
   // params.addRequiredCoupledVar("var_name_base", "Array of coupled variable names");
   params.addRequiredParam<std::string>("var_name_base", "specifies the base name of the variables");
+  params.addRequiredCoupledVar(
+      "coupled_variables", "Other grain order parameters whose values/gradients enter this kernel");
   return params;
 }
 
@@ -81,17 +83,20 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
     _d2Ldgradargdarg(_n_args),
     // _dkappadarg(_n_args),
     // _arg(_n_args),
+    _eta_vals(),
     _gradarg(_n_args),
     _second_arg(_n_args)
 {
   // Get mobility and kappa derivatives and coupled variable gradients
   // mooseWarning("NAMEBASE: ", _var_name_base);
   // std::vector<unsigned int> _grain_ids;
+  mooseWarning("Coupled stuff: ", _n_args);
   for (unsigned int i = 0; i < _n_args; ++i)
   {
     // mooseWarning("Into initial");
     MooseVariable * ivar = _coupled_standard_moose_vars[i];
     const VariableName iname = ivar->name();
+    mooseWarning("coupled name: ", iname);
     if (iname == _var.name())
     {
       if (isCoupled("args"))
@@ -120,6 +125,7 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
     if (MooseUtils::beginsWith(iname, _var_name_base) && iname != _var.name())
     {
       _grain_ids.push_back(i);
+      _eta_vals.push_back(&coupledValue("coupled_variables", i));
       // _grain_set.insert(i);
       // Pull the number at the end of the grain op
       const std::size_t pos = iname.find_last_not_of("0123456789");
@@ -179,9 +185,14 @@ ACInterfaceAnisoGamma::sumSqEtaj()
 {
   // Sum all other (grain?) order parameters
   Real SumOPj = 0.0;
-  for (unsigned int j : _grain_ids)
-    SumOPj += (*_coupled_standard_moose_vars[j]).sln()[_qp] *
-              (*_coupled_standard_moose_vars[j]).sln()[_qp];
+  // for (unsigned int j : _grain_ids)
+  for (unsigned int k = 0; k < _eta_vals.size(); ++k)
+  {
+    const Real eta_j = (*_eta_vals[k])[_qp];
+    SumOPj += eta_j * eta_j;
+    // SumOPj += (*_coupled_standard_moose_vars[j]).sln()[_qp] *
+    //           (*_coupled_standard_moose_vars[j]).sln()[_qp];
+  }
   return SumOPj;
 }
 

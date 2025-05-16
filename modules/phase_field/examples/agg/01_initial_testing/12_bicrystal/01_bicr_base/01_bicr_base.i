@@ -4,7 +4,7 @@
 # Created Date: Monday May 12th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday May 15th 2025
+# Last Modified: Friday May 16th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -43,8 +43,8 @@
   [grain_tracker]
     type = GrainTracker
     # variable = eta
-    threshold = 0.001 #0.2
-    connecting_threshold = 0.008 #0.08
+    threshold = 0.01 #0.2
+    connecting_threshold = 0.08 #0.08
     compute_halo_maps = true
     compute_var_to_feature_map = true
     execute_on = 'initial timestep_end'
@@ -79,6 +79,28 @@
     y1 = 8
     int_width = 3.2
   []
+  # [gr0_IC]
+  #   type = BoundingBoxIC
+  #   inside = 1
+  #   outside = 0
+  #   variable = gr0
+  #   x1 = 8
+  #   y1 = 8
+  #   x2 = 24
+  #   y2 = 24
+  #   int_width = 1.5
+  # []
+  # [gr1_IC]
+  #   type = BoundingBoxIC
+  #   inside = 0
+  #   outside = 1
+  #   variable = gr1
+  #   x1 = 8
+  #   y1 = 8
+  #   x2 = 24
+  #   y2 = 24
+  #   int_width = 1.5
+  # []
 []
 
 [BCs]
@@ -103,6 +125,15 @@
     family = MONOMIAL
   []
   [ghost_regions]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  # Gradient components
+  [gr0_x]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [gr0_y]
     order = CONSTANT
     family = MONOMIAL
   []
@@ -131,7 +162,7 @@
     mob_name = L_aniso
     dL_dgradop_name = dLdgrad_eta_0
     d2L_dgradop2_name = d2Ldgrad_eta2_0
-    variable_L = true
+    variable_L = false
     skip_off = true
   []
   [gr1_ACIaniso]
@@ -145,7 +176,7 @@
     mob_name = L_aniso
     dL_dgradop_name = dLdgrad_eta_1
     d2L_dgradop2_name = d2Ldgrad_eta2_1
-    variable_L = true
+    variable_L = false
     skip_off = true
   []
 []
@@ -177,6 +208,19 @@
     field_display = GHOSTED_ENTITIES
     execute_on = 'initial timestep_end'
   []
+  # gr0 gradient pieces
+  [gr0_gradx]
+    type = VariableGradientComponent
+    variable = gr0_x
+    component = x
+    gradient_variable = gr0
+  []
+  [gr0_grady]
+    type = VariableGradientComponent
+    variable = gr0_y
+    component = y
+    gradient_variable = gr0
+  []
 []
 
 [Materials]
@@ -199,7 +243,7 @@
     L0 = L0
     gamma0 = gamma_iso
     theta_prefactor = 2
-    continuous = False
+    continuous = false
     # Output Names
     inclination_name = inclination_mat
     L_name = L_aniso
@@ -220,6 +264,7 @@
     type = VariableGradientMaterial
     prop = ng_gr0
     variable = gr0
+    outputs = exodus
   []
   [ng_gr1]
     type = VariableGradientMaterial
@@ -253,6 +298,11 @@
     expression = 'fe_bulk_manual + fe_grad_manual'
     outputs = 'exodus'
   []
+  # [gr0_grad]
+  #   type = VariableGradientMaterial
+  #   property_name = gr0_grad
+
+
 []
 
 [Postprocessors]
