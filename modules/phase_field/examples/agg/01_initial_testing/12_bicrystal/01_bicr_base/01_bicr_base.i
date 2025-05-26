@@ -4,7 +4,7 @@
 # Created Date: Monday May 12th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday May 16th 2025
+# Last Modified: Monday May 26th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -137,6 +137,14 @@
     order = CONSTANT
     family = MONOMIAL
   []
+  [gr1_x]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [gr1_y]
+    order = CONSTANT
+    family = MONOMIAL
+  []
 []
 
 [Modules]
@@ -221,6 +229,18 @@
     component = y
     gradient_variable = gr0
   []
+  [gr1_gradx]
+    type = VariableGradientComponent
+    variable = gr1_x
+    component = x
+    gradient_variable = gr1
+  []
+  [gr1_grady]
+    type = VariableGradientComponent
+    variable = gr1_y
+    component = y
+    gradient_variable = gr1
+  []
 []
 
 [Materials]
@@ -301,8 +321,6 @@
   # [gr0_grad]
   #   type = VariableGradientMaterial
   #   property_name = gr0_grad
-
-
 []
 
 [Postprocessors]
