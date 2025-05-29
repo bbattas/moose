@@ -88,9 +88,9 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _d2Ldgrad_eta2(_op_num),
     _d2Ldgrad_etadeta(_op_num),
     // TEMP TEST OUTPUTS
-    // _testout(declareProperty<Real>("testout")),
-    // _testout2(declareProperty<Real>("testout2")),
-    // _incder_temp(declareProperty<RealGradient>("incder")),
+    _testout(declareProperty<Real>("testout")),
+    _testout2(declareProperty<Real>("testout2")),
+    _testoutgrad(declareProperty<RealGradient>("testoutgrad")),
     // Other material properties
     _gbe(getMaterialProperty<Real>("gb_energy_input")),
     _gbe_inc(declareProperty<Real>(getParam<MaterialPropertyName>("gb_energy"))),
@@ -518,9 +518,16 @@ GGInclinationMaterial::computeQpProperties()
   // dINC_dGradEta[i];
 
   // REMEMBER INC here is the f = cos (phi^{\prime})
+  _testout[_qp] = 0.0;
+  _testoutgrad[_qp] = RealGradient(0.0);
+  if (_inc_pairs.size() > 0)
+  {
+    _testout[_qp] = _inc_pairs[0];
+    _testoutgrad[_qp] = dfinc_dgeta[0];
+  }
 
-  // _testout[_qp] = (*_grad_vals[0])[_qp](0);
-  // _testout2[_qp] = (*_dgammadgrad_eta[0])[_qp](0);
+  _testout2[_qp] = _gamma[_qp]; //_inc_pairs[1];
+                                // dinc_dgeta_list[0];
   // _testout[_qp] = (*_grad_vals[0])[_qp].norm();
   // // _testout2[_qp] = testout_x;
   // _testout2[_qp] = testout_den;

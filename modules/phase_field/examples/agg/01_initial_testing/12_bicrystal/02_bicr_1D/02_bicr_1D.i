@@ -1,32 +1,32 @@
 ##############################################################################
-# File: 01_bicr_base.i
-# File Location: /examples/agg/01_initial_testing/12_bicrystal/01_bicr_base
-# Created Date: Monday May 12th 2025
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 02_bicr_1D.i
+# File Location: /examples/agg/01_initial_testing/12_bicrystal/02_bicr_1D
+# Created Date: Thursday May 29th 2025
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday May 29th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  circular bicrystal input to test iso and aniso things
-#  Base input (anisotropic)
+#  1D line version of the bicrystal input with gr1-gr0-gr1
 #
+#  Result: GG doesnt work in 1D, not curved interface to reduce area of...
 #
 ##############################################################################
 
 [Mesh]
   type = GeneratedMesh
-  dim = 2
+  dim = 1
   nx = 60
-  ny = 60
+  ny = 0
   nz = 0
   xmin = 0
   xmax = 16 #1000
   ymin = 0
-  ymax = 16 #1000
+  ymax = 0 #1000
   zmin = 0
   zmax = 0
-  elem_type = QUAD4
+  # elem_type = QUAD4
   parallel_type = DISTRIBUTED
   uniform_refine = 0
   second_order = true
@@ -63,20 +63,20 @@
     type = SmoothCircleIC
     invalue = 1
     outvalue = 0
-    radius = 4
+    radius = 3
     variable = gr0
     x1 = 8
-    y1 = 8
+    y1 = 0
     int_width = 3.2
   []
   [gr1_IC]
     type = SmoothCircleIC
     invalue = 0
     outvalue = 1
-    radius = 4
+    radius = 3
     variable = gr1
     x1 = 8
-    y1 = 8
+    y1 = 0
     int_width = 3.2
   []
   # [gr0_IC]
@@ -106,7 +106,7 @@
 [BCs]
   [Periodic]
     [All]
-      auto_direction = 'x y'
+      auto_direction = 'x' # y'
     []
   []
 []
@@ -269,8 +269,7 @@
     L_name = L_aniso
     gamma_name = gamma_asymm
     mu_name = mu
-    output_properties = 'gamma_asymm L_aniso mu gb_energy int_width inclination_mat inclination_distance
-    testout testout2 testoutgrad'
+    output_properties = 'gamma_asymm L_aniso mu gb_energy int_width inclination_mat inclination_distance'
     outputs = 'exodus'
   []
   [sumgr]
@@ -421,8 +420,8 @@
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
 
   start_time = 0.0
-  end_time = 30
-  dtmax = 1
+  end_time = 100000
+  # dtmax = 1
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6

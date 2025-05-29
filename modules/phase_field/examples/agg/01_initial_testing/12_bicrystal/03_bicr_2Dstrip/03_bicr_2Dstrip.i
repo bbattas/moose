@@ -1,16 +1,16 @@
 ##############################################################################
-# File: 01_bicr_base.i
-# File Location: /examples/agg/01_initial_testing/12_bicrystal/01_bicr_base
-# Created Date: Monday May 12th 2025
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 03_bicr_2Dstrip.i
+# File Location: /examples/agg/01_initial_testing/12_bicrystal/03_bicr_2Dstrip
+# Created Date: Thursday May 29th 2025
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday May 29th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  circular bicrystal input to test iso and aniso things
-#  Base input (anisotropic)
+#  1D doesnt work so how about a couple element strip of 2D shaped kinda like 1D
 #
+#  Nope, just straightens the curves interfaces than does no GG
 #
 ##############################################################################
 
@@ -22,8 +22,8 @@
   nz = 0
   xmin = 0
   xmax = 16 #1000
-  ymin = 0
-  ymax = 16 #1000
+  ymin = 6
+  ymax = 10 #1000
   zmin = 0
   zmax = 0
   elem_type = QUAD4
@@ -269,8 +269,7 @@
     L_name = L_aniso
     gamma_name = gamma_asymm
     mu_name = mu
-    output_properties = 'gamma_asymm L_aniso mu gb_energy int_width inclination_mat inclination_distance
-    testout testout2 testoutgrad'
+    output_properties = 'gamma_asymm L_aniso mu gb_energy int_width inclination_mat inclination_distance'
     outputs = 'exodus'
   []
   [sumgr]
