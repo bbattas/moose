@@ -4,7 +4,7 @@
 # Created Date: Monday May 12th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday May 29th 2025
+# Last Modified: Friday June 13th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -270,7 +270,7 @@
     gamma_name = gamma_asymm
     mu_name = mu
     output_properties = 'gamma_asymm L_aniso mu gb_energy int_width inclination_mat inclination_distance
-    testout testout2 testoutgrad'
+    testout testout2 testoutgrad testoutgrad2'
     outputs = 'exodus'
   []
   [sumgr]

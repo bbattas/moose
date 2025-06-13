@@ -91,6 +91,7 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _testout(declareProperty<Real>("testout")),
     _testout2(declareProperty<Real>("testout2")),
     _testoutgrad(declareProperty<RealGradient>("testoutgrad")),
+    _testoutgrad2(declareProperty<RealTensorValue>("testoutgrad2")),
     // Other material properties
     _gbe(getMaterialProperty<Real>("gb_energy_input")),
     _gbe_inc(declareProperty<Real>(getParam<MaterialPropertyName>("gb_energy"))),
@@ -520,10 +521,12 @@ GGInclinationMaterial::computeQpProperties()
   // REMEMBER INC here is the f = cos (phi^{\prime})
   _testout[_qp] = 0.0;
   _testoutgrad[_qp] = RealGradient(0.0);
+  _testoutgrad2[_qp] = RealTensorValue(0.0);
   if (_inc_pairs.size() > 0)
   {
     _testout[_qp] = _inc_pairs[0];
     _testoutgrad[_qp] = dfinc_dgeta[0];
+    _testoutgrad2[_qp] = d2finc_dgeta2[0];
   }
 
   _testout2[_qp] = _gamma[_qp]; //_inc_pairs[1];
