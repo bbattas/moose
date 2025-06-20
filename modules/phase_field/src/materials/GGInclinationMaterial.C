@@ -293,7 +293,7 @@ GGInclinationMaterial::computeQpProperties()
               RealTensorValue d2incdphi2(0.0);
               for (unsigned int p = 0; p < 3; ++p)
               {
-                dincdphi(p) = dincdA * dAdphi(p) + dincdA * dBdphi(p);
+                dincdphi(p) = dincdA * dAdphi(p) + dincdB * dBdphi(p);
                 for (unsigned int q = 0; q < 3; ++q)
                 {
                   dphi_dgradetai(p, q) =
