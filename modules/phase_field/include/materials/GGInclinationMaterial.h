@@ -81,6 +81,11 @@ protected:
   MaterialProperty<Real> & _testout2;
   MaterialProperty<RealGradient> & _testoutgrad;
   MaterialProperty<RealTensorValue> & _testoutgrad2;
+  MaterialProperty<RealGradient> & _inclin;
+
+  MaterialProperty<RealGradient> & _dadb;
+  MaterialProperty<RealTensorValue> & _d2adb2;
+  MaterialProperty<RankTwoTensor> & _d3adb3;
 
   const MaterialProperty<Real> & _gbe;
   MaterialProperty<Real> & _gbe_inc;
@@ -108,4 +113,5 @@ protected:
   // std::vector<RealGradient> _dincdgradetai_pairs;
 
   const bool _continuous;
+  int _angular_func;
 };

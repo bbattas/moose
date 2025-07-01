@@ -52,6 +52,9 @@ GGInclinationMaterial::validParams()
   params.addParam<MaterialPropertyName>("mu_name", "mu_aniso", "Name of anisotropic mu output.");
   params.addParam<bool>(
       "continuous", false, "Disregard GT and calculate for all variables everywhere.");
+  MooseEnum angular_func("atan=0 acos=1", "atan");
+  params.addParam<MooseEnum>(
+      "angular_func", angular_func, "Which angular distance function to use.");
   return params;
 }
 
@@ -92,6 +95,10 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _testout2(declareProperty<Real>("testout2")),
     _testoutgrad(declareProperty<RealGradient>("testoutgrad")),
     _testoutgrad2(declareProperty<RealTensorValue>("testoutgrad2")),
+    _inclin(declareProperty<RealGradient>("inclin_vec")),
+    _dadb(declareProperty<RealGradient>("dadb")),
+    _d2adb2(declareProperty<RealTensorValue>("d2adb2")),
+    _d3adb3(declareProperty<RankTwoTensor>("d3adb3")),
     // Other material properties
     _gbe(getMaterialProperty<Real>("gb_energy_input")),
     _gbe_inc(declareProperty<Real>(getParam<MaterialPropertyName>("gb_energy"))),
@@ -101,7 +108,8 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _gamma0(getMaterialProperty<Real>("gamma0")),
     _int_width(declareProperty<Real>("int_width")),
     _mu(declareProperty<Real>(getParam<MaterialPropertyName>("mu_name"))),
-    _continuous(getParam<bool>("continuous"))
+    _continuous(getParam<bool>("continuous")),
+    _angular_func(getParam<MooseEnum>("angular_func"))
 
 {
   if (_op_num == 0)
@@ -193,6 +201,11 @@ GGInclinationMaterial::computeQpProperties()
       if (op_to_grains[i] == FeatureFloodCount::invalid_id)
         continue;
 
+      // Real i_norm = (*_grad_vals[i])[_qp].norm();
+      // if (i_norm >= 0.01)
+      //   _gb_ij_pairs.push_back(i);
+      // continue;
+
       // _gb_pairs.push_back(_ebsd_reader.getFeatureID(op_to_grains[i]));
       // _gb_op_pairs.push_back((*_vals[i])[_qp]);
       _gb_ij_pairs.push_back(i);
@@ -212,6 +225,9 @@ GGInclinationMaterial::computeQpProperties()
   std::vector<RealTensorValue> d2inc_dgeta2_list;
   dinc_dgeta_list.clear();
   d2inc_dgeta2_list.clear();
+  _testout2[_qp] = 0.0;
+  _dadb[_qp] = RealGradient(0.0, 0.0, 0.0);
+  _d2adb2[_qp] = RealTensorValue(0.0);
 
   switch (_gb_ij_pairs.size())
   {
@@ -257,51 +273,129 @@ GGInclinationMaterial::computeQpProperties()
           RealTensorValue d2inc_dgetai2(0.0);
           _hgb_pairs.push_back((*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] *
                                (*_vals[j])[_qp]);
-          if (ngb.norm() > 1.0e-10)
+          // _testout2[_qp] = ngb.norm();
+          // Real i_norm = (*_grad_vals[i])[_qp].norm();
+          // Real j_norm = (*_grad_vals[j])[_qp].norm();
+          if (ngb.norm() > 1.0e-10) // && i_norm >= 0.01 && j_norm >= 0.01) // 1.0e-10
           {
             RealGradient uxyz = ngb;
             Real alpha = 1 / uxyz.norm();
             ngb /= ngb.norm();
-            R = std::sqrt((ngb(1) * ngb(1)) + (ngb(2) * ngb(2)));
-            a_dist = std::atan2(R, ngb(0));
-            // Derivs- Only if there is a non-zero tilt (R exists & nonzero)
-            // else we get NaN in dy and dz
-            if (R > 1e-10)
+            if (_angular_func == 0)
             {
+              R = std::sqrt((ngb(1) * ngb(1)) + (ngb(2) * ngb(2)));
+              a_dist = std::atan2(R, ngb(0));
+              // Derivs- Only if there is a non-zero tilt (R exists & nonzero)
+              // else we get NaN in dy and dz
+              if (R > 1e-10)
+              {
+                // Derivatives
+                RealTensorValue dij(1, 0, 0, 0, 1, 0, 0, 0, 1);
+                RankTwoTensor dphi_dgradetai;
+                RankThreeTensor d2phi_dgradetai2;
+                RealGradient dAdphi(1.0, 0.0, 0.0);
+                RealGradient dBdphi(0.0, ngb(1) / R, ngb(2) / R);
+                RealTensorValue d2Adphiji(0, 0, 0, 0, 0, 0, 0, 0, 0);
+                RealTensorValue d2Bdphiji(0,
+                                          0,
+                                          0,
+                                          0,
+                                          ngb(2) * ngb(2) / (R * R * R),
+                                          -ngb(1) * ngb(2) / (R * R * R),
+                                          0,
+                                          -ngb(1) * ngb(2) / (R * R * R),
+                                          ngb(1) * ngb(1) / (R * R * R));
+                Real dincdA = -R;
+                Real dincdB = ngb(0);
+                Real d2incdA2 = 2 * R * ngb(0);
+                Real d2incdB2 = -2 * R * ngb(0);
+                Real d2incdAB = R * R - ngb(0) * ngb(0);
+                RealGradient dincdphi(0.0, 0.0, 0.0);
+                RealTensorValue d2incdphi2(0.0);
+                for (unsigned int p = 0; p < 3; ++p)
+                {
+                  dincdphi(p) = dincdA * dAdphi(p) + dincdB * dBdphi(p);
+                  for (unsigned int q = 0; q < 3; ++q)
+                  {
+                    dphi_dgradetai(p, q) =
+                        alpha * dij(p, q) - alpha * alpha * alpha * uxyz(p) * uxyz(q);
+                    d2incdphi2(p, q) = (d2incdA2 * dAdphi(q) * dAdphi(p)) +
+                                       d2incdAB * (dAdphi(q) * dBdphi(p) + dAdphi(p) * dBdphi(q)) +
+                                       (d2incdB2 * dBdphi(q) * dBdphi(p)) +
+                                       (dincdA * d2Adphiji(p, q)) + (dincdB * d2Bdphiji(p, q));
+                    for (unsigned int r = 0; r < 3; ++r)
+                    {
+                      d2phi_dgradetai2(p, q, r) =
+                          alpha * alpha * alpha *
+                          (3 * alpha * alpha * uxyz(p) * uxyz(q) * uxyz(r) - uxyz(p) * dij(q, r) -
+                           uxyz(q) * dij(p, r) - uxyz(r) * dij(p, q));
+                    }
+                  }
+                  for (unsigned int q = 0; q < 3; ++q)
+                  {
+                    dinc_dgetai(p) += dincdphi(q) * dphi_dgradetai(q, p);
+                    for (unsigned int r = 0; r < 3; ++r)
+                      for (unsigned int s = 0; s < 3; ++s)
+                      {
+                        d2inc_dgetai2(q, r) +=
+                            d2incdphi2(p, s) * dphi_dgradetai(p, r) * dphi_dgradetai(s, q) +
+                            dincdphi(p) * d2phi_dgradetai2(p, q, r);
+                      }
+                  }
+                }
+                if (idx1 == 0 && idx2 == 1)
+                {
+                  _dadb[_qp] = dincdphi;
+                  _d2adb2[_qp] = d2incdphi2;
+                  _d3adb3[_qp] = dphi_dgradetai;
+                }
+                // Real temp_dincldgradetaix =
+                //     (-alpha / R) * ((1 - (uxyz(0) * uxyz(0) * alpha * alpha)) +
+                //                     (ngb(1) / ngb(0)) * (uxyz(0) * uxyz(1) * alpha * alpha) +
+                //                     (ngb(2) / ngb(0)) * (uxyz(0) * uxyz(2) * alpha * alpha));
+                // Real temp_dincldgradetaiy =
+                //     (-alpha / R) * ((uxyz(0) * uxyz(1) * alpha * alpha) +
+                //                     (ngb(1) / ngb(0)) * (1 - (uxyz(1) * uxyz(1) * alpha * alpha))
+                //                     + (ngb(2) / ngb(0)) * (uxyz(1) * uxyz(2) * alpha * alpha));
+                // Real temp_dincldgradetaiz =
+                //     (-alpha / R) * ((uxyz(0) * uxyz(2) * alpha * alpha) +
+                //                     (ngb(1) / ngb(0)) * (uxyz(2) * uxyz(1) * alpha * alpha) +
+                //                     (ngb(2) / ngb(0)) * (1 - (uxyz(2) * uxyz(2) * alpha *
+                //                     alpha)));
+                // dincij_dgradetai =
+                //     RealGradient(temp_dincldgradetaix, temp_dincldgradetaiy,
+                //     temp_dincldgradetaiz);
+              }
+            }
+            else if (_angular_func == 1)
+            {
+              // Trim values outside allowed range (which shouldnt exist anyway in ngb)
+              Real cx = std::max(-1.0, std::min(1.0, ngb(0)));
+              a_dist = std::acos(cx);
               // Derivatives
+              // acos (or inc) to phi
+              // d/dx acos(x) = -1/sqrt(1-x^2)
+              Real eps = 1e-3;
+              Real den_root = std::sqrt(1 - cx * cx + eps * eps);
+              RealGradient dincdphi(0.0, 0.0, 0.0);
+              Real d2incdphi2_xx = 0.0;
+              if (den_root > 1e-10)
+              {
+                dincdphi(0) = -1 / den_root;
+                d2incdphi2_xx = -cx / (den_root * den_root * den_root);
+              }
+              RealTensorValue d2incdphi2(0.0);
+              d2incdphi2(0, 0) = d2incdphi2_xx;
+              // phi to gradeta
               RealTensorValue dij(1, 0, 0, 0, 1, 0, 0, 0, 1);
               RankTwoTensor dphi_dgradetai;
               RankThreeTensor d2phi_dgradetai2;
-              RealGradient dAdphi(1.0, 0.0, 0.0);
-              RealGradient dBdphi(0.0, ngb(1) / R, ngb(2) / R);
-              RealTensorValue d2Adphiji(0, 0, 0, 0, 0, 0, 0, 0, 0);
-              RealTensorValue d2Bdphiji(0,
-                                        0,
-                                        0,
-                                        0,
-                                        ngb(2) * ngb(2) / (R * R * R),
-                                        -ngb(1) * ngb(2) / (R * R * R),
-                                        0,
-                                        -ngb(1) * ngb(2) / (R * R * R),
-                                        ngb(1) * ngb(1) / (R * R * R));
-              Real dincdA = -R;
-              Real dincdB = ngb(0);
-              Real d2incdA2 = 2 * R * ngb(0);
-              Real d2incdB2 = -2 * R * ngb(0);
-              Real d2incdAB = R * R - ngb(0) * ngb(0);
-              RealGradient dincdphi(0.0, 0.0, 0.0);
-              RealTensorValue d2incdphi2(0.0);
               for (unsigned int p = 0; p < 3; ++p)
               {
-                dincdphi(p) = dincdA * dAdphi(p) + dincdB * dBdphi(p);
                 for (unsigned int q = 0; q < 3; ++q)
                 {
                   dphi_dgradetai(p, q) =
                       alpha * dij(p, q) - alpha * alpha * alpha * uxyz(p) * uxyz(q);
-                  d2incdphi2(p, q) = (d2incdA2 * dAdphi(q) * dAdphi(p)) +
-                                     d2incdAB * (dAdphi(q) * dBdphi(p) + dAdphi(p) * dBdphi(q)) +
-                                     (d2incdB2 * dBdphi(q) * dBdphi(p)) +
-                                     (dincdA * d2Adphiji(p, q)) + (dincdB * d2Bdphiji(p, q));
                   for (unsigned int r = 0; r < 3; ++r)
                   {
                     d2phi_dgradetai2(p, q, r) =
@@ -322,25 +416,29 @@ GGInclinationMaterial::computeQpProperties()
                     }
                 }
               }
-              // Real temp_dincldgradetaix =
-              //     (-alpha / R) * ((1 - (uxyz(0) * uxyz(0) * alpha * alpha)) +
-              //                     (ngb(1) / ngb(0)) * (uxyz(0) * uxyz(1) * alpha * alpha) +
-              //                     (ngb(2) / ngb(0)) * (uxyz(0) * uxyz(2) * alpha * alpha));
-              // Real temp_dincldgradetaiy =
-              //     (-alpha / R) * ((uxyz(0) * uxyz(1) * alpha * alpha) +
-              //                     (ngb(1) / ngb(0)) * (1 - (uxyz(1) * uxyz(1) * alpha * alpha)) +
-              //                     (ngb(2) / ngb(0)) * (uxyz(1) * uxyz(2) * alpha * alpha));
-              // Real temp_dincldgradetaiz =
-              //     (-alpha / R) * ((uxyz(0) * uxyz(2) * alpha * alpha) +
-              //                     (ngb(1) / ngb(0)) * (uxyz(2) * uxyz(1) * alpha * alpha) +
-              //                     (ngb(2) / ngb(0)) * (1 - (uxyz(2) * uxyz(2) * alpha * alpha)));
-              // dincij_dgradetai =
-              //     RealGradient(temp_dincldgradetaix, temp_dincldgradetaiy, temp_dincldgradetaiz);
+              if (idx1 == 0 && idx2 == 1)
+              {
+                _dadb[_qp] = dincdphi;
+                _d2adb2[_qp] = d2incdphi2;
+                _d3adb3[_qp] = dphi_dgradetai;
+              }
             }
+            else
+            {
+              mooseError("Angular function must be 0 or 1");
+            }
+
+            // _inc_pairs.push_back(a_dist); // Radians // * 180 / M_PI for degrees
+            // // _dincdgradetai_pairs.push_back(dincij_dgradetai);
+            // dinc_dgeta_list.push_back(dinc_dgetai);
+            // d2inc_dgeta2_list.push_back(d2inc_dgetai2);
           }
           else
           {
             ngb = 0.0;
+            // If norms of gradients too small/flat
+            // a_dist = (libMesh::pi / (2 * _theta_pre)) - _inc_ij_0;
+            // a_dist = -1;
           }
           _inc_pairs.push_back(a_dist); // Radians // * 180 / M_PI for degrees
           // _dincdgradetai_pairs.push_back(dincij_dgradetai);
@@ -525,12 +623,23 @@ GGInclinationMaterial::computeQpProperties()
   if (_inc_pairs.size() > 0)
   {
     _testout[_qp] = _inc_pairs[0];
-    _testoutgrad[_qp] = dfinc_dgeta[0];
-    _testoutgrad2[_qp] = d2finc_dgeta2[0];
+    _testoutgrad[_qp] = dinc_dgeta_list[0];    // dfinc_dgeta[0];
+    _testoutgrad2[_qp] = d2inc_dgeta2_list[0]; // d2finc_dgeta2[0];
   }
+  RealGradient inclin = (*_grad_vals[0])[_qp] - (*_grad_vals[1])[_qp];
+  Real mag = inclin.norm();
+  if (mag > 1e-4)
+    _inclin[_qp] = inclin / mag;
+  else
+    _inclin[_qp] = RealGradient(0.0);
+  // const Real inc_tol = 1e-8;
+  // if (std::abs(_inclin[_qp].norm() - 1.0) <= inc_tol)
+  //   _testout2[_qp] = 1.0; //_gamma[_qp]; //_inc_pairs[1];
+  // else
+  //   _testout2[_qp] = 0.0;
+  // _testout2[_qp] = _inclin[_qp].norm();
 
-  _testout2[_qp] = _gamma[_qp]; //_inc_pairs[1];
-                                // dinc_dgeta_list[0];
+  // dinc_dgeta_list[0];
   // _testout[_qp] = (*_grad_vals[0])[_qp].norm();
   // // _testout2[_qp] = testout_x;
   // _testout2[_qp] = testout_den;

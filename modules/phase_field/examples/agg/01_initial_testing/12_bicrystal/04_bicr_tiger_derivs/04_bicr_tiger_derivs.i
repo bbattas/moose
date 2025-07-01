@@ -4,7 +4,7 @@
 # Created Date: Friday June 13th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday June 13th 2025
+# Last Modified: Tuesday July 1st 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -145,6 +145,15 @@
     order = CONSTANT
     family = MONOMIAL
   []
+  # custom inclin
+  [inc_x]
+    order = FIRST
+    family = MONOMIAL
+  []
+  [inc_y]
+    order = FIRST
+    family = MONOMIAL
+  []
 []
 
 [Modules]
@@ -152,8 +161,8 @@
     [GrainGrowth]
       mobility = L_aniso
       kappa = kappa
-      order = SECOND
-      family = LAGRANGE
+      order = THIRD
+      family = HERMITE#LAGRANGE
     []
   []
 []
@@ -241,6 +250,21 @@
     component = y
     gradient_variable = gr1
   []
+  # custom inclination
+  [inc_x_aux]
+    type = InclinationAux
+    variable = inc_x
+    var1 = gr0
+    var2 = gr1
+    component = x
+  []
+  [inc_y_aux]
+    type = InclinationAux
+    variable = inc_y
+    var1 = gr0
+    var2 = gr1
+    component = y
+  []
 []
 
 [Materials]
@@ -263,14 +287,16 @@
     L0 = L0
     gamma0 = gamma_iso
     theta_prefactor = 2
+    inc_ij_0 = 0#1.57
     continuous = false
+    angular_func = acos
     # Output Names
     inclination_name = inclination_mat
     L_name = L_aniso
     gamma_name = gamma_asymm
     mu_name = mu
     output_properties = 'gamma_asymm L_aniso mu gb_energy int_width inclination_mat inclination_distance
-    testout testout2 testoutgrad testoutgrad2'
+    testout testout2 testoutgrad testoutgrad2 inclin_vec dadb d2adb2 d3adb3'
     outputs = 'exodus'
   []
   [sumgr]
