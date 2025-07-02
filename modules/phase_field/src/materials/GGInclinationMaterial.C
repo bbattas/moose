@@ -228,6 +228,7 @@ GGInclinationMaterial::computeQpProperties()
   _testout2[_qp] = 0.0;
   _dadb[_qp] = RealGradient(0.0, 0.0, 0.0);
   _d2adb2[_qp] = RealTensorValue(0.0);
+  _d3adb3[_qp] = RealTensorValue(0.0);
 
   switch (_gb_ij_pairs.size())
   {
