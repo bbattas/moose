@@ -42,6 +42,7 @@ parser.add_argument('--time','-t', type=int, help='''SLURM number of hours to ru
 parser.add_argument('--args','-c', type=str, help='Extra CL arguments at the end. Default=NONE')
 parser.add_argument('--recover', action='store_true', help='''Add the recovery flag to the executable, without a '''
                     '''specified checkpoint file.''')
+parser.add_argument('--rh8', action='store_true', help='Use RH8 versions of packages.')
 cl_args = parser.parse_args()
 
 # Defaults for the variables
@@ -271,10 +272,22 @@ def slurmWrite(cwd,inputName):
         slurmList.append('MOOSE='+pf_opt)
         slurmList.append('OUTPUT='+cwd)
         # Module loading
-        slurmList.append('')
-        slurmList.append('export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77')
-        slurmList.append('module purge')
-        slurmList.append('module load ufrc mkl/2023.2.0 gcc/12.2.0 openmpi/4.1.6 python/3.11 cmake/3.26.4')
+        mpiflag = None
+        # RH8
+        if cl_args.rh8:
+            mpiflag = '--mpi=pmix_v3'
+            slurmList.append('')
+            slurmList.append('export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77')
+            slurmList.append('module purge')
+            slurmList.append('module load ufrc mkl/2023.2.0 gcc/12.2.0 openmpi/4.1.6 python/3.11 cmake/3.26.4')
+        else:
+            mpiflag = '--mpi=pmix_v5'
+            slurmList.append('')
+            slurmList.append('export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/pmix/5.6.0/lib')
+            slurmList.append('export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/slurm/lib64/libpmi.so')
+            slurmList.append('export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77')
+            slurmList.append('module purge')
+            slurmList.append('module load ufrc mkl/2025.1.0 gcc/14.2.0 openmpi/5.0.7 python/3.12 cmake/3.30.5')
         # slurmList.append('module load conda')
         # Mamba Build
         # slurmList.append('source ~/.bashrc')
@@ -289,9 +302,9 @@ def slurmWrite(cwd,inputName):
                 slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i ' + ('--recover ' if cl_args.recover else '') +str(cl_args.args))
         else:
             if cl_args.args == None:
-                slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i' + (' --recover' if cl_args.recover else ''))
+                slurmList.append('srun '+mpiflag+' $MOOSE -i $OUTPUT/'+inputName+'.i' + (' --recover' if cl_args.recover else ''))
             else:
-                slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i ' + ('--recover ' if cl_args.recover else '')+str(cl_args.args))
+                slurmList.append('srun '+mpiflag+' $MOOSE -i $OUTPUT/'+inputName+'.i ' + ('--recover ' if cl_args.recover else '')+str(cl_args.args))
 
         # Output the slurm script
         # verb(slurmList)

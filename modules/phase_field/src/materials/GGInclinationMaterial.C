@@ -55,6 +55,7 @@ GGInclinationMaterial::validParams()
   MooseEnum angular_func("atan=0 acos=1", "atan");
   params.addParam<MooseEnum>(
       "angular_func", angular_func, "Which angular distance function to use.");
+  params.addParam<Real>("gradtol", 1e-6, "Gradient magnitude tolerance");
   return params;
 }
 
@@ -109,7 +110,8 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _int_width(declareProperty<Real>("int_width")),
     _mu(declareProperty<Real>(getParam<MaterialPropertyName>("mu_name"))),
     _continuous(getParam<bool>("continuous")),
-    _angular_func(getParam<MooseEnum>("angular_func"))
+    _angular_func(getParam<MooseEnum>("angular_func")),
+    _intol(getParam<Real>("gradtol"))
 
 {
   if (_op_num == 0)
@@ -236,7 +238,8 @@ GGInclinationMaterial::computeQpProperties()
       break;
     case 1:
       // _inclination[_qp] = _pre_inc[_qp];
-      _inclination_distance[_qp] = 0.0;
+      // _inclination_distance[_qp] = 0.0;
+      _inclination_distance[_qp] = (libMesh::pi / (2 * _theta_pre)) - _inc_ij_0;
       _inclination[_qp] = 1.0;
       break;
     // case 2:
@@ -277,11 +280,22 @@ GGInclinationMaterial::computeQpProperties()
           // _testout2[_qp] = ngb.norm();
           // Real i_norm = (*_grad_vals[i])[_qp].norm();
           // Real j_norm = (*_grad_vals[j])[_qp].norm();
-          if (ngb.norm() > 1.0e-10) // && i_norm >= 0.01 && j_norm >= 0.01) // 1.0e-10
+          // if (i_norm >= _intol)
+          //   _testout2[_qp] = (*_grad_vals[j])[_qp].norm();
+          // else
+          //   _testout2[_qp] = 2.0;
+          // Real j_norm = (*_grad_vals[j])[_qp].norm();
+          if (ngb.norm() >
+              1.0e-10) // &&
+                       // (i_norm >= _intol ||
+                       //  j_norm >= _intol)) // && i_norm >= 0.01 && j_norm >= 0.01) // 1.0e-10
           {
-            RealGradient uxyz = ngb;
-            Real alpha = 1 / uxyz.norm();
-            ngb /= ngb.norm();
+            ngb /= ngb.norm();       // Really dont think this should be here?
+            RealGradient uxyz = ngb; // thought the math needed uxyz in derivs not normalized?
+            // Real alpha = 1 / uxyz.norm();
+            const Real alpha_tol = 0.1;
+            Real alpha = 1 / std::max(uxyz.norm(), alpha_tol);
+            // ngb /= ngb.norm();
             if (_angular_func == 0)
             {
               R = std::sqrt((ngb(1) * ngb(1)) + (ngb(2) * ngb(2)));
@@ -332,6 +346,9 @@ GGInclinationMaterial::computeQpProperties()
                            uxyz(q) * dij(p, r) - uxyz(r) * dij(p, q));
                     }
                   }
+                  // }
+                  // for (unsigned int p = 0; p < 3; ++p)
+                  // {
                   for (unsigned int q = 0; q < 3; ++q)
                   {
                     dinc_dgetai(p) += dincdphi(q) * dphi_dgradetai(q, p);
@@ -346,7 +363,8 @@ GGInclinationMaterial::computeQpProperties()
                 }
                 if (idx1 == 0 && idx2 == 1)
                 {
-                  _dadb[_qp] = dincdphi;
+                  _testout2[_qp] = alpha; // uxyz.norm();
+                  _dadb[_qp] = uxyz;      // dincdphi;
                   _d2adb2[_qp] = d2incdphi2;
                   _d3adb3[_qp] = dphi_dgradetai;
                 }
@@ -405,6 +423,9 @@ GGInclinationMaterial::computeQpProperties()
                          uxyz(q) * dij(p, r) - uxyz(r) * dij(p, q));
                   }
                 }
+                // }
+                // for (unsigned int p = 0; p < 3; ++p)
+                // {
                 for (unsigned int q = 0; q < 3; ++q)
                 {
                   dinc_dgetai(p) += dincdphi(q) * dphi_dgradetai(q, p);
@@ -530,7 +551,8 @@ GGInclinationMaterial::computeQpProperties()
   }
   else
   {
-    _inclination_distance[_qp] = 0.0;
+    // _inclination_distance[_qp] = 0.0;
+    _inclination_distance[_qp] = (libMesh::pi / (2 * _theta_pre)) - _inc_ij_0;
     _inclination[_qp] = 1.0;
   }
 

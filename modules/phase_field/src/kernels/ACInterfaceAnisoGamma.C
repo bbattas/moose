@@ -90,13 +90,13 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
   // Get mobility and kappa derivatives and coupled variable gradients
   // mooseWarning("NAMEBASE: ", _var_name_base);
   // std::vector<unsigned int> _grain_ids;
-  mooseWarning("Coupled stuff: ", _n_args);
+  // mooseWarning("Coupled stuff: ", _n_args);
   for (unsigned int i = 0; i < _n_args; ++i)
   {
     // mooseWarning("Into initial");
     MooseVariable * ivar = _coupled_standard_moose_vars[i];
     const VariableName iname = ivar->name();
-    mooseWarning("coupled name: ", iname);
+    // mooseWarning("coupled name: ", iname);
     if (iname == _var.name())
     {
       if (isCoupled("args"))

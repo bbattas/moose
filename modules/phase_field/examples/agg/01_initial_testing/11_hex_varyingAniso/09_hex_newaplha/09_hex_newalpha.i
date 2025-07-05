@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 04_bicr_tiger_derivs.i
-# File Location: /examples/agg/01_initial_testing/12_bicrystal/04_bicr_tiger_derivs
-# Created Date: Friday June 13th 2025
+# File: 09_hex_newalpha.i
+# File Location: /examples/agg/01_initial_testing/11_hex_varyingAniso/09_hex_newaplha
+# Created Date: Saturday July 5th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Saturday July 5th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Same as the base input roughly, but for use in manually calculating derivs
-#   using TIGER for comparison to what i actually have here
+#  Later hex test for newer alpha to check its still moving aniso
+#
 #
 #
 ##############################################################################
@@ -17,8 +17,8 @@
 [Mesh]
   type = GeneratedMesh
   dim = 2
-  nx = 60
-  ny = 60
+  nx = 40
+  ny = 40
   nz = 0
   xmin = 0
   xmax = 16 #1000
@@ -33,79 +33,57 @@
 []
 
 [GlobalParams]
-  op_num = 2
+  op_num = 4
   var_name_base = 'gr'
-  # profile = TANH
-  # int_width = int_width
 []
 
+# [Variables]
+#   [PolycrystalVariables]
+#     order = SECOND
+#     family = HERMITE
+#   []
+#   # [gr0]
+#   #   order = SECOND
+#   #   family = LAGRANGE
+#   # []
+#   # [gr1]
+#   #   order = SECOND
+#   #   family = LAGRANGE
+#   # []
+#   # [gr2]
+#   #   order = SECOND
+#   #   family = LAGRANGE
+#   # []
+#   # [gr3]
+#   #   order = SECOND
+#   #   family = LAGRANGE
+#   # []
+# []
+
 [UserObjects]
+  [hex_ic]
+    type = PolycrystalHex
+    coloring_algorithm = bt
+    x_offset = .5
+    grain_num = 4
+  []
   [grain_tracker]
     type = GrainTracker
     # variable = eta
-    threshold = 0.001 #0.2
-    connecting_threshold = 0.0008 #0.08
+    threshold = 0.2
+    connecting_threshold = 0.08
     compute_halo_maps = true
     compute_var_to_feature_map = true
     execute_on = 'initial timestep_end'
   []
-  [terminator]
-    type = Terminator
-    expression = 'grain_tracker < 2'
-    execute_on = TIMESTEP_END
-  []
 []
 
 [ICs]
-  # [PolycrystalICs]
-  #   [BicrystalCircleGrainIC]
-  #     radius = 4
-  #     x = 8
-  #     y = 8
-  #   []
-  # []
-  [gr0_IC]
-    type = SmoothCircleIC
-    invalue = 1
-    outvalue = 0
-    radius = 4
-    variable = gr0
-    x1 = 8
-    y1 = 8
-    int_width = 3.2
+  [PolycrystalICs]
+    [PolycrystalColoringIC]
+      polycrystal_ic_uo = hex_ic
+    []
   []
-  [gr1_IC]
-    type = SmoothCircleIC
-    invalue = 0
-    outvalue = 1
-    radius = 4
-    variable = gr1
-    x1 = 8
-    y1 = 8
-    int_width = 3.2
-  []
-  # [gr0_IC]
-  #   type = BoundingBoxIC
-  #   inside = 1
-  #   outside = 0
-  #   variable = gr0
-  #   x1 = 8
-  #   y1 = 8
-  #   x2 = 24
-  #   y2 = 24
-  #   int_width = 1.5
-  # []
-  # [gr1_IC]
-  #   type = BoundingBoxIC
-  #   inside = 0
-  #   outside = 1
-  #   variable = gr1
-  #   x1 = 8
-  #   y1 = 8
-  #   x2 = 24
-  #   y2 = 24
-  #   int_width = 1.5
-  # []
 []
 
 [BCs]
@@ -133,32 +111,35 @@
     order = CONSTANT
     family = MONOMIAL
   []
-  # Gradient components
-  [gr0_x]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [gr0_y]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [gr1_x]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [gr1_y]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  # custom inclin
-  [inc_x]
-    order = FIRST
-    family = MONOMIAL
-  []
-  [inc_y]
-    order = FIRST
-    family = MONOMIAL
-  []
+  # [ebsd_ic]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [ebsd_grains]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # # Halos
+  # [halos]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [halo0]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [halo1]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [halo2]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [halo3]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
 []
 
 [Modules]
@@ -173,11 +154,13 @@
 []
 
 [Kernels]
+  # [PolycrystalKernel]
+  # []
   [gr0_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr0
     # v = 'gr1 gr2 gr3'
-    coupled_variables = 'gr1'
+    coupled_variables = 'gr1 gr2 gr3'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_0
     d2gamma_dgradop2_name = d2gammadgrad_eta2_0
@@ -185,13 +168,12 @@
     dL_dgradop_name = dLdgrad_eta_0
     d2L_dgradop2_name = d2Ldgrad_eta2_0
     variable_L = true
-    skip_off = false
   []
   [gr1_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr1
     # v = 'gr0 gr2 gr3'
-    coupled_variables = 'gr0'
+    coupled_variables = 'gr0 gr2 gr3'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_1
     d2gamma_dgradop2_name = d2gammadgrad_eta2_1
@@ -199,7 +181,32 @@
     dL_dgradop_name = dLdgrad_eta_1
     d2L_dgradop2_name = d2Ldgrad_eta2_1
     variable_L = true
-    skip_off = false
+  []
+  [gr2_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr2
+    # v = 'gr0 gr1 gr3'
+    coupled_variables = 'gr0 gr1 gr3'
+    gamma_name = gamma_asymm
+    dgamma_dgradop_name = dgammadgrad_eta_2
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_2
+    mob_name = L_aniso
+    dL_dgradop_name = dLdgrad_eta_2
+    d2L_dgradop2_name = d2Ldgrad_eta2_2
+    variable_L = true
+  []
+  [gr3_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr3
+    # v = 'gr0 gr1 gr2'
+    coupled_variables = 'gr0 gr1 gr2'
+    gamma_name = gamma_asymm
+    dgamma_dgradop_name = dgammadgrad_eta_3
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_3
+    mob_name = L_aniso
+    dL_dgradop_name = dLdgrad_eta_3
+    d2L_dgradop2_name = d2Ldgrad_eta2_3
+    variable_L = true
   []
 []
 
@@ -230,49 +237,77 @@
     field_display = GHOSTED_ENTITIES
     execute_on = 'initial timestep_end'
   []
-  # gr0 gradient pieces
-  [gr0_gradx]
-    type = VariableGradientComponent
-    variable = gr0_x
-    component = x
-    gradient_variable = gr0
-  []
-  [gr0_grady]
-    type = VariableGradientComponent
-    variable = gr0_y
-    component = y
-    gradient_variable = gr0
-  []
-  [gr1_gradx]
-    type = VariableGradientComponent
-    variable = gr1_x
-    component = x
-    gradient_variable = gr1
-  []
-  [gr1_grady]
-    type = VariableGradientComponent
-    variable = gr1_y
-    component = y
-    gradient_variable = gr1
-  []
-  # custom inclination
-  [inc_x_aux]
-    type = InclinationAux
-    variable = inc_x
-    var1 = gr0
-    var2 = gr1
-    component = x
-  []
-  [inc_y_aux]
-    type = InclinationAux
-    variable = inc_y
-    var1 = gr0
-    var2 = gr1
-    component = y
-  []
+  # [ebsd_ic_aux]
+  #   type = EBSDReaderPointDataAux
+  #   variable = ebsd_ic
+  #   ebsd_reader = ebsd_reader
+  #   data_name = 'feature_id'
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [ebsd_grains]
+  #   type = EBSDReaderAvgDataAux
+  #   data_name = 'feature_id'
+  #   ebsd_reader = ebsd_reader
+  #   grain_tracker = grain_tracker
+  #   variable = ebsd_grains
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [halos]
+  #   type = FeatureFloodCountAux
+  #   variable = halos
+  #   flood_counter = grain_tracker
+  #   field_display = HALOS
+  #   execute_on = 'initial timestep_end'
+  # []
+  # HALOS
+  # [halo0]
+  #   type = FeatureFloodCountAux
+  #   variable = halo0
+  #   map_index = 0
+  #   field_display = HALOS
+  #   flood_counter = grain_tracker
+  # []
+  # [halo1]
+  #   type = FeatureFloodCountAux
+  #   variable = halo1
+  #   map_index = 1
+  #   field_display = HALOS
+  #   flood_counter = grain_tracker
+  # []
+  # [halo2]
+  #   type = FeatureFloodCountAux
+  #   variable = halo2
+  #   map_index = 2
+  #   field_display = HALOS
+  #   flood_counter = grain_tracker
+  # []
+  # [halo3]
+  #   type = FeatureFloodCountAux
+  #   variable = halo3
+  #   map_index = 3
+  #   field_display = HALOS
+  #   flood_counter = grain_tracker
+  # []
 []
 
+# [BCs]
+#   [Periodic]
+#     [All]
+#       auto_direction = 'x y'
+#     []
+#   []
+# []
+
 [Materials]
+  # [Moly_GB]
+  #   type = GBEvolution
+  #   time_scale = 1.0
+  #   GBmob0 = 3.986e-6
+  #   T = 500 # K
+  #   wGB = 60 # nm
+  #   Q = 1.0307
+  #   GBenergy = 2.4
+  # []
   [constants]
     type = GenericConstantMaterial
     prop_names = 'L0 kappa const_m gamma_iso iw_iso gbe_iso'
@@ -292,32 +327,20 @@
     L0 = L0
     gamma0 = gamma_iso
     theta_prefactor = 2
-    inc_ij_0 = 0 #1.57
-    continuous = false
-    angular_func = atan
-    gradtol = 0.0#1
+    # inc_ij_0 = 1.57 #1.57
     # Output Names
     inclination_name = inclination_mat
     L_name = L_aniso
     gamma_name = gamma_asymm
     mu_name = mu
-    output_properties = 'gamma_asymm L_aniso mu gb_energy int_width inclination_mat inclination_distance
-    testout testout2 testoutgrad testoutgrad2 inclin_vec dadb d2adb2 d3adb3
-    dgammadgrad_eta_0 d2gammadgrad_eta2_0 dLdgrad_eta_0 d2Ldgrad_eta2_0'
+    output_properties = 'gamma_asymm L_aniso mu gb_energy int_width'
     outputs = 'exodus'
   []
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
-    coupled_variables = 'gr0 gr1'
-    expression = 'gr0 + gr1'
-    outputs = 'exodus'
-  []
-  [hbulk]
-    type = ParsedMaterial
-    property_name = hbulk
-    coupled_variables = 'gr0 gr1'
-    expression = 'gr0*gr0 + gr1*gr1'
+    coupled_variables = 'gr0 gr1 gr2 gr3'
+    expression = 'gr0 + gr1 + gr2 + gr3'
     outputs = 'exodus'
   []
   # Variable Gradients
@@ -325,67 +348,55 @@
     type = VariableGradientMaterial
     prop = ng_gr0
     variable = gr0
-    outputs = exodus
   []
   [ng_gr1]
     type = VariableGradientMaterial
     prop = ng_gr1
     variable = gr1
   []
+  [ng_gr2]
+    type = VariableGradientMaterial
+    prop = ng_gr2
+    variable = gr2
+  []
+  [ng_gr3]
+    type = VariableGradientMaterial
+    prop = ng_gr3
+    variable = gr3
+  []
   # Free energies
   [fe_bulk_manual]
     type = ParsedMaterial
     property_name = fe_bulk_manual
-    coupled_variables = 'gr0 gr1'
+    coupled_variables = 'gr0 gr1 gr2 gr3'
     material_property_names = 'gamma_asymm'
-    expression = 'gmeta:= gr0^2 * gr1^2;
-    etaover:= 0.25*gr0^4 - 0.5*gr0^2 + 0.25*gr1^4 - 0.5*gr1^2;
+    expression = 'gmeta:= gr0^2 * gr1^2 + gr0^2 * gr2^2 + gr0^2 * gr3^2 + gr1^2 * gr2^2 + gr1^2 * gr3^2 + gr2^2 * gr3^2;
+    etaover:= 0.25*gr0^4 - 0.5*gr0^2 + 0.25*gr1^4 - 0.5*gr1^2 + 0.25*gr2^4 - 0.5*gr2^2 + 0.25*gr3^4 - 0.5*gr3^2;
     etaover + gamma_asymm * gmeta + 0.25'
     outputs = 'exodus'
   []
   [fe_grad_manual]
     type = ParsedMaterial
     property_name = fe_grad_manual
-    coupled_variables = 'gr0 gr1'
-    material_property_names = 'kappa ng_gr0 ng_gr1'
-    expression = '0.5 * kappa * (ng_gr0^2 + ng_gr1^2)'
+    coupled_variables = 'gr0 gr1 gr2 gr3'
+    material_property_names = 'kappa ng_gr0 ng_gr1 ng_gr2 ng_gr3'
+    expression = '0.5 * kappa * (ng_gr0^2 + ng_gr1^2 + ng_gr2^2 + ng_gr3^2)'
     outputs = 'exodus'
   []
   [fe_tot_manual]
     type = ParsedMaterial
     property_name = fe_tot_manual
-    coupled_variables = 'gr0 gr1'
+    coupled_variables = 'gr0 gr1 gr2 gr3'
     material_property_names = 'fe_bulk_manual fe_grad_manual'
     expression = 'fe_bulk_manual + fe_grad_manual'
     outputs = 'exodus'
   []
-  # [gr0_grad]
-  #   type = VariableGradientMaterial
-  #   property_name = gr0_grad
 []
 
 [Postprocessors]
-  [runtime]
-    type = PerfGraphData
-    section_name = "Root"
-    data_type = TOTAL
-  []
-  [nl_its]
-    type = NumNonlinearIterations
-  []
-  [l_its]
-    type = NumLinearIterations
-  []
-  [max_mpi_memory]
-    type = MemoryUsage
-    value_type = max_process
-    report_peak_value = True
-    mem_units = MEGABYTES
-    execute_on = 'NONLINEAR TIMESTEP_END'
-  []
   [ctr_grain_area]
     type = ElementIntegralVariablePostprocessor
-    variable = gr1
+    variable = gr2
     execute_on = 'initial timestep_end'
   []
   [tot_grain_area]
@@ -421,19 +432,15 @@
     type = VariableResidual
     variable = gr1
   []
+  [R_gr2]
+    type = VariableResidual
+    variable = gr2
+  []
+  [R_gr3]
+    type = VariableResidual
+    variable = gr3
+  []
 []
-
-# [VectorPostprocessors]
-#   [0_line]
-#     type = LineValueSampler
-#     variable = gr0
-#     start_point = '0 8 0'
-#     end_point = '16 8 0'
-#     sort_by = x
-#     num_points = 61
-#     outputs = csv
-#   []
-# []
 
 [Preconditioning]
   [SMP]
@@ -447,32 +454,22 @@
   scheme = bdf2
   solve_type = 'PJFNK'
 
-  # petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart'
-  # petsc_options_value = 'hypre boomeramg 31'
-  # petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
-  # petsc_options_value = 'asm        preonly       lu           2'
-  petsc_options_iname = '-pc_type'
-  petsc_options_value = 'lu'
+  petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart'
+  petsc_options_value = 'hypre boomeramg 31'
 
-  nl_max_its = 12
+  nl_max_its = 30
   l_max_its = 60
   l_tol = 1e-05
   nl_rel_tol = 1e-8 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
 
   start_time = 0.0
-  end_time = 300#4.1 #30
-  dtmax = 1
-
-  automatic_scaling = true
-  compute_scaling_once = false
-  # line_search = none
+  end_time = 30
   [TimeStepper]
     type = IterationAdaptiveDT
     optimal_iterations = 6
     linear_iteration_ratio = 1e5
     dt = 1
-    cutback_factor_at_failure = 0.1
   []
 []
 
