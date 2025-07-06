@@ -69,6 +69,8 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _inclination(declareProperty<Real>(getParam<MaterialPropertyName>("inclination_name"))),
     // Angular distance to the x axis
     _inclination_distance(declareProperty<Real>("inclination_distance")),
+    // Inclination vector for polar plots
+    // _inclination_vector(declareProperty<Real>("inclination_vector")),
     // Grain Tracker/EBSD for GB identification
     _grain_tracker(getUserObject<GrainTracker>("grain_tracker")),
     // _ebsd_reader(getUserObject<EBSDReader>("ebsd_reader")),

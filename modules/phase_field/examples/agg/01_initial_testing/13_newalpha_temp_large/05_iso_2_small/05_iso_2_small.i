@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 01_iso.i
-# File Location: /examples/agg/01_initial_testing/13_newalpha_temp_large/01_iso
-# Created Date: Saturday July 5th 2025
+# File: 05_iso_2_small.i
+# File Location: /examples/agg/01_initial_testing/13_newalpha_temp_large/05_iso_2_small
+# Created Date: Sunday July 6th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Sunday July 6th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Iso input for multigrain for DOE-AGG presentation
-#  Temporary as alpha changes need more testing still
+#  smaller version on input 2
+#
 #
 #
 ##############################################################################
@@ -50,7 +50,7 @@
 []
 
 [GlobalParams]
-  op_num = 8
+  op_num = 7
   var_name_base = 'gr'
 []
 
@@ -80,8 +80,8 @@
 [UserObjects]
   [voronoi]
     type = PolycrystalVoronoi
-    grain_num = 10#16 # Number of grains
-    rand_seed = 22#10
+    grain_num = 12#16 # Number of grains
+    rand_seed = 30#35#10
     int_width = 1.55
   []
   [grain_tracker]
@@ -159,14 +159,6 @@
   #   family = MONOMIAL
   # []
   # [halo3]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # []
-  # [inc_x]
-  #   order = CONSTANT
-  #   family = MONOMIAL
-  # []
-  # [inc_y]
   #   order = CONSTANT
   #   family = MONOMIAL
   # []
@@ -370,21 +362,6 @@
   #   field_display = HALOS
   #   flood_counter = grain_tracker
   # []
-  # custom inclination
-  # [inc_x_aux]
-  #   type = InclinationAux
-  #   variable = inc_x
-  #   var1 = gr0
-  #   var2 = gr1
-  #   component = x
-  # []
-  # [inc_y_aux]
-  #   type = InclinationAux
-  #   variable = inc_y
-  #   var1 = gr0
-  #   var2 = gr1
-  #   component = y
-  # []
 []
 
 # [BCs]
@@ -434,82 +411,93 @@
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5 + gr7 + gr7'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6'# gr7 gr8 gr9'
+    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5 + gr6'# + gr7 + gr8 + gr9'
     outputs = 'exodus'
   []
   # Variable Gradients
-  [ng_gr0]
-    type = VariableGradientMaterial
-    prop = ng_gr0
-    variable = gr0
-  []
-  [ng_gr1]
-    type = VariableGradientMaterial
-    prop = ng_gr1
-    variable = gr1
-  []
-  [ng_gr2]
-    type = VariableGradientMaterial
-    prop = ng_gr2
-    variable = gr2
-  []
-  [ng_gr3]
-    type = VariableGradientMaterial
-    prop = ng_gr3
-    variable = gr3
-  []
-  [ng_gr4]
-    type = VariableGradientMaterial
-    prop = ng_gr4
-    variable = gr4
-  []
-  [ng_gr5]
-    type = VariableGradientMaterial
-    prop = ng_gr5
-    variable = gr5
-  []
-  [ng_gr6]
-    type = VariableGradientMaterial
-    prop = ng_gr6
-    variable = gr6
-  []
-  [ng_gr7]
-    type = VariableGradientMaterial
-    prop = ng_gr7
-    variable = gr7
-  []
-  # Free energies
-  [fe_bulk_manual]
-    type = ParsedMaterial
-    property_name = fe_bulk_manual
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-    material_property_names = 'gamma_asymm'
-    expression = 'gmeta:= gr0^2 * gr1^2 + gr0^2 * gr2^2 + gr0^2 * gr3^2 + gr0^2 * gr4^2 + gr0^2 * gr5^2 + gr0^2 * gr6^2 + gr0^2 * gr7^2 +
-     gr1^2 * gr2^2 + gr1^2 * gr3^2 + gr1^2 * gr4^2 + gr1^2 * gr5^2 + gr1^2 * gr6^2 + gr1^2 * gr7^2 +
-     gr2^2 * gr3^2 + gr2^2 * gr4^2 + gr2^2 * gr5^2 + gr2^2 * gr6^2 + gr2^2 * gr7^2 +
-     gr3^2 * gr4^2 + gr3^2 * gr5^2 + gr3^2 * gr6^2 + gr3^2 * gr7^2 +
-     gr4^2 * gr5^2 + gr4^2 * gr6^2 + gr4^2 * gr7^2 + gr5^2 * gr6^2 + gr5^2 * gr7^2 + gr6^2 * gr7^2;
-    etaover:= 0.25*(gr0^4 + gr1^4 + gr2^4 + gr3^4 + gr4^4 + gr5^4 + gr6^4 + gr7^4) - 0.5*(gr0^2 + gr1^2 + gr2^2 + gr3^2 + gr4^2 + gr5^2 + gr6^2 + gr7^2);
-    etaover + gamma_asymm * gmeta + 0.25'
-    outputs = 'exodus'
-  []
-  [fe_grad_manual]
-    type = ParsedMaterial
-    property_name = fe_grad_manual
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-    material_property_names = 'kappa ng_gr0 ng_gr1 ng_gr2 ng_gr3 ng_gr4 ng_gr5 ng_gr6 ng_gr7'
-    expression = '0.5 * kappa * (ng_gr0^2 + ng_gr1^2 + ng_gr2^2 + ng_gr3^2 + ng_gr4^2 + ng_gr5^2 + ng_gr6^2 + ng_gr7^2)'
-    outputs = 'exodus'
-  []
-  [fe_tot_manual]
-    type = ParsedMaterial
-    property_name = fe_tot_manual
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
-    material_property_names = 'fe_bulk_manual fe_grad_manual'
-    expression = 'fe_bulk_manual + fe_grad_manual'
-    outputs = 'exodus'
-  []
+  # [ng_gr0]
+  #   type = VariableGradientMaterial
+  #   prop = ng_gr0
+  #   variable = gr0
+  # []
+  # [ng_gr1]
+  #   type = VariableGradientMaterial
+  #   prop = ng_gr1
+  #   variable = gr1
+  # []
+  # [ng_gr2]
+  #   type = VariableGradientMaterial
+  #   prop = ng_gr2
+  #   variable = gr2
+  # []
+  # [ng_gr3]
+  #   type = VariableGradientMaterial
+  #   prop = ng_gr3
+  #   variable = gr3
+  # []
+  # [ng_gr4]
+  #   type = VariableGradientMaterial
+  #   prop = ng_gr4
+  #   variable = gr4
+  # []
+  # [ng_gr5]
+  #   type = VariableGradientMaterial
+  #   prop = ng_gr5
+  #   variable = gr5
+  # []
+  # [ng_gr6]
+  #   type = VariableGradientMaterial
+  #   prop = ng_gr6
+  #   variable = gr6
+  # []
+  # [ng_gr7]
+  #   type = VariableGradientMaterial
+  #   prop = ng_gr7
+  #   variable = gr7
+  # []
+  # [ng_gr8]
+  #   type = VariableGradientMaterial
+  #   prop = ng_gr8
+  #   variable = gr8
+  # []
+  # [ng_gr9]
+  #   type = VariableGradientMaterial
+  #   prop = ng_gr9
+  #   variable = gr9
+  # []
+  # # Free energies
+  # [fe_bulk_manual]
+  #   type = ParsedMaterial
+  #   property_name = fe_bulk_manual
+  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
+  #   material_property_names = 'gamma_asymm'
+  #   expression = 'gmeta:= gr0^2 * gr1^2 + gr0^2 * gr2^2 + gr0^2 * gr3^2 + gr0^2 * gr4^2 + gr0^2 * gr5^2 + gr0^2 * gr6^2 + gr0^2 * gr7^2 +
+  #    gr1^2 * gr2^2 + gr1^2 * gr3^2 + gr1^2 * gr4^2 + gr1^2 * gr5^2 + gr1^2 * gr6^2 + gr1^2 * gr7^2 +
+  #    gr2^2 * gr3^2 + gr2^2 * gr4^2 + gr2^2 * gr5^2 + gr2^2 * gr6^2 + gr2^2 * gr7^2 +
+  #    gr3^2 * gr4^2 + gr3^2 * gr5^2 + gr3^2 * gr6^2 + gr3^2 * gr7^2 +
+  #    gr4^2 * gr5^2 + gr4^2 * gr6^2 + gr4^2 * gr7^2 + gr5^2 * gr6^2 + gr5^2 * gr7^2 + gr6^2 * gr7^2 +
+  #    gr0^2 * gr1^2 +  ;
+  #   etaover:= 0.25*(gr0^4 + gr1^4 + gr2^4 + gr3^4 + gr4^4 + gr5^4 + gr6^4 + gr7^4) - 0.5*(gr0^2 + gr1^2 + gr2^2 + gr3^2 + gr4^2 + gr5^2 + gr6^2 + gr7^2);
+  #   etaover + gamma_asymm * gmeta + 0.25'
+  #   outputs = 'exodus'
+  # []
+  # [fe_grad_manual]
+  #   type = ParsedMaterial
+  #   property_name = fe_grad_manual
+  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
+  #   material_property_names = 'kappa ng_gr0 ng_gr1 ng_gr2 ng_gr3 ng_gr4 ng_gr5 ng_gr6 ng_gr7'
+  #   expression = '0.5 * kappa * (ng_gr0^2 + ng_gr1^2 + ng_gr2^2 + ng_gr3^2 + ng_gr4^2 + ng_gr5^2 + ng_gr6^2 + ng_gr7^2)'
+  #   outputs = 'exodus'
+  # []
+  # [fe_tot_manual]
+  #   type = ParsedMaterial
+  #   property_name = fe_tot_manual
+  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7'
+  #   material_property_names = 'fe_bulk_manual fe_grad_manual'
+  #   expression = 'fe_bulk_manual + fe_grad_manual'
+  #   outputs = 'exodus'
+  # []
 []
 
 [Postprocessors]
@@ -548,18 +536,19 @@
     type = ElementIntegralMaterialProperty
     mat_prop = mu
   []
-  [fe_bulk]
-    type = ElementIntegralMaterialProperty
-    mat_prop = fe_bulk_manual
-  []
-  [fe_grad]
-    type = ElementIntegralMaterialProperty
-    mat_prop = fe_grad_manual
-  []
-  [fe_tot]
-    type = ElementIntegralMaterialProperty
-    mat_prop = fe_tot_manual
-  []
+  # [fe_bulk]
+  #   type = ElementIntegralMaterialProperty
+  #   mat_prop = fe_bulk_manual
+  # []
+  # [fe_grad]
+  #   type = ElementIntegralMaterialProperty
+  #   mat_prop = fe_grad_manual
+  # []
+  # [fe_tot]
+  #   type = ElementIntegralMaterialProperty
+  #   mat_prop = fe_tot_manual
+  # []
+
   # Variable Residuals
   # [R_gr0]
   #   type = VariableResidual
