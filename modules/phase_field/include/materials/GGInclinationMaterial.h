@@ -114,5 +114,6 @@ protected:
 
   const bool _continuous;
   int _angular_func;
+  int _alpha_case;
   const Real _intol;
 };

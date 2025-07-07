@@ -55,7 +55,9 @@ GGInclinationMaterial::validParams()
   MooseEnum angular_func("atan=0 acos=1", "atan");
   params.addParam<MooseEnum>(
       "angular_func", angular_func, "Which angular distance function to use.");
-  params.addParam<Real>("gradtol", 1e-6, "Gradient magnitude tolerance");
+  MooseEnum alphacase("base=0 ngb=1 thresh=2 exclude=3", "base");
+  params.addParam<MooseEnum>("alphacase", alphacase, "Which alpha option to use.");
+  params.addParam<Real>("intol", 1e-6, "Gradient magnitude tolerance");
   return params;
 }
 
@@ -113,7 +115,8 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _mu(declareProperty<Real>(getParam<MaterialPropertyName>("mu_name"))),
     _continuous(getParam<bool>("continuous")),
     _angular_func(getParam<MooseEnum>("angular_func")),
-    _intol(getParam<Real>("gradtol"))
+    _alpha_case(getParam<MooseEnum>("alphacase")),
+    _intol(getParam<Real>("intol"))
 
 {
   if (_op_num == 0)
@@ -277,28 +280,63 @@ GGInclinationMaterial::computeQpProperties()
           RealGradient dincij_dgradetai(0.0, 0.0, 0.0);
           RealGradient dinc_dgetai(0.0, 0.0, 0.0);
           RealTensorValue d2inc_dgetai2(0.0);
-          _hgb_pairs.push_back((*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] *
-                               (*_vals[j])[_qp]);
-          // _testout2[_qp] = ngb.norm();
-          // Real i_norm = (*_grad_vals[i])[_qp].norm();
-          // Real j_norm = (*_grad_vals[j])[_qp].norm();
-          // if (i_norm >= _intol)
-          //   _testout2[_qp] = (*_grad_vals[j])[_qp].norm();
-          // else
-          //   _testout2[_qp] = 2.0;
-          // Real j_norm = (*_grad_vals[j])[_qp].norm();
-          if (ngb.norm() >
-              1.0e-10) // &&
-                       // (i_norm >= _intol ||
-                       //  j_norm >= _intol)) // && i_norm >= 0.01 && j_norm >= 0.01) // 1.0e-10
+          // _hgb_pairs.push_back((*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] *
+          //                      (*_vals[j])[_qp]);
+
+          if (ngb.norm() > 1.0e-10)
           {
-            ngb /= ngb.norm();       // Really dont think this should be here?
-            RealGradient uxyz = ngb; // thought the math needed uxyz in derivs not normalized?
+            RealGradient uxyz(0.0, 0.0, 0.0);
+            Real alpha = 0.0;
+            bool alpha_skip = false;
+            switch (_alpha_case)
+            {
+              case 0:
+                // Default/old version
+                uxyz = ngb;
+                alpha = 1 / uxyz.norm();
+                ngb /= ngb.norm();
+                _testout2[_qp] = alpha;
+                break;
+              case 1:
+                // NGB Before Alpha/uxyz
+                ngb /= ngb.norm();
+                uxyz = ngb;
+                alpha = 1 / uxyz.norm();
+                _testout2[_qp] = alpha;
+                break;
+              case 2:
+                // Tolerances/thresholds to truncate alpha
+                uxyz = ngb;
+                alpha = 1 / std::max(uxyz.norm(), _intol);
+                ngb /= ngb.norm();
+                _testout2[_qp] = alpha;
+                break;
+              case 3:
+                // Remove or skip elements with alpha below threshold
+                uxyz = ngb;
+                if (uxyz.norm() < _intol)
+                {
+                  alpha_skip = true;
+                  _testout2[_qp] = -1;
+                }
+                else
+                {
+                  alpha = 1 / uxyz.norm();
+                  _testout2[_qp] = alpha;
+                  ngb /= ngb.norm();
+                }
+                break;
+              default:
+                mooseError("Unknown alphacase = ", _alpha_case);
+            }
+            // ngb /= ngb.norm();       // Really dont think this should be here?
+            // RealGradient uxyz = ngb; // thought the math needed uxyz in derivs not normalized?
             // Real alpha = 1 / uxyz.norm();
-            const Real alpha_tol = 0.1;
-            Real alpha = 1 / std::max(uxyz.norm(), alpha_tol);
+            // _testout2[_qp] = 1 / uxyz.norm();
+            // const Real alpha_tol = 0.1;
+            // Real alpha = 1 / std::max(uxyz.norm(), alpha_tol);
             // ngb /= ngb.norm();
-            if (_angular_func == 0)
+            if ((_angular_func == 0) && !alpha_skip)
             {
               R = std::sqrt((ngb(1) * ngb(1)) + (ngb(2) * ngb(2)));
               a_dist = std::atan2(R, ngb(0));
@@ -365,8 +403,8 @@ GGInclinationMaterial::computeQpProperties()
                 }
                 if (idx1 == 0 && idx2 == 1)
                 {
-                  _testout2[_qp] = alpha; // uxyz.norm();
-                  _dadb[_qp] = uxyz;      // dincdphi;
+                  // _testout2[_qp] = alpha; // uxyz.norm();
+                  _dadb[_qp] = uxyz; // dincdphi;
                   _d2adb2[_qp] = d2incdphi2;
                   _d3adb3[_qp] = dphi_dgradetai;
                 }
@@ -388,7 +426,7 @@ GGInclinationMaterial::computeQpProperties()
                 //     temp_dincldgradetaiz);
               }
             }
-            else if (_angular_func == 1)
+            else if ((_angular_func == 1) && !alpha_skip)
             {
               // Trim values outside allowed range (which shouldnt exist anyway in ngb)
               Real cx = std::max(-1.0, std::min(1.0, ngb(0)));
@@ -456,6 +494,12 @@ GGInclinationMaterial::computeQpProperties()
             // // _dincdgradetai_pairs.push_back(dincij_dgradetai);
             // dinc_dgeta_list.push_back(dinc_dgetai);
             // d2inc_dgeta2_list.push_back(d2inc_dgetai2);
+            _inc_pairs.push_back(a_dist); // Radians // * 180 / M_PI for degrees
+            // _dincdgradetai_pairs.push_back(dincij_dgradetai);
+            dinc_dgeta_list.push_back(dinc_dgetai);
+            d2inc_dgeta2_list.push_back(d2inc_dgetai2);
+            _hgb_pairs.push_back((*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] *
+                                 (*_vals[j])[_qp]);
           }
           else
           {
@@ -464,10 +508,12 @@ GGInclinationMaterial::computeQpProperties()
             // a_dist = (libMesh::pi / (2 * _theta_pre)) - _inc_ij_0;
             // a_dist = -1;
           }
-          _inc_pairs.push_back(a_dist); // Radians // * 180 / M_PI for degrees
-          // _dincdgradetai_pairs.push_back(dincij_dgradetai);
-          dinc_dgeta_list.push_back(dinc_dgetai);
-          d2inc_dgeta2_list.push_back(d2inc_dgetai2);
+          // _inc_pairs.push_back(a_dist); // Radians // * 180 / M_PI for degrees
+          // // _dincdgradetai_pairs.push_back(dincij_dgradetai);
+          // dinc_dgeta_list.push_back(dinc_dgetai);
+          // d2inc_dgeta2_list.push_back(d2inc_dgetai2);
+          // _hgb_pairs.push_back((*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] *
+          //                      (*_vals[j])[_qp]);
         }
   }
   // Combine the inclination now!

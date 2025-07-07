@@ -4,7 +4,7 @@
 # Created Date: Saturday July 5th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Saturday July 5th 2025
+# Last Modified: Monday July 7th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -50,7 +50,7 @@
 []
 
 [GlobalParams]
-  op_num = 6#8
+  op_num = 6 #8
   var_name_base = 'gr'
 []
 
@@ -80,8 +80,8 @@
 [UserObjects]
   [voronoi]
     type = PolycrystalVoronoi
-    grain_num = 10#16 # Number of grains
-    rand_seed = 22#10
+    grain_num = 10 #16 # Number of grains
+    rand_seed = 22 #10
     int_width = 1.55
   []
   [grain_tracker]
@@ -182,7 +182,7 @@
     type = ACInterfaceAnisoGamma
     variable = gr0
     # v = 'gr1 gr2 gr3'
-    coupled_variables = 'gr1 gr2 gr3 gr4 gr5'# gr6 gr7'
+    coupled_variables = 'gr1 gr2 gr3 gr4 gr5' # gr6 gr7'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_0
     d2gamma_dgradop2_name = d2gammadgrad_eta2_0
@@ -195,7 +195,7 @@
     type = ACInterfaceAnisoGamma
     variable = gr1
     # v = 'gr0 gr2 gr3'
-    coupled_variables = 'gr0 gr2 gr3 gr4 gr5'# gr6 gr7'
+    coupled_variables = 'gr0 gr2 gr3 gr4 gr5' # gr6 gr7'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_1
     d2gamma_dgradop2_name = d2gammadgrad_eta2_1
@@ -208,7 +208,7 @@
     type = ACInterfaceAnisoGamma
     variable = gr2
     # v = 'gr0 gr1 gr3'
-    coupled_variables = 'gr0 gr1 gr3 gr4 gr5'# gr6 gr7'
+    coupled_variables = 'gr0 gr1 gr3 gr4 gr5' # gr6 gr7'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_2
     d2gamma_dgradop2_name = d2gammadgrad_eta2_2
@@ -221,7 +221,7 @@
     type = ACInterfaceAnisoGamma
     variable = gr3
     # v = 'gr0 gr1 gr2'
-    coupled_variables = 'gr0 gr1 gr2 gr4 gr5'# gr6 gr7'
+    coupled_variables = 'gr0 gr1 gr2 gr4 gr5' # gr6 gr7'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_3
     d2gamma_dgradop2_name = d2gammadgrad_eta2_3
@@ -234,7 +234,7 @@
     type = ACInterfaceAnisoGamma
     variable = gr4
     # v = 'gr0 gr1 gr2'
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr5'# gr6 gr7'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr5' # gr6 gr7'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_4
     d2gamma_dgradop2_name = d2gammadgrad_eta2_4
@@ -247,7 +247,7 @@
     type = ACInterfaceAnisoGamma
     variable = gr5
     # v = 'gr0 gr1 gr2'
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4'# gr6 gr7'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4' # gr6 gr7'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_5
     d2gamma_dgradop2_name = d2gammadgrad_eta2_5
@@ -392,6 +392,12 @@
   #   prop_names = 'L0 kappa const_m gamma_asymm gamma_iso iw_iso gbe_iso mu'
   #   prop_values = '1.0 0.3 0.9375   1.5           1.5     1.55   0.25  0.85'
   # []
+  [incl_vec]
+    type = GGInclinationVector
+    grain_tracker = grain_tracker
+    output_properties = 'inclination_vector ang_dist'
+    outputs = exodus
+  []
   [incl_test01]
     type = GGInclinationMaterial
     grain_tracker = grain_tracker
@@ -405,7 +411,7 @@
     inc_ij_0 = 0 #1.57
     continuous = false
     angular_func = atan
-    gradtol = 0.0#1
+    gradtol = 0.0 #1
     # Output Names
     inclination_name = inclination_mat
     L_name = L_aniso
@@ -417,8 +423,8 @@
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5'# gr6 gr7'
-    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5'# + gr7 + gr7'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5' # gr6 gr7'
+    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5' # + gr7 + gr7'
     outputs = 'exodus'
   []
   # Variable Gradients

@@ -4,7 +4,7 @@
 # Created Date: Saturday July 5th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Sunday July 6th 2025
+# Last Modified: Monday July 7th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -415,6 +415,13 @@
     prop_names = 'L0 kappa const_m gamma_asymm gamma_iso iw_iso gbe_iso mu'
     prop_values = '1.0 0.3 0.9375   1.5           1.5     1.55   0.25  0.85'
   []
+  [incl_vec]
+    type = GGInclinationVector
+    grain_tracker = grain_tracker
+    output_properties = 'inclination_vector ang_dist'
+    outputs = exodus
+  []
+  #   outputs = 'exodus'
   # [incl_test01]
   #   type = GGInclinationMaterial
   #   grain_tracker = grain_tracker
