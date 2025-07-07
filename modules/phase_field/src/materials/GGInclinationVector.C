@@ -18,44 +18,8 @@ GGInclinationVector::validParams()
   params.addClassDescription("Inclination dependent properties for AGG.");
   params.addRequiredCoupledVarWithAutoBuild(
       "v", "var_name_base", "op_num", "Array of coupled variables");
-  params.addParam<MaterialPropertyName>("inclination_name",
-                                        "Name of inclination cos function material output");
   params.addParam<UserObjectName>("grain_tracker",
                                   "The GrainTracker UserObject to get values from.");
-  // params.addParam<UserObjectName>("ebsd_reader", "The EBSDReader GeneralUserObject");
-  params.addParam<Real>("delta_ij", 0.05, "Anisotropy weight in cos function");
-  params.addParam<Real>(
-      "theta_prefactor", 4.0, "Multiplier in cos function (cos(n(theta + theta0)))");
-  params.addParam<Real>("inc_ij_0", 0.0, "Inclination function offset in cos function");
-  params.addParam<std::vector<MaterialPropertyName>>(
-      "dgamma_grad_eta_names",
-      std::vector<MaterialPropertyName>(),
-      "Interfacial / grain boundary gamma parameter names (leave empty for gamma0... gammaN)");
-  params.addParam<std::vector<MaterialPropertyName>>(
-      "d2gamma_grad_eta2_names",
-      std::vector<MaterialPropertyName>(),
-      "Interfacial / grain boundary gamma parameter names (leave empty for gamma0... gammaN)");
-  params.addParam<MaterialPropertyName>("gb_energy_input",
-                                        "GB energy before inclination dependence");
-  params.addParam<MaterialPropertyName>(
-      "gb_energy", "gb_energy", "Inclination dependent GB energy output.");
-  params.addParam<Real>("kappa", 1, "Gradient energy constant kappa value");
-  params.addParam<Real>("free_energy_m", 1, "Free energy function constant m");
-  params.addParam<bool>(
-      "L_of_eta", false, "Is L a function of eta, requiring those derivatives to be defined.");
-  params.addParam<MaterialPropertyName>("L0", "AC mobility prefactor/reference value material.");
-  params.addParam<MaterialPropertyName>("gamma0",
-                                        "gamma prefactor/reference value material (for mu calc).");
-  params.addParam<MaterialPropertyName>("L_name", "L_aniso", "Name of anisotropic L output.");
-  params.addParam<MaterialPropertyName>(
-      "gamma_name", "gamma_aniso", "Name of anisotropic gamma output.");
-  params.addParam<MaterialPropertyName>("mu_name", "mu_aniso", "Name of anisotropic mu output.");
-  params.addParam<bool>(
-      "continuous", false, "Disregard GT and calculate for all variables everywhere.");
-  MooseEnum angular_func("atan=0 acos=1", "atan");
-  params.addParam<MooseEnum>(
-      "angular_func", angular_func, "Which angular distance function to use.");
-  params.addParam<Real>("gradtol", 1e-6, "Gradient magnitude tolerance");
   return params;
 }
 
