@@ -339,3 +339,12 @@ share/
 *.hpc_out.txt
 *.hpc_result
 *.hpc_submit
+
+# My Stuff to not sync
+slurm*.sh
+pbs*.sh
+times_files.npy
+pics/
+core.phase_field*
+*.avi
+terminal_out*
