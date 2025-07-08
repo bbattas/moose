@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -134,8 +134,6 @@ FixedPointSolve::FixedPointSolve(Executioner & ex)
     _fixed_point_rel_tol(getParam<Real>("fixed_point_rel_tol")),
     _fixed_point_abs_tol(getParam<Real>("fixed_point_abs_tol")),
     _fixed_point_force_norms(getParam<bool>("fixed_point_force_norms")),
-    _fixed_point_custom_pp(isParamValid("custom_pp") ? &getPostprocessorValue("custom_pp")
-                                                     : nullptr),
     _relax_factor(getParam<Real>("relaxation_factor")),
     _transformed_vars(getParam<std::vector<std::string>>("transformed_variables")),
     _transformed_pps(getParam<std::vector<PostprocessorName>>("transformed_postprocessors")),
@@ -143,6 +141,8 @@ FixedPointSolve::FixedPointSolve(Executioner & ex)
     _secondary_relaxation_factor(1.0),
     _fixed_point_it(0),
     _fixed_point_status(MooseFixedPointConvergenceReason::UNSOLVED),
+    _fixed_point_custom_pp(isParamValid("custom_pp") ? &getPostprocessorValue("custom_pp")
+                                                     : nullptr),
     _custom_rel_tol(getParam<Real>("custom_rel_tol")),
     _custom_abs_tol(getParam<Real>("custom_abs_tol")),
     _pp_old(0.0),
@@ -272,10 +272,8 @@ FixedPointSolve::solve()
       else
       {
         // For every iteration other than the first, we need to restore the state of the MultiApps
-        _problem.restoreMultiApps(EXEC_MULTIAPP_FIXED_POINT_BEGIN);
         _problem.restoreMultiApps(EXEC_TIMESTEP_BEGIN);
         _problem.restoreMultiApps(EXEC_TIMESTEP_END);
-        _problem.restoreMultiApps(EXEC_MULTIAPP_FIXED_POINT_END);
       }
 
       _console << COLOR_MAGENTA << "Beginning fixed point iteration " << _fixed_point_it
@@ -318,21 +316,21 @@ FixedPointSolve::solve()
       break;
     }
 
-    if (converged)
-    {
-      // Fixed point iteration loop ends right above
-      _problem.execute(EXEC_MULTIAPP_FIXED_POINT_END);
-      _problem.execTransfers(EXEC_MULTIAPP_FIXED_POINT_END);
-      if (!_problem.execMultiApps(EXEC_MULTIAPP_FIXED_POINT_END, autoAdvance()))
-      {
-        _fixed_point_status = MooseFixedPointConvergenceReason::DIVERGED_FAILED_MULTIAPP;
-        return false;
-      }
-      _problem.outputStep(EXEC_MULTIAPP_FIXED_POINT_END);
-    }
-
     _problem.dt() =
         current_dt; // _dt might be smaller than this at this point for multistep methods
+  }
+
+  if (converged)
+  {
+    // Fixed point iteration loop ends right above
+    _problem.execute(EXEC_MULTIAPP_FIXED_POINT_END);
+    _problem.execTransfers(EXEC_MULTIAPP_FIXED_POINT_END);
+    if (!_problem.execMultiApps(EXEC_MULTIAPP_FIXED_POINT_END, autoAdvance()))
+    {
+      _fixed_point_status = MooseFixedPointConvergenceReason::DIVERGED_FAILED_MULTIAPP;
+      return false;
+    }
+    _problem.outputStep(EXEC_MULTIAPP_FIXED_POINT_END);
   }
 
   // Save postprocessors after the solve and their potential timestep_end execution

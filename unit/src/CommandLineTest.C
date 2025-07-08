@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -939,4 +939,57 @@ TEST(CommandLineTest, removeArgumentMissing)
     EXPECT_EQ(std::string(e.what()),
               "CommandLine::removeArgument(): The argument '--arg' does not exist");
   }
+}
+
+TEST(CommandLineTest, formatEntry)
+{
+  const auto test =
+      [](const std::vector<std::string> & args, const std::vector<std::string> & expected)
+  {
+    CommandLine cl;
+    cl.addArguments(args);
+    cl.parse();
+
+    const auto & entries = std::as_const(cl).getEntries();
+    ASSERT_EQ(entries.size(), expected.size());
+
+    for (const auto e : make_range(entries.size()))
+      ASSERT_EQ(cl.formatEntry(*std::next(entries.begin(), e)), expected[e]);
+  };
+
+  test({"-foo", "--foo", "bar", "foo=bar"}, {"-foo", "--foo bar", "foo=bar"});
+  test({"-foo", "bar baz", "foo=bar baz"}, {"-foo 'bar baz'", "foo='bar baz'"});
+}
+
+TEST(CommandLineTest, combinedKeyValueParamKnownArg)
+{
+  // Helper for checking if a command line name is registered
+  const auto have_cl_name = [](const std::string & var) -> bool
+  {
+    const auto names = libMesh::command_line_names();
+    return std::find(names.begin(), names.end(), var) != names.end();
+  };
+
+  // Build an argument that is explicitly of the form "--key=value",
+  // which requires special treatment. Due to how PETSc manages known
+  // arguments, we need to explicitly mark the argument as known, and
+  // marking just "--key" is not sufficient. This needs to be a unique
+  // name because the libMesh command line is shared across all unit tests
+  const std::string cl_switch = "--cltest_combinedkeyvalueparamknownarg";
+  const std::string arg = cl_switch + "=bar";
+
+  // Should not be recognized
+  ASSERT_FALSE(have_cl_name(arg));
+
+  auto params = emptyInputParameters();
+  params.addCommandLineParam<std::string>("unused", cl_switch, "unused", "unused");
+
+  // Population of the command line params should then explicitly
+  // add our "--key=value" style as a known command line name
+  CommandLine cl;
+  cl.addArgument(arg);
+  cl.parse();
+  cl.populateCommandLineParams(params);
+
+  ASSERT_TRUE(have_cl_name(arg));
 }

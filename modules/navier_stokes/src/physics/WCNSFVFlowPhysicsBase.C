@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -67,6 +67,7 @@ WCNSFVFlowPhysicsBase::validParams()
   // Specify the numerical schemes for interpolations of velocity and pressure
   params.transferParam<MooseEnum>(NSFVBase::validParams(), "velocity_interpolation");
   params.transferParam<MooseEnum>(NSFVBase::validParams(), "momentum_advection_interpolation");
+  params.transferParam<MooseEnum>(NSFVBase::validParams(), "momentum_face_interpolation");
   params.transferParam<bool>(NSFVBase::validParams(), "momentum_two_term_bc_expansion");
   params.transferParam<bool>(NSFVBase::validParams(), "pressure_two_term_bc_expansion");
   MooseEnum coeff_interp_method("average harmonic", "harmonic");
@@ -85,8 +86,9 @@ WCNSFVFlowPhysicsBase::validParams()
   params.addParamNamesToGroup("wall_boundaries momentum_wall_types momentum_wall_functors",
                               "Wall boundary conditions");
   params.addParamNamesToGroup(
-      "velocity_interpolation momentum_advection_interpolation "
-      "momentum_two_term_bc_expansion pressure_two_term_bc_expansion mu_interp_method",
+      "include_deviatoric_stress velocity_interpolation momentum_advection_interpolation "
+      "momentum_two_term_bc_expansion pressure_two_term_bc_expansion mu_interp_method "
+      "momentum_face_interpolation",
       "Numerical scheme");
   params.addParamNamesToGroup("thermal_expansion", "Gravity treatment");
 
@@ -121,9 +123,14 @@ WCNSFVFlowPhysicsBase::WCNSFVFlowPhysicsBase(const InputParameters & parameters)
     _dynamic_viscosity_name(getParam<MooseFunctorName>("dynamic_viscosity")),
     _velocity_interpolation(getParam<MooseEnum>("velocity_interpolation")),
     _momentum_advection_interpolation(getParam<MooseEnum>("momentum_advection_interpolation")),
+    _momentum_face_interpolation(getParam<MooseEnum>("momentum_face_interpolation")),
+    _friction_blocks(getParam<std::vector<std::vector<SubdomainName>>>("friction_blocks")),
+    _friction_types(getParam<std::vector<std::vector<std::string>>>("friction_types")),
+    _friction_coeffs(getParam<std::vector<std::vector<std::string>>>("friction_coeffs")),
     _inlet_boundaries(getParam<std::vector<BoundaryName>>("inlet_boundaries")),
     _outlet_boundaries(getParam<std::vector<BoundaryName>>("outlet_boundaries")),
     _wall_boundaries(getParam<std::vector<BoundaryName>>("wall_boundaries")),
+    _hydraulic_separators(getParam<std::vector<BoundaryName>>("hydraulic_separator_sidesets")),
     _flux_inlet_pps(getParam<std::vector<PostprocessorName>>("flux_inlet_pps")),
     _flux_inlet_directions(getParam<std::vector<Point>>("flux_inlet_directions"))
 {
@@ -167,6 +174,12 @@ WCNSFVFlowPhysicsBase::WCNSFVFlowPhysicsBase(const InputParameters & parameters)
                        " is already reserved for the automatically-computed interstitial velocity. "
                        "Please choose another name for your external velocity variable!");
     }
+
+  // Friction parameter checks
+  if (_friction_blocks.size())
+    checkVectorParamsSameLength<std::vector<SubdomainName>, std::vector<std::string>>(
+        "friction_blocks", "friction_types");
+  checkTwoDVectorParamsSameLength<std::string, std::string>("friction_types", "friction_coeffs");
 
   // Create maps for boundary-restricted parameters
   _momentum_inlet_types = Moose::createMapFromVectorAndMultiMooseEnum<BoundaryName>(
@@ -249,6 +262,7 @@ WCNSFVFlowPhysicsBase::addFVBCs()
   addInletBC();
   addOutletBC();
   addWallsBC();
+  addSeparatorBC();
 }
 
 void
@@ -317,27 +331,26 @@ WCNSFVFlowPhysicsBase::addInitialConditions()
                "The number of velocity components in the " + type() + " initial condition is not " +
                    std::to_string(dimension()) + " or 3!");
 
-  // do not set initial conditions if we load from file
-  if (getParam<bool>("initialize_variables_from_mesh_file"))
-    return;
-  // do not set initial conditions if we are not defining variables
-  if (!_define_variables)
-    return;
-
   InputParameters params = getFactory().getValidParams("FunctionIC");
   assignBlocks(params, _blocks);
   auto vvalue = getParam<std::vector<FunctionName>>("initial_velocity");
 
-  if (!_app.isRestarting() || parameters().isParamSetByUser("initial_velocity"))
-    for (const auto d : make_range(dimension()))
-    {
-      params.set<VariableName>("variable") = _velocity_names[d];
-      params.set<FunctionName>("function") = vvalue[d];
+  for (const auto d : make_range(dimension()))
+  {
+    params.set<VariableName>("variable") = _velocity_names[d];
+    params.set<FunctionName>("function") = vvalue[d];
 
+    if (shouldCreateIC(_velocity_names[d],
+                       _blocks,
+                       /*whether IC is a default*/ !isParamSetByUser("initial_velocity"),
+                       /*error if already an IC*/ isParamSetByUser("initial_velocity")))
       getProblem().addInitialCondition("FunctionIC", prefix() + _velocity_names[d] + "_ic", params);
-    }
+  }
 
-  if (!_app.isRestarting() || parameters().isParamSetByUser("initial_pressure"))
+  if (shouldCreateIC(_pressure_name,
+                     _blocks,
+                     /*whether IC is a default*/ !isParamSetByUser("initial_pressure"),
+                     /*error if already an IC*/ isParamSetByUser("initial_pressure")))
   {
     params.set<VariableName>("variable") = _pressure_name;
     params.set<FunctionName>("function") = getParam<FunctionName>("initial_pressure");

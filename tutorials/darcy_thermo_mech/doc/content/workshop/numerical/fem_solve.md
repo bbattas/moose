@@ -80,6 +80,15 @@ necessary), respectively.
 
 !---
 
+## Intermediate summary
+
+- There is a mesh, with cells and functions, polynomials, defined by their coefficients
+- We plug in these functions in the PDEs, then obtain a weak form
+- We evaluate the integrals in the weak form using a quadrature, thus forming a set of equations
+- Now let's solve these equations to obtain the coefficients
+
+!---
+
 ## Newton's Method
 
 Newton's method is a "root finding" method with good convergence properties, in "update form",
@@ -124,7 +133,7 @@ J_{ij}(\vec{u}_n) = \frac{\partial \vec{R}_i(\vec{u}_n)}{\partial u_j}
 
 The solve type is specified in the `[Executioner]` block within the input file:
 
-```
+```moose
 [Executioner]
   solve_type = PJFNK
 ```
@@ -197,7 +206,7 @@ during linear iterations.
 
 Select a preconditioner using PETSC options, either in the executioner or in the `[Preconditioning]` block:
 
-```language=cpp
+```language=moose
 [Executioner]
   type = Steady
   petsc_options_iname = '-pc_type -pc_hypre_type'

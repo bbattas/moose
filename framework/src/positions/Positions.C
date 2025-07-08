@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -233,6 +233,9 @@ Positions::finalize()
 
   // Make a KDTree with the positions
   _positions_kd_tree = std::make_unique<KDTree>(_positions, 1);
+
+  // For now at least, we expect positions to be the same on all ranks
+  mooseAssert(comm().verify(_positions), "Positions should be the same across all MPI processes.");
 }
 
 Real

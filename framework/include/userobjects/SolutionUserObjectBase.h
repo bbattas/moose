@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -469,6 +469,9 @@ protected:
 
   /// Time index 2, used for interpolation
   int _exodus_index2;
+
+  /// Nodal variable order, used when reading in solution data
+  const MooseEnum _nodal_variable_order;
 
   /// Scale parameter
   std::vector<Real> _scale;

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -39,6 +39,7 @@ extern FlowModelID FM_INVALID;
 extern FlowModelID FM_SINGLE_PHASE;
 extern FlowModelID FM_TWO_PHASE;
 extern FlowModelID FM_TWO_PHASE_NCG;
+extern FlowModelID FM_GAS_MIX;
 
 // This is the upper limit on variable length given by exodusII
 static const size_t MAX_VARIABLE_LENGTH = 31;
@@ -48,7 +49,7 @@ static const size_t MAX_VARIABLE_LENGTH = 31;
 class ThermalHydraulicsApp : public MooseApp
 {
 public:
-  ThermalHydraulicsApp(InputParameters parameters);
+  ThermalHydraulicsApp(const InputParameters & parameters);
   virtual ~ThermalHydraulicsApp();
 
   static void registerApps();
@@ -57,9 +58,6 @@ public:
   /**
    * Deprecated Methods
    */
-  static void registerObjects(Factory & factory);
-  static void associateSyntax(Syntax & syntax, ActionFactory & action_factory);
-  static void registerExecFlags(Factory & factory);
 
   /**
    * Get the class name of a flow model corresponding to the flow model ID

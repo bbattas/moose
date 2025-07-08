@@ -1,5 +1,5 @@
 #* This file is part of the MOOSE framework
-#* https://www.mooseframework.org
+#* https://mooseframework.inl.gov
 #*
 #* All rights reserved, see COPYRIGHT for full restrictions
 #* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -24,6 +24,8 @@ class PythonUnitTest(RunApp):
         params['errors'] = []
         params['valgrind'] = 'NONE'
         params['recover'] = False
+        # Multiple executions; doesn't support perf graph capture
+        params['capture_perf_graph'] = False
         return params
 
     def __init__(self, name, params):

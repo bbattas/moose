@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -65,7 +65,6 @@ public:
   checkVariables(const DofObjectType & dof_object,
                  const std::set<MooseVariableFieldBase *> & vars_to_check);
 
-protected:
   /**
    * Call this function to add the passed in MooseVariableFieldBase as a variable that _this_ object
    * depends on.

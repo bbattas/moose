@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -186,10 +186,10 @@ TransfiniteMeshGenerator::generate()
     for (unsigned int idy = 0; idy < _ny - 1; idy++)
     {
       Elem * elem = mesh->add_elem(new Quad4);
-      elem->set_node(0) = nodes[idy + idx * _ny];
-      elem->set_node(1) = nodes[idy + (idx + 1) * _ny];
-      elem->set_node(2) = nodes[idy + 1 + (idx + 1) * _ny];
-      elem->set_node(3) = nodes[idy + 1 + idx * _ny];
+      elem->set_node(0, nodes[idy + idx * _ny]);
+      elem->set_node(1, nodes[idy + (idx + 1) * _ny]);
+      elem->set_node(2, nodes[idy + 1 + (idx + 1) * _ny]);
+      elem->set_node(3, nodes[idy + 1 + idx * _ny]);
 
       if (idy == 0) // add bottom boundary (boundary_id = 0)
         boundary_info.add_side(elem, 0, 0);

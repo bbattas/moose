@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,8 +13,8 @@
 #include "MooseTypes.h"
 #include "MultiMooseEnum.h"
 #include "Assembly.h"
-#include "NonlinearSystemBase.h"
 #include "MooseVariableFE.h"
+#include "SystemBase.h"
 
 #include "libmesh/dense_vector.h"
 #include "metaphysicl/raw_type.h"
@@ -29,6 +29,21 @@ class Assembly;
 
 template <typename T>
 InputParameters validParams();
+
+/**
+ * Utility structure for packaging up all of the residual object's information needed to add into
+ * the system residual and Jacobian in the context of automatic differentiation. The necessary
+ * information includes the vector of residuals and Jacobians represented by dual numbers, the
+ * vector of degrees of freedom (this should be the same length as the vector of dual numbers), and
+ * a scaling factor that will multiply the dual numbers before their addition into the global
+ * residual and Jacobian
+ */
+struct ADResidualsPacket
+{
+  const DenseVector<ADReal> & residuals;
+  const std::vector<dof_id_type> & dof_indices;
+  const Real scaling_factor;
+};
 
 class TaggingInterface
 {
@@ -257,6 +272,22 @@ protected:
                    Real scaling_factor);
 
   /**
+   * Add the provided incoming residuals corresponding to the provided dof indices
+   */
+  void addResiduals(Assembly & assembly, const ADResidualsPacket & packet);
+
+  /**
+   * Add the provided incoming residuals and derivatives for the Jacobian, corresponding to the
+   * provided dof indices
+   */
+  void addResidualsAndJacobian(Assembly & assembly, const ADResidualsPacket & packet);
+
+  /**
+   * Add the provided residual derivatives into the Jacobian for the provided dof indices
+   */
+  void addJacobian(Assembly & assembly, const ADResidualsPacket & packet);
+
+  /**
    * Add the provided incoming residuals corresponding to the provided dof indices. This API should
    * only be used if the caller knows that no libMesh-level constraints (hanging nodes or periodic
    * boundary conditions) apply to the provided dof indices
@@ -394,7 +425,7 @@ private:
   /// this data member to avoid constant dynamic heap allocations
   std::vector<Real> _absolute_residuals;
 
-  friend void NonlinearSystemBase::constraintJacobians(bool);
+  friend class NonlinearSystemBase;
 };
 
 #define usingTaggingInterfaceMembers                                                               \
@@ -557,4 +588,22 @@ TaggingInterface::setResidual(SystemBase & sys, const SetResidualFunctor set_res
   for (const auto tag_id : _vector_tags)
     if (sys.hasVector(tag_id))
       set_residual_functor(sys.getVector(tag_id));
+}
+
+inline void
+TaggingInterface::addResiduals(Assembly & assembly, const ADResidualsPacket & packet)
+{
+  addResiduals(assembly, packet.residuals, packet.dof_indices, packet.scaling_factor);
+}
+
+inline void
+TaggingInterface::addResidualsAndJacobian(Assembly & assembly, const ADResidualsPacket & packet)
+{
+  addResidualsAndJacobian(assembly, packet.residuals, packet.dof_indices, packet.scaling_factor);
+}
+
+inline void
+TaggingInterface::addJacobian(Assembly & assembly, const ADResidualsPacket & packet)
+{
+  addJacobian(assembly, packet.residuals, packet.dof_indices, packet.scaling_factor);
 }

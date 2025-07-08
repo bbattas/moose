@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -220,6 +220,17 @@ protected:
   template <bool is_ad>
   const GenericVariableValue<is_ad> & coupledGenericValue(const std::string & var_name,
                                                           unsigned int comp = 0) const;
+
+  /**
+   * Returns value of a coupled vector variable for use in templated automatic differentiation
+   * classes
+   * @param var_name Name of coupled variable
+   * @param comp Component number for vector of coupled variables
+   * @return Reference to a GenericVariableVectorValue for the coupled variable
+   */
+  template <bool is_ad>
+  const GenericVectorVariableValue<is_ad> & coupledGenericVectorValue(const std::string & var_name,
+                                                                      unsigned int comp = 0) const;
 
   /**
    * Returns the values for all of a coupled variable's components for use in templated automatic
@@ -565,6 +576,14 @@ protected:
   std::vector<const VariableValue *> coupledValuesOld(const std::string & var_name) const;
 
   /**
+   * Returns the old values for all of a coupled vector variable's components
+   * @param var_name Name of coupled vector variable
+   * @return Vector of VectorVariableValue pointers for each component of \p var_name
+   */
+  std::vector<const VectorVariableValue *>
+  coupledVectorValuesOld(const std::string & var_name) const;
+
+  /**
    * Returns an old value from two time steps previous of a coupled variable
    * @param var_name Name of coupled variable
    * @param comp Component number for vector of coupled variables
@@ -880,6 +899,16 @@ protected:
    */
   virtual const VectorVariableCurl & coupledCurlOlder(const std::string & var_name,
                                                       unsigned int comp = 0) const;
+
+  /**
+   * Returns curl of a coupled variable for use in objects utilizing Automatic Differentiation
+   * @param var_name Name of coupled variable
+   * @param comp Component number for vector of coupled variables
+   * @return Reference to an ADVectorVariableCurl containing the curl of the coupled variable
+   * @see Kernel::_curl_u
+   */
+  const ADVectorVariableCurl & adCoupledCurl(const std::string & var_name,
+                                             unsigned int comp = 0) const;
 
   /**
    * Returns divergence of a coupled variable
@@ -1451,6 +1480,9 @@ protected:
   /// This will always be zero because the default values for optionally coupled variables is always constant
   mutable MooseArray<ADRealTensorValue> _ad_default_second;
 
+  /// This will always be zero because the default values for optionally coupled vector variables is always constant
+  mutable MooseArray<ADRealVectorValue> _ad_default_curl;
+
   /// Zero value of a variable
   const VariableValue & _zero;
   const VariablePhiValue & _phi_zero;
@@ -1693,7 +1725,7 @@ public:
    * Helper method to return (and insert if necessary) the default gradient for Automatic
    * Differentiation for an uncoupled variable.
    * @param var_name the name of the variable for which to retrieve a default gradient
-   * @return VariableGradient * a pointer to the associated VariableGradient.
+   * @return Reference to a ADVariableGradient containing zero entries for the default values
    */
   const ADVariableGradient & getADDefaultGradient() const;
 
@@ -1701,7 +1733,7 @@ public:
    * Helper method to return (and insert if necessary) the default gradient for Automatic
    * Differentiation for an uncoupled vector variable.
    * @param var_name the name of the vector variable for which to retrieve a default gradient
-   * @return VariableGradient * a pointer to the associated VectorVariableGradient.
+   * @return Reference to a ADVectorVariableGradient containing zero entries for the default values
    */
   const ADVectorVariableGradient & getADDefaultVectorGradient() const;
 
@@ -1709,9 +1741,17 @@ public:
    * Helper method to return (and insert if necessary) the default second derivatives for Automatic
    * Differentiation for an uncoupled variable.
    * @param var_name the name of the variable for which to retrieve a default second derivative
-   * @return VariableSecond * a pointer to the associated VariableSecond.
+   * @return Reference to a ADVariableSecond containing zero entries for the default values
    */
   const ADVariableSecond & getADDefaultSecond() const;
+
+  /**
+   * Helper method to return (and insert if necessary) the default curl value for Automatic
+   * Differentiation for an uncoupled variable.
+   * @param var_name the name of the vector variable for which to retrieve a default value
+   * @return Reference to a ADVectorVariableCurl containing zero entries for the default values
+   */
+  const ADVectorVariableCurl & getADDefaultCurl() const;
 
 private:
   /**

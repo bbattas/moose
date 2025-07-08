@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -177,6 +177,11 @@ public:
   virtual unsigned int dimension() const;
 
   /**
+   * Returns MeshBase::spatial_dimension
+   */
+  virtual unsigned int spatialDimension() const { return _mesh->spatial_dimension(); }
+
+  /**
    * Returns the effective spatial dimension determined by the coordinates actually used by the
    * mesh. This means that a 1D mesh that has non-zero z or y coordinates is actually a 2D or 3D
    * mesh, respectively. Likewise a 2D mesh that has non-zero z coordinates is actually 3D mesh.
@@ -315,6 +320,14 @@ public:
    */
   virtual dof_id_type nNodes() const;
   virtual dof_id_type nElem() const;
+
+  virtual dof_id_type nLocalNodes() const { return _mesh->n_local_nodes(); }
+  virtual dof_id_type nActiveElem() const { return _mesh->n_active_elem(); }
+  virtual dof_id_type nActiveLocalElem() const { return _mesh->n_active_local_elem(); }
+  virtual SubdomainID nSubdomains() const { return _mesh->n_subdomains(); }
+  virtual unsigned int nPartitions() const { return _mesh->n_partitions(); }
+  virtual bool skipPartitioning() const { return _mesh->skip_partitioning(); }
+  virtual bool skipNoncriticalPartitioning() const;
 
   /**
    * Calls max_node/elem_id() on the underlying libMesh mesh object.
@@ -735,10 +748,12 @@ public:
   /**
    * Get the associated subdomainIDs for the subdomain names that are passed in.
    *
-   * @param subdomain_name The names of the subdomains
+   * @param subdomain_names The names of the subdomains
    * @return The subdomain ids from the passed subdomain names.
    */
-  std::vector<SubdomainID> getSubdomainIDs(const std::vector<SubdomainName> & subdomain_name) const;
+  std::vector<SubdomainID>
+  getSubdomainIDs(const std::vector<SubdomainName> & subdomain_names) const;
+  std::set<SubdomainID> getSubdomainIDs(const std::set<SubdomainName> & subdomain_names) const;
 
   /**
    * This method sets the name for \p subdomain_id to \p name
@@ -983,7 +998,7 @@ public:
   /**
    * Returns the final Mesh distribution type.
    */
-  bool isDistributedMesh() const { return _use_distributed_mesh; }
+  virtual bool isDistributedMesh() const { return _use_distributed_mesh; }
 
   /**
    * Tell the user if the distribution was overriden for any reason
@@ -1188,12 +1203,12 @@ public:
   void computeFiniteVolumeCoords() const;
 
   /**
-   * Set whether this mesh is displaced
+   * Set whether this mesh is a displaced mesh
    */
   void isDisplaced(bool is_displaced) { _is_displaced = is_displaced; }
 
   /**
-   * whether this mesh is displaced
+   * whether this mesh is a displaced mesh
    */
   bool isDisplaced() const { return _is_displaced; }
 
@@ -1337,6 +1352,16 @@ public:
   [[nodiscard]] bool doingPRefinement() const { return _doing_p_refinement; }
 
   /**
+   * Returns the maximum p-refinement level of all elements
+   */
+  unsigned int maxPLevel() const { return _max_p_level; }
+
+  /**
+   * Returns the maximum h-refinement level of all elements
+   */
+  unsigned int maxHLevel() const { return _max_h_level; }
+
+  /**
    * Get the map describing for each volumetric quadrature point (qp) on the refined level which qp
    * on the previous coarser level the fine qp is closest to
    */
@@ -1380,6 +1405,8 @@ public:
    * @return The set of lower-dimensional blocks for boundary sides
    */
   const std::set<SubdomainID> & boundaryLowerDBlocks() const { return _lower_d_boundary_blocks; }
+  /// Return construct node list from side list boolean
+  bool getConstructNodeListFromSideList() { return _construct_node_list_from_side_list; }
 
 protected:
   /// Deprecated (DO NOT USE)
@@ -1848,6 +1875,10 @@ private:
 
   /// Whether we have p-refinement (as opposed to h-refinement)
   bool _doing_p_refinement;
+  /// Maximum p-refinement level of all elements
+  unsigned int _max_p_level;
+  /// Maximum h-refinement level of all elements
+  unsigned int _max_h_level;
 
   template <typename T>
   struct MeshType;
@@ -2071,7 +2102,13 @@ MooseMesh::buildTypedMesh(unsigned int dim)
   }
 
   if (dim == libMesh::invalid_uint)
-    dim = getParam<MooseEnum>("dim");
+  {
+    if (isParamValid("dim"))
+      dim = getParam<MooseEnum>("dim");
+    else
+      // Legacy selection of the default for the 'dim' parameter
+      dim = 1;
+  }
 
   auto mesh = std::make_unique<T>(_communicator, dim);
 

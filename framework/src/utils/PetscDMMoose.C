@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -282,7 +282,7 @@ DMMooseSetVariables(DM dm, const std::set<std::string> & vars)
             : static_cast<MooseVariableBase *>(&dmm->_nl->getScalarVariable(0, var_name));
     if (var->isArray())
       for (const auto i : make_range(var->count()))
-        processed_vars.insert(SubProblem::arrayVariableComponent(var_name, i));
+        processed_vars.insert(var->arrayVariableComponent(i));
     else
       processed_vars.insert(var_name);
   }
@@ -1661,8 +1661,10 @@ DMSetUp_Moose(DM dm)
   }
   PetscFunctionReturn(PETSC_SUCCESS);
 }
-
-#if !PETSC_VERSION_LESS_THAN(3, 18, 0)
+#if !PETSC_VERSION_LESS_THAN(3, 23, 0)
+PetscErrorCode
+DMSetFromOptions_Moose(DM dm, PetscOptionItems /*options*/)
+#elif !PETSC_VERSION_LESS_THAN(3, 18, 0)
 PetscErrorCode
 DMSetFromOptions_Moose(DM dm, PetscOptionItems * /*options*/) // >= 3.18.0
 #elif !PETSC_VERSION_LESS_THAN(3, 7, 0)

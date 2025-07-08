@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -146,7 +146,7 @@ MeshRepairGenerator::fixOverlappingNodes(std::unique_ptr<MeshBase> & mesh) const
 
             // Coordinates are the same but it's not the same node
             // Replace the node in the element
-            const_cast<Elem *>(elem)->set_node(elem->get_node_index(&elem_node)) = node;
+            const_cast<Elem *>(elem)->set_node(elem->get_node_index(&elem_node), node);
             nodes_removed.insert(elem_node.id());
 
             num_fixed_nodes++;

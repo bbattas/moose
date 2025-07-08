@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -14,8 +14,11 @@
 #include "INSFVMomentumResidualObject.h"
 #include "INSFVVelocityVariable.h"
 #include "SolutionInvalidInterface.h"
+#include "FVDiffusionInterpolationInterface.h"
 
-class INSFVMomentumDiffusion : public INSFVFluxKernel, public SolutionInvalidInterface
+class INSFVMomentumDiffusion : public INSFVFluxKernel,
+                               public SolutionInvalidInterface,
+                               public FVDiffusionInterpolationInterface
 {
 public:
   static InputParameters validParams();

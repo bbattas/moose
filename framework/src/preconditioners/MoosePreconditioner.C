@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -90,10 +90,8 @@ MoosePreconditioner::MoosePreconditioner(const InputParameters & params)
                "If off-diagonal columns are specified, matching off-diagonal "
                "rows must be specified as well");
 
-  Moose::PetscSupport::processSingletonMooseWrappedOptions(_fe_problem, params);
-
-  Moose::PetscSupport::storePetscOptions(
-      _fe_problem, _fe_problem.numSolverSystems() > 1 ? ("-" + _nl.name() + "_") : "-", *this);
+  // This must be set early because the solve type is queried by later actions
+  Moose::PetscSupport::setSolveTypeFromParams(_fe_problem, params);
 }
 
 void
@@ -142,4 +140,10 @@ void
 MoosePreconditioner::setCouplingMatrix(std::unique_ptr<CouplingMatrix> cm)
 {
   _fe_problem.setCouplingMatrix(std::move(cm), _nl_sys_num);
+}
+
+void
+MoosePreconditioner::initialSetup()
+{
+  Moose::PetscSupport::storePetscOptions(_fe_problem, _nl.prefix(), *this);
 }

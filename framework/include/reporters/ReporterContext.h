@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -76,6 +76,9 @@ public:
 
   /// Called by FEProblemBase::advanceState via ReporterData
   virtual void copyValuesBack() = 0;
+
+  /// Called by FEProblemBase::restoreSolutions via ReporterData
+  virtual bool restoreState() = 0;
 
   /// Called by JSONOutput::outputReporters to output meta data independent of calculated
   /// values
@@ -315,6 +318,9 @@ protected:
 
   // The following are called by the ReporterData and are not indented for external use
   virtual void copyValuesBack() override;
+
+  /// Restore state to its old values. @see ReporterState::restoreState
+  virtual bool restoreState() override { return _state.restoreState(); }
 
   /// The state on which this context object operates
   ReporterState<T> & _state;

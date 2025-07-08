@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -51,6 +51,8 @@ DiracKernelBase::validParams()
 
   params.addParamNamesToGroup("use_displaced_mesh drop_duplicate_points", "Advanced");
   params.declareControllable("enable");
+  params.registerSystemAttributeName("DiracKernel");
+
   return params;
 }
 

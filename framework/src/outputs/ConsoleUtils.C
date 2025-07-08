@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -25,6 +25,7 @@
 #include "InputParameterWarehouse.h"
 #include "Registry.h"
 #include "CommandLine.h"
+#include "Split.h"
 
 #include <filesystem>
 
@@ -98,51 +99,55 @@ outputMeshInformation(FEProblemBase & problem, bool verbose)
   std::stringstream oss;
   oss << std::left;
 
-  MooseMesh & moose_mesh = problem.mesh();
-  MeshBase & mesh = moose_mesh.getMesh();
+  const MooseMesh & mesh = problem.mesh();
+
+  const auto fe_backend = problem.feBackend();
 
   if (verbose)
   {
-    bool forced = moose_mesh.isParallelTypeForced();
-    bool pre_split = moose_mesh.isSplit();
+    oss << "\nMesh: " << '\n' << std::setw(console_field_width);
 
-    // clang-format off
-    oss << "\nMesh: " << '\n'
-        << std::setw(console_field_width)
-        << "  Parallel Type: " << (moose_mesh.isDistributedMesh() ? "distributed" : "replicated")
-        << (forced || pre_split ? " (" : "")
-        << (forced ? "forced" : "")
-        << (forced && pre_split ? ", " : "")
-        << (pre_split ? "pre-split" : "")
-        << (forced || pre_split ? ")" : "")
-        << '\n'
-        << std::setw(console_field_width) << "  Mesh Dimension: " << mesh.mesh_dimension() << '\n'
-        << std::setw(console_field_width) << "  Spatial Dimension: " << mesh.spatial_dimension()
+    oss << "  Parallel Type: " << (mesh.isDistributedMesh() ? "distributed" : "replicated");
+    if (fe_backend == Moose::FEBackend::LibMesh)
+    {
+      bool forced = mesh.isParallelTypeForced();
+      bool pre_split = mesh.isSplit();
+      oss << (forced || pre_split ? " (" : "") << (forced ? "forced" : "")
+          << (forced && pre_split ? ", " : "") << (pre_split ? "pre-split" : "")
+          << (forced || pre_split ? ")" : "");
+    }
+    oss << '\n';
+    oss << std::setw(console_field_width) << "  Mesh Dimension: " << mesh.dimension() << '\n'
+        << std::setw(console_field_width) << "  Spatial Dimension: " << mesh.spatialDimension()
         << '\n';
-    // clang-format on
   }
 
-  if (mesh.n_processors() > 1)
+  // Nodes, only associated with the mesh in libMesh
+  if (fe_backend == Moose::FEBackend::LibMesh)
   {
-    dof_id_type nnodes = mesh.n_nodes();
-    dof_id_type nnodes_local = mesh.n_local_nodes();
-    oss << std::setw(console_field_width) << "  Nodes:" << '\n'
-        << std::setw(console_field_width) << "    Total:" << nnodes << '\n';
-    oss << std::setw(console_field_width) << "    Local:" << nnodes_local << '\n';
-    dof_id_type min_nnodes = nnodes_local, max_nnodes = nnodes_local;
-    mesh.comm().min(min_nnodes);
-    mesh.comm().max(max_nnodes);
-    if (mesh.processor_id() == 0)
-      oss << std::setw(console_field_width) << "    Min/Max/Avg:" << min_nnodes << '/' << max_nnodes
-          << '/' << nnodes / mesh.n_processors() << '\n';
+    if (mesh.n_processors() > 1)
+    {
+      dof_id_type nnodes = mesh.nNodes();
+      dof_id_type nnodes_local = mesh.nLocalNodes();
+      oss << std::setw(console_field_width) << "  Nodes:" << '\n'
+          << std::setw(console_field_width) << "    Total:" << nnodes << '\n';
+      oss << std::setw(console_field_width) << "    Local:" << nnodes_local << '\n';
+      dof_id_type min_nnodes = nnodes_local, max_nnodes = nnodes_local;
+      mesh.comm().min(min_nnodes);
+      mesh.comm().max(max_nnodes);
+      if (mesh.processor_id() == 0)
+        oss << std::setw(console_field_width) << "    Min/Max/Avg:" << min_nnodes << '/'
+            << max_nnodes << '/' << nnodes / mesh.n_processors() << '\n';
+    }
+    else
+      oss << std::setw(console_field_width) << "  Nodes:" << mesh.nNodes() << '\n';
   }
-  else
-    oss << std::setw(console_field_width) << "  Nodes:" << mesh.n_nodes() << '\n';
 
+  // Elements
   if (mesh.n_processors() > 1)
   {
-    dof_id_type nelems = mesh.n_active_elem();
-    dof_id_type nelems_local = mesh.n_active_local_elem();
+    dof_id_type nelems = mesh.nActiveElem();
+    dof_id_type nelems_local = mesh.nActiveLocalElem();
     oss << std::setw(console_field_width) << "  Elems:" << '\n'
         << std::setw(console_field_width) << "    Total:" << nelems << '\n';
     oss << std::setw(console_field_width) << "    Local:" << nelems_local << '\n';
@@ -154,22 +159,32 @@ outputMeshInformation(FEProblemBase & problem, bool verbose)
           << '/' << nelems / mesh.n_processors() << '\n';
   }
   else
-    oss << std::setw(console_field_width) << "  Elems:" << mesh.n_active_elem() << '\n';
+    oss << std::setw(console_field_width) << "  Elems:" << mesh.nActiveElem() << '\n';
+
+  // P-refinement
+  if (fe_backend == Moose::FEBackend::LibMesh)
+  {
+    if (mesh.maxPLevel() > 0)
+      oss << std::setw(console_field_width)
+          << "  Max p-Refinement Level: " << static_cast<std::size_t>(mesh.maxPLevel()) << '\n';
+    if (mesh.maxHLevel() > 0)
+      oss << std::setw(console_field_width)
+          << "  Max h-Refinement Level: " << static_cast<std::size_t>(mesh.maxHLevel()) << '\n';
+  }
 
   if (verbose)
   {
-
     oss << std::setw(console_field_width)
-        << "  Num Subdomains: " << static_cast<std::size_t>(mesh.n_subdomains()) << '\n';
-    if (mesh.n_processors() > 1)
+        << "  Num Subdomains: " << static_cast<std::size_t>(mesh.nSubdomains()) << '\n';
+    if (mesh.n_processors() > 1 && fe_backend == Moose::FEBackend::LibMesh)
     {
       oss << std::setw(console_field_width)
-          << "  Num Partitions: " << static_cast<std::size_t>(mesh.n_partitions()) << '\n'
-          << std::setw(console_field_width) << "  Partitioner: " << moose_mesh.partitionerName()
-          << (moose_mesh.isPartitionerForced() ? " (forced) " : "") << '\n';
-      if (mesh.skip_partitioning())
+          << "  Num Partitions: " << static_cast<std::size_t>(mesh.nPartitions()) << '\n'
+          << std::setw(console_field_width) << "  Partitioner: " << mesh.partitionerName()
+          << (mesh.isPartitionerForced() ? " (forced) " : "") << '\n';
+      if (mesh.skipPartitioning())
         oss << std::setw(console_field_width) << "  Skipping all partitioning!" << '\n';
-      else if (mesh.skip_noncritical_partitioning())
+      else if (mesh.skipNoncriticalPartitioning())
         oss << std::setw(console_field_width) << "  Skipping noncritical partitioning!" << '\n';
     }
   }
@@ -317,12 +332,12 @@ outputSystemInformationHelper(std::stringstream & oss, System & system)
 }
 
 std::string
-outputNonlinearSystemInformation(FEProblemBase & problem, const unsigned int nl_sys_num)
+outputSolverSystemInformation(FEProblemBase & problem, const unsigned int sys_num)
 {
   std::stringstream oss;
   oss << std::left;
 
-  return outputSystemInformationHelper(oss, problem.getNonlinearSystemBase(nl_sys_num).system());
+  return outputSystemInformationHelper(oss, problem.getSolverSystem(sys_num).system());
 }
 
 std::string
@@ -371,34 +386,68 @@ outputExecutionInformation(const MooseApp & app, FEProblemBase & problem)
   const auto time_integrator_names = exec->getTimeIntegratorNames();
   if (!time_integrator_names.empty())
     oss << std::setw(console_field_width)
-        << "  TimeIntegrator(s): " << MooseUtils::join(time_integrator_names, ", ") << '\n';
+        << "  TimeIntegrator(s): " << MooseUtils::join(time_integrator_names, " ") << '\n';
 
+  oss << std::setw(console_field_width)
+      << std::string("  Solver") +
+             (problem.feBackend() == Moose::FEBackend::LibMesh ? " Mode" : "") + ": ";
   for (const std::size_t i : make_range(problem.numSolverSystems()))
-    oss << std::setw(console_field_width) << "  Solver Mode"
-        << (problem.numSolverSystems() > 1 ? std::string("for system " + std::to_string(i))
-                                           : std::string(""))
-        << ": " << problem.solverTypeString(i) << '\n';
+    oss << (problem.numSolverSystems() > 1 ? "[" + problem.getSolverSystemNames()[i] + "]: " : "")
+        << problem.solverTypeString(i) << " ";
+  oss << '\n';
 
-  const std::string & pc_desc = problem.getPetscOptions().pc_description;
+  // Check for a selection of common PETSc pc options on the command line for
+  // all solver systems and all field splits within each nonlinear system
+  std::string pc_desc;
+  for (const std::size_t i : make_range(problem.numSolverSystems()))
+  {
+    std::vector<std::string> splits = {""};
+    if (problem.isSolverSystemNonlinear(i))
+      for (const auto & split : problem.getNonlinearSystemBase(i).getSplits().getObjects())
+        splits.push_back("fieldsplit_" + split->name() + "_");
+
+    for (const std::string & split : splits)
+    {
+      std::string pc_desc_split;
+      const std::string prefix = problem.solverParams(i)._prefix + split;
+      for (const auto & entry : std::as_const(*app.commandLine()).getEntries())
+        if (entry.name == prefix + "pc_type" || entry.name == prefix + "sub_pc_type" ||
+            entry.name == prefix + "pc_hypre_type" || entry.name == prefix + "pc_fieldsplit_type")
+          pc_desc_split += entry.value ? *entry.value + " " : "unspecified ";
+
+      if (!pc_desc_split.empty() && prefix.size() > 1)
+        pc_desc += "[" + prefix.substr(1, prefix.size() - 2) + "]: ";
+      pc_desc += pc_desc_split;
+    }
+  }
+
+  // Alert the user any unoverridden options will still be picked up from the input file
+  if (!pc_desc.empty())
+    pc_desc += "(see input file for unoverridden options)";
+
+  // If there are no PETSc pc options on the command line, print the input file options
+  if (pc_desc.empty())
+    pc_desc = problem.getPetscOptions().pc_description;
+
   if (!pc_desc.empty())
     oss << std::setw(console_field_width) << "  PETSc Preconditioner: " << pc_desc << '\n';
 
+  std::string mpc_desc;
   for (const std::size_t i : make_range(problem.numNonlinearSystems()))
   {
     MoosePreconditioner const * mpc = problem.getNonlinearSystemBase(i).getPreconditioner();
     if (mpc)
     {
-      oss << std::setw(console_field_width)
-          << "  MOOSE Preconditioner" +
-                 (problem.numNonlinearSystems() > 1 ? (" " + std::to_string(i)) : "") + ": "
-          << mpc->getParam<std::string>("_type");
+      if (problem.numNonlinearSystems() > 1)
+        mpc_desc += "[" + problem.getNonlinearSystemNames()[i] + "]: ";
+      mpc_desc += mpc->getParam<std::string>("_type") + " ";
       if (mpc->name().find("_moose_auto") != std::string::npos)
-        oss << " (auto)";
-      oss << '\n';
+        mpc_desc += "(auto) ";
     }
-    if (i == cast_int<std::size_t>(problem.numNonlinearSystems() - 1))
-      oss << std::endl;
   }
+
+  if (!mpc_desc.empty())
+    oss << std::setw(console_field_width) << "  MOOSE Preconditioner: " << mpc_desc << '\n';
 
   return oss.str();
 }
@@ -424,8 +473,8 @@ outputOutputInformation(MooseApp & app)
       const OutputOnWarehouse & adv_on = out->advancedExecuteOn();
       for (const auto & adv_it : adv_on)
         if (execute_on != adv_it.second)
-          oss << "    " << std::setw(console_field_width - 4) << adv_it.first + ":"
-              << "\"" << adv_it.second << "\"" << std::endl;
+          oss << "    " << std::setw(console_field_width - 4) << adv_it.first + ":" << "\""
+              << adv_it.second << "\"" << std::endl;
     }
   }
 

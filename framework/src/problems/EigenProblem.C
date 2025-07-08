@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -91,6 +91,7 @@ EigenProblem::EigenProblem(const InputParameters & parameters)
     _nl_eigen = std::dynamic_pointer_cast<NonlinearEigenSystem>(nl);
     _current_nl_sys = nl.get();
     _solver_systems[i] = std::dynamic_pointer_cast<SolverSystem>(nl);
+    nl->system().prefer_hash_table_matrix_assembly(_use_hash_table_matrix_assembly);
   }
 
   _aux = std::make_shared<AuxiliarySystem>(*this, "aux0");
@@ -695,10 +696,10 @@ EigenProblem::formNorm()
               "We should not get here unless a bx_norm postprocessor has been provided");
   return getPostprocessorValueByName(*_bx_norm_name);
 }
+#endif
 
 std::string
 EigenProblem::solverTypeString(const unsigned int solver_sys_num)
 {
   return Moose::stringify(solverParams(solver_sys_num)._eigen_solve_type);
 }
-#endif

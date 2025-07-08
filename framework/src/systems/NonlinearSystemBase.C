@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -47,7 +47,7 @@
 #include "PenetrationLocator.h"
 #include "NodalConstraint.h"
 #include "NodeFaceConstraint.h"
-#include "NodeElemConstraint.h"
+#include "NodeElemConstraintBase.h"
 #include "MortarConstraint.h"
 #include "ElemElemConstraint.h"
 #include "ScalarKernelBase.h"
@@ -79,7 +79,6 @@
 #include "UserObject.h"
 #include "OffDiagonalScalingMatrix.h"
 #include "HDGKernel.h"
-#include "HDGIntegratedBC.h"
 
 // libMesh
 #include "libmesh/nonlinear_solver.h"
@@ -298,6 +297,9 @@ NonlinearSystemBase::initialSetup()
     else
       _scaling_matrix = std::make_unique<DiagonalMatrix<Number>>(_communicator);
   }
+
+  if (_preconditioner)
+    _preconditioner->initialSetup();
 }
 
 void
@@ -453,6 +455,8 @@ NonlinearSystemBase::addKernel(const std::string & kernel_name,
         _factory.create<KernelBase>(kernel_name, name, parameters, tid);
     _kernels.addObject(kernel, tid);
     postAddResidualObject(*kernel);
+    // Add to theWarehouse, a centralized storage for all moose objects
+    _fe_problem.theWarehouse().add(kernel);
   }
 
   if (parameters.get<std::vector<AuxVariableName>>("save_in").size() > 0)
@@ -466,30 +470,15 @@ NonlinearSystemBase::addHDGKernel(const std::string & kernel_name,
                                   const std::string & name,
                                   InputParameters & parameters)
 {
-  // The hybridized objects require that the residual and Jacobian be computed together
-  residualAndJacobianTogether();
-
   for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
   {
-    parameters.set<MooseObjectWarehouse<HDGIntegratedBC> *>("hibc_warehouse") = &_hybridized_ibcs;
     // Create the kernel object via the factory and add to warehouse
     auto kernel = _factory.create<HDGKernel>(kernel_name, name, parameters, tid);
     _kernels.addObject(kernel, tid);
     _hybridized_kernels.addObject(kernel, tid);
+    // Add to theWarehouse, a centralized storage for all moose objects
+    _fe_problem.theWarehouse().add(kernel);
     postAddResidualObject(*kernel);
-  }
-}
-
-void
-NonlinearSystemBase::addHDGIntegratedBC(const std::string & bc_name,
-                                        const std::string & name,
-                                        InputParameters & parameters)
-{
-  for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
-  {
-    // Create the bc object via the factory and add to warehouse
-    auto bc = _factory.create<HDGIntegratedBC>(bc_name, name, parameters, tid);
-    _hybridized_ibcs.addObject(bc, tid);
   }
 }
 
@@ -504,6 +493,8 @@ NonlinearSystemBase::addNodalKernel(const std::string & kernel_name,
     std::shared_ptr<NodalKernelBase> kernel =
         _factory.create<NodalKernelBase>(kernel_name, name, parameters, tid);
     _nodal_kernels.addObject(kernel, tid);
+    // Add to theWarehouse, a centralized storage for all moose objects
+    _fe_problem.theWarehouse().add(kernel);
     postAddResidualObject(*kernel);
   }
 
@@ -521,6 +512,8 @@ NonlinearSystemBase::addScalarKernel(const std::string & kernel_name,
   std::shared_ptr<ScalarKernelBase> kernel =
       _factory.create<ScalarKernelBase>(kernel_name, name, parameters);
   postAddResidualObject(*kernel);
+  // Add to theWarehouse, a centralized storage for all moose objects
+  _fe_problem.theWarehouse().add(kernel);
   _scalar_kernels.addObject(kernel);
 }
 
@@ -557,6 +550,8 @@ NonlinearSystemBase::addBoundaryCondition(const std::string & bc_name,
                  "'.");
 
     _nodal_bcs.addObject(nbc);
+    // Add to theWarehouse, a centralized storage for all moose objects
+    _fe_problem.theWarehouse().add(nbc);
     _vars[tid].addBoundaryVars(boundary_ids, nbc->getCoupledVars());
 
     if (parameters.get<std::vector<AuxVariableName>>("save_in").size() > 0)
@@ -578,6 +573,8 @@ NonlinearSystemBase::addBoundaryCondition(const std::string & bc_name,
   else if (ibc)
   {
     _integrated_bcs.addObject(ibc, tid);
+    // Add to theWarehouse, a centralized storage for all moose objects
+    _fe_problem.theWarehouse().add(ibc);
     _vars[tid].addBoundaryVars(boundary_ids, ibc->getCoupledVars());
 
     if (parameters.get<std::vector<AuxVariableName>>("save_in").size() > 0)
@@ -632,6 +629,8 @@ NonlinearSystemBase::addDiracKernel(const std::string & kernel_name,
         _factory.create<DiracKernelBase>(kernel_name, name, parameters, tid);
     postAddResidualObject(*kernel);
     _dirac_kernels.addObject(kernel, tid);
+    // Add to theWarehouse, a centralized storage for all moose objects
+    _fe_problem.theWarehouse().add(kernel);
   }
 }
 
@@ -644,6 +643,8 @@ NonlinearSystemBase::addDGKernel(std::string dg_kernel_name,
   {
     auto dg_kernel = _factory.create<DGKernelBase>(dg_kernel_name, name, parameters, tid);
     _dg_kernels.addObject(dg_kernel, tid);
+    // Add to theWarehouse, a centralized storage for all moose objects
+    _fe_problem.theWarehouse().add(dg_kernel);
     postAddResidualObject(*dg_kernel);
   }
 
@@ -671,6 +672,8 @@ NonlinearSystemBase::addInterfaceKernel(std::string interface_kernel_name,
     _vars[tid].addBoundaryVar(boundary_ids, ik_var);
 
     _interface_kernels.addObject(interface_kernel, tid);
+    // Add to theWarehouse, a centralized storage for all moose objects
+    _fe_problem.theWarehouse().add(interface_kernel);
     _vars[tid].addBoundaryVars(boundary_ids, interface_kernel->getCoupledVars());
   }
 }
@@ -710,6 +713,8 @@ NonlinearSystemBase::addSplit(const std::string & split_name,
 {
   std::shared_ptr<Split> split = _factory.create<Split>(split_name, name, parameters);
   _splits.addObject(split);
+  // Add to theWarehouse, a centralized storage for all moose objects
+  _fe_problem.theWarehouse().add(split);
 }
 
 std::shared_ptr<Split>
@@ -1113,7 +1118,6 @@ NonlinearSystemBase::enforceNodalConstraintsJacobian()
       }
     }
     _fe_problem.addCachedJacobian(tid);
-    jacobian.close();
   }
 }
 
@@ -1534,11 +1538,12 @@ NonlinearSystemBase::constraintResiduals(NumericVector<Number> & residual, bool 
     }
   }
 
-  // go over NodeELemConstraints
+  // go over NodeElemConstraints
   std::set<dof_id_type> unique_secondary_node_ids;
 
   constraints_applied = false;
   residual_has_inserted_values = false;
+  bool has_writable_variables = false;
   for (const auto & secondary_id : _mesh.meshSubdomains())
   {
     for (const auto & primary_id : _mesh.meshSubdomains())
@@ -1587,6 +1592,16 @@ NonlinearSystemBase::constraintResiduals(NumericVector<Number> & residual, bool 
                   _fe_problem.cacheResidual(0);
                 _fe_problem.cacheResidualNeighbor(0);
               }
+              if (nec->hasWritableCoupledVariables())
+              {
+                Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
+                has_writable_variables = true;
+                for (auto * var : nec->getWritableCoupledVariables())
+                {
+                  if (var->isNodalDefined())
+                    var->insert(_fe_problem.getAuxiliarySystem().solution());
+                }
+              }
             }
             _fe_problem.addCachedResidual(0);
           }
@@ -1609,6 +1624,17 @@ NonlinearSystemBase::constraintResiduals(NumericVector<Number> & residual, bool 
 
     if (_need_residual_ghosted)
       *_residual_ghosted = residual;
+  }
+  _communicator.max(has_writable_variables);
+
+  if (has_writable_variables)
+  {
+    // Explicit contact dynamic constraints write to auxiliary variables and update the old
+    // displacement solution on the constraint boundaries. Close solutions and update system
+    // accordingly.
+    _fe_problem.getAuxiliarySystem().solution().close();
+    _fe_problem.getAuxiliarySystem().system().update();
+    solutionOld().close();
   }
 
   // We may have additional tagged vectors that also need to be accumulated
@@ -1910,7 +1936,7 @@ NonlinearSystemBase::computeResidualInternal(const std::set<TagID> & tags)
 
   // Accumulate the occurrence of solution invalid warnings for the current iteration cumulative
   // counters
-  _app.solutionInvalidity().sync();
+  _app.solutionInvalidity().syncIteration();
   _app.solutionInvalidity().solutionInvalidAccumulation();
 }
 
@@ -1938,6 +1964,10 @@ NonlinearSystemBase::computeResidualAndJacobianInternal(const std::set<TagID> & 
       if (!_fe_problem.errorOnJacobianNonzeroReallocation())
         LibmeshPetscCall(
             MatSetOption(petsc_matrix->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE));
+      if (_fe_problem.ignoreZerosInJacobian())
+        LibmeshPetscCall(MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
+                                      MAT_IGNORE_ZERO_ENTRIES,
+                                      PETSC_TRUE));
     }
   }
 
@@ -2269,7 +2299,8 @@ NonlinearSystemBase::addImplicitGeometricCouplingEntries(GeometricSearchData & g
 }
 
 void
-NonlinearSystemBase::constraintJacobians(bool displaced)
+NonlinearSystemBase::constraintJacobians(const SparseMatrix<Number> & jacobian_to_view,
+                                         bool displaced)
 {
   if (!hasMatrix(systemMatrixTag()))
     mooseError("A system matrix is required");
@@ -2280,7 +2311,6 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
     LibmeshPetscCall(MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
                                   MAT_NEW_NONZERO_ALLOCATION_ERR,
                                   PETSC_FALSE));
-
   if (_fe_problem.ignoreZerosInJacobian())
     LibmeshPetscCall(MatSetOption(
         static_cast<PetscMatrix<Number> &>(jacobian).mat(), MAT_IGNORE_ZERO_ENTRIES, PETSC_TRUE));
@@ -2344,7 +2374,7 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
                   nfc->primaryBoundary() != primary_boundary)
                 continue;
 
-              nfc->_jacobian = &jacobian;
+              nfc->_jacobian = &jacobian_to_view;
 
               if (nfc->shouldApply())
               {
@@ -2393,7 +2423,7 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
                                    nfc->_Kne,
                                    nfc->primaryVariable().dofIndicesNeighbor(),
                                    nfc->_connected_dof_indices,
-                                   nfc->variable().scalingFactor());
+                                   nfc->primaryVariable().scalingFactor());
 
                   // We've handled Ken and Kne, finally handle Knn
                   _fe_problem.cacheJacobianNeighbor(0);
@@ -2542,7 +2572,7 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
     }
   }
 
-  // go over NodeELemConstraints
+  // go over NodeElemConstraints
   std::set<dof_id_type> unique_secondary_node_ids;
   constraints_applied = false;
   for (const auto & secondary_id : _mesh.meshSubdomains())
@@ -2584,7 +2614,7 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
               {
                 constraints_applied = true;
 
-                nec->_jacobian = &jacobian;
+                nec->_jacobian = &jacobian_to_view;
                 nec->prepareShapes(nec->variable().number());
                 nec->prepareNeighborShapes(nec->variable().number());
 
@@ -2610,7 +2640,7 @@ NonlinearSystemBase::constraintJacobians(bool displaced)
                                  nec->_Kne,
                                  nec->primaryVariable().dofIndicesNeighbor(),
                                  nec->_connected_dof_indices,
-                                 nec->variable().scalingFactor());
+                                 nec->primaryVariable().scalingFactor());
 
                 _fe_problem.cacheJacobian(0);
                 _fe_problem.cacheJacobianNeighbor(0);
@@ -2778,6 +2808,10 @@ NonlinearSystemBase::computeJacobianInternal(const std::set<TagID> & tags)
       if (!_fe_problem.errorOnJacobianNonzeroReallocation())
         LibmeshPetscCall(
             MatSetOption(petsc_matrix->mat(), MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE));
+      if (_fe_problem.ignoreZerosInJacobian())
+        LibmeshPetscCall(MatSetOption(static_cast<PetscMatrix<Number> &>(jacobian).mat(),
+                                      MAT_IGNORE_ZERO_ENTRIES,
+                                      PETSC_TRUE));
     }
   }
 
@@ -2932,7 +2966,8 @@ NonlinearSystemBase::computeJacobianInternal(const std::set<TagID> & tags)
     static bool first = true;
 
     // This adds zeroes into geometric coupling entries to ensure they stay in the matrix
-    if (first && (_add_implicit_geometric_coupling_entries_to_jacobian))
+    if ((_fe_problem.restoreOriginalNonzeroPattern() || first) &&
+        _add_implicit_geometric_coupling_entries_to_jacobian)
     {
       first = false;
       addImplicitGeometricCouplingEntries(_fe_problem.geomSearchData());
@@ -2950,18 +2985,35 @@ NonlinearSystemBase::computeJacobianInternal(const std::set<TagID> & tags)
     // Add in Jacobian contributions from other Constraints
     if (_fe_problem._has_constraints && tags.count(systemMatrixTag()))
     {
-      // Some constraints need values from the Jacobian
-      closeTaggedMatrices(tags);
+      // Some constraints need to be able to read values from the Jacobian, which requires that it
+      // be closed/assembled
+      auto & system_matrix = getMatrix(systemMatrixTag());
+#if PETSC_RELEASE_GREATER_EQUALS(3, 23, 0)
+      SparseMatrix<Number> * view_jac_ptr;
+      std::unique_ptr<SparseMatrix<Number>> hash_copy;
+      if (system_matrix.use_hash_table())
+      {
+        hash_copy = libMesh::cast_ref<PetscMatrix<Number> &>(system_matrix).copy_from_hash();
+        view_jac_ptr = hash_copy.get();
+      }
+      else
+        view_jac_ptr = &system_matrix;
+      auto & jacobian_to_view = *view_jac_ptr;
+#else
+      auto & jacobian_to_view = system_matrix;
+#endif
+      if (&jacobian_to_view == &system_matrix)
+        system_matrix.close();
 
       // Nodal Constraints
       enforceNodalConstraintsJacobian();
 
       // Undisplaced Constraints
-      constraintJacobians(false);
+      constraintJacobians(jacobian_to_view, false);
 
       // Displaced Constraints
       if (_fe_problem.getDisplacedProblem())
-        constraintJacobians(true);
+        constraintJacobians(jacobian_to_view, true);
     }
   }
   PARALLEL_CATCH;
@@ -3093,7 +3145,7 @@ NonlinearSystemBase::computeJacobianInternal(const std::set<TagID> & tags)
 
   // Accumulate the occurrence of solution invalid warnings for the current iteration cumulative
   // counters
-  _app.solutionInvalidity().sync();
+  _app.solutionInvalidity().syncIteration();
   _app.solutionInvalidity().solutionInvalidAccumulation();
 }
 

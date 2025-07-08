@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -227,6 +227,14 @@ public:
    * See FEProblemBase::advanceState
    */
   void copyValuesBack();
+
+  /**
+   * When a time step fails, this method is called to revert the current reporter values to their
+   * old state. @see FEProblemBase::restoreSolutions
+   *
+   * @param verbose Set true to print whether the reporters were restored or not.
+   */
+  void restoreState(bool verbose = false);
 
   /**
    * Perform integrity check for get/declare calls

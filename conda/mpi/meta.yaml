@@ -6,10 +6,7 @@
 #
 # As well as any directions pertaining to modifying those files.
 # ALSO: Follow the directions in scripts/tests/versioner_hashes.yaml
-{% set version = "2024.12.23" %}
-
-# HDF5 Version
-{% set hdf5_version = "1.14.2" %}
+{% set version = "2025.06.13" %}
 
 package:
   name: moose-mpi
@@ -35,6 +32,7 @@ outputs:
         - REQUESTS_CA_BUNDLE
         - SSL_CERT_FILE
         - CURL_CA_BUNDLE
+        - NODE_EXTRA_CA_CERTS
     requirements:
       build:
         - {{ mpi }} {{ mpi_version }}
@@ -60,7 +58,7 @@ outputs:
         - {{ moose_libstdcxx }}                   # [linux]
         - {{ moose_libstdcxx_devel }}             # [linux]
         - {{ moose_icu }}
-        - hdf5={{ hdf5_version }}=mpi_{{ mpi }}_*
+        - {{ moose_hdf5 }}=mpi_{{ mpi }}_*
       run:
         - {{ mpi }} {{ mpi_version }}
         - {{ mpi }}-mpicc
@@ -85,19 +83,20 @@ outputs:
         - {{ moose_libstdcxx }}                   # [linux]
         - {{ moose_libstdcxx_devel }}             # [linux]
         - {{ moose_icu }}
-        - hdf5={{ hdf5_version }}=mpi_{{ mpi }}_*
+        - {{ moose_hdf5 }}=mpi_{{ mpi }}_*
+        - {{ moose_libexpat }}
+        - libtirpc                                # [linux]
         - automake 1.16.5
-        - libexpat 2.5.0
         - bison 3.4
         - zfp
         - autoconf
         - libtool
-        - cmake
+        - {{ moose_cmake }}
         - make
         - zlib
         - m4
       run_constrained:
-        - python >=3.9,<3.12
+        - python >=3.10,<3.14
     test:
       commands:
         - test -f $PREFIX/etc/conda/activate.d/activate_zzz_moose-mpi-base.sh
@@ -110,7 +109,7 @@ outputs:
   - name: moose-python
     requirements:
       run:
-        - python >=3.9,<3.12
+        - python >=3.10,<3.14
         - packaging
         - paramiko
         - requests
@@ -144,7 +143,7 @@ outputs:
         - yaml
 
 about:
-  home: https://mooseframework.org/
+  home: https://mooseframework.inl.gov/
   license: LGPL 2.1
   summary: Provides MPI wrapper and toolchain for MOOSE based development.
   description: {{ mpi_friendly_name }} is a high performance and widely portable implementation of the Message Passing Interface (MPI) standard.

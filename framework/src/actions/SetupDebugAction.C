@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -47,6 +47,8 @@ SetupDebugAction::validParams()
   params.addParam<bool>("show_mesh_meta_data", false, "Print out the available mesh meta data");
   params.addParam<bool>(
       "show_reporters", false, "Print out information about the declared and requested Reporters");
+  params.addParam<bool>(
+      "show_mesh_generators", false, "Print out the mesh generators being executed");
 
   ExecFlagEnum print_on = MooseUtils::getDefaultExecFlagEnum();
   print_on.addAvailableFlags(EXEC_TRANSFER);
@@ -81,6 +83,7 @@ SetupDebugAction::SetupDebugAction(const InputParameters & parameters) : Action(
   _awh.showActionDependencies(getParam<bool>("show_action_dependencies"));
   _awh.showActions(getParam<bool>("show_actions"));
   _awh.showParser(getParam<bool>("show_parser"));
+  _awh.mooseApp().getMeshGeneratorSystem().setVerbose(getParam<bool>("show_mesh_generators"));
 }
 
 void
@@ -152,6 +155,7 @@ SetupDebugAction::act()
 
     InputParameters params = _factory.getValidParams("ProcessorIDAux");
     params.set<AuxVariableName>("variable") = "pid";
+    params.set<ExecFlagEnum>("execute_on") = {EXEC_INITIAL, EXEC_TIMESTEP_BEGIN};
     _problem->addAuxKernel("ProcessorIDAux", "pid_aux", params);
   }
 

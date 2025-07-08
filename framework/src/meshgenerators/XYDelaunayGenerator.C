@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -49,6 +49,7 @@ XYDelaunayGenerator::validParams()
 
   params.addParam<SubdomainName>("output_subdomain_name",
                                  "Subdomain name to set on new triangles.");
+  params.addParam<SubdomainID>("output_subdomain_id", "Subdomain id to set on new triangles.");
 
   params.addParam<BoundaryName>(
       "output_boundary",
@@ -283,10 +284,14 @@ XYDelaunayGenerator::generate()
   for (auto hole_i : index_range(_hole_ptrs))
   {
     hole_ptrs[hole_i] = std::move(*_hole_ptrs[hole_i]);
+    if (!hole_ptrs[hole_i]->is_prepared())
+      hole_ptrs[hole_i]->prepare_for_use();
     meshed_holes.emplace_back(*hole_ptrs[hole_i]);
     holes_with_midpoints[hole_i] = meshed_holes.back().n_midpoints();
-    stitch_second_order_holes =
-        (holes_with_midpoints.back() && _stitch_holes[hole_i]) || stitch_second_order_holes;
+    stitch_second_order_holes = _stitch_holes.empty()
+                                    ? false
+                                    : ((holes_with_midpoints[hole_i] && _stitch_holes[hole_i]) ||
+                                       stitch_second_order_holes);
     if (hole_i < _refine_holes.size())
       meshed_holes.back().set_refine_boundary_allowed(_refine_holes[hole_i]);
 
@@ -328,32 +333,51 @@ XYDelaunayGenerator::generate()
 
   poly2tri.triangulate();
 
+  if (isParamValid("output_subdomain_id"))
+    _output_subdomain_id = getParam<SubdomainID>("output_subdomain_id");
+
   if (isParamValid("output_subdomain_name"))
   {
     auto output_subdomain_name = getParam<SubdomainName>("output_subdomain_name");
-    _output_subdomain_id = MooseMeshUtils::getSubdomainID(output_subdomain_name, *mesh);
+    auto id = MooseMeshUtils::getSubdomainID(output_subdomain_name, *mesh);
 
-    if (_output_subdomain_id == Elem::invalid_subdomain_id)
+    if (id == Elem::invalid_subdomain_id)
     {
-      // We'll probably need to make a new ID, then
-      _output_subdomain_id = MooseMeshUtils::getNextFreeSubdomainID(*mesh);
-
-      // But check the hole meshes for our output subdomain name too
-      for (auto & hole_ptr : hole_ptrs)
+      if (!isParamValid("output_subdomain_id"))
       {
-        auto possible_sbdid = MooseMeshUtils::getSubdomainID(output_subdomain_name, *hole_ptr);
-        // Huh, it was in one of them
-        if (possible_sbdid != Elem::invalid_subdomain_id)
-        {
-          _output_subdomain_id = possible_sbdid;
-          break;
-        }
-        _output_subdomain_id =
-            std::max(_output_subdomain_id, MooseMeshUtils::getNextFreeSubdomainID(*hole_ptr));
-      }
+        // We'll probably need to make a new ID, then
+        _output_subdomain_id = MooseMeshUtils::getNextFreeSubdomainID(*mesh);
 
-      mesh->subdomain_name(_output_subdomain_id) = output_subdomain_name;
+        // But check the hole meshes for our output subdomain name too
+        for (auto & hole_ptr : hole_ptrs)
+        {
+          auto possible_sbdid = MooseMeshUtils::getSubdomainID(output_subdomain_name, *hole_ptr);
+          // Huh, it was in one of them
+          if (possible_sbdid != Elem::invalid_subdomain_id)
+          {
+            _output_subdomain_id = possible_sbdid;
+            break;
+          }
+          _output_subdomain_id =
+              std::max(_output_subdomain_id, MooseMeshUtils::getNextFreeSubdomainID(*hole_ptr));
+        }
+      }
     }
+    else
+    {
+      if (isParamValid("output_subdomain_id"))
+      {
+        if (id != _output_subdomain_id)
+          paramError("output_subdomain_name",
+                     "name has been used by the input meshes and the corresponding id is not equal "
+                     "to 'output_subdomain_id'");
+      }
+      else
+        _output_subdomain_id = id;
+    }
+    // We do not want to set an empty subdomain name
+    if (output_subdomain_name.size())
+      mesh->subdomain_name(_output_subdomain_id) = output_subdomain_name;
   }
 
   if (_smooth_tri || _output_subdomain_id)

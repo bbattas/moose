@@ -76,7 +76,7 @@ class TestParameters(AppSyntaxTestCase):
     def testHTML(self):
         _, res = self.execute(self.TEXT, renderer=base.HTMLRenderer())
 
-        self.assertSize(res, 9)
+        self.assertSize(res, 11)
         self.assertHTMLTag(res(0), 'h2', id_='input-parameters', size=3)
         self.assertEqual(res(0).text(), 'Input Parameters')
 
@@ -95,11 +95,11 @@ class TestParameters(AppSyntaxTestCase):
         self.assertEqual(res(3).text(), 'Optional Parameters')
 
         # This size should match the number of optional parameters for Kernel
-        self.assertHTMLTag(res(4), 'ul', size=4)
+        self.assertHTMLTag(res(4), 'ul', size=3)
 
         self.assertHTMLTag(res(5), 'h3')
         self.assertEqual(res(5)['data-details-open'], 'close')
-        self.assertEqual(res(5).text(), 'Tagging Parameters')
+        self.assertEqual(res(5).text(), 'Contribution To Tagged Field Data Parameters')
 
         self.assertHTMLTag(res(6), 'ul', size=5)
 
@@ -111,7 +111,7 @@ class TestParameters(AppSyntaxTestCase):
 
     def testMaterialize(self):
         _, res = self.execute(self.TEXT, renderer=base.MaterializeRenderer())
-        self.assertSize(res, 9)
+        self.assertSize(res, 11)
         self.assertHTMLTag(res(0), 'h2', id_='input-parameters', size=3)
         self.assertEqual(res(0).text(), 'Input Parameters')
 
@@ -137,11 +137,11 @@ class TestParameters(AppSyntaxTestCase):
         self.assertEqual(res(3).text(), 'Optional Parameters')
 
         # This size should match the number of optional parameters for Kernel
-        self.assertHTMLTag(res(4), 'ul', size=4, class_='collapsible')
+        self.assertHTMLTag(res(4), 'ul', size=3, class_='collapsible')
 
         self.assertHTMLTag(res(5), 'h3')
         self.assertEqual(res(5)['data-details-open'], 'close')
-        self.assertEqual(res(5).text(), 'Tagging Parameters')
+        self.assertEqual(res(5).text(), 'Contribution To Tagged Field Data Parameters')
 
         self.assertHTMLTag(res(6), 'ul', size=5, class_='collapsible')
 
@@ -156,7 +156,7 @@ class TestParameters(AppSyntaxTestCase):
         # This size should correspond to the total number of parameters for
         # Diffusion (Required + Optional + Advanced + Tagging) + 1
         # (corresponding to 'type')
-        self.assertSize(res, 18)
+        self.assertSize(res, 19)
         self.assertLatexCommand(res(0), 'chapter', size=4)
         self.assertLatexCommand(res(0,0), 'label', string=u'input-parameters')
         self.assertLatexString(res(0,1), content=u'Input')
@@ -168,7 +168,6 @@ class TestParameters(AppSyntaxTestCase):
         self.assertLatexArg(res(1), 1, 'Bracket')
         self.assertLatexArg(res(1), 2, 'Bracket')
         self.assertIn('The name of the variable', res(1,0)['content'])
-
 
 class TestParam(AppSyntaxTestCase):
     TEXT = "[!param](/Kernels/Diffusion/variable)"
@@ -225,6 +224,21 @@ class TestParam(AppSyntaxTestCase):
         message = ast(0,0)['message']
         self.assertIn("Unable to locate the parameter '/Kernels/Diffusion/foobar', did you mean:", message)
         self.assertIn('    /Kernels/Diffusion/', message)
+
+    def testUnit(self):
+        all_types_showing_no_unit = ["double", "VariableValue", "FunctionName", "PostprocessorName", "FunctorName", "MaterialPropertyName"]
+        example_parameters = ["/BCs/DirichletBC/value", "/Kernels/Diffusion/variable", "/BCs/FunctionDirichletBC/function", "/BCs/PostprocessorDirichletBC/postprocessor",
+                              "/BCs/FunctorDirichletBC/functor", "/AuxKernels/MaterialRealAux/property"]
+
+        for i, tested_type in enumerate(all_types_showing_no_unit):
+            _, res = self.execute("[!param](" + example_parameters[i] + ")", renderer=base.MaterializeRenderer())
+            # Show (no unit assumed) as a parameter of that type could require one
+            self.assertHTMLTag(res(1, 0, 2), 'p', size=2, class_='moose-parameter-description-doc-unit')
+            self.assertIn(u"(no unit assumed)", res(1, 0, 2, 1)['content'])
+
+        # BoundaryName not in the show "no unit assumed" list
+        _, res = self.execute("[!param](/BCs/DirichletBC/boundary)", renderer=base.MaterializeRenderer())
+        self.assertNotIn(u"(no unit assumed)", res(1, 0, 2, 1)['content'])
 
 class TestChildren(AppSyntaxTestCase):
     TEXT = "!syntax children /Kernels/Diffusion"

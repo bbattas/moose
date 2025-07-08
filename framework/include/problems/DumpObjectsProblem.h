@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -58,7 +58,7 @@ public:
   // output data (we expect to call this from the DumpObjectsAction)
   void printObjects();
 
-  virtual void initialSetup() override {}
+  virtual void initialSetup() override;
   virtual void advanceState() override {}
   virtual void timestepSetup() override {}
   virtual void execute(const ExecFlagType & /*exec_type*/) override {}
@@ -114,7 +114,6 @@ public:
   captureDump(addFVInitialCondition,  "FVICs")
   captureDump(addFVInterfaceKernel,   "FVInterfaceKernels")
   captureDump(addFVKernel,            "FVKernels")
-  captureDump(addHDGIntegratedBC,     "HDGBCs")
   captureDump(addHDGKernel,           "HDGKernels")
   captureDump(addIndicator,           "Adaptivity/Indicators")
   captureDump(addInitialCondition,    "ICs")

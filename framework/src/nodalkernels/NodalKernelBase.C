@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -41,6 +41,7 @@ NodalKernelBase::validParams()
       "contributions to.  Everything about that variable must match everything "
       "about this variable (the type, what blocks it's on, etc.)");
   params.registerBase("NodalKernel");
+  params.registerSystemAttributeName("NodalKernel");
   params.addParamNamesToGroup("diag_save_in save_in", "Advanced");
   return params;
 }

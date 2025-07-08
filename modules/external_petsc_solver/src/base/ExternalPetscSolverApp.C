@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -28,7 +28,7 @@ ExternalPetscSolverApp::validParams()
   return params;
 }
 
-ExternalPetscSolverApp::ExternalPetscSolverApp(InputParameters parameters)
+ExternalPetscSolverApp::ExternalPetscSolverApp(const InputParameters & parameters)
   : MooseApp(parameters), _ts(nullptr), _is_petsc_app(false)
 {
   ExternalPetscSolverApp::registerAll(_factory, _action_factory, _syntax);

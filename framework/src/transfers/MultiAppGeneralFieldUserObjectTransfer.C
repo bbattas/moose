@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -64,6 +64,26 @@ MultiAppGeneralFieldUserObjectTransfer::MultiAppGeneralFieldUserObjectTransfer(
   if (_nearest_positions_obj && isParamValid("to_multi_app") && !isParamValid("from_multi_app"))
     paramError("use_nearest_position",
                "Cannot use nearest-position algorithm when sending from the main application");
+}
+
+void
+MultiAppGeneralFieldUserObjectTransfer::execute()
+{
+  // Execute the user object if it was specified to execute on TRANSFER
+  switch (_current_direction)
+  {
+    case TO_MULTIAPP:
+    {
+      _fe_problem.computeUserObjectByName(EXEC_TRANSFER, Moose::PRE_AUX, _user_object_name);
+      _fe_problem.computeUserObjectByName(EXEC_TRANSFER, Moose::POST_AUX, _user_object_name);
+      break;
+    }
+    case FROM_MULTIAPP:
+      errorIfObjectExecutesOnTransferInSourceApp(_user_object_name);
+  }
+
+  // Perfom the actual transfer
+  MultiAppGeneralFieldTransfer::execute();
 }
 
 void

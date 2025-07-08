@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -62,10 +62,10 @@ hexElemSplitter(ReplicatedMesh & mesh,
   for (const auto i : index_range(optimized_node_list))
   {
     auto new_elem = std::make_unique<Tet4>();
-    new_elem->set_node(0) = const_cast<Node *>(optimized_node_list[i][0]);
-    new_elem->set_node(1) = const_cast<Node *>(optimized_node_list[i][1]);
-    new_elem->set_node(2) = const_cast<Node *>(optimized_node_list[i][2]);
-    new_elem->set_node(3) = const_cast<Node *>(optimized_node_list[i][3]);
+    new_elem->set_node(0, const_cast<Node *>(optimized_node_list[i][0]));
+    new_elem->set_node(1, const_cast<Node *>(optimized_node_list[i][1]));
+    new_elem->set_node(2, const_cast<Node *>(optimized_node_list[i][2]));
+    new_elem->set_node(3, const_cast<Node *>(optimized_node_list[i][3]));
     new_elem->subdomain_id() = mesh.elem_ptr(elem_id)->subdomain_id();
     elems_Tet4.push_back(mesh.add_elem(std::move(new_elem)));
     converted_elems_ids.push_back(elems_Tet4.back()->id());
@@ -124,10 +124,10 @@ prismElemSplitter(ReplicatedMesh & mesh,
   for (const auto i : index_range(optimized_node_list))
   {
     auto new_elem = std::make_unique<Tet4>();
-    new_elem->set_node(0) = const_cast<Node *>(optimized_node_list[i][0]);
-    new_elem->set_node(1) = const_cast<Node *>(optimized_node_list[i][1]);
-    new_elem->set_node(2) = const_cast<Node *>(optimized_node_list[i][2]);
-    new_elem->set_node(3) = const_cast<Node *>(optimized_node_list[i][3]);
+    new_elem->set_node(0, const_cast<Node *>(optimized_node_list[i][0]));
+    new_elem->set_node(1, const_cast<Node *>(optimized_node_list[i][1]));
+    new_elem->set_node(2, const_cast<Node *>(optimized_node_list[i][2]));
+    new_elem->set_node(3, const_cast<Node *>(optimized_node_list[i][3]));
     new_elem->subdomain_id() = mesh.elem_ptr(elem_id)->subdomain_id();
     elems_Tet4.push_back(mesh.add_elem(std::move(new_elem)));
     converted_elems_ids.push_back(elems_Tet4.back()->id());
@@ -184,10 +184,10 @@ pyramidElemSplitter(ReplicatedMesh & mesh,
   for (const auto i : index_range(optimized_node_list))
   {
     auto new_elem = std::make_unique<Tet4>();
-    new_elem->set_node(0) = const_cast<Node *>(optimized_node_list[i][0]);
-    new_elem->set_node(1) = const_cast<Node *>(optimized_node_list[i][1]);
-    new_elem->set_node(2) = const_cast<Node *>(optimized_node_list[i][2]);
-    new_elem->set_node(3) = const_cast<Node *>(optimized_node_list[i][3]);
+    new_elem->set_node(0, const_cast<Node *>(optimized_node_list[i][0]));
+    new_elem->set_node(1, const_cast<Node *>(optimized_node_list[i][1]));
+    new_elem->set_node(2, const_cast<Node *>(optimized_node_list[i][2]));
+    new_elem->set_node(3, const_cast<Node *>(optimized_node_list[i][3]));
     new_elem->subdomain_id() = mesh.elem_ptr(elem_id)->subdomain_id();
     elems_Tet4.push_back(mesh.add_elem(std::move(new_elem)));
     converted_elems_ids.push_back(elems_Tet4.back()->id());
@@ -373,7 +373,7 @@ nodeRotationHEX8(const unsigned int min_id_index,
                  std::vector<unsigned int> & face_rotation,
                  std::vector<unsigned int> & node_rotation)
 {
-  // Assuming the original hex element is a cube, the vectors formed by nodes 0-1, 0-2, and 0-4 are
+  // Assuming the original hex element is a cube, the vectors formed by nodes 0-1, 0-3, and 0-4 are
   // overlapped with the x, y, and z axes, respectively. sec_min_pos = 0 means the second minimum
   // node is in the x direction, sec_min_pos = 1 means the second minimum node is in the y
   // direction, and sec_min_pos = 2 means the second minimum node is in the z direction.
@@ -391,9 +391,9 @@ nodeRotationHEX8(const unsigned int min_id_index,
       {{0, 1, 2, 3, 4, 5}, {4, 0, 3, 5, 1, 2}, {1, 4, 5, 2, 0, 3}},
       {{1, 0, 4, 5, 2, 3}, {0, 2, 3, 4, 1, 5}, {2, 1, 5, 3, 0, 4}},
       {{0, 3, 4, 1, 2, 5}, {2, 0, 1, 5, 3, 4}, {3, 2, 5, 4, 0, 1}},
-      {{3, 0, 2, 5, 4, 5}, {0, 4, 1, 2, 3, 5}, {4, 3, 5, 1, 0, 2}},
-      {{2, 5, 2, 0, 4, 3}, {5, 4, 3, 2, 2, 0}, {4, 1, 0, 3, 5, 2}},
-      {{5, 1, 4, 3, 5, 0}, {2, 5, 3, 0, 1, 4}, {1, 2, 0, 4, 5, 3}},
+      {{3, 0, 2, 5, 4, 1}, {0, 4, 1, 2, 3, 5}, {4, 3, 5, 1, 0, 2}},
+      {{1, 5, 2, 0, 4, 3}, {5, 4, 3, 2, 1, 0}, {4, 1, 0, 3, 5, 2}},
+      {{5, 1, 4, 3, 2, 0}, {2, 5, 3, 0, 1, 4}, {1, 2, 0, 4, 5, 3}},
       {{3, 5, 4, 0, 2, 1}, {5, 2, 1, 4, 3, 0}, {2, 3, 0, 1, 5, 4}},
       {{5, 3, 2, 1, 4, 0}, {4, 5, 1, 0, 3, 2}, {3, 4, 0, 2, 5, 1}}};
 

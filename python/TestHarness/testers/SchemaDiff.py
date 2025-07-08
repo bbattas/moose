@@ -1,5 +1,5 @@
 #* This file is part of the MOOSE framework
-#* https://www.mooseframework.org
+#* https://mooseframework.inl.gov
 #*
 #* All rights reserved, see COPYRIGHT for full restrictions
 #* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -37,7 +37,7 @@ class SchemaDiff(RunApp):
         self.exclude_regex_paths = []
 
     def getOutputFiles(self, options):
-        return self.specs['schemadiff']
+        return super().getOutputFiles(options) + self.specs['schemadiff']
 
     def prepare(self, options):
         if self.specs['delete_output_before_running'] == True:

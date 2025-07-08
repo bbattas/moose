@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,4 +27,6 @@ public:
   static void registerApps();
 
   virtual std::string header() const override;
+
+  virtual bool errorOnJacobianNonzeroReallocation() const override { return true; }
 };

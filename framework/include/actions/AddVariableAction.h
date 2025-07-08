@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -72,12 +72,17 @@ protected:
   void addVariable(const std::string & var_name);
 
   /**
+   * Return the name of the nonlinear variable to be created
+   */
+  virtual std::string varName() const { return _name; }
+
+  /**
    * Create the action to generate the InitialCondition object
    *
    * If the user supplies a value for 'initial_condition' in the input file this
    * method will create the proper InitialCondition object.
    */
-  void createInitialConditionAction();
+  void createInitialConditionAction(const std::vector<Real> & value);
 
   /**
    * Get the block ids from the input parameters

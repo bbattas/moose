@@ -36,11 +36,11 @@ test:
   script: run_test.sh
   commands:
     - $PREFIX/moose/bin/combined-opt -h
-    - $PREFIX/bin/moose-opt -h
-    - $PREFIX/bin/moose -h
+    - $PREFIX/moose/bin/moose-opt -h
+    - $PREFIX/moose/bin/moose -h
 
 about:
-  home: https://mooseframework.org/
+  home: https://mooseframework.inl.gov/
   license: LGPL 2.1
   summary: >
    The Multiphysics Object-Oriented Simulation Environment (MOOSE) is a finite-element,

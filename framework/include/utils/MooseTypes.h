@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -50,7 +50,11 @@
 #include <type_traits>
 #include <functional>
 
+#if !defined(INCLUDE_NLOHMANN_JSON_HPP_) && !defined(MOOSE_NLOHMANN_INCLUDED)
+#undef INCLUDE_NLOHMANN_JSON_FWD_HPP_
 #include "nlohmann/json_fwd.h"
+#define MOOSE_NLOHMANN_INCLUDED
+#endif
 
 // DO NOT USE (Deprecated)
 #define MooseSharedPointer std::shared_ptr
@@ -373,6 +377,7 @@ typedef MooseArray<ADRealTensorValue> ADVariableSecond;
 typedef MooseArray<ADRealVectorValue> ADVectorVariableValue;
 typedef MooseArray<ADRealTensorValue> ADVectorVariableGradient;
 typedef MooseArray<libMesh::TypeNTensor<3, ADReal>> ADVectorVariableSecond;
+typedef MooseArray<ADRealVectorValue> ADVectorVariableCurl;
 
 namespace Moose
 {
@@ -602,6 +607,8 @@ using ADTemplateVariableGradient =
 template <typename T>
 using ADTemplateVariableSecond =
     typename OutputTools<typename Moose::ADType<T>::type>::VariableSecond;
+template <typename T>
+using ADTemplateVariableCurl = typename OutputTools<typename Moose::ADType<T>::type>::VariableCurl;
 
 typedef VariableTestValue ADVariableTestValue;
 typedef VariableTestGradient ADVariableTestGradient;
@@ -653,6 +660,8 @@ template <bool is_ad>
 using GenericRankFourTensor = Moose::GenericType<RankFourTensor, is_ad>;
 template <bool is_ad>
 using GenericVariableValue = Moose::GenericType<VariableValue, is_ad>;
+template <bool is_ad>
+using GenericVectorVariableValue = Moose::GenericType<VectorVariableValue, is_ad>;
 template <bool is_ad>
 using GenericVariableGradient = Moose::GenericType<VariableGradient, is_ad>;
 template <bool is_ad>
@@ -1166,6 +1175,16 @@ DerivativeStringClass(SolverSystemName);
 /// Command line argument, specialized to handle quotes in vector arguments
 DerivativeStringClass(CLIArgString);
 
+#ifdef MFEM_ENABLED
+/**
+ * Coefficients used in input for MFEM residual objects
+ */
+///@{
+DerivativeStringClass(MFEMScalarCoefficientName);
+DerivativeStringClass(MFEMVectorCoefficientName);
+DerivativeStringClass(MFEMMatrixCoefficientName);
+///@}
+#endif
 /**
  * additional MOOSE typedefs
  */
@@ -1176,6 +1195,15 @@ extern const TagName SOLUTION_TAG;
 extern const TagName OLD_SOLUTION_TAG;
 extern const TagName OLDER_SOLUTION_TAG;
 extern const TagName PREVIOUS_NL_SOLUTION_TAG;
+
+enum class FEBackend
+{
+  LibMesh
+#ifdef MOOSE_MFEM_ENABLED
+  ,
+  MFEM
+#endif
+};
 }
 
 /// macros for adding Tensor index enums locally

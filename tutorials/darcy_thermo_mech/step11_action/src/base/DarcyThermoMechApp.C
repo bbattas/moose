@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,7 +27,7 @@ DarcyThermoMechApp::validParams()
   return params;
 }
 
-DarcyThermoMechApp::DarcyThermoMechApp(InputParameters parameters) : MooseApp(parameters)
+DarcyThermoMechApp::DarcyThermoMechApp(const InputParameters & parameters) : MooseApp(parameters)
 {
   DarcyThermoMechApp::registerAll(_factory, _action_factory, _syntax);
 }

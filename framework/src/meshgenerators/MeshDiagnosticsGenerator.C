@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -243,7 +243,7 @@ MeshDiagnosticsGenerator::checkSidesetsOrientation(const std::unique_ptr<MeshBas
     // side next to it, in the same sideset
     // We'll consider pi / 2 to be the most steep angle we'll pass
     unsigned int num_normals_flipping = 0;
-    Real steepest_side_angles = 1;
+    Real steepest_side_angles = 0;
     for (const auto & [elem_id, side_id, side_bid] : side_tuples)
     {
       if (side_bid != bid)
@@ -285,7 +285,7 @@ MeshDiagnosticsGenerator::checkSidesetsOrientation(const std::unique_ptr<MeshBas
             {
               num_normals_flipping++;
               steepest_side_angles =
-                  std::min(std::acos(neigh_side_normal * side_normal), steepest_side_angles);
+                  std::max(std::acos(neigh_side_normal * side_normal), steepest_side_angles);
               if (num_normals_flipping <= _num_outputs)
                 _console << "Side normals changed by more than pi/2 for sideset "
                          << sideset_full_name << " between side " << side_id << " of element "
@@ -302,7 +302,8 @@ MeshDiagnosticsGenerator::checkSidesetsOrientation(const std::unique_ptr<MeshBas
     if (num_normals_flipping)
       message = "Sideset " + sideset_full_name +
                 " has two neighboring sides with a very large angle. Largest angle detected: " +
-                std::to_string(steepest_side_angles) + " rad.";
+                std::to_string(steepest_side_angles) + " rad (" +
+                std::to_string(steepest_side_angles * 180 / libMesh::pi) + " degrees).";
     else
       message = "Sideset " + sideset_full_name +
                 " does not appear to have side-to-neighbor-side orientation flips. All neighbor "
@@ -703,12 +704,13 @@ MeshDiagnosticsGenerator::checkNonConformalMeshFromAdaptivity(
       // case of non-conformality
       bool node_on_elem = false;
 
-      // non-vertex nodes are not cause for the kind of non-conformality we are looking for
-      if (!elem->is_vertex(elem->get_node_index(node)))
-        continue;
-
       if (elem->get_node_index(node) != libMesh::invalid_uint)
+      {
         node_on_elem = true;
+        // non-vertex nodes are not cause for the kind of non-conformality we are looking for
+        if (!elem->is_vertex(elem->get_node_index(node)))
+          continue;
+      }
 
       // Keep track of all the elements this node is a part of. They are potentially the
       // 'fine' (refined) elements next to a coarser element
@@ -745,7 +747,7 @@ MeshDiagnosticsGenerator::checkNonConformalMeshFromAdaptivity(
              fine_elements.size() != 3)
       continue;
     else if ((elem_type == TET4 || elem_type == TET10 || elem_type == TET14) &&
-             (fine_elements.size() % 4 != 0))
+             (fine_elements.size() % 2 != 0))
       continue;
 
     // only one coarse element in front of refined elements except for tets. Whatever we're
@@ -895,7 +897,9 @@ MeshDiagnosticsGenerator::checkNonConformalMeshFromAdaptivity(
             }
             // A node for the coarse parent will appear in only one fine neighbor (not shared)
             // and will lay on the side of the coarse neighbor
-            if (!node_shared && coarse_side->close_to_point(coarse_node, _non_conformality_tol))
+            // We only care about the coarse neighbor vertex nodes
+            if (!node_shared && coarse_side->close_to_point(coarse_node, _non_conformality_tol) &&
+                elem_1->is_vertex(elem_1->get_node_index(&coarse_node)))
               tentative_coarse_nodes[i++] = &coarse_node;
             mooseAssert(i <= 5, "We went too far in this index");
           }
@@ -1257,7 +1261,7 @@ MeshDiagnosticsGenerator::checkNonConformalMeshFromAdaptivity(
 
     // Set the nodes to the coarse element
     for (auto i : index_range(tentative_coarse_nodes))
-      parent_ptr->set_node(i) = mesh_copy->node_ptr(tentative_coarse_nodes[i]->id());
+      parent_ptr->set_node(i, mesh_copy->node_ptr(tentative_coarse_nodes[i]->id()));
 
     // Refine this parent
     parent_ptr->set_refinement_flag(Elem::REFINE);
@@ -1461,7 +1465,11 @@ MeshDiagnosticsGenerator::checkNonMatchingEdges(const std::unique_ptr<MeshBase> 
     here->paulbourke.net/geometry/pointlineplane/
   */
   if (mesh->mesh_dimension() != 3)
-    mooseError("The edge intersection algorithm only works with 3D meshes");
+  {
+    mooseWarning("The edge intersection algorithm only works with 3D meshes. "
+                 "'examine_non_matching_edges' is skipped");
+    return;
+  }
   if (!mesh->is_serial())
     mooseError("Only serialized/replicated meshes are supported");
   unsigned int num_intersecting_edges = 0;

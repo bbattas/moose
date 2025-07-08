@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,6 +9,7 @@
 
 #include "ElementSubdomainModifierBase.h"
 #include "DisplacedProblem.h"
+#include "MaterialWarehouse.h"
 
 #include "libmesh/parallel_algebra.h"
 #include "libmesh/parallel.h"
@@ -211,16 +212,19 @@ ElementSubdomainModifierBase::modify(
     applyMovingBoundaryChanges(*_displaced_mesh);
 
   // Reinit equation systems
-  _fe_problem.meshChanged();
+  _fe_problem.meshChanged(
+      /*intermediate_change=*/false, /*contract_mesh=*/false, /*clean_refinement_flags=*/false);
 
   // Initialize solution and stateful material properties
   applyIC(/*displaced=*/false);
-  initElementStatefulProps(/*displaced=*/false);
+  if (_fe_problem.getMaterialWarehouse().hasActiveObjects(0))
+    initElementStatefulProps(/*displaced=*/false);
 
   if (_displaced_mesh)
   {
     applyIC(/*displaced=*/true);
-    initElementStatefulProps(/*displaced=*/true);
+    if (_fe_problem.getMaterialWarehouse().hasActiveObjects(0))
+      initElementStatefulProps(/*displaced=*/true);
   }
 }
 
@@ -311,8 +315,14 @@ ElementSubdomainModifierBase::gatherMovingBoundaryChanges(
           gatherMovingBoundaryChangesHelper(elem, side, neigh, neigh_side);
         else
         {
+          // Find the active neighbors of the element
           std::vector<const Elem *> active_neighs;
-          neigh->top_parent()->active_family_tree_by_neighbor(active_neighs, elem);
+          // Neighbor has active children, they are neighbors of the element along that side
+          mooseAssert(!neigh->subactive(),
+                      "The case where the active neighbor is an ancestor of this neighbor is not "
+                      "handled at this time.");
+          neigh->active_family_tree_by_neighbor(active_neighs, elem);
+
           for (auto active_neigh : active_neighs)
             gatherMovingBoundaryChangesHelper(elem, side, active_neigh, neigh_side);
         }
@@ -477,6 +487,7 @@ ElementSubdomainModifierBase::findReinitializedElemsAndNodes(
 
   for (const auto & [elem_id, subdomain] : moved_elems)
   {
+    mooseAssert(_mesh.elemPtr(elem_id)->active(), "Moved elements should be active");
     // Default: any element that changes subdomain is reinitialized
     if (std::find(_subdomain_ids_to_reinitialize.begin(),
                   _subdomain_ids_to_reinitialize.end(),

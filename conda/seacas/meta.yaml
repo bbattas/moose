@@ -1,7 +1,7 @@
 # MAKE SURE THAT seacas_version and seacas_git_rev match if performing a version update!
-{% set build = "2" %}
-{% set seacas_version = "2024.08.15" %}
-{% set seacas_git_rev = "v2024-08-15" %}
+{% set build = "0" %}
+{% set seacas_version = "2025.05.22" %}
+{% set seacas_git_rev = "v2025-05-22" %}
 {% set strbuild = "build_" + build|string %}
 
 package:
@@ -11,14 +11,20 @@ package:
 source:
   - git_url: https://github.com/sandialabs/seacas
   - git_rev: {{ seacas_git_rev }}
+  - git_depth: 1
   - path: ../functions/retry_build.sh
+  - patches:
+      - sequoia-15.4.patch
 
 build:
   number: {{ build }}
   string: {{ strbuild }}
   script_env:
     - MOOSE_JOBS
-
+    - REQUESTS_CA_BUNDLE
+    - SSL_CERT_FILE
+    - CURL_CA_BUNDLE
+    - NODE_EXTRA_CA_CERTS
 requirements:
   build:
     - {{ moose_cc }}
@@ -27,10 +33,9 @@ requirements:
     - {{ moose_ccompiler }}
     - {{ moose_cxxcompiler }}
     - xorg-libx11 1.8.9
-    - cmake
+    - {{ moose_cmake }}
     - make
     - automake
-    - wget
   run:
     - {{ moose_gfortran }}
     - {{ moose_ccompiler }}

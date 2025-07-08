@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -54,13 +54,14 @@ private:
   void addMomentumPressureKernels() override;
   void addMomentumGravityKernels() override;
   void addMomentumBoussinesqKernels() override;
-  void addMomentumFrictionKernels();
+  void addMomentumFrictionKernels() override;
 
   /// Functions adding boundary conditions for the incompressible simulation.
   /// These are used for weakly-compressible simulations as well.
   void addInletBC() override;
   void addOutletBC() override;
   void addWallsBC() override;
+  void addSeparatorBC() override;
 
   /// Return whether a Forchheimer friction model is in use
   bool hasForchheimerFriction() const override;
@@ -74,10 +75,6 @@ private:
   /// The number of smoothing layers if that treatment is used on porosity
   const unsigned _porosity_smoothing_layers;
 
-  /// Subdomains where we want to have volumetric friction
-  std::vector<std::vector<SubdomainName>> _friction_blocks;
-  /// The friction correlation types used for each block
-  std::vector<std::vector<std::string>> _friction_types;
-  /// The coefficients used for each item if friction type
-  std::vector<std::vector<std::string>> _friction_coeffs;
+  /// Name of the user object in charge of computing the Rhie Chow coefficients
+  UserObjectName _rc_uo_name;
 };

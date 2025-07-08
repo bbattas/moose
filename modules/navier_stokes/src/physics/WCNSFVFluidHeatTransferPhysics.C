@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -19,14 +19,17 @@ WCNSFVFluidHeatTransferPhysics::validParams()
 {
   InputParameters params = WCNSFVFluidHeatTransferPhysicsBase::validParams();
   params.transferParam<MooseEnum>(NSFVBase::validParams(), "energy_face_interpolation");
-  params.addParamNamesToGroup("energy_face_interpolation", "Numerical scheme");
+  params.transferParam<Real>(NSFVBase::validParams(), "energy_scaling");
+
+  params.addParamNamesToGroup("energy_face_interpolation energy_scaling", "Numerical scheme");
   return params;
 }
 
 WCNSFVFluidHeatTransferPhysics::WCNSFVFluidHeatTransferPhysics(const InputParameters & parameters)
   : WCNSFVFluidHeatTransferPhysicsBase(parameters)
-
 {
+  if (_solve_for_enthalpy)
+    paramError("solve_for_enthalpy", "Enthalpy solve not supported at this time with Physics");
 }
 
 void
@@ -37,10 +40,12 @@ WCNSFVFluidHeatTransferPhysics::addSolverVariables()
     return;
 
   // Dont add if the user already defined the variable
-  if (variableExists(_fluid_temperature_name,
-                     /*error_if_aux=*/true))
-    checkBlockRestrictionIdentical(_fluid_temperature_name,
-                                   getProblem().getVariable(0, _fluid_temperature_name).blocks());
+  if (!shouldCreateVariable(_fluid_temperature_name, _blocks, /*error if aux*/ true))
+    reportPotentiallyMissedParameters({"system_names",
+                                       "energy_scaling",
+                                       "energy_face_interpolation",
+                                       "energy_two_term_bc_expansion"},
+                                      "INSFVEnergyVariable");
   else if (_define_variables)
   {
     auto params = getFactory().getValidParams("INSFVEnergyVariable");
@@ -299,7 +304,9 @@ WCNSFVFluidHeatTransferPhysics::addEnergyInletBC()
 void
 WCNSFVFluidHeatTransferPhysics::addEnergyWallBC()
 {
-  const auto & wall_boundaries = _flow_equations_physics->getWallBoundaries();
+  const auto & wall_boundaries = isParamSetByUser("energy_wall_boundaries")
+                                     ? getParam<std::vector<BoundaryName>>("energy_wall_boundaries")
+                                     : _flow_equations_physics->getWallBoundaries();
   if (wall_boundaries.size() != _energy_wall_types.size())
     paramError("energy_wall_types",
                "Energy wall types (size " + std::to_string(_energy_wall_types.size()) +
@@ -315,7 +322,7 @@ WCNSFVFluidHeatTransferPhysics::addEnergyWallBC()
   {
     if (_energy_wall_types[bc_ind] == "fixed-temperature")
     {
-      const std::string bc_type = "FVFunctorDirichletBC";
+      const std::string bc_type = "FVADFunctorDirichletBC";
       InputParameters params = getFactory().getValidParams(bc_type);
       params.set<NonlinearVariableName>("variable") = _fluid_temperature_name;
       params.set<MooseFunctorName>("functor") = _energy_wall_functors[bc_ind];
@@ -331,6 +338,26 @@ WCNSFVFluidHeatTransferPhysics::addEnergyWallBC()
       params.set<NonlinearVariableName>("variable") = _fluid_temperature_name;
       params.set<MooseFunctorName>("functor") = _energy_wall_functors[bc_ind];
       params.set<std::vector<BoundaryName>>("boundary") = {wall_boundaries[bc_ind]};
+
+      getProblem().addFVBC(
+          bc_type, _fluid_temperature_name + "_" + wall_boundaries[bc_ind], params);
+    }
+    else if (_energy_wall_types[bc_ind] == "convection")
+    {
+      const std::string bc_type = "FVFunctorConvectiveHeatFluxBC";
+      InputParameters params = getFactory().getValidParams(bc_type);
+      params.set<NonlinearVariableName>("variable") = _fluid_temperature_name;
+      params.set<MooseFunctorName>("T_bulk") = _fluid_temperature_name;
+      params.set<std::vector<BoundaryName>>("boundary") = {wall_boundaries[bc_ind]};
+      params.set<bool>("is_solid") = false;
+      const auto Tinf_htc_functors =
+          MooseUtils::split(_energy_wall_functors[bc_ind], /*delimiter=*/":", /*max_count=*/1);
+      if (Tinf_htc_functors.size() != 2)
+        paramError("energy_wall_functors",
+                   "'convective' wall types require two functors specified as "
+                   "<Tinf_functor>:<htc_functor>.");
+      params.set<MooseFunctorName>("T_solid") = Tinf_htc_functors[0];
+      params.set<MooseFunctorName>("heat_transfer_coefficient") = Tinf_htc_functors[1];
 
       getProblem().addFVBC(
           bc_type, _fluid_temperature_name + "_" + wall_boundaries[bc_ind], params);
@@ -370,5 +397,22 @@ WCNSFVFluidHeatTransferPhysics::addEnergyWallBC()
       params.set<bool>("newton_solve") = true;
       getProblem().addFVBC(bc_type, prefix() + "wallfunction_" + wall_boundaries[bc_ind], params);
     }
+    else
+      paramError(
+          "energy_wall_types", _energy_wall_types[bc_ind], " wall type is currently unsupported.");
+  }
+}
+
+void
+WCNSFVFluidHeatTransferPhysics::addEnergySeparatorBC()
+{
+  if (_flow_equations_physics->getHydraulicSeparators().size())
+  {
+    const std::string bc_type = "INSFVScalarFieldSeparatorBC";
+    InputParameters params = getFactory().getValidParams(bc_type);
+    params.set<NonlinearVariableName>("variable") = _fluid_temperature_name;
+    params.set<std::vector<BoundaryName>>("boundary") =
+        _flow_equations_physics->getHydraulicSeparators();
+    getProblem().addFVBC(bc_type, prefix() + _fluid_temperature_name + "_separators", params);
   }
 }

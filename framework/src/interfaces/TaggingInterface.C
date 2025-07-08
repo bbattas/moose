@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,7 +26,8 @@ TaggingInterface::validParams()
   MultiMooseEnum vtags("nontime time", "nontime", true);
   MultiMooseEnum mtags("nontime system", "system", true);
 
-  params.addPrivateParam<bool>("matrix_only", false);
+  params.addParam<bool>(
+      "matrix_only", false, "Whether this object is only doing assembly to matrices (no vectors)");
 
   params.addParam<MultiMooseEnum>(
       "vector_tags", vtags, "The tag for the vectors this Kernel should fill");
@@ -47,7 +48,7 @@ TaggingInterface::validParams()
 
   params.addParamNamesToGroup(
       "vector_tags matrix_tags extra_vector_tags extra_matrix_tags absolute_value_vector_tags",
-      "Tagging");
+      "Contribution to tagged field data");
 
   return params;
 }

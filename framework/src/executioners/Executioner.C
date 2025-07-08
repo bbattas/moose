@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,7 +26,7 @@ InputParameters
 Executioner::validParams()
 {
   InputParameters params = MooseObject::validParams();
-  params += PicardSolve::validParams();
+  params += FixedPointSolve::validParams();
   params += Reporter::validParams();
   params += ReporterInterface::validParams();
 

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -43,7 +43,6 @@ class NodalKernelBase;
 class Split;
 class KernelBase;
 class HDGKernel;
-class HDGIntegratedBC;
 class BoundaryCondition;
 class ResidualObject;
 class PenetrationInfo;
@@ -128,16 +127,6 @@ public:
   virtual void addHDGKernel(const std::string & kernel_name,
                             const std::string & name,
                             InputParameters & parameters);
-
-  /**
-   * Adds a hybridized discontinuous Galerkin (HDG) bc
-   * @param bc_name The type of the hybridized bc
-   * @param name The name of the hybridized bc
-   * @param parameters HDG bc parameters
-   */
-  virtual void addHDGIntegratedBC(const std::string & bc_name,
-                                  const std::string & name,
-                                  InputParameters & parameters);
 
   /**
    * Adds a NodalKernel
@@ -231,6 +220,11 @@ public:
    * @param name The name of the split
    */
   std::shared_ptr<Split> getSplit(const std::string & name);
+
+  /**
+   * Retrieves all splits
+   */
+  MooseObjectWarehouseBase<Split> & getSplits() { return _splits; }
 
   /**
    * We offer the option to check convergence against the pre-SMO residual. This method handles the
@@ -329,10 +323,10 @@ public:
   /**
    * Add jacobian contributions from Constraints
    *
-   * @param jacobian reference to the Jacobian matrix
+   * @param jacobian reference to a read-only view of the Jacobian matrix
    * @param displaced Controls whether to do the displaced Constraints or non-displaced
    */
-  void constraintJacobians(bool displaced);
+  void constraintJacobians(const SparseMatrix<Number> & jacobian_to_view, bool displaced);
 
   /**
    * Computes multiple (tag associated) Jacobian matricese
@@ -597,6 +591,15 @@ public:
   }
   MooseObjectTagWarehouse<DiracKernelBase> & getDiracKernelWarehouse() { return _dirac_kernels; }
   MooseObjectTagWarehouse<IntegratedBCBase> & getIntegratedBCWarehouse() { return _integrated_bcs; }
+  const MooseObjectTagWarehouse<ScalarKernelBase> & getScalarKernelWarehouse() const
+  {
+    return _scalar_kernels;
+  }
+  const MooseObjectTagWarehouse<NodalKernelBase> & getNodalKernelWarehouse() const
+  {
+    return _nodal_kernels;
+  }
+  MooseObjectTagWarehouse<HDGKernel> & getHDGKernelWarehouse() { return _hybridized_kernels; }
   const MooseObjectWarehouse<ElementDamper> & getElementDamperWarehouse() const
   {
     return _element_dampers;
@@ -840,7 +843,7 @@ protected:
   ///@{
   /// Kernel Storage
   MooseObjectTagWarehouse<KernelBase> _kernels;
-  MooseObjectWarehouse<HDGKernel> _hybridized_kernels;
+  MooseObjectTagWarehouse<HDGKernel> _hybridized_kernels;
   MooseObjectTagWarehouse<ScalarKernelBase> _scalar_kernels;
   MooseObjectTagWarehouse<DGKernelBase> _dg_kernels;
   MooseObjectTagWarehouse<InterfaceKernelBase> _interface_kernels;
@@ -853,7 +856,6 @@ protected:
   MooseObjectTagWarehouse<NodalBCBase> _nodal_bcs;
   MooseObjectWarehouse<DirichletBCBase> _preset_nodal_bcs;
   MooseObjectWarehouse<ADDirichletBCBase> _ad_preset_nodal_bcs;
-  MooseObjectWarehouse<HDGIntegratedBC> _hybridized_ibcs;
   ///@}
 
   /// Dirac Kernel storage for each thread

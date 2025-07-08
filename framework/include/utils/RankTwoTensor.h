@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -44,6 +44,14 @@ template <typename>
 class TypeTensor;
 template <typename>
 class TensorValue;
+namespace TensorTools
+{
+template <>
+struct IncrementRank<RankTwoTensor>
+{
+  typedef RankThreeTensor type;
+};
+}
 }
 
 namespace MathUtils

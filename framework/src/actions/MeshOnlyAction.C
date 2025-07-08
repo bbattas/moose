@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -36,6 +36,11 @@ MeshOnlyAction::MeshOnlyAction(const InputParameters & params) : Action(params) 
 void
 MeshOnlyAction::act()
 {
+  // Run error checking on input file first before trying to generate a mesh
+  bool warn = _app.unusedFlagIsWarning();
+  bool err = _app.unusedFlagIsError();
+  _app.builder().errorCheck(comm(), warn, err);
+
   std::string mesh_file = _app.parameters().get<std::string>("mesh_only");
   auto & mesh_ptr = _app.actionWarehouse().mesh();
 

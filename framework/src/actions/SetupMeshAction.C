@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -251,7 +251,7 @@ SetupMeshAction::act()
   {
     TIME_SECTION("SetupMeshAction::act::setup_mesh", 1, "Setting Up Mesh", true);
 
-    if (_app.masterMesh())
+    if (_app.useMasterMesh())
       _mesh = _app.masterMesh()->safeClone();
     else
     {
@@ -284,10 +284,9 @@ SetupMeshAction::act()
           for (auto generator_action_ptr : generator_actions)
             if (dynamic_cast<AddMeshGeneratorAction *>(generator_action_ptr))
             {
-              mooseWarning("Mesh Generators present but the [Mesh] block is set to construct a \"",
-                           _type,
-                           "\" mesh, which does not use Mesh Generators in constructing the mesh.");
-              break;
+              mooseError("Mesh Generators present but the [Mesh] block is set to construct a \"",
+                         _type,
+                         "\" mesh, which does not use Mesh Generators in constructing the mesh. ");
             }
         }
       }
@@ -304,7 +303,7 @@ SetupMeshAction::act()
   {
     TIME_SECTION("SetupMeshAction::act::set_mesh_base", 1, "Setting Mesh", true);
 
-    if (!_app.masterMesh() && !_mesh->hasMeshBase())
+    if (!_app.useMasterMesh() && !_mesh->hasMeshBase())
     {
       // We want to set the MeshBase object to that coming from mesh generators when the following
       // conditions are met:
@@ -352,7 +351,7 @@ SetupMeshAction::act()
   {
     TIME_SECTION("SetupMeshAction::act::set_mesh_base", 1, "Initializing Mesh", true);
 
-    if (_app.masterMesh())
+    if (_app.useMasterMesh())
     {
       if (_app.masterDisplacedMesh())
         _displaced_mesh = _app.masterDisplacedMesh()->safeClone();

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -45,6 +45,9 @@ NSFVBase::commonNavierStokesFlowParams()
       "outlet_boundaries", std::vector<BoundaryName>(), "Names of outlet boundaries");
   params.addParam<std::vector<BoundaryName>>(
       "wall_boundaries", std::vector<BoundaryName>(), "Names of wall boundaries");
+  params.addParam<std::vector<BoundaryName>>("hydraulic_separator_sidesets",
+                                             std::vector<BoundaryName>(),
+                                             "Sidesets which serve as hydraulic separators.");
   return params;
 }
 
@@ -179,6 +182,7 @@ NSFVBase::commonMomentumBoundaryFluxesParams()
       "flux direction with respect to the normal. If the inlet surface is defined on an internal "
       "face, this is necessary to ensure the arbitrary orientation of the normal does not result "
       "in non-physical results.");
+  params.addParamNamesToGroup("flux_inlet_pps flux_inlet_directions", "Boundary condition");
 
   return params;
 }
@@ -212,14 +216,30 @@ NSFVBase::commonFluidEnergyEquationParams()
       std::vector<MooseFunctorName>(),
       "Functions for fixed-value boundaries in the energy equation.");
 
-  MultiMooseEnum en_wall_types("fixed-temperature heatflux wallfunction");
+  MultiMooseEnum en_wall_types("fixed-temperature heatflux wallfunction convection");
+  en_wall_types.addDocumentation("fixed-temperature",
+                                 "Set a constant fluid temperature on the wall");
+  en_wall_types.addDocumentation("heatflux", "Set a constant heat flux on the wall");
+  en_wall_types.addDocumentation(
+      "wallfunction",
+      "Use a wall function, defined by the turbulence Physics, to compute the wall heat flux");
+  en_wall_types.addDocumentation("convection",
+                                 "Computes the heat transfer as h(T_fluid - T_solid), where h "
+                                 "generally computed using a correlation");
   params.addParam<MultiMooseEnum>(
       "energy_wall_types", en_wall_types, "Types for the wall boundaries for the energy equation.");
+  params.addParam<std::vector<BoundaryName>>(
+      "energy_wall_boundaries",
+      {},
+      "Wall boundaries to apply energy boundary conditions on. If not specified, the flow equation "
+      "Physics wall boundaries will be used");
 
   params.addParam<std::vector<MooseFunctorName>>(
       "energy_wall_function",
       std::vector<MooseFunctorName>(),
-      "Functions for Dirichlet/Neumann boundaries in the energy equation.");
+      "Functions for Dirichlet/Neumann boundaries in the energy equation. For wall types requiring "
+      "multiple functions, the syntax is <function_1>:<function_2>:... So, 'convection' types are "
+      "'<Tinf_function>:<htc_function>'.");
 
   params.addParam<std::vector<std::vector<SubdomainName>>>(
       "ambient_convection_blocks",
@@ -405,6 +425,12 @@ NSFVBase::validParams()
   params.addParam<MooseEnum>("porosity_interface_pressure_treatment",
                              porosity_interface_pressure_treatment,
                              "How to treat pressure at a porosity interface");
+  params.addParam<std::vector<BoundaryName>>(
+      "pressure_drop_sidesets", {}, "Sidesets over which form loss coefficients are to be applied");
+  params.addParam<std::vector<Real>>(
+      "pressure_drop_form_factors",
+      {},
+      "User-supplied form loss coefficients to be applied over the sidesets listed above");
 
   params.addParam<bool>("use_friction_correction",
                         false,
@@ -415,7 +441,8 @@ NSFVBase::validParams()
       "Scaling parameter for the friction correction in the momentum equation (if requested).");
 
   params.addParamNamesToGroup("porosity porosity_smoothing_layers use_friction_correction "
-                              "consistent_scaling porosity_interface_pressure_treatment",
+                              "consistent_scaling porosity_interface_pressure_treatment "
+                              "pressure_drop_sidesets pressure_drop_form_factors",
                               "Porous medium treatment");
 
   /**
@@ -590,9 +617,9 @@ NSFVBase::validParams()
 
   params.addParamNamesToGroup(
       "inlet_boundaries momentum_inlet_types momentum_inlet_function energy_inlet_types "
-      "energy_inlet_function wall_boundaries momentum_wall_types energy_wall_types "
-      "energy_wall_function outlet_boundaries momentum_outlet_types pressure_function "
-      "passive_scalar_inlet_types passive_scalar_inlet_function flux_inlet_pps "
+      "energy_inlet_function wall_boundaries momentum_wall_types energy_wall_boundaries "
+      "energy_wall_types energy_wall_function outlet_boundaries momentum_outlet_types "
+      "pressure_function passive_scalar_inlet_types passive_scalar_inlet_function flux_inlet_pps "
       "flux_inlet_directions",
       "Boundary condition");
 

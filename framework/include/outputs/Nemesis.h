@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -50,6 +50,8 @@ public:
    * if it is certain that it will be used.
    */
   virtual void outputSetup();
+
+  bool supportsMaterialPropertyOutput() const override { return true; }
 
 protected:
   /**

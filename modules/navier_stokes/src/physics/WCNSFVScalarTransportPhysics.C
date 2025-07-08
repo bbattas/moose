@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -48,11 +48,10 @@ WCNSFVScalarTransportPhysics::addSolverVariables()
   for (const auto name_i : index_range(_passive_scalar_names))
   {
     // Dont add if the user already defined the variable
-    if (variableExists(_passive_scalar_names[name_i], /*error_if_aux=*/true))
+    if (!shouldCreateVariable(_passive_scalar_names[name_i], _blocks, /*error if aux*/ true))
     {
-      checkBlockRestrictionIdentical(
-          _passive_scalar_names[name_i],
-          getProblem().getVariable(0, _passive_scalar_names[name_i]).blocks());
+      reportPotentiallyMissedParameters({"system_names", "passive_scalar_scaling"},
+                                        "INSFVScalarFieldVariable");
       continue;
     }
 
@@ -75,14 +74,16 @@ WCNSFVScalarTransportPhysics::addScalarTimeKernels()
     assignBlocks(params, _blocks);
     params.set<NonlinearVariableName>("variable") = vname;
 
-    getProblem().addFVKernel(kernel_type, prefix() + "ins_" + vname + "_time", params);
+    if (shouldCreateTimeDerivative(vname, _blocks, /* error if already defined */ false))
+      getProblem().addFVKernel(kernel_type, prefix() + "ins_" + vname + "_time", params);
   }
 }
 
 void
 WCNSFVScalarTransportPhysics::addScalarAdvectionKernels()
 {
-  const std::string kernel_type = "INSFVScalarFieldAdvection";
+  const std::string kernel_type =
+      _porous_medium_treatment ? "PINSFVScalarFieldAdvection" : "INSFVScalarFieldAdvection";
   InputParameters params = getFactory().getValidParams(kernel_type);
 
   assignBlocks(params, _blocks);
@@ -91,6 +92,9 @@ WCNSFVScalarTransportPhysics::addScalarAdvectionKernels()
   params.set<MooseEnum>("advected_interp_method") =
       getParam<MooseEnum>("passive_scalar_advection_interpolation");
   setSlipVelocityParams(params);
+  if (_porous_medium_treatment)
+    params.set<MooseFunctorName>(NS::porosity) =
+        _flow_equations_physics->getPorosityFunctorName(/*smoothed=*/true);
 
   for (const auto & vname : _passive_scalar_names)
   {
@@ -146,7 +150,6 @@ WCNSFVScalarTransportPhysics::addScalarSourceKernels()
         params.set<MooseFunctorName>("v") = _passive_scalar_coupled_sources[scalar_i][i];
         if (_passive_scalar_sources_coef.size())
           params.set<Real>("coef") = _passive_scalar_sources_coef[scalar_i][i];
-
         getProblem().addFVKernel(kernel_type,
                                  prefix() + "ins_" + _passive_scalar_names[scalar_i] +
                                      "_coupled_source_" + std::to_string(i),

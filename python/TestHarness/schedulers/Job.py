@@ -1,5 +1,5 @@
 #* This file is part of the MOOSE framework
-#* https://www.mooseframework.org
+#* https://mooseframework.inl.gov
 #*
 #* All rights reserved, see COPYRIGHT for full restrictions
 #* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -7,27 +7,41 @@
 #* Licensed under LGPL 2.1, please see LICENSE for details
 #* https://www.gnu.org/licenses/lgpl-2.1.html
 
-import itertools, re, os, time, threading, traceback
-from timeit import default_timer as clock
+import copy, itertools, os, time, threading, traceback, typing
+from io import StringIO
+from contextlib import nullcontext, redirect_stdout
 from TestHarness.StatusSystem import StatusSystem
 from TestHarness.FileChecker import FileChecker
 from TestHarness.runners.Runner import Runner
+from TestHarness.validation.exceptions import ValidationTestRunException
+from TestHarness.validation import ValidationCase
 from TestHarness import OutputInterface, util
 from tempfile import TemporaryDirectory
 from collections import namedtuple
+from dataclasses import asdict, dataclass
 
 from TestHarness import util
 
 def time_now():
     return time.time_ns() / (10 ** 9)
 
+@dataclass
+class TimerEntry:
+    """
+    Helper dataclass for an entry in the Timer
+    """
+    # Start time
+    start: float
+    # End time
+    end: typing.Optional[float] = None
+
 class Timer(object):
     """
     A helper class for testers to track the time it takes to run.
     """
     def __init__(self):
-        # Dict of time name -> (start,) or (start,end)
-        self.times = {}
+        # The times for each section
+        self.times: dict[str, TimerEntry] = {}
         # Threading lock for setting timers
         self.lock = threading.Lock()
 
@@ -36,14 +50,14 @@ class Timer(object):
         """ Helper for getting a precise now time """
         return float(time.time_ns() / (10 ** 9))
 
-    def start(self, name: str, at_time=None):
+    def start(self, name: str, at_time: typing.Optional[float] = None) -> None:
         """ Start the given timer """
         if not at_time:
             at_time = self.time_now()
         with self.lock:
-            self.times[name] = [at_time]
+            self.times[name] = TimerEntry(start=at_time)
 
-    def stop(self, name: str, at_time=None):
+    def stop(self, name: str, at_time: typing.Optional[float] = None) -> None:
         """ End the given timer """
         if not at_time:
             at_time = self.time_now()
@@ -51,60 +65,63 @@ class Timer(object):
             entry = self.times.get(name)
             if not entry:
                 raise Exception(f'Missing time entry {name}')
-            if len(entry) > 1:
+            if entry.end is not None:
                 raise Exception(f'Time entry {name} already stopped')
-            entry.append(at_time)
+            entry.end = at_time
 
-    def startMain(self):
+    def startMain(self) -> None:
         """ Get the start time for the main timer """
         self.start('main')
 
-    def stopMain(self):
+    def stopMain(self) -> None:
         """ Get the end time for the main timer """
         self.stop('main')
 
-    def hasTime(self, name: str):
+    def hasTime(self, name: str) -> bool:
         """ Whether or not the given timer exists """
         with self.lock:
             return name in self.times
 
-    def hasTotalTime(self, name: str):
+    def hasTotalTime(self, name: str) -> bool:
         """ Whether or not the given total time exists """
         with self.lock:
             entry = self.times.get(name)
             if not entry:
                 return False
-            return len(entry) > 1
+            return entry.end is not None
 
-    def totalTime(self, name='main'):
+    def totalTime(self, name: str = 'main', lock: bool = True) -> float:
         """ Get the total time for the given timer """
-        with self.lock:
+        context = self.lock if lock else nullcontext()
+        with context:
             entry = self.times.get(name)
             if not entry:
                 if name == 'main':
-                    return 0
+                    return 0.0
                 raise Exception(f'Missing time entry {name}')
+            return (time_now() if entry.end is None else entry.end) - entry.start
 
-            if len(entry) > 1:
-                return entry[1] - entry[0]
-            return time_now() - entry[0]
-
-    def totalTimes(self):
+    def totalTimes(self) -> dict[str, float]:
         """ Get the total times """
-        times = {}
-        for name, entry in self.times.items():
-            times[name] = self.totalTime(name)
-        return times
+        with self.lock:
+            return {name: self.totalTime(name, lock=False) for name in self.times}
 
-    def startTime(self, name):
+    def startTime(self, name: str) -> float:
         """ Get the start time """
         with self.lock:
             entry = self.times.get(name)
             if not entry:
                 raise Exception(f'Missing time entry {name}')
-            return entry[0]
+            return entry.start
 
-    def reset(self, name = None):
+    def getTime(self, name: str) -> TimerEntry:
+        with self.lock:
+            entry = self.times.get(name)
+            if not entry:
+                raise Exception(f'Missing time entry {name}')
+            return copy.deepcopy(entry)
+
+    def reset(self, name: typing.Optional[str] = None) -> None:
         """ Resets a given timer or all timers """
         with self.lock:
             if name:
@@ -124,7 +141,7 @@ class Timer(object):
         def __exit__(self, exc_type, exc_val, exc_tb):
             self.timer.stop(self.name)
 
-    def time(self, name: str):
+    def time(self, name: str) -> TimeManager:
         """ Time a section using a context manager """
         return self.TimeManager(self, name)
 
@@ -202,6 +219,16 @@ class Job(OutputInterface):
         # A temp directory for this Job, if requested
         self.tmp_dir = None
 
+        # A list of ValidationCase objects that were ran for this Job,
+        # if any. Stored so that the results and data can be captured
+        # within the JSON results at the end of the run
+        self.validation_cases: typing.Optional[list[ValidationCase]] = None
+        # The OutputInterface for the validation run, set only if
+        # validation cases were ran
+        self.validation_output: typing.Optional[OutputInterface] = None
+        if self.specs['validation_test']:
+            self.validation_output = OutputInterface()
+
     def __del__(self):
         # Do any cleaning that we can (removes the temp dir for now if it exists)
         self.cleanup()
@@ -272,6 +299,10 @@ class Job(OutputInterface):
         """ Return the shorthand Test name """
         return self.__tester.getTestNameShort()
 
+    def getTestNameForFile(self):
+        """ return test short name for file creation ('/' to '.')"""
+        return self.__tester.getTestNameForFile()
+
     def getPrereqs(self):
         """ Wrapper method to return the testers prereqs """
         return self.__tester.getPrereqs()
@@ -306,7 +337,14 @@ class Job(OutputInterface):
 
     def getRunnable(self):
         """ Wrapper method to return getRunnable """
-        return self.__tester.getRunnable(self.options)
+        try:
+            runnable = self.__tester.getRunnable(self.options)
+        except:
+            trace = traceback.format_exc()
+            self.setStatus(self.error, 'TESTER EXCEPTION')
+            self.appendOutput(util.outputHeader('Python exception encountered') + trace)
+            return False
+        return runnable
 
     def getOutputFiles(self, options):
         """ Wrapper method to return getOutputFiles (absolute path) """
@@ -361,9 +399,6 @@ class Job(OutputInterface):
         """
         tester = self.__tester
 
-        # Start the main timer for running
-        self.timer.startMain()
-
         # Helper for exiting
         def finalize():
             # Run cleanup
@@ -371,8 +406,6 @@ class Job(OutputInterface):
                 self.cleanup()
             # Sanitize the output from all objects
             self.sanitizeAllOutput()
-            # Stop timing
-            self.timer.stopMain()
 
         # Set the output path if its separate and initialize the output
         if self.hasSeperateOutput():
@@ -391,7 +424,7 @@ class Job(OutputInterface):
                 object.clearOutput()
 
         # Helper for trying and catching
-        def try_catch(do, exception_name, timer_name):
+        def try_catch(do, exception_name, timer_name, output=self):
             with self.timer.time(timer_name):
                 failed = False
                 try:
@@ -399,7 +432,7 @@ class Job(OutputInterface):
                 except:
                     trace = traceback.format_exc()
                     self.setStatus(self.error, f'{exception_name} EXCEPTION')
-                    self.appendOutput(util.outputHeader('Python exception encountered') + trace)
+                    output.appendOutput(util.outputHeader('Python exception encountered') + trace)
                     failed = True
 
             if failed:
@@ -413,6 +446,14 @@ class Job(OutputInterface):
             run_tester = lambda: tester.run(self.options, 0, '')
             try_catch(run_tester, 'TESTER RUN', 'tester_run')
             return
+
+        # Initialize the validation test, if any
+        # We do this now so that we can capture any invalid python
+        # in the script before we even try to do the actual run
+        if self.specs['validation_test']:
+            init_validation = lambda: self.initValidation()
+            if not try_catch(init_validation, 'VALIDATION INIT', 'validation_init'):
+                return
 
         if self.options.pedantic_checks and self.canParallel():
             # Before the job does anything, get the times files below it were last modified
@@ -475,14 +516,88 @@ class Job(OutputInterface):
                 self.modifiedFiles = self.fileChecker.check_changes(self.fileChecker.getOriginalTimes(),
                                                                     self.fileChecker.getNewTimes())
 
-        # Allow derived proccessResults to process the output and set a failing status (if it failed)
+        # Allow derived processResults to process the output and set a failing status (if it failed)
         runner_output = self._runner.getRunOutput().getOutput()
         exit_code = self._runner.getExitCode()
         run_tester = lambda: tester.run(self.options, exit_code, runner_output)
         try_catch(run_tester, 'TESTER RUN', 'tester_run')
 
+        # Run the validation case, if any and the execution succeeded
+        if self.specs['validation_test'] is not None:
+            if exit_code == 0:
+                run_validation = lambda: self.runValidation()
+                cwd = os.getcwd()
+                os.chdir(self.getTestDir())
+                success = try_catch(run_validation, 'VALIDATION RUN', 'validation_run',
+                                    output=self.validation_output)
+                os.chdir(cwd)
+                if not success:
+                    return
+            else:
+                message = 'Skipping validation due to non-zero exit code'
+                self.validation_output.appendOutput(message)
+
         # Run finalize now that we're done
         finalize()
+
+    def initValidation(self):
+        """
+        Initilizes (constructs) the validation cases, if any
+        """
+        init_kwargs = {'params': self.__tester.parameters(),
+                       'tester_outputs': self.getOutputFiles(self.options)}
+        cwd = os.getcwd()
+        os.chdir(self.getTestDir())
+        try:
+            self.validation_cases = [c(**init_kwargs) for c in self.__tester._validation_classes]
+        finally:
+            os.chdir(cwd)
+
+    def runValidation(self):
+        """
+        Runs the validation cases, if any
+        """
+        assert self.specs['validation_test'] is not None
+        assert self.validation_output is not None
+        output = self.validation_output
+
+        all_data = set()
+        path = os.path.abspath(self.specs['validation_test'])
+        run_exception = False
+        for test_case in self.validation_cases:
+            name = type(test_case).__name__
+            message = f'Running validation case(s) in {path}:{name}\n\n'
+            output.appendOutput(message)
+
+            stdout = StringIO()
+            try:
+                with redirect_stdout(stdout):
+                    test_case.run()
+            except ValidationTestRunException:
+                run_exception = True
+            finally:
+                output.appendOutput(stdout.getvalue())
+                stdout.close()
+            output.appendOutput('\n')
+
+            for key in test_case.data:
+                if key in all_data:
+                    message = f'ERROR: Validation data with key "{key}" was declared multiple times'
+                    output.appendOutput(message)
+                    self.setStatus(self.job_status.error, 'VALIDATION TEST ERROR')
+                    return
+                all_data.add(key)
+
+        if run_exception:
+            output.appendOutput(f'\nEncountered exception(s) while running tests')
+            # TODO: Make this a failure, not an error
+            self.setStatus(self.job_status.error, 'VALIDATION TEST EXCEPTION')
+            return
+
+        num_failed = sum([c.getNumResultsByStatus(ValidationCase.Status.FAIL) for c in self.validation_cases])
+        output.appendOutput(f'Ran validation case(s); {num_failed} result(s) failed')
+        if num_failed > 0:
+            self.setStatus(self.job_status.error, 'VALIDATION FAILED')
 
     def killProcess(self):
         """ Kill remaining process that may be running """
@@ -504,6 +619,8 @@ class Job(OutputInterface):
             objects['runner_run'] = self.getRunner().getRunOutput()
             objects['runner'] = self.getRunner()
         objects['tester'] = self.getTester()
+        if self.validation_output is not None:
+            objects['validation'] = self.validation_output
         objects['job'] = self
         return objects
 
@@ -551,7 +668,11 @@ class Job(OutputInterface):
         else:
             command = self.getCommand()
 
-        output = 'Working Directory: ' + self.getTestDir() + '\nRunning command: ' + command + '\n'
+        node = self.specs['_node']
+        header = [f'Test spec: {node.filename()}:{node.line()}',
+                  f'Working directory: {self.getTestDir()}',
+                  f'Running command: {command}']
+        output = '\n'.join(header) + '\n'
 
         # Whether or not to limit the runner_run output, which is the output from the
         # actual run (the process that the harness runs)
@@ -656,7 +777,7 @@ class Job(OutputInterface):
 
         Should be used for all TestHarness produced files for this job
         """
-        return os.path.join(self.getOutputDirectory(), self.getTestNameShort().replace(os.sep, '.'))
+        return os.path.join(self.getOutputDirectory(), self.getTestNameForFile())
 
     def hasSeperateOutput(self):
         """
@@ -666,7 +787,7 @@ class Job(OutputInterface):
         """
         return self.options.sep_files
 
-    def getTiming(self):
+    def getTiming(self) -> float:
         """ Return active time if available, if not return a comparison of start and end time """
         # Actual execution time
         if self.timer.hasTime('runner_run'):
@@ -763,18 +884,40 @@ class Job(OutputInterface):
         """ Store the results for this Job into the results storage """
         joint_status = self.getJointStatus()
 
+        status = {'status': joint_status.status,
+                  'status_message': joint_status.message,
+                  'fail': self.isFail(),
+                  'caveats': list(self.getCaveats())}
+
         # Base job data
-        job_data = {'timing'               : self.timer.totalTimes(),
-                    'status'               : joint_status.status,
-                    'status_message'       : joint_status.message,
-                    'fail'                 : self.isFail(),
-                    'color'                : joint_status.color,
-                    'caveats'              : list(self.getCaveats()),
-                    'tester'               : self.getTester().getResults(self.options)}
+        job_data = {'status': status,
+                    'timing': self.timer.totalTimes(),
+                    'tester': self.getTester().getResults(self.options)}
         if self.hasSeperateOutput():
             job_data['output_files'] = self.getCombinedSeparateOutputPaths()
         else:
             job_data['output'] = self.getAllOutput()
+
+        unique_test_id = self.getTester().getUniqueTestID()
+        if unique_test_id is not None:
+            job_data['unique_test_id'] = unique_test_id
+
+        # Append validation data, if any
+        if self.validation_cases:
+            path = os.path.abspath(os.path.join(self.getTestDir(), self.specs['validation_test']))
+            job_data['validation'] = {'script': path, 'results': [], 'data': {}}
+            for case in self.validation_cases:
+                results = [r for r in case.results if r.validation]
+                for result in results:
+                    value = asdict(result)
+                    value.pop('validation')
+                    job_data['validation']['results'].append(value)
+                data = {k: v for k, v in case.data.items() if v.validation}
+                for key, value in data.items():
+                    value_dict = asdict(value)
+                    value_dict['type'] = value.__class__.__name__.split('.')[-1]
+                    value_dict.pop('validation')
+                    job_data['validation']['data'][key] = value_dict
 
         # Extend with data from the scheduler, if any
         job_data.update(scheduler.appendResultFileJob(self))

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -11,6 +11,9 @@
 #include "MooseLinearVariableFV.h"
 #include "NSFVUtils.h"
 #include "NS.h"
+#include "RhieChowMassFlux.h"
+#include "LinearFVBoundaryCondition.h"
+#include "LinearFVAdvectionDiffusionBC.h"
 
 registerMooseObject("NavierStokesApp", LinearWCNSFVMomentumFlux);
 
@@ -297,8 +300,13 @@ LinearWCNSFVMomentumFlux::computeStressBoundaryRHSContribution(
         _current_face_info->normal() -
         1 / (_current_face_info->normal() * _current_face_info->eCN()) * _current_face_info->eCN();
 
-    grad_contrib += _mu(face_arg, determineState()) *
-                    _var.gradSln(*_current_face_info->elemInfo()) * correction_vector;
+    // We might be on a face which is an internal boundary so we want to make sure we
+    // get the gradient from the right side.
+    const auto elem_info = (_current_face_type == FaceInfo::VarFaceNeighbors::ELEM)
+                               ? _current_face_info->elemInfo()
+                               : _current_face_info->neighborInfo();
+
+    grad_contrib += _mu(face_arg, determineState()) * _var.gradSln(*elem_info) * correction_vector;
   }
 
   return grad_contrib;

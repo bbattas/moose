@@ -1,5 +1,5 @@
 #* This file is part of the MOOSE framework
-#* https://www.mooseframework.org
+#* https://mooseframework.inl.gov
 #*
 #* All rights reserved, see COPYRIGHT for full restrictions
 #* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -21,6 +21,15 @@ class RunPBS(RunHPC):
     def augmentJobSubmission(self, submission_env):
         if self.options.hpc_queue:
             submission_env['QUEUE'] = self.options.hpc_queue
+
+    def augmentJobs(self, jobs):
+        super().augmentJobs(jobs)
+
+        for job in jobs:
+            if job.isHold():
+                if job.getTester().isParamValid('hpc_mem_per_cpu'):
+                    job.setStatus(job.skip)
+                    job.addCaveats('no hpc_mem_per_cpu with PBS')
 
     def updateHPCJobs(self, hpc_jobs):
         # Poll for all of the jobs within a single call
@@ -47,7 +56,6 @@ class RunPBS(RunHPC):
 
                 # Helper for parsing timings
                 def parse_time(name):
-                    time_format = '%a %b %d %H:%M:%S %Y'
                     entry = job_result.get(name)
                     if not entry:
                         return None
@@ -56,7 +64,7 @@ class RunPBS(RunHPC):
                         return datetime.datetime.strptime(entry, '%a %b %d %H:%M:%S %Y').timestamp()
                     except:
                         self.setHPCJobError(hpc_job, 'FAILED TO PARSE TIMING',
-                                            f'Failed to parse time "{time}" from entry "{name}"')
+                                            f'Failed to parse time "{entry}" from entry "{name}"')
                         return None
 
                 # Job is queued and it has switched to running

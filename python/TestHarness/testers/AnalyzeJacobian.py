@@ -1,5 +1,5 @@
 #* This file is part of the MOOSE framework
-#* https://www.mooseframework.org
+#* https://mooseframework.inl.gov
 #*
 #* All rights reserved, see COPYRIGHT for full restrictions
 #* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -23,17 +23,19 @@ class AnalyzeJacobian(FileTester):
         params.addParam('off_diagonal', True, "Also test the off-diagonal Jacobian entries")
         params.addParam('mesh_size',   1, "Resize the input mesh")
 
+        params['capture_perf_graph'] = False
+
         return params
 
     def __init__(self, name, params):
         FileTester.__init__(self, name, params)
 
     def getOutputFiles(self, options):
-        # analizejacobian.py outputs files prefixed with the input file name
-        return [self.specs['input']]
+        # analyzejacobian.py outputs files prefixed with the input file name
+        return super().getOutputFiles(options) + [self.specs['input']]
 
     def prepare(self, options):
-        # We do not know what file(s) analizejacobian.py produces
+        # We do not know what file(s) analyzejacobian.py produces
         return
 
     # Check if numpy is available

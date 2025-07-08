@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -33,6 +33,10 @@ MultiAppTransfer::validParams()
   // added by FEProblemBase when the transfer is added.
   ExecFlagEnum & exec_enum = params.set<ExecFlagEnum>("execute_on", true);
   exec_enum.addAvailableFlags(EXEC_SAME_AS_MULTIAPP);
+  // Add the POST_ADAPTIVITY execution flag.
+#ifdef LIBMESH_ENABLE_AMR
+  exec_enum.addAvailableFlags(EXEC_POST_ADAPTIVITY);
+#endif
   exec_enum = EXEC_SAME_AS_MULTIAPP;
   params.setDocString("execute_on", exec_enum.getDocString());
 
@@ -179,13 +183,14 @@ MultiAppTransfer::checkMultiAppExecuteOn()
 }
 
 void
-MultiAppTransfer::variableIntegrityCheck(const AuxVariableName & var_name) const
+MultiAppTransfer::variableIntegrityCheck(const AuxVariableName & var_name,
+                                         bool is_from_multiapp) const
 {
   bool variable_found = false;
   bool has_an_app = false;
 
   // Check the from_multi_app for the variable
-  if (_from_multi_app)
+  if (is_from_multiapp && _from_multi_app)
     for (unsigned int i = 0; i < _from_multi_app->numGlobalApps(); i++)
       if (_from_multi_app->hasLocalApp(i))
       {
@@ -195,7 +200,7 @@ MultiAppTransfer::variableIntegrityCheck(const AuxVariableName & var_name) const
       }
 
   // Check the to_multi_app for the variable
-  if (_to_multi_app)
+  if (!is_from_multiapp && _to_multi_app)
     for (unsigned int i = 0; i < _to_multi_app->numGlobalApps(); i++)
       if (_to_multi_app->hasLocalApp(i))
       {
@@ -650,4 +655,29 @@ MultiAppTransfer::getLocalSourceAppIndex(unsigned int i_from) const
   return _current_direction == TO_MULTIAPP
              ? 0
              : _from_local2global_map[i_from] - _from_local2global_map[0];
+}
+
+void
+MultiAppTransfer::errorIfObjectExecutesOnTransferInSourceApp(const std::string & object_name) const
+{
+  // parent app is the source app, EXEC_TRANSFER is fine
+  if (!hasFromMultiApp())
+    return;
+  // Get the app and problem
+  const auto & app = getFromMultiApp();
+  if (!app->hasApp())
+    return;
+  const auto & problem = app->appProblemBase(app->firstLocalApp());
+  // Use the warehouse to find the object
+  std::vector<SetupInterface *> objects_with_exec_on;
+  problem.theWarehouse()
+      .query()
+      .template condition<AttribName>(object_name)
+      .template condition<AttribExecOns>(EXEC_TRANSFER)
+      .queryInto(objects_with_exec_on);
+  if (objects_with_exec_on.size())
+    mooseError("Object '" + object_name +
+               "' should not be executed on EXEC_TRANSFER, because this transfer has "
+               "indicated it does not support it.\nExecuting this object on TIMESTEP_END should be "
+               "sufficient to get updated values.");
 }

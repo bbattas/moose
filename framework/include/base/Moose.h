@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -113,6 +113,7 @@ class FEProblemBase;
 using ExecFlagType = MooseEnumItem;
 extern const ExecFlagType EXEC_NONE;
 extern const ExecFlagType EXEC_INITIAL;
+extern const ExecFlagType EXEC_LINEAR_CONVERGENCE;
 extern const ExecFlagType EXEC_LINEAR;
 extern const ExecFlagType EXEC_NONLINEAR_CONVERGENCE;
 extern const ExecFlagType EXEC_NONLINEAR;
@@ -132,6 +133,9 @@ extern const ExecFlagType EXEC_PRE_MULTIAPP_SETUP;
 extern const ExecFlagType EXEC_TRANSFER;
 extern const ExecFlagType EXEC_PRE_KERNELS;
 extern const ExecFlagType EXEC_ALWAYS;
+#ifdef LIBMESH_ENABLE_AMR
+extern const ExecFlagType EXEC_POST_ADAPTIVITY;
+#endif
 
 namespace Moose
 {
@@ -241,7 +245,6 @@ using libMesh::out;
 
 void registerAll(Factory & f, ActionFactory & af, Syntax & s);
 
-void registerObjects(Factory & factory);
 void registerObjects(Factory & factory, const std::set<std::string> & obj_labels);
 void addActionTypes(Syntax & syntax);
 void registerActions(Syntax & syntax, ActionFactory & action_factory);

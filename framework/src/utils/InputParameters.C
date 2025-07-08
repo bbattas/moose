@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -780,7 +780,7 @@ InputParameters::hasDefault(const std::string & param_name) const
   else if (isParamSetByAddParam(name))
     return true;
   else if (isParamValid(name))
-    mooseError("No way to know if the parameter", param_name, "has a default");
+    mooseError("No way to know if the parameter '", param_name, "' has a default");
   else
     return false;
 }
@@ -801,9 +801,10 @@ InputParameters::hasDefaultCoupledValue(const std::string & coupling_name) const
 void
 InputParameters::defaultCoupledValue(const std::string & coupling_name, Real value, unsigned int i)
 {
-  _params[coupling_name]._coupled_default.resize(i + 1);
-  _params[coupling_name]._coupled_default[i] = value;
-  _params[coupling_name]._have_coupled_default = true;
+  const auto actual_name = checkForRename(coupling_name);
+  _params[actual_name]._coupled_default.resize(i + 1);
+  _params[actual_name]._coupled_default[i] = value;
+  _params[actual_name]._have_coupled_default = true;
 }
 
 Real
@@ -1156,6 +1157,10 @@ InputParameters::applyParameter(const InputParameters & common,
     // the parameter in the action
     at(local_name)._hit_node = common.getHitNode(common_name);
   }
+  else if (!local_exist && !common_exist)
+    mooseError("InputParameters::applyParameter(): Attempted to apply invalid parameter \"",
+               common_name,
+               "\"");
 
   // Enable deprecated message printing
   _show_deprecated_message = true;
@@ -1346,14 +1351,6 @@ InputParameters::addDeprecatedParam<std::vector<MooseEnum>>(
 {
   mooseError("You must supply a vector of MooseEnum object(s) and the deprecation string when "
              "using addDeprecatedParam, even if the parameter is not required!");
-}
-
-std::string
-InputParameters::appendFunctorDescription(const std::string & doc_string) const
-{
-  return MooseUtils::trim(doc_string, ". ") +
-         ". A functor is any of the following: a variable, a functor material property, a "
-         "function, a post-processor, or a number.";
 }
 
 template <>

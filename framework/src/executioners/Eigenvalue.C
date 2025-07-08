@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,6 +13,7 @@
 #include "Factory.h"
 #include "MooseApp.h"
 #include "NonlinearEigenSystem.h"
+#include "PetscSupport.h"
 #include "SlepcSupport.h"
 #include "UserObject.h"
 
@@ -153,6 +154,16 @@ Eigenvalue::Eigenvalue(const InputParameters & parameters)
   mooseDeprecated(
       "Please use SLEPc-3.13.0 or higher. Old versions of SLEPc likely produce bad convergence");
 #endif
+
+  // To avoid petsc unused option warnings, ensure we do not set irrelevant options.
+  Moose::PetscSupport::dontAddLinearConvergedReason(_fe_problem);
+  Moose::PetscSupport::dontAddNonlinearConvergedReason(_fe_problem);
+  Moose::PetscSupport::dontAddPetscFlag("-mat_mffd_type", _fe_problem.getPetscOptions());
+  Moose::PetscSupport::dontAddPetscFlag("-st_ksp_atol", _fe_problem.getPetscOptions());
+  Moose::PetscSupport::dontAddPetscFlag("-st_ksp_max_it", _fe_problem.getPetscOptions());
+  Moose::PetscSupport::dontAddPetscFlag("-st_ksp_rtol", _fe_problem.getPetscOptions());
+  if (!_eigen_problem.solverParams()._eigen_matrix_free)
+    Moose::PetscSupport::dontAddPetscFlag("-snes_mf_operator", _fe_problem.getPetscOptions());
 }
 
 #ifdef LIBMESH_HAVE_SLEPC
@@ -231,6 +242,7 @@ Eigenvalue::execute()
   if (_app.isRecovering())
   {
     _console << "\nCannot recover eigenvalue solves!\nExiting...\n" << std::endl;
+    _last_solve_converged = true;
     return;
   }
 

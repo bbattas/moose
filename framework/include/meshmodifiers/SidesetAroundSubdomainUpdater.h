@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -60,6 +60,9 @@ protected:
   BoundaryName _boundary_name;
   BoundaryID _boundary_id;
   ///@}
+
+  /// If specified, only sides also on this boundary will be updated
+  const BoundaryID _mask_side;
 
   BoundaryInfo & _boundary_info;
   BoundaryInfo * _displaced_boundary_info;

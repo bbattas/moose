@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -42,6 +42,7 @@ FlowModelID FM_INVALID = registerFlowModelID();
 FlowModelID FM_SINGLE_PHASE = registerFlowModelID();
 FlowModelID FM_TWO_PHASE = registerFlowModelID();
 FlowModelID FM_TWO_PHASE_NCG = registerFlowModelID();
+FlowModelID FM_GAS_MIX = registerFlowModelID();
 
 } // namespace THM
 
@@ -57,30 +58,13 @@ ThermalHydraulicsApp::validParams()
 
 registerKnownLabel("ThermalHydraulicsApp");
 
-ThermalHydraulicsApp::ThermalHydraulicsApp(InputParameters parameters) : MooseApp(parameters)
+ThermalHydraulicsApp::ThermalHydraulicsApp(const InputParameters & parameters)
+  : MooseApp(parameters)
 {
   ThermalHydraulicsApp::registerAll(_factory, _action_factory, _syntax);
 }
 
 ThermalHydraulicsApp::~ThermalHydraulicsApp() {}
-
-void
-ThermalHydraulicsApp::registerObjects(Factory & /*factory*/)
-{
-  mooseError("registerObjects() is deprecated and not supported in THM");
-}
-
-void
-ThermalHydraulicsApp::associateSyntax(Syntax & /*syntax*/, ActionFactory & /*action_factory*/)
-{
-  mooseError("associateSyntax() is deprecated and not supported in THM");
-}
-
-void
-ThermalHydraulicsApp::registerExecFlags(Factory & /*factory*/)
-{
-  mooseError("registerExecFlags() is deprecated and not supported in THM");
-}
 
 void
 ThermalHydraulicsApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)

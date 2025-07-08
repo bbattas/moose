@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -23,6 +23,7 @@
 #include "MooseVariableBase.h"
 #include "MooseMeshUtils.h"
 #include "MooseAppCoordTransform.h"
+#include "FEProblemBase.h"
 
 #include <utility>
 
@@ -96,19 +97,12 @@ MooseMesh::validParams()
       true,
       "If allow_renumbering=false, node and element numbers are kept fixed until deletion");
 
+  // TODO: this parameter does not belong here, it's only for FileMesh
   params.addParam<bool>("nemesis",
                         false,
                         "If nemesis=true and file=foo.e, actually reads "
                         "foo.e.N.0, foo.e.N.1, ... foo.e.N.N-1, "
                         "where N = # CPUs, with NemesisIO.");
-
-  MooseEnum dims("1=1 2 3", "1");
-  params.addParam<MooseEnum>("dim",
-                             dims,
-                             "This is only required for certain mesh formats where "
-                             "the dimension of the mesh cannot be autodetected. "
-                             "In particular you must supply this for GMSH meshes. "
-                             "Note: This is completely ignored for ExodusII meshes!");
 
   params.addParam<MooseEnum>(
       "partitioner",
@@ -192,6 +186,19 @@ MooseMesh::validParams()
       "be provided using add_sideset_ids. In this case this list and add_sideset_ids must contain "
       "the same number of items.");
 
+  params.addParam<std::vector<BoundaryID>>(
+      "add_nodeset_ids",
+      "The listed nodeset ids will be assumed valid for the mesh. This permits setting up boundary "
+      "restrictions for node initially containing no sides. Names for this nodesets may be "
+      "provided using add_nodeset_names. In this case this list and add_nodeset_names must contain "
+      "the same number of items.");
+  params.addParam<std::vector<BoundaryName>>(
+      "add_nodeset_names",
+      "The listed nodeset names will be assumed valid for the mesh. This permits setting up "
+      "boundary restrictions for nodesets initially containing no sides. Ids for this nodesets may "
+      "be provided using add_nodesets_ids. In this case this list and add_nodesets_ids must "
+      "contain the same number of items.");
+
   params += MooseAppCoordTransform::validParams();
 
   // This indicates that the derived mesh type accepts a MeshGenerator, and should be set to true in
@@ -204,9 +211,13 @@ MooseMesh::validParams()
   params.registerBase("MooseMesh");
 
   // groups
-  params.addParamNamesToGroup(
-      "dim nemesis patch_update_strategy construct_node_list_from_side_list patch_size",
-      "Advanced");
+  params.addParamNamesToGroup("patch_update_strategy patch_size max_leaf_size", "Geometric search");
+  params.addParamNamesToGroup("nemesis", "Advanced");
+  params.addParamNamesToGroup("add_subdomain_ids add_subdomain_names add_sideset_ids "
+                              "add_sideset_names add_nodeset_ids add_nodeset_names",
+                              "Pre-declaration of future mesh sub-entities");
+  params.addParamNamesToGroup("construct_node_list_from_side_list build_all_side_lowerd_mesh",
+                              "Automatic definition of mesh element sides entities");
   params.addParamNamesToGroup("partitioner centroid_partitioner_direction", "Partitioning");
 
   return params;
@@ -484,53 +495,60 @@ MooseMesh::prepare(const MeshBase * const mesh_to_clone)
       getMesh().get_boundary_info().get_side_boundary_ids();
   _mesh_sideset_ids.insert(local_side_bids.begin(), local_side_bids.end());
 
-  // Add explicitly requested sidesets
+  // Add explicitly requested sidesets/nodesets
   // This is done *after* the side boundaries (e.g. "right", ...) have been generated.
-  if (isParamValid("add_sideset_ids") && !isParamValid("add_sideset_names"))
+  auto add_sets = [this](const bool sidesets, auto & set_ids)
   {
-    const auto & add_sideset_ids = getParam<std::vector<BoundaryID>>("add_sideset_ids");
-    _mesh_boundary_ids.insert(add_sideset_ids.begin(), add_sideset_ids.end());
-    _mesh_sideset_ids.insert(add_sideset_ids.begin(), add_sideset_ids.end());
-  }
-  else if (isParamValid("add_sideset_ids") && isParamValid("add_sideset_names"))
-  {
-    const auto add_sidesets =
-        getParam<BoundaryID, BoundaryName>("add_sideset_ids", "add_sideset_names");
-    for (const auto & [sideset_id, sideset_name] : add_sidesets)
-    {
-      // add sideset id
-      _mesh_boundary_ids.insert(sideset_id);
-      _mesh_sideset_ids.insert(sideset_id);
-      // set name of the sideset just added
-      setBoundaryName(sideset_id, sideset_name);
-    }
-  }
-  else if (isParamValid("add_sideset_names"))
-  {
-    // the user has defined add_sideset_names, but not add_sideset_ids
-    const auto & add_sideset_names = getParam<std::vector<BoundaryName>>("add_sideset_names");
+    const std::string type = sidesets ? "sideset" : "nodeset";
+    const std::string id_param = "add_" + type + "_ids";
+    const std::string name_param = "add_" + type + "_names";
 
-    // to define sideset ids, we need the largest sideset id defined yet.
-    boundary_id_type offset = 0;
-    if (!_mesh_sideset_ids.empty())
-      offset = *_mesh_sideset_ids.rbegin();
-    if (!_mesh_boundary_ids.empty())
-      offset = std::max(offset, *_mesh_boundary_ids.rbegin());
-
-    // add all sidesets (and auto-assign ids)
-    for (const BoundaryName & sideset_name : add_sideset_names)
+    if (isParamValid(id_param))
     {
-      // to avoid two sidesets with the same ID (notably on recover)
-      if (getBoundaryID(sideset_name) != Moose::INVALID_BOUNDARY_ID)
-        continue;
-      const auto sideset_id = ++offset;
-      // add sideset id
-      _mesh_boundary_ids.insert(sideset_id);
-      _mesh_sideset_ids.insert(sideset_id);
-      // set name of the sideset just added
-      setBoundaryName(sideset_id, sideset_name);
+      const auto & add_ids = getParam<std::vector<BoundaryID>>(id_param);
+      _mesh_boundary_ids.insert(add_ids.begin(), add_ids.end());
+      set_ids.insert(add_ids.begin(), add_ids.end());
+      if (isParamValid(name_param))
+      {
+        const auto & add_names = getParam<std::vector<BoundaryName>>(name_param);
+        mooseAssert(add_names.size() == add_ids.size(),
+                    "Id and name sets must be the same size when adding.");
+        for (const auto i : index_range(add_ids))
+          setBoundaryName(add_ids[i], add_names[i]);
+      }
     }
-  }
+    else if (isParamValid(name_param))
+    {
+      // the user has defined names, but not ids
+      const auto & add_names = getParam<std::vector<BoundaryName>>(name_param);
+
+      auto & mesh_ids = sidesets ? _mesh_sideset_ids : _mesh_nodeset_ids;
+
+      // to define ids, we need the largest id defined yet.
+      boundary_id_type offset = 0;
+      if (!mesh_ids.empty())
+        offset = *mesh_ids.rbegin();
+      if (!_mesh_boundary_ids.empty())
+        offset = std::max(offset, *_mesh_boundary_ids.rbegin());
+
+      // add all sidesets/nodesets (and auto-assign ids)
+      for (const auto & name : add_names)
+      {
+        // to avoid two sets with the same ID (notably on recover)
+        if (getBoundaryID(name) != Moose::INVALID_BOUNDARY_ID)
+          continue;
+        const auto id = ++offset;
+        // add sideset id
+        _mesh_boundary_ids.insert(id);
+        set_ids.insert(id);
+        // set name of the sideset just added
+        setBoundaryName(id, name);
+      }
+    }
+  };
+
+  add_sets(true, _mesh_sideset_ids);
+  add_sets(false, _mesh_nodeset_ids);
 
   // Communicate subdomain and boundary IDs if this is a parallel mesh
   if (!getMesh().is_serial())
@@ -612,6 +630,23 @@ MooseMesh::update()
   buildBndElemList();
   cacheInfo();
   buildElemIDInfo();
+
+  // this will make moose mesh aware of p-refinement added by mesh generators including
+  // a file mesh generator loading a restart checkpoint file
+  _max_p_level = 0;
+  _max_h_level = 0;
+  for (const auto & elem : getMesh().active_local_element_ptr_range())
+  {
+    if (elem->p_level() > _max_p_level)
+      _max_p_level = elem->p_level();
+    if (elem->level() > _max_h_level)
+      _max_h_level = elem->level();
+  }
+  comm().max(_max_p_level);
+  comm().max(_max_h_level);
+
+  // the flag might have been set by calling doingPRefinement(true)
+  _doing_p_refinement = _doing_p_refinement || (_max_p_level > 0);
 
   _finite_volume_info_dirty = true;
 }
@@ -729,7 +764,7 @@ MooseMesh::buildLowerDMesh()
 
       if (build_side)
       {
-        std::unique_ptr<Elem> side_elem(elem->build_side_ptr(side, false));
+        std::unique_ptr<Elem> side_elem(elem->build_side_ptr(side));
 
         // The side will be added with the same processor id as the parent.
         side_elem->processor_id() = elem->processor_id();
@@ -1460,8 +1495,7 @@ MooseMesh::cacheInfo()
 const std::set<SubdomainID> &
 MooseMesh::getNodeBlockIds(const Node & node) const
 {
-  std::map<dof_id_type, std::set<SubdomainID>>::const_iterator it =
-      _block_node_list.find(node.id());
+  auto it = _block_node_list.find(node.id());
 
   if (it == _block_node_list.end())
     mooseError("Unable to find node: ", node.id(), " in any block list.");
@@ -1698,6 +1732,12 @@ MooseMesh::getSubdomainID(const SubdomainName & subdomain_name) const
 
 std::vector<SubdomainID>
 MooseMesh::getSubdomainIDs(const std::vector<SubdomainName> & subdomain_name) const
+{
+  return MooseMeshUtils::getSubdomainIDs(getMesh(), subdomain_name);
+}
+
+std::set<SubdomainID>
+MooseMesh::getSubdomainIDs(const std::set<SubdomainName> & subdomain_name) const
 {
   return MooseMeshUtils::getSubdomainIDs(getMesh(), subdomain_name);
 }
@@ -2363,18 +2403,17 @@ MooseMesh::buildPRefinementAndCoarseningMaps(Assembly * const assembly)
 
     Elem * const elem = mesh.add_elem(Elem::build(elem_type).release());
     for (const auto i : elem->node_index_range())
-      elem->set_node(i) = mesh.node_ptr(i);
+      elem->set_node(i, mesh.node_ptr(i));
 
     std::unique_ptr<FEBase> fe_face(FEBase::build(dim, p_refinable_fe_type));
     fe_face->get_phi();
     const auto & face_phys_points = fe_face->get_xyz();
     fe_face->attach_quadrature_rule(qrule_face);
 
-    qrule->init(elem->type(), elem->p_level());
+    qrule->init(*elem);
     volume_ref_points_coarse = qrule->get_points();
     fe_face->reinit(elem, (unsigned int)0);
-    libMesh::FEInterface::inverse_map(
-        dim, p_refinable_fe_type, elem, face_phys_points, face_ref_points_coarse);
+    libMesh::FEMap::inverse_map(dim, elem, face_phys_points, face_ref_points_coarse);
 
     p_levels.resize(max_p_level + 1);
     std::iota(p_levels.begin(), p_levels.end(), 0);
@@ -2383,11 +2422,10 @@ MooseMesh::buildPRefinementAndCoarseningMaps(Assembly * const assembly)
     for (const auto p_level : p_levels)
     {
       mesh_refinement.uniformly_p_refine(1);
-      qrule->init(elem->type(), elem->p_level());
+      qrule->init(*elem);
       volume_ref_points_fine = qrule->get_points();
       fe_face->reinit(elem, (unsigned int)0);
-      libMesh::FEInterface::inverse_map(
-          dim, p_refinable_fe_type, elem, face_phys_points, face_ref_points_fine);
+      libMesh::FEMap::inverse_map(dim, elem, face_phys_points, face_ref_points_fine);
 
       const auto map_key = std::make_pair(elem_type, p_level);
       auto & volume_refine_map = _elem_type_to_p_refinement_map[map_key];
@@ -2598,7 +2636,7 @@ MooseMesh::findAdaptivityQpMaps(const Elem * template_elem,
   Elem * elem = mesh.add_elem(Elem::build(template_elem->type()).release());
 
   for (unsigned int i = 0; i < template_elem->n_nodes(); ++i)
-    elem->set_node(i) = mesh.node_ptr(i);
+    elem->set_node(i, mesh.node_ptr(i));
 
   std::unique_ptr<FEBase> fe(FEBase::build(dim, FEType()));
   fe->get_phi();
@@ -2627,7 +2665,7 @@ MooseMesh::findAdaptivityQpMaps(const Elem * template_elem,
 
   std::vector<Point> parent_ref_points;
 
-  libMesh::FEInterface::inverse_map(elem->dim(), FEType(), elem, *q_points, parent_ref_points);
+  libMesh::FEMap::inverse_map(elem->dim(), elem, *q_points, parent_ref_points);
   libMesh::MeshRefinement mesh_refinement(mesh);
   mesh_refinement.uniformly_refine(1);
 
@@ -2673,7 +2711,7 @@ MooseMesh::findAdaptivityQpMaps(const Elem * template_elem,
 
     std::vector<Point> child_ref_points;
 
-    libMesh::FEInterface::inverse_map(elem->dim(), FEType(), elem, *q_points, child_ref_points);
+    libMesh::FEMap::inverse_map(elem->dim(), elem, *q_points, child_ref_points);
     child_to_ref_points[child] = child_ref_points;
 
     std::vector<QpMap> & qp_map = refinement_map[child];
@@ -2812,9 +2850,6 @@ MooseMesh::determineUseDistributedMesh()
 std::unique_ptr<MeshBase>
 MooseMesh::buildMeshBaseObject(unsigned int dim)
 {
-  if (dim == libMesh::invalid_uint)
-    dim = getParam<MooseEnum>("dim");
-
   std::unique_ptr<MeshBase> mesh;
   if (_use_distributed_mesh)
     mesh = buildTypedMesh<DistributedMesh>(dim);
@@ -4292,8 +4327,6 @@ MooseMesh::getPRefinementMapHelper(
     const Elem & elem,
     const std::map<std::pair<ElemType, unsigned int>, std::vector<QpMap>> & map) const
 {
-  mooseAssert(elem.active() && elem.p_refinement_flag() == Elem::JUST_REFINED,
-              "These are the conditions that should be met for requesting a refinement map");
   // We are actually seeking the map stored with the p_level - 1 key, e.g. the refinement map that
   // maps from the previous p_level to this element's p_level
   return libmesh_map_find(map,
@@ -4332,4 +4365,10 @@ const std::vector<QpMap> &
 MooseMesh::getPCoarseningSideMap(const Elem & elem) const
 {
   return getPCoarseningMapHelper(elem, _elem_type_to_p_coarsening_side_map);
+}
+
+bool
+MooseMesh::skipNoncriticalPartitioning() const
+{
+  return _mesh->skip_noncritical_partitioning();
 }

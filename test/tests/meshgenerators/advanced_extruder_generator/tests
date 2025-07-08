@@ -120,6 +120,7 @@
     requirement = 'The system shall be able to retain and swap boundary ids during extrusion.'
     design = 'AdvancedExtruderGenerator.md'
     issues = '#21852'
+    skip = 'Pending libmesh PR #4121 being merged'
   []
   [helicoidal]
     type = Exodiff
@@ -165,5 +166,15 @@
       detail = 'if the source subdomain for an downward boundary assignment in a layer does not exist in the mesh,'
       expect_err = 'The block \'1234\' was not found within the mesh'
     []
+  []
+  [named_boundaries]
+    type = Exodiff
+    input = named_boundaries.i
+    exodiff = named_boundaries_in.e
+    issues = '#29908'
+    design = 'AdvancedExtruderGenerator.md'
+    requirement = 'The system shall be able to assign names to the top and bottom boundaries of an extrusion.'
+    cli_args = '--mesh-only'
+    recover = false
   []
 []

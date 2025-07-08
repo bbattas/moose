@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,6 +12,7 @@
 #include "SubProblem.h"
 #include "DisplacedSystem.h"
 #include "GeometricSearchData.h"
+#include "ThreadedNodeLoop.h"
 
 // libMesh
 #include "libmesh/equation_systems.h"
@@ -30,6 +31,7 @@ namespace libMesh
 {
 template <typename T>
 class NumericVector;
+class DofMap;
 }
 
 class DisplacedProblem : public SubProblem
@@ -98,17 +100,22 @@ public:
   virtual void restoreOldSolutions();
 
   /**
+   * Copy the provided solution into the displaced auxiliary system
+   */
+  void syncAuxSolution(const NumericVector<Number> & aux_soln);
+
+  /**
    * Copy the solutions on the undisplaced systems to the displaced systems.
    */
-  virtual void syncSolutions();
+  void syncSolutions();
 
   /**
    * Synchronize the solutions on the displaced systems to the given solutions. The nonlinear
    * solutions argument is a map from the nonlinear system number to the solution that we want to
    * set that nonlinear system's solution to
    */
-  virtual void syncSolutions(const std::map<unsigned int, const NumericVector<Number> *> & nl_solns,
-                             const NumericVector<Number> & aux_soln);
+  void syncSolutions(const std::map<unsigned int, const NumericVector<Number> *> & nl_solns,
+                     const NumericVector<Number> & aux_soln);
 
   /**
    * Copy the solutions on the undisplaced systems to the displaced systems and
@@ -186,7 +193,7 @@ public:
   //
   // Adaptivity /////
   virtual void initAdaptivity();
-  virtual void meshChanged() override;
+  void meshChanged(bool contract_mesh, bool clean_refinement_flags);
 
   // reinit /////
   virtual void prepare(const Elem * elem, const THREAD_ID tid) override;
@@ -270,14 +277,14 @@ public:
   virtual void addJacobianBlockTags(SparseMatrix<Number> & jacobian,
                                     unsigned int ivar,
                                     unsigned int jvar,
-                                    const DofMap & dof_map,
+                                    const libMesh::DofMap & dof_map,
                                     std::vector<dof_id_type> & dof_indices,
                                     const std::set<TagID> & tags,
                                     const THREAD_ID tid);
   void addJacobianBlockNonlocal(SparseMatrix<Number> & jacobian,
                                 unsigned int ivar,
                                 unsigned int jvar,
-                                const DofMap & dof_map,
+                                const libMesh::DofMap & dof_map,
                                 const std::vector<dof_id_type> & idof_indices,
                                 const std::vector<dof_id_type> & jdof_indices,
                                 const std::set<TagID> & tags,
@@ -285,7 +292,7 @@ public:
   virtual void addJacobianNeighbor(SparseMatrix<Number> & jacobian,
                                    unsigned int ivar,
                                    unsigned int jvar,
-                                   const DofMap & dof_map,
+                                   const libMesh::DofMap & dof_map,
                                    std::vector<dof_id_type> & dof_indices,
                                    std::vector<dof_id_type> & neighbor_dof_indices,
                                    const std::set<TagID> & tags,
@@ -373,6 +380,8 @@ public:
   virtual bool haveFV() const override;
 
   virtual bool hasNonlocalCoupling() const override;
+  virtual bool checkNonlocalCouplingRequirement() const override;
+  virtual const libMesh::CouplingMatrix & nonlocalCouplingMatrix(const unsigned i) const override;
 
 protected:
   FEProblemBase & _mproblem;
@@ -394,6 +403,62 @@ protected:
   std::vector<std::vector<std::unique_ptr<Assembly>>> _assembly;
 
   GeometricSearchData _geometric_search_data;
+
+  class UpdateDisplacedMeshThread : public ThreadedNodeLoop<NodeRange, NodeRange::const_iterator>
+  {
+  public:
+    UpdateDisplacedMeshThread(FEProblemBase & fe_problem, DisplacedProblem & displaced_problem);
+
+    UpdateDisplacedMeshThread(UpdateDisplacedMeshThread & x, Threads::split split);
+
+    virtual void onNode(NodeRange::const_iterator & nd) override;
+
+    void join(const UpdateDisplacedMeshThread & y)
+    {
+      if (y._has_displacement)
+        _has_displacement = true;
+    }
+
+    /**
+     * Whether the displaced mesh is modified by the latest call to operator()
+     */
+    bool hasDisplacement()
+    {
+      mooseAssert(!Threads::in_threads,
+                  "This function requires a MPI all-gathering operation that cannot be in a "
+                  "threaded scope.");
+      _ref_mesh.comm().max(_has_displacement);
+      return _has_displacement;
+    }
+
+  protected:
+    void init();
+
+    /// Diplaced problem
+    DisplacedProblem & _displaced_problem;
+    /// Original mesh
+    MooseMesh & _ref_mesh;
+    /// Solution vectors of the nonlinear systems on the displaced problem
+    const std::vector<const NumericVector<Number> *> & _nl_soln;
+    /// Solution vector of the auxliary system on the displaced problem
+    const NumericVector<Number> & _aux_soln;
+
+    // Solution vectors with expanded ghosting, for ReplicatedMesh or
+    // for DistributedMesh cases where the standard algebraic ghosting
+    // doesn't reach as far as the geometric ghosting
+    std::map<unsigned int,
+             std::pair<const NumericVector<Number> *, std::shared_ptr<NumericVector<Number>>>>
+        _sys_to_nonghost_and_ghost_soln;
+
+  private:
+    /// To locate the system numbers, variable numbers of all displacement variables
+    std::map<unsigned int, std::pair<std::vector<unsigned int>, std::vector<unsigned int>>>
+        _sys_to_var_num_and_direction;
+
+    /// A flag to be set by operator() for indicating whether the displaced mesh is
+    /// indeed modified
+    bool _has_displacement;
+  };
 
 private:
   virtual std::pair<bool, unsigned int>

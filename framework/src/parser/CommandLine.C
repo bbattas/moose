@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -17,6 +17,7 @@
 
 #include "hit.h"
 
+#include "libmesh/libmesh.h"
 #include "libmesh/simple_range.h"
 #include "libmesh/parallel_algebra.h"
 #include "libmesh/parallel_sync.h"
@@ -358,7 +359,17 @@ CommandLine::populateCommandLineParams(InputParameters & params)
 
       // If this parameter is global, mark its entry as global
       if (param.metadata.global)
-        entry_it->global = true;
+        entry.global = true;
+
+      // If the arg is of the form "--key=value", PETSc will recognize it as an unused
+      // argument. That is, setting "--key" as a known command line argument is not
+      // sufficient for PETSc to consider "--key=value" as known. Thus, we explicitly
+      // add "--key=value" args as known when we come across them.
+      if (entry.value_separator && *entry.value_separator == "=")
+      {
+        mooseAssert(entry.raw_args.size() == 1, "Should have one value");
+        libMesh::add_command_line_name(entry.raw_args[0]);
+      }
     }
     // If we didn't find it and it is required, we need to error
     else if (param.metadata.required)
@@ -482,14 +493,8 @@ CommandLine::formatEntry(const CommandLine::Entry & entry) const
   oss << entry.name;
   if (entry.value)
   {
-    oss << "=";
-    const auto & value = *entry.value;
-    const auto has_space = value.find_first_not_of(" ") == std::string::npos;
-    if (has_space)
-      oss << "\"";
-    oss << value;
-    if (has_space)
-      oss << "\"";
+    const auto q = (*entry.value).find(" ") != std::string::npos ? "'" : "";
+    oss << *entry.value_separator << q << *entry.value << q;
   }
   return oss.str();
 }

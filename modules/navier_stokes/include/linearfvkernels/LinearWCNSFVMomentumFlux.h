@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,8 +10,10 @@
 #pragma once
 
 #include "LinearFVFluxKernel.h"
-#include "RhieChowMassFlux.h"
-#include "LinearFVAdvectionDiffusionBC.h"
+
+class RhieChowMassFlux;
+class LinearFVBoundaryCondition;
+class LinearFVAdvectionDiffusionBC;
 
 /**
  * Kernel that implements the stress tensor and advection terms for the momentum

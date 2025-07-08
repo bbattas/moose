@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -142,6 +142,12 @@ public:
   virtual void outputStep(const ExecFlagType & type);
 
   const std::set<Real> & getSyncTimes() { return _sync_times; }
+
+  /**
+   * A virtual function that stores whether output type supports material output. Defaults to false,
+   * if a particular output type supports material output it can be overridden in the child class.
+   */
+  virtual bool supportsMaterialPropertyOutput() const { return false; }
 
 protected:
   /**

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -55,6 +55,7 @@ class NonlinearSystem;
 class RandomInterface;
 class RandomData;
 class MeshChangedInterface;
+class MeshDisplacedInterface;
 class MultiMooseEnum;
 class MaterialPropertyStorage;
 class MaterialData;
@@ -66,7 +67,7 @@ class MultiApp;
 class TransientMultiApp;
 class ScalarInitialCondition;
 class Indicator;
-class InternalSideIndicator;
+class InternalSideIndicatorBase;
 class Marker;
 class Material;
 class Transfer;
@@ -161,7 +162,7 @@ public:
    */
   void setCoupling(Moose::CouplingType type);
 
-  Moose::CouplingType coupling() { return _coupling; }
+  Moose::CouplingType coupling() const { return _coupling; }
 
   /**
    * Set custom coupling matrix
@@ -208,6 +209,8 @@ public:
   nonlocalCouplingEntries(const THREAD_ID tid, const unsigned int nl_sys_num);
 
   virtual bool hasVariable(const std::string & var_name) const override;
+  // NOTE: hasAuxiliaryVariable defined in parent class
+  bool hasSolverVariable(const std::string & var_name) const;
   using SubProblem::getVariable;
   virtual const MooseVariableFieldBase &
   getVariable(const THREAD_ID tid,
@@ -787,9 +790,6 @@ public:
   virtual void addBoundaryCondition(const std::string & bc_name,
                                     const std::string & name,
                                     InputParameters & parameters);
-  virtual void addHDGIntegratedBC(const std::string & kernel_name,
-                                  const std::string & name,
-                                  InputParameters & parameters);
   virtual void
   addConstraint(const std::string & c_name, const std::string & name, InputParameters & parameters);
 
@@ -1658,7 +1658,7 @@ public:
    */
   ///@{
   const MooseObjectWarehouse<Indicator> & getIndicatorWarehouse() { return _indicators; }
-  const MooseObjectWarehouse<InternalSideIndicator> & getInternalSideIndicatorWarehouse()
+  const MooseObjectWarehouse<InternalSideIndicatorBase> & getInternalSideIndicatorWarehouse()
   {
     return _internal_side_indicators;
   }
@@ -1725,14 +1725,32 @@ public:
 
   /**
    * Update data after a mesh change.
+   * Iff intermediate_change is true, only perform updates as
+   * necessary to prepare for another mesh change
+   * immediately-subsequent. An example of data that is not updated during an intermediate change is
+   * libMesh System matrix data. An example of data that \emph is updated during an intermediate
+   * change is libMesh System vectors. These vectors are projected or restricted based off of
+   * adaptive mesh refinement or the changing of element subdomain IDs. The flags \p contract_mesh
+   * and \p clean_refinement_flags should generally only be set to true when the mesh has changed
+   * due to mesh refinement. \p contract_mesh deletes children of coarsened elements and renumbers
+   * nodes and elements. \p clean_refinement_flags resets refinement flags such that any subsequent
+   * calls to \p System::restrict_vectors or \p System::prolong_vectors before another AMR step do
+   * not mistakenly attempt to re-do the restriction/prolongation which occurred in this method
    */
-  virtual void meshChanged() override;
+  virtual void
+  meshChanged(bool intermediate_change, bool contract_mesh, bool clean_refinement_flags);
 
   /**
    * Register an object that derives from MeshChangedInterface
    * to be notified when the mesh changes.
    */
   void notifyWhenMeshChanges(MeshChangedInterface * mci);
+
+  /**
+   * Register an object that derives from MeshDisplacedInterface
+   * to be notified when the displaced mesh gets updated.
+   */
+  void notifyWhenMeshDisplaces(MeshDisplacedInterface * mdi);
 
   /**
    * Initialize stateful properties for elements in a specific \p elem_range
@@ -1869,7 +1887,12 @@ public:
   /*
    * @return The MaterialData for the type \p type for thread \p tid
    */
-  MaterialData & getMaterialData(Moose::MaterialDataType type, const THREAD_ID tid = 0);
+  MaterialData & getMaterialData(Moose::MaterialDataType type, const THREAD_ID tid = 0) const;
+
+  /**
+   * @returns Whether the original matrix nonzero pattern is restored before each Jacobian assembly
+   */
+  bool restoreOriginalNonzeroPattern() const { return _restore_original_nonzero_pattern; }
 
   /**
    * Will return True if the user wants to get an error when
@@ -2235,15 +2258,26 @@ public:
 
   bool haveDisplaced() const override final { return _displaced_problem.get(); }
 
+  /// Whether we have linear convergence objects
+  bool hasLinearConvergenceObjects() const;
   /**
-   * Sets the nonlinear convergence object name if there is one
+   * Sets the nonlinear convergence object name(s) if there is one
    */
   void setNonlinearConvergenceNames(const std::vector<ConvergenceName> & convergence_names);
+  /**
+   * Sets the linear convergence object name(s) if there is one
+   */
+  void setLinearConvergenceNames(const std::vector<ConvergenceName> & convergence_names);
 
   /**
-   * Gets the nonlinear convergence object name(s).
+   * Gets the nonlinear system convergence object name(s).
    */
-  std::vector<ConvergenceName> getNonlinearConvergenceNames() const;
+  const std::vector<ConvergenceName> & getNonlinearConvergenceNames() const;
+
+  /**
+   * Gets the linear convergence object name(s).
+   */
+  const std::vector<ConvergenceName> & getLinearConvergenceNames() const;
 
   /**
    * Setter for whether we're computing the scaling jacobian
@@ -2308,23 +2342,21 @@ public:
    */
   unsigned int systemNumForVariable(const VariableName & variable_name) const;
 
-  /**
-   * Whether it will skip further residual evaluations and fail the next nonlinear convergence check
-   */
-  bool getFailNextNonlinearConvergenceCheck() const
-  {
-    return _fail_next_nonlinear_convergence_check;
-  }
+  /// Whether it will skip further residual evaluations and fail the next nonlinear convergence check(s)
+  bool getFailNextNonlinearConvergenceCheck() const { return getFailNextSystemConvergenceCheck(); }
+  /// Whether it will fail the next system convergence check(s), triggering failed step behavior
+  bool getFailNextSystemConvergenceCheck() const { return _fail_next_system_convergence_check; }
 
-  /**
-   * Skip further residual evaluations and fail the next nonlinear convergence check
-   */
-  void setFailNextNonlinearConvergenceCheck() { _fail_next_nonlinear_convergence_check = true; }
+  /// Skip further residual evaluations and fail the next nonlinear convergence check(s)
+  void setFailNextNonlinearConvergenceCheck() { setFailNextSystemConvergenceCheck(); }
+  /// Tell the problem that the system(s) cannot be considered converged next time convergence is checked
+  void setFailNextSystemConvergenceCheck() { _fail_next_system_convergence_check = true; }
 
-  /**
-   * Do not skip further residual evaluations and fail the next nonlinear convergence check
-   */
-  void resetFailNextNonlinearConvergenceCheck() { _fail_next_nonlinear_convergence_check = false; }
+  /// Tell the problem that the nonlinear convergence check(s) may proceed as normal
+  void resetFailNextNonlinearConvergenceCheck() { resetFailNextSystemConvergenceCheck(); }
+  /// Tell the problem that the system convergence check(s) may proceed as normal
+  void resetFailNextSystemConvergenceCheck() { _fail_next_system_convergence_check = false; }
+
   /*
    * Set the status of loop order of execution printing
    * @param print_exec set of execution flags to print on
@@ -2372,10 +2404,6 @@ public:
    */
   void clearCurrentJacobianMatrixTags() {}
 
-  using SubProblem::doingPRefinement;
-  virtual void doingPRefinement(bool doing_p_refinement,
-                                const MultiMooseEnum & disable_p_refinement_for_families) override;
-
   virtual void needFV() override { _have_fv = true; }
   virtual bool haveFV() const override { return _have_fv; }
 
@@ -2397,13 +2425,33 @@ public:
    * @returns the linear system names in the problem
    */
   const std::vector<LinearSystemName> & getLinearSystemNames() const { return _linear_sys_names; }
+  /**
+   * @returns the solver system names in the problem
+   */
+  const std::vector<SolverSystemName> & getSolverSystemNames() const { return _solver_sys_names; }
+
+  virtual const libMesh::CouplingMatrix & nonlocalCouplingMatrix(const unsigned i) const override;
+
+  virtual bool checkNonlocalCouplingRequirement() const override;
+
+  virtual Moose::FEBackend feBackend() const { return Moose::FEBackend::LibMesh; }
 
 protected:
+  /**
+   * Deprecated. Users should switch to overriding the meshChanged which takes arguments
+   */
+  virtual void meshChanged() {}
+
   /// Create extra tagged vectors and matrices
   void createTagVectors();
 
   /// Create extra tagged solution vectors
   void createTagSolutions();
+
+  /**
+   * Update data after a mesh displaced.
+   */
+  virtual void meshDisplaced();
 
   /**
    * Do generic system computations
@@ -2443,7 +2491,9 @@ protected:
   bool _initialized;
 
   /// Nonlinear system(s) convergence name(s)
-  std::vector<ConvergenceName> _nonlinear_convergence_names;
+  std::optional<std::vector<ConvergenceName>> _nonlinear_convergence_names;
+  /// Linear system(s) convergence name(s) (if any)
+  std::optional<std::vector<ConvergenceName>> _linear_convergence_names;
 
   std::set<TagID> _fe_vector_tags;
 
@@ -2465,8 +2515,6 @@ protected:
   Real & _dt;
   Real & _dt_old;
 
-  /// Flag that the nonlinear convergence name has been set
-  bool _set_nonlinear_convergence_names;
   /// Flag that the problem needs to add the default nonlinear convergence
   bool _need_to_add_default_nonlinear_convergence;
 
@@ -2516,7 +2564,7 @@ protected:
   std::map<SolverSystemName, unsigned int> _solver_sys_name_to_num;
 
   /// The union of nonlinear and linear system names
-  std::vector<std::string> _solver_sys_names;
+  std::vector<SolverSystemName> _solver_sys_names;
 
   /// The auxiliary system
   std::shared_ptr<AuxiliarySystem> _aux;
@@ -2555,7 +2603,6 @@ protected:
   ScalarInitialConditionWarehouse _scalar_ics; // use base b/c of setup methods
   ///@}
 
-protected:
   // material properties
   MaterialPropertyRegistry _material_prop_registry;
   MaterialPropertyStorage & _material_props;
@@ -2573,7 +2620,7 @@ protected:
   ///@{
   // Indicator Warehouses
   MooseObjectWarehouse<Indicator> _indicators;
-  MooseObjectWarehouse<InternalSideIndicator> _internal_side_indicators;
+  MooseObjectWarehouse<InternalSideIndicatorBase> _internal_side_indicators;
   ///@}
 
   // Marker Warehouse
@@ -2618,14 +2665,8 @@ protected:
   /// Objects to be notified when the mesh changes
   std::vector<MeshChangedInterface *> _notify_when_mesh_changes;
 
-  /**
-   * Helper method to update some or all data after a mesh change.
-   *
-   * Iff intermediate_change is true, only perform updates as
-   * necessary to prepare for another mesh change
-   * immediately-subsequent.
-   */
-  void meshChangedHelper(bool intermediate_change = false);
+  /// Objects to be notified when the mesh displaces
+  std::vector<MeshDisplacedInterface *> _notify_when_mesh_displaces;
 
   /// Helper to check for duplicate variable names across systems or within a single system
   bool duplicateVariableCheck(const std::string & var_name,
@@ -2781,6 +2822,9 @@ protected:
   /// Whether or not to be verbose with multiapps
   bool _verbose_multiapps;
 
+  /// Whether or not to be verbose on solution restoration post a failed time step
+  bool _verbose_restore;
+
   /// The error message to go with an exception
   std::string _exception_message;
 
@@ -2815,6 +2859,10 @@ protected:
 
   // loop state during projection of initial conditions
   unsigned short _current_ic_state;
+
+  /// Whether to assemble matrices using hash tables instead of preallocating matrix memory. This
+  /// can be a good option if the sparsity pattern changes throughout the course of the simulation
+  const bool _use_hash_table_matrix_assembly;
 
 private:
   /**
@@ -2882,6 +2930,11 @@ private:
   // Parameters handling Jacobian sparsity pattern behavior
   /// Whether to error when the Jacobian is re-allocated, usually because the sparsity pattern changed
   bool _error_on_jacobian_nonzero_reallocation;
+  /// Whether we should restore the original nonzero pattern for every Jacobian evaluation. This
+  /// option is useful if the sparsity pattern is constantly changing and you are using hash table
+  /// assembly or if you wish to continually restore the matrix to the originally preallocated
+  /// sparsity pattern computed by relationship managers.
+  const bool _restore_original_nonzero_pattern;
   /// Whether to ignore zeros in the Jacobian, thereby leading to a reduced sparsity pattern
   bool _ignore_zeros_in_jacobian;
   /// Whether to preserve the system matrix / Jacobian sparsity pattern, using 0-valued entries usually
@@ -2890,7 +2943,7 @@ private:
   const bool _force_restart;
   const bool _allow_ics_during_restart;
   const bool _skip_nl_system_check;
-  bool _fail_next_nonlinear_convergence_check;
+  bool _fail_next_system_convergence_check;
   const bool _allow_invalid_solution;
   const bool _show_invalid_solution_console;
   const bool & _immediately_print_invalid_solution;
@@ -2956,6 +3009,12 @@ private:
   /// If we catch an exception during residual/Jacobian evaluaton for which we don't have specific
   /// handling, immediately error instead of allowing the time step to be cut
   const bool _regard_general_exceptions_as_errors;
+
+  /// nonlocal coupling matrix
+  std::vector<libMesh::CouplingMatrix> _nonlocal_cm;
+
+  /// nonlocal coupling requirement flag
+  bool _requires_nonlocal_coupling;
 
   friend void Moose::PetscSupport::setSinglePetscOption(const std::string & name,
                                                         const std::string & value,

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -45,6 +45,13 @@ LibtorchArtificialNeuralNetTrainerTest::LibtorchArtificialNeuralNetTrainerTest(
   : GeneralVectorPostprocessor(params),
     _nn_values_1(declareVector("nn_values_1")),
     _nn_values_2(declareVector("nn_values_2"))
+{
+  if (comm().size() > 1)
+    mooseError("Should not be run in parallel");
+}
+
+void
+LibtorchArtificialNeuralNetTrainerTest::execute()
 {
   torch::manual_seed(11);
 

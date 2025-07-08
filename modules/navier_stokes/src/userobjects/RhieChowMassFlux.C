@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -17,6 +17,7 @@
 #include "SIMPLE.h"
 #include "PetscVectorReader.h"
 #include "LinearSystem.h"
+#include "LinearFVBoundaryCondition.h"
 
 // libMesh includes
 #include "libmesh/mesh_base.h"
@@ -52,6 +53,12 @@ RhieChowMassFlux::validParams()
   exec_enum = {EXEC_NONE};
   params.suppressParameter<ExecFlagEnum>("execute_on");
 
+  // Pressure projection
+  params.addParam<MooseEnum>("pressure_projection_method",
+                             MooseEnum("standard consistent", "standard"),
+                             "The method to use in the pressure projection for Ainv - "
+                             "standard (SIMPLE) or consistent (SIMPLEC)");
+
   return params;
 }
 
@@ -69,7 +76,8 @@ RhieChowMassFlux::RhieChowMassFlux(const InputParameters & params)
     _face_mass_flux(
         declareRestartableData<FaceCenteredMapFunctor<Real, std::unordered_map<dof_id_type, Real>>>(
             "face_flux", _moose_mesh, blockIDs(), "face_values")),
-    _rho(getFunctor<Real>(NS::density))
+    _rho(getFunctor<Real>(NS::density)),
+    _pressure_projection_method(getParam<MooseEnum>("pressure_projection_method"))
 {
   if (!_p)
     paramError(NS::pressure, "the pressure must be a MooseLinearVariableFVReal.");
@@ -117,7 +125,7 @@ RhieChowMassFlux::linkMomentumPressureSystems(
     _momentum_implicit_systems.push_back(dynamic_cast<LinearImplicitSystem *>(&system->system()));
   }
 
-  setupCellVolumes();
+  setupMeshInformation();
 }
 
 void
@@ -126,7 +134,7 @@ RhieChowMassFlux::meshChanged()
   _HbyA_flux.clear();
   _Ainv.clear();
   _face_mass_flux.clear();
-  setupCellVolumes();
+  setupMeshInformation();
 }
 
 void
@@ -153,17 +161,27 @@ RhieChowMassFlux::initialSetup()
 }
 
 void
-RhieChowMassFlux::setupCellVolumes()
+RhieChowMassFlux::setupMeshInformation()
 {
   // We cache the cell volumes into a petsc vector for corrections here so we can use
   // the optimized petsc operations for the normalization
   _cell_volumes = _pressure_system->currentSolution()->zero_clone();
   for (const auto & elem_info : _fe_problem.mesh().elemInfoVector())
-  {
-    const auto elem_dof = elem_info->dofIndices()[_global_pressure_system_number][0];
-    _cell_volumes->set(elem_dof, elem_info->volume() * elem_info->coordFactor());
-  }
+    // We have to check this because the variable might not be defined on the given
+    // block
+    if (hasBlocks(elem_info->subdomain_id()))
+    {
+      const auto elem_dof = elem_info->dofIndices()[_global_pressure_system_number][0];
+      _cell_volumes->set(elem_dof, elem_info->volume() * elem_info->coordFactor());
+    }
+
   _cell_volumes->close();
+
+  _flow_face_info.clear();
+  for (auto & fi : _fe_problem.mesh().faceInfo())
+    if (hasBlocks(fi->elemPtr()->subdomain_id()) ||
+        (fi->neighborPtr() && hasBlocks(fi->neighborPtr()->subdomain_id())))
+      _flow_face_info.push_back(fi);
 }
 
 void
@@ -185,7 +203,7 @@ RhieChowMassFlux::initFaceMassFlux()
 
   // We loop through the faces and compute the resulting face fluxes from the
   // initial conditions for velocity
-  for (auto & fi : _fe_problem.mesh().faceInfo())
+  for (auto & fi : _flow_face_info)
   {
     RealVectorValue density_times_velocity;
 
@@ -273,7 +291,7 @@ RhieChowMassFlux::computeFaceMassFlux()
 
   // We loop through the faces and compute the face fluxes using the pressure gradient
   // and the momentum matrix/right hand side
-  for (auto & fi : _fe_problem.mesh().faceInfo())
+  for (auto & fi : _flow_face_info)
   {
     // Making sure the kernel knows which face we are on
     _p_diffusion_kernel->setupFaceData(fi);
@@ -311,6 +329,9 @@ RhieChowMassFlux::computeFaceMassFlux()
     else if (auto * bc_pointer = _p->getBoundaryCondition(*fi->boundaryIDs().begin()))
     {
       mooseAssert(fi->boundaryIDs().size() == 1, "We should only have one boundary on every face.");
+
+      bc_pointer->setupFaceData(
+          fi, fi->faceType(std::make_pair(_p->number(), _global_pressure_system_number)));
 
       const ElemInfo & elem_info =
           hasBlocks(fi->elemPtr()->subdomain_id()) ? *fi->elemInfo() : *fi->neighborInfo();
@@ -381,7 +402,7 @@ RhieChowMassFlux::populateCouplingFunctors(
     ainv_reader.emplace_back(*raw_Ainv[dim_i]);
 
   // We loop through the faces and populate the coupling fields (face H/A and 1/H)
-  for (auto & fi : _fe_problem.mesh().faceInfo())
+  for (auto & fi : _flow_face_info)
   {
     Real face_rho = 0;
     RealVectorValue face_hbya;
@@ -562,6 +583,62 @@ RhieChowMassFlux::computeHbyA(const bool with_updated_pressure, bool verbose)
     {
       _console << " (H(u)-rhs)/A" << std::endl;
       HbyA.print();
+    }
+
+    if (_pressure_projection_method == "consistent")
+    {
+
+      // Consistent Corrections to SIMPLE
+      // 1. Ainv_old = 1/a_p <- Ainv = 1/(a_p + \sum_n a_n)
+      // 2. H(u) <- H(u*) + H(u') = H(u*) - (Ainv - Ainv_old) * grad(p) * Vc
+
+      if (verbose)
+        _console << "Performing SIMPLEC projection." << std::endl;
+
+      // Lambda function to calculate the sum of diagonal and neighbor coefficients
+      auto get_row_sum = [mmat](NumericVector<Number> & sum_vector)
+      {
+        // Ensure the sum_vector is zeroed out
+        sum_vector.zero();
+
+        // Local row size
+        const auto local_size = mmat->local_m();
+
+        for (const auto row_i : make_range(local_size))
+        {
+          // Get all non-zero components of the row of the matrix
+          const auto global_index = mmat->row_start() + row_i;
+          std::vector<numeric_index_type> indices;
+          std::vector<Real> values;
+          mmat->get_row(global_index, indices, values);
+
+          // Sum row elements (no absolute values)
+          const Real row_sum = std::accumulate(values.cbegin(), values.cend(), 0.0);
+
+          // Add the sum of diagonal and elements to the sum_vector
+          sum_vector.add(global_index, row_sum);
+        }
+        sum_vector.close();
+      };
+
+      // Create a temporary vector to store the sum of diagonal and neighbor coefficients
+      auto row_sum = current_local_solution.zero_clone();
+      get_row_sum(*row_sum);
+
+      // Create vector with new inverse projection matrix
+      auto Ainv_full = current_local_solution.zero_clone();
+      *working_vector_petsc = 1.0;
+      Ainv_full->pointwise_divide(*working_vector_petsc, *row_sum);
+      const auto Ainv_full_old = Ainv_full->clone();
+
+      // Correct HbyA
+      Ainv_full->add(-1.0, Ainv);
+      working_vector_petsc->pointwise_mult(*Ainv_full, *pressure_gradient[system_i]);
+      working_vector_petsc->pointwise_mult(*working_vector_petsc, *_cell_volumes);
+      HbyA.add(-1.0, *working_vector_petsc);
+
+      // Correct Ainv
+      Ainv = *Ainv_full_old;
     }
 
     Ainv.pointwise_mult(Ainv, *_cell_volumes);

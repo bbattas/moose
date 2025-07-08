@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -109,7 +109,7 @@ MultiAppGeneralFieldTransfer::validParams()
       "The code will be slow if this flag is on but it will give a better solution.");
   params.addParam<bool>(
       "error_on_miss",
-      false,
+      true,
       "Whether or not to error in the case that a target point is not found in the source domain.");
   params.addParam<bool>("use_bounding_boxes",
                         true,
@@ -133,7 +133,7 @@ MultiAppGeneralFieldTransfer::validParams()
       "allows for interpolation between origin app meshes. Origin app bounding boxes are still "
       "considered so you may want to increase them with 'fixed_bounding_box_size'");
   params.addParam<bool>("search_value_conflicts",
-                        true,
+                        false,
                         "Whether to look for potential conflicts between two valid and different "
                         "source values for any target point");
   params.addParam<unsigned int>(
@@ -676,8 +676,10 @@ MultiAppGeneralFieldTransfer::locatePointReceivers(const Point point,
         point,
         " \n ",
         "It must be that mismatched meshes, between the source and target application, are being "
-        "used.\nIf you are using bounding boxes, nearest-app or mesh-divisions, please consider "
-        "using the greedy_search to confirm. Then consider choosing a different transfer type.");
+        "used.\nIf you are using the bounding boxes or nearest-app heuristics, or mesh-divisions, "
+        "please consider using the greedy_search to confirm. Then consider choosing a different "
+        "transfer type.\nThis check can be turned off by setting 'error_on_miss' to false. The "
+        "'extrapolation_constant' parameter will be used to set the local value at missed points.");
 }
 
 void
@@ -861,8 +863,8 @@ MultiAppGeneralFieldTransfer::extractOutgoingPoints(const unsigned int var_index
                                i_to,
                                outgoing_points);
       } // for
-    }   // else
-  }     // for
+    } // else
+  } // for
 }
 
 void
@@ -1481,19 +1483,26 @@ MultiAppGeneralFieldTransfer::setSolutionVectorValues(
           const auto target_location =
               hasToMultiApp()
                   ? " on target app " + std::to_string(getGlobalTargetAppIndex(problem_id))
-                  : " on parent app ";
+                  : " on parent app";
+          const auto info_msg = "\nThis check can be turned off by setting 'error_on_miss' to "
+                                "false. The 'extrapolation_constant' parameter will be used to set "
+                                "the local value at missed points.";
           if (is_nodal)
-            mooseError("No source value could be found for node ",
+            mooseError("No source value for node ",
                        dof_object_id,
                        target_location,
-                       "could not be located. Node details:\n",
-                       _to_meshes[problem_id]->nodePtr(dof_object_id)->get_info());
+                       " could be located. Node details:\n",
+                       _to_meshes[problem_id]->nodePtr(dof_object_id)->get_info(),
+                       "\n",
+                       info_msg);
           else
-            mooseError("No source value could be found for element ",
+            mooseError("No source value for element ",
                        dof_object_id,
                        target_location,
-                       "could not be located. Element details:\n",
-                       _to_meshes[problem_id]->elemPtr(dof_object_id)->get_info());
+                       " could be located. Element details:\n",
+                       _to_meshes[problem_id]->elemPtr(dof_object_id)->get_info(),
+                       "\n",
+                       info_msg);
         }
 
         // We should not put garbage into our solution vector
@@ -1615,7 +1624,7 @@ MultiAppGeneralFieldTransfer::inBlocks(const std::set<SubdomainID> & blocks,
                                        const MooseMesh & mesh,
                                        const Node * node) const
 {
-  const std::set<SubdomainID> & node_blocks = mesh.getNodeBlockIds(*node);
+  const auto & node_blocks = mesh.getNodeBlockIds(*node);
   std::set<SubdomainID> u;
   std::set_intersection(blocks.begin(),
                         blocks.end(),

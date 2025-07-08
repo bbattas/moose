@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -35,6 +35,7 @@ InterfaceKernelBase::validParams()
   params.declareControllable("enable");
   params.addRequiredCoupledVar("neighbor_var", "The variable on the other side of the interface.");
   params.set<std::string>("_moose_base") = "InterfaceKernel";
+  params.registerSystemAttributeName("InterfaceKernel");
   params.addParam<std::vector<AuxVariableName>>(
       "save_in",
       {},

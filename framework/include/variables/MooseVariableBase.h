@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -41,6 +41,9 @@ public:
   static InputParameters validParams();
 
   MooseVariableBase(const InputParameters & parameters);
+
+  /// Returns the variable name of a component of an array variable
+  const std::string & arrayVariableComponent(const unsigned int i) const;
 
   /**
    * Get variable number coming from libMesh
@@ -178,7 +181,7 @@ public:
   /**
    * @return whether this is an array variable
    */
-  bool isArray() const { return _is_array; }
+  virtual bool isArray() const { return !_array_var_component_names.empty(); }
 
   /**
    * @return whether this variable lives on lower dimensional blocks
@@ -242,11 +245,11 @@ protected:
   /// If dual mortar approach is used
   bool _use_dual;
 
-  /// Whether this is an array variable
-  const bool _is_array;
-
   /// Whether this variable lives on lower dimensional blocks
   bool _is_lower_d;
+
+  /// Array variable names when the variable is an array variable
+  std::vector<std::string> _array_var_component_names;
 };
 
 inline void

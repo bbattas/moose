@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -48,20 +48,24 @@ private:
   void addMomentumFluxKernels();
   virtual void addMomentumPressureKernels() override;
   virtual void addMomentumGravityKernels() override;
+  virtual void addMomentumFrictionKernels() override;
   virtual void addMomentumBoussinesqKernels() override;
 
   virtual void addInletBC() override;
   virtual void addOutletBC() override;
   virtual void addWallsBC() override;
+  virtual void addSeparatorBC() override {}
 
   virtual bool hasForchheimerFriction() const override { return false; };
 
   virtual void addRhieChowUserObjects() override;
+  virtual void addFunctorMaterials() override;
 
   virtual MooseFunctorName getLinearFrictionCoefName() const override
   {
     mooseError("Not implemented");
-  };
+  }
+
   UserObjectName rhieChowUOName() const override;
 
   unsigned short getNumberAlgebraicGhostingLayersNeeded() const override;

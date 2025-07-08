@@ -1,5 +1,5 @@
 #* This file is part of the MOOSE framework
-#* https://www.mooseframework.org
+#* https://mooseframework.inl.gov
 #*
 #* All rights reserved, see COPYRIGHT for full restrictions
 #* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -16,7 +16,7 @@ def findExodiff(moose_dir):
     exodiff_bin = os.path.join(moose_dir, 'share', 'moose', 'bin', 'exodiff')
 
     if not os.path.exists(exodiff_bin):
-        # use tradional build location
+        # use traditional build location
         exodiff_bin = os.path.join(moose_dir, 'framework', 'contrib', 'exodiff', 'exodiff')
     return exodiff_bin
 
@@ -42,7 +42,7 @@ class Exodiff(FileTester):
             raise Exception("For the Exodiff tester, you cannot specify both 'map' and 'partial' as True")
 
     def getOutputFiles(self, options):
-        return self.specs['exodiff']
+        return super().getOutputFiles(options) + self.specs['exodiff']
 
     def processResultsCommand(self, moose_dir, options):
         commands = []

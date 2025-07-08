@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "MultiMooseEnum.h"
 #include "libmesh/libmesh_config.h"
 
 #ifdef LIBMESH_HAVE_SLEPC
@@ -29,6 +30,7 @@
 class EigenProblem;
 class InputParameters;
 class SolverParams;
+class MultiMooseEnum;
 
 namespace Moose
 {

@@ -1,6 +1,6 @@
 [Tests]
   design = "ShellElements.md"
-  issues = "#14280 #21384 #28471"
+  issues = "#14280 #21384 #28471 #30174"
   [beam_bending]
     type = 'Exodiff'
     input = 'beam_bending_moment_AD.i'
@@ -19,7 +19,6 @@
     type = 'Exodiff'
     input = 'large_strain_m_40_AD.i'
     exodiff = 'large_strain_m_40_AD_out.e'
-    petsc_version = '>=3.9.0'
     requirement = "The mechanics system shall accurately compute the deflection of a cantilever beam when it is modeled using shell elements under large strain and rotations are included."
   []
   [beam_bending_jacobian]
@@ -32,7 +31,6 @@
     type = 'PetscJacobianTester'
     input = 'large_strain_m_40_AD.i'
     cli_args = 'Executioner/num_steps=1'
-    petsc_version = '>=3.9.0'
     requirement = "The mechanics system shall accurately compute the Jacobian for a large strain quasi-static shell element."
   []
   [plate_bending]
@@ -136,5 +134,29 @@
     input = plate_cantilever.i
     exodiff = 'plate_cantilever_out.e'
     requirement = "Local stress and bending moment are calculated correctly on the shell element"
+  []
+  [tank_shell]
+    type = 'Exodiff'
+    input = tank_shell.i
+    exodiff = 'tank_shell_out.e'
+    requirement = "The mechanics system shall correctly apply pressure loads to a curved geometry represented by shell elements."
+  []
+  [tank_shell_rotated]
+    type = 'Exodiff'
+    input = tank_shell_rotated.i
+    exodiff = 'tank_shell_rotated_out.e'
+    requirement = "The mechanics system shall correctly apply pressure loads to a curved geometry represented by shell elements, in a rotated configuration."
+  []
+  [scordelis_lo_roof_shell]
+    type = 'Exodiff'
+    input = scordelis_lo_roof_shell.i
+    exodiff = 'scordelis_lo_roof_shell_out.e'
+    requirement = "The mechanics system shall correctly model a benchmark problem consisting of a roof-like geometry with a distributed load, modeled with shell elements."
+  []
+  [clamped_plate_flat]
+    type = 'Exodiff'
+    input = clamped_plate_flat.i
+    exodiff = 'clamped_plate_flat_out.e'
+    requirement = "The mechanics system shall correctly model a benchmark problem consisting of a flat clamped plate with a distributed load, modeled with shell elements."
   []
 []

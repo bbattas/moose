@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,8 +12,8 @@
 #include "libmesh/libmesh.h"
 
 // MOOSE includes
-#include "MultiMooseEnum.h"
 #include "SolverParams.h"
+#include "MultiMooseEnum.h"
 
 #include "libmesh/petsc_macro.h"
 #include "libmesh/linear_solver.h"
@@ -297,6 +297,20 @@ void dontAddCommonKSPOptions(FEProblemBase & fe_problem);
  * object to be later set unless explicitly specified in input or on the command line.
  */
 void dontAddCommonSNESOptions(FEProblemBase & fe_problem);
+
+/**
+ * Create a matrix from a binary file. Note that the returned libMesh matrix wrapper will not
+ * destroy the created matrix on destruction. \p petsc_mat must be destroyed manually via \p
+ * MatDestroy
+ * @param mat_number_to_load A binary file may contain multiple writes of a matrix. This parameter
+ * can be used to load a particular matrix from the binary file. By default we load the
+ * first written matrix
+ */
+std::unique_ptr<PetscMatrix<Number>>
+createMatrixFromFile(const libMesh::Parallel::Communicator & comm,
+                     Mat & petsc_mat,
+                     const std::string & binary_mat_file,
+                     unsigned int mat_number_to_load = 1);
 
 #define SNESGETLINESEARCH SNESGetLineSearch
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,6 +12,13 @@
 #include <vector>
 
 #include "MooseApp.h"
+#include "Capabilities.h"
+
+#ifdef MOOSE_UNIT_TEST
+#include "gtest/gtest.h"
+class GTEST_TEST_CLASS_NAME_(AppFactoryTest, manageAppParams);
+class GTEST_TEST_CLASS_NAME_(AppFactoryTest, appCopyConstructParams);
+#endif
 
 // Forward declarations
 class InputParameters;
@@ -57,7 +64,7 @@ class AppFactory
 public:
   /**
    * Get the instance of the AppFactory
-   * @return Pointer to the AppFactory instance
+   * @return Reference to the AppFactory instance
    */
   static AppFactory & instance();
 
@@ -93,6 +100,37 @@ public:
    * @return Parameters of the object
    */
   InputParameters getValidParams(const std::string & name);
+
+  /**
+   * @return The parameters for the application named \p name
+   *
+   * This is needed because we poorly decided to not pass references
+   * of the InputParameters in all derived MooseApp objects. This enables
+   * the MooseApp to get the copy of the parameters that it was actually
+   * built with using this factory.
+   */
+  const InputParameters & getAppParams(const InputParameters & params) const;
+
+  /**
+   * Class that is used as a parameter to clearAppParams() that allows only
+   * MooseApp to call clearAppParams().
+   */
+  class ClearAppParamsKey
+  {
+    friend class MooseApp;
+#ifdef MOOSE_UNIT_TEST
+    FRIEND_TEST(::AppFactoryTest, manageAppParams);
+#endif
+    ClearAppParamsKey() {}
+    ClearAppParamsKey(const ClearAppParamsKey &) {}
+  };
+
+  /**
+   * Clears the stored parameters for the given application parameteres
+   *
+   * See getAppParams() for why this is needed.
+   */
+  void clearAppParams(const InputParameters & params, const ClearAppParamsKey);
 
   /**
    * Build an application object (must be registered)
@@ -144,6 +182,34 @@ protected:
 private:
   // Private constructor for singleton pattern
   AppFactory() {}
+
+  /**
+   * Stores the given parameters within _input_parameters for app construction
+   *
+   * Also calls finalize() on the parameters.
+   */
+  const InputParameters & storeAppParams(InputParameters & params);
+
+  /**
+   * Get the ID for the InputParameters associated with an application, used
+   * in storing them in _input_parameters.
+   *
+   * This is needed until app constructors do not copy construct parameters.
+   * See getAppParams() for more information.
+   *
+   * The parameters passed in here (from the app) could be copy-constructed
+   * parameters, but will contain a "_app_params_id" parameter that allows
+   * us to get the actual parameters (owned by this factory).
+   */
+  std::size_t getAppParamsID(const InputParameters & params) const;
+
+#ifdef MOOSE_UNIT_TEST
+  FRIEND_TEST(::AppFactoryTest, manageAppParams);
+  FRIEND_TEST(::AppFactoryTest, appCopyConstructParams);
+#endif
+
+  /// Storage of input parameters used in applications (ID (from getAppParamsID()) -> params)
+  std::map<std::size_t, std::unique_ptr<InputParameters>> _input_parameters;
 };
 
 template <typename T>
@@ -154,4 +220,6 @@ AppFactory::reg(const std::string & name)
     return;
 
   _name_to_build_info[name] = std::make_unique<AppFactoryBuildInfo<T>>();
+  Moose::Capabilities::getCapabilityRegistry().add(
+      name, true, "MOOSE application " + name + " is available.");
 }

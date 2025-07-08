@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -113,6 +113,26 @@ RankThreeTensorTempl<T>::operator*(const RankTwoTensorTempl<T> & a) const
         sum += _vals[i1 + j1 + k] * a._coords[j1 + k];
     result(i) = sum;
   }
+
+  return result;
+}
+
+template <typename T>
+RankTwoTensorTempl<T>
+RankThreeTensorTempl<T>::operator*(const libMesh::VectorValue<T> & a) const
+{
+  RankTwoTensorTempl<T> result;
+
+  for (auto i : make_range(N))
+    for (auto j : make_range(N))
+    {
+      T sum = 0;
+      unsigned int i1 = i * N2;
+      unsigned int j1 = j * N;
+      for (auto k : make_range(N))
+        sum += _vals[i1 + j1 + k] * a(k);
+      result(i, j) = sum;
+    }
 
   return result;
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -29,7 +29,7 @@ InputParameters
 Exodus::validParams()
 {
   // Get the base class parameters
-  InputParameters params = OversampleOutput::validParams();
+  InputParameters params = SampledOutput::validParams();
   params +=
       AdvancedOutput::enableOutputTypes("nodal elemental scalar postprocessor reporter input");
 
@@ -93,7 +93,7 @@ Exodus::validParams()
 }
 
 Exodus::Exodus(const InputParameters & parameters)
-  : OversampleOutput(parameters),
+  : SampledOutput(parameters),
     _exodus_initialized(false),
     _exodus_mesh_changed(declareRestartableData<bool>("exodus_mesh_changed", true)),
     _sequence(isParamValid("sequence") ? getParam<bool>("sequence")
@@ -139,7 +139,7 @@ void
 Exodus::initialSetup()
 {
   // Call base class setup method
-  OversampleOutput::initialSetup();
+  SampledOutput::initialSetup();
 
   // The libMesh::ExodusII_IO will fail when it is closed if the object is created but
   // nothing is written to the file. This checks that at least something will be written.
@@ -152,20 +152,13 @@ Exodus::initialSetup()
       !hasScalarOutput())
     mooseError("The current settings results in only the input file and no variables being output "
                "to the Exodus file, this is not supported.");
-
-  // Check if the mesh is contiguously numbered, because exodus output will renumber to force that
-  const auto & mesh = _problem_ptr->mesh().getMesh();
-  if ((mesh.n_nodes() != mesh.max_node_id()) || (mesh.n_elem() != mesh.max_elem_id()))
-    _mesh_contiguous_numbering = false;
-  else
-    _mesh_contiguous_numbering = true;
 }
 
 void
 Exodus::meshChanged()
 {
-  // Maintain Oversample::meshChanged() functionality
-  OversampleOutput::meshChanged();
+  // Maintain Sampled::meshChanged() functionality
+  SampledOutput::meshChanged();
 
   // Indicate to the Exodus object that the mesh has changed
   _exodus_mesh_changed = true;
@@ -188,7 +181,7 @@ Exodus::outputSetup()
 
     // Do nothing if the output is using oversampling. In this case the mesh that is being output
     // has not been changed, so there is no need to create a new ExodusII_IO object
-    if (_oversample || _change_position)
+    if (_use_sampled_output)
       return;
 
     // Do nothing if the mesh has not changed and sequential output is not desired
@@ -246,7 +239,9 @@ Exodus::outputSetup()
   //   (2) The mesh has NOT changed
   //   (3) An existing Exodus file exists for appending (_exodus_num > 0)
   //   (4) Sequential output is NOT desired
-  if (_recovering && !_exodus_mesh_changed && _exodus_num > 0 && !_sequence)
+  //   (5) Exodus is NOT being output only on FINAL
+  if (_recovering && !_exodus_mesh_changed && _exodus_num > 0 && !_sequence &&
+      (getExecuteOnEnum().size() != 1 || !getExecuteOnEnum().contains(EXEC_FINAL)))
   {
     // Set the recovering flag to false so that this special case is not triggered again
     _recovering = false;
@@ -315,6 +310,11 @@ Exodus::outputNodalVariables()
   std::vector<std::string> nodal(getNodalVariableOutput().begin(), getNodalVariableOutput().end());
   _exodus_io_ptr->set_output_variables(nodal);
 
+  // Check if the mesh is contiguously numbered, because exodus output will renumber to force that
+  const auto & mesh = _problem_ptr->mesh().getMesh();
+  const bool mesh_contiguous_numbering =
+      (mesh.n_nodes() == mesh.max_node_id()) && (mesh.n_elem() == mesh.max_elem_id());
+
   // Write the data via libMesh::ExodusII_IO
   if (_discontinuous)
     _exodus_io_ptr->write_timestep_discontinuous(
@@ -326,8 +326,10 @@ Exodus::outputNodalVariables()
   if (!_overwrite)
     _exodus_num++;
 
+  if (!mesh_contiguous_numbering)
+    handleExodusIOMeshRenumbering();
+
   // This satisfies the initialization of the ExodusII_IO object
-  handleExodusIOMeshRenumbering();
   _exodus_initialized = true;
 }
 
@@ -510,6 +512,11 @@ Exodus::filename()
 void
 Exodus::outputEmptyTimestep()
 {
+  // Check if the mesh is contiguously numbered, because exodus output will renumber to force that
+  const auto & mesh = _problem_ptr->mesh().getMesh();
+  const bool mesh_contiguous_numbering =
+      (mesh.n_nodes() == mesh.max_node_id()) && (mesh.n_elem() == mesh.max_elem_id());
+
   // Write a timestep with no variables
   _exodus_io_ptr->set_output_variables(std::vector<std::string>());
   _exodus_io_ptr->write_timestep(
@@ -518,7 +525,8 @@ Exodus::outputEmptyTimestep()
   if (!_overwrite)
     _exodus_num++;
 
-  handleExodusIOMeshRenumbering();
+  if (!mesh_contiguous_numbering)
+    handleExodusIOMeshRenumbering();
   _exodus_initialized = true;
 }
 
@@ -531,19 +539,23 @@ Exodus::clear()
 void
 Exodus::handleExodusIOMeshRenumbering()
 {
-  // We know exodus_io renumbered on the first write_timestep()
-  if (!_exodus_initialized && !_mesh_contiguous_numbering)
+  // We renumbered our mesh, so we need the other mesh to do the same
+  if (auto * const disp_problem = _problem_ptr->getDisplacedProblem().get(); disp_problem)
   {
-    // We renumbered our mesh, so we need to allow the other mesh to do the same
-    if (auto * const disp_problem = _problem_ptr->getDisplacedProblem().get(); disp_problem)
-    {
-      auto & disp_eq = disp_problem->es();
-      auto & other_mesh = &disp_eq == _es_ptr ? _problem_ptr->mesh().getMesh() : disp_eq.get_mesh();
-      other_mesh.allow_renumbering(true);
-    }
-
-    // Objects that depend on element/node ids are no longer valid
-    _problem_ptr->meshChanged();
-    _mesh_contiguous_numbering = true;
+    auto & disp_eq = disp_problem->es();
+    auto & other_mesh = &disp_eq == _es_ptr ? _problem_ptr->mesh().getMesh() : disp_eq.get_mesh();
+    mooseAssert(
+        !other_mesh.allow_renumbering(),
+        "The only way we shouldn't have contiguous numbering is if we've disabled renumbering");
+    other_mesh.allow_renumbering(true);
+    other_mesh.renumber_nodes_and_elements();
+    // Copying over the comment in MeshOutput::write_equation_systems
+    // Not sure what good going back to false will do here, the
+    // renumbering horses have already left the barn...
+    other_mesh.allow_renumbering(false);
   }
+
+  // Objects that depend on element/node ids are no longer valid
+  _problem_ptr->meshChanged(
+      /*intermediate_change=*/false, /*contract_mesh=*/false, /*clean_refinement_flags=*/false);
 }

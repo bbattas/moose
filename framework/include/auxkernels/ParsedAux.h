@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -61,7 +61,7 @@ protected:
   /// coordinate and time variable names
   const std::vector<std::string> _xyzt;
 
-  /// function parser object for the resudual and on-diagonal Jacobian
+  /// function parser object to compute the local value of the aux-variable
   SymFunctionPtr _func_F;
 
   usingFunctionParserUtilsMembers(false);

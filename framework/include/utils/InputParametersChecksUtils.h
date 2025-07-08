@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -48,6 +48,11 @@ protected:
   /// @param param2 second parameter to check, that should be set if first one is set
   void checkSecondParamSetOnlyIfFirstOneSet(const std::string & param1,
                                             const std::string & param2) const;
+  /// Check that a parameter is not set if the first one is set
+  /// @param param1 first parameter to check, check that the second is not if this one is set
+  /// @param param2 second parameter to check, that should not be set if first one is set
+  void checkSecondParamNotSetIfFirstOneSet(const std::string & param1,
+                                           const std::string & param2) const;
   /// Check that the two vector parameters are of the same length
   /// @param param1 first vector parameter to compare the size of
   /// @param param2 second vector parameter to compare the size of
@@ -135,7 +140,7 @@ protected:
   /// Error messages for parameters that should depend on another parameter but with a different error message
   /// @param param1 the parameter has not been set to the desired value (for logging purposes)
   /// @param value_set the value it has been set to and which is not appropriate (for logging purposes)
-  /// @param dependent_params all the parameters that should not have been since 'param1' was not set to 'value_not_set'
+  /// @param dependent_params all the parameters that should not have been set since 'param1' was set to 'value_set'
   void errorInconsistentDependentParameter(const std::string & param1,
                                            const std::string & value_set,
                                            const std::vector<std::string> & dependent_params) const;
@@ -275,7 +280,8 @@ InputParametersChecksUtils<C>::checkTwoDVectorParamsSameLength(const std::string
             param1,
             "Vector at index " + std::to_string(index) + " of 2D vector parameter '" + param1 +
                 "' is not the same size as its counterpart from 2D vector parameter '" + param2 +
-                "'");
+                "'.\nSize first vector: " + std::to_string(value1[index].size()) +
+                "\nSize second vector: " + std::to_string(value2[index].size()));
   }
   // handle empty vector defaults
   else if (forwardIsParamValid(param1) || forwardIsParamValid(param2))
@@ -370,9 +376,15 @@ InputParametersChecksUtils<C>::checkVectorParamsNoOverlap(
       {
         auto copy_params = param_vec;
         copy_params.erase(std::find(copy_params.begin(), copy_params.end(), param));
-        forwardMooseError("Item '" + value + "' specified in vector parameter '" + param +
-                          "' is also present in one or more of the parameters '" +
-                          Moose::stringify(copy_params) + "', which is not allowed.");
+        // Overlap between multiple vectors of parameters
+        if (copy_params.size())
+          forwardMooseError("Item '" + value + "' specified in vector parameter '" + param +
+                            "' is also present in one or more of the parameters '" +
+                            Moose::stringify(copy_params) + "', which is not allowed.");
+        // Overlap within a single vector parameter caused by a repeated item
+        else
+          forwardMooseError("Item '" + value + "' specified in vector parameter '" + param +
+                            "' is repeated, which is not allowed.");
       }
   }
 }
@@ -610,4 +622,15 @@ InputParametersChecksUtils<C>::checkSecondParamSetOnlyIfFirstOneSet(
     forwardParamError(param2,
                       "Parameter '" + param2 + "' should not be set if parameter '" + param1 +
                           "' is not specified.");
+}
+
+template <typename C>
+void
+InputParametersChecksUtils<C>::checkSecondParamNotSetIfFirstOneSet(const std::string & param1,
+                                                                   const std::string & param2) const
+{
+  if (forwardIsParamSetByUser(param1) && forwardIsParamSetByUser(param2))
+    forwardParamError(param2,
+                      "Parameter '" + param2 + "' should not be specified if parameter '" + param1 +
+                          "' is specified.");
 }

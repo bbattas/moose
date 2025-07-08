@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -128,6 +128,7 @@ LinearSystem::computeLinearSystemTags(const std::set<TagID> & vector_tags,
   }
   catch (MooseException & e)
   {
+    _console << "Exception detected " << e.what() << std::endl;
     // The buck stops here, we have already handled the exception by
     // calling stopSolve(), it is now up to PETSc to return a
     // "diverged" reason during the next solve.
@@ -172,8 +173,8 @@ LinearSystem::computeGradients()
 
   for (const auto i : index_range(_raw_grad_container))
   {
+    _new_gradient[i]->close();
     _raw_grad_container[i] = std::move(_new_gradient[i]);
-    _raw_grad_container[i]->close();
   }
 }
 
@@ -243,6 +244,7 @@ LinearSystem::computeLinearSystemInternal(const std::set<TagID> & vector_tags,
 
   // Accumulate the occurrence of solution invalid warnings for the current iteration cumulative
   // counters
+  _app.solutionInvalidity().syncIteration();
   _app.solutionInvalidity().solutionInvalidAccumulation();
 }
 

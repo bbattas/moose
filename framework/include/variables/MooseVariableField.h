@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -119,6 +119,11 @@ public:
   virtual const ADTemplateVariableGradient<OutputType> & adGradSlnDot() const = 0;
 
   /**
+   * AD curl solution getter
+   */
+  virtual const ADTemplateVariableCurl<OutputType> & adCurlSln() const = 0;
+
+  /**
    * AD grad neighbor solution getter
    */
   virtual const ADTemplateVariableGradient<OutputType> & adGradSlnNeighbor() const = 0;
@@ -127,6 +132,11 @@ public:
    * AD grad of time derivative neighbor solution getter
    */
   virtual const ADTemplateVariableGradient<OutputType> & adGradSlnNeighborDot() const = 0;
+
+  /**
+   * AD curl neighbor solution getter
+   */
+  virtual const ADTemplateVariableCurl<OutputType> & adCurlSlnNeighbor() const = 0;
 
   /**
    * AD second solution getter
@@ -363,6 +373,9 @@ public:
   virtual const MooseArray<libMesh::Number> & dofValuesDuDotDotDu() const = 0;
   virtual const MooseArray<libMesh::Number> & dofValuesDuDotDotDuNeighbor() const = 0;
 
+  template <bool is_ad>
+  const MooseArray<GenericReal<is_ad>> & genericDofValues() const;
+
   /**
    * tag values getters
    */
@@ -398,6 +411,24 @@ protected:
   /// A dummy ADReal variable
   mutable ADReal _ad_real_dummy = 0;
 };
+
+template <>
+template <>
+const MooseArray<Real> & MooseVariableField<Real>::genericDofValues<false>() const;
+template <>
+template <>
+const MooseArray<Real> & MooseVariableField<RealVectorValue>::genericDofValues<false>() const;
+template <>
+template <>
+const MooseArray<Real> & MooseVariableField<RealEigenVector>::genericDofValues<false>() const;
+
+template <typename OutputType>
+template <bool is_ad>
+const MooseArray<GenericReal<is_ad>> &
+MooseVariableField<OutputType>::genericDofValues() const
+{
+  return adDofValues();
+}
 
 #define usingMooseVariableFieldMembers                                                             \
   usingMooseVariableFieldBaseMembers;                                                              \

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -38,7 +38,7 @@ public:
   /**
    * Utility to verify that the variable in the destination system exists.
    */
-  void variableIntegrityCheck(const AuxVariableName & var_name) const;
+  void variableIntegrityCheck(const AuxVariableName & var_name, bool is_from_multiapp) const;
 
   void initialSetup() override;
 
@@ -212,6 +212,15 @@ protected:
     mooseError("Siblings transfer not supported. You cannot transfer both from a multiapp to "
                "another multiapp");
   }
+
+  /**
+   * Error if executing this MooseObject on EXEC_TRANSFER in a source multiapp (from_multiapp, e.g.
+   * child/sibling app). Note that, conversely, when the parent app is the source application, it is
+   * usually \emph desired to use EXEC_TRANSFER for a MooseObject that provides the values to
+   * transfer.
+   * @param object_name name of the object to check the execute_on flags for
+   */
+  void errorIfObjectExecutesOnTransferInSourceApp(const std::string & object_name) const;
 
   /**
    * Get the target app point from a point in the reference frame

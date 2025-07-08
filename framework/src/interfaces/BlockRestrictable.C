@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -217,6 +217,12 @@ BlockRestrictable::hasBlocks(const SubdomainName & name) const
 
 bool
 BlockRestrictable::hasBlocks(const std::vector<SubdomainName> & names) const
+{
+  return hasBlocks(_blk_mesh->getSubdomainIDs(names));
+}
+
+bool
+BlockRestrictable::hasBlocks(const std::set<SubdomainName> & names) const
 {
   return hasBlocks(_blk_mesh->getSubdomainIDs(names));
 }

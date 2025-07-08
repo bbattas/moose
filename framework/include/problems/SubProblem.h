@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -88,7 +88,11 @@ public:
   virtual const MooseMesh & mesh() const = 0;
   virtual const MooseMesh & mesh(bool use_displaced) const = 0;
 
-  virtual bool checkNonlocalCouplingRequirement() { return _requires_nonlocal_coupling; }
+  /**
+   * @returns whether there will be nonlocal coupling at any point in the simulation, e.g. whether
+   * there are any active \emph or inactive nonlocal kernels or boundary conditions
+   */
+  virtual bool checkNonlocalCouplingRequirement() const = 0;
 
   /**
    * @return whether the given solver system \p sys_num is converged
@@ -296,12 +300,6 @@ public:
   /// Returns the variable reference for requested ArrayMooseVariable which may be in any system
   virtual ArrayMooseVariable & getArrayVariable(const THREAD_ID tid,
                                                 const std::string & var_name) = 0;
-
-  /// Returns the variable name of a component of an array variable
-  static std::string arrayVariableComponent(const std::string & var_name, unsigned int i)
-  {
-    return var_name + "_" + std::to_string(i);
-  }
 
   /// Returns a Boolean indicating whether any system contains a variable with the name provided
   virtual bool hasScalarVariable(const std::string & var_name) const = 0;
@@ -516,8 +514,6 @@ public:
 
   virtual GeometricSearchData & geomSearchData() = 0;
 
-  virtual void meshChanged();
-
   /**
    * Adds the given material property to a storage map based on block ids
    *
@@ -675,10 +671,7 @@ public:
   /**
    * @return the nonlocal coupling matrix for the i'th nonlinear system
    */
-  const libMesh::CouplingMatrix & nonlocalCouplingMatrix(const unsigned i) const
-  {
-    return _nonlocal_cm[i];
-  }
+  virtual const libMesh::CouplingMatrix & nonlocalCouplingMatrix(const unsigned i) const = 0;
 
   /**
    * Returns true if the problem is in the process of computing the Jacobian
@@ -989,20 +982,19 @@ public:
   void reinitFVFace(const THREAD_ID tid, const FaceInfo & fi);
 
   /**
-   * Whether the simulation has nonlocal coupling which should be accounted for in the Jacobian
+   * Whether the simulation has active nonlocal coupling which should be accounted for in the
+   * Jacobian. For this to return true, there must be at least one active nonlocal kernel or
+   * boundary condition
    */
   virtual bool hasNonlocalCoupling() const = 0;
 
   /**
-   * Indicate whether the kind of adaptivity we're doing is p-refinement
-   * @param doing_p_refinement Whether we're doing p-refinement
-   * @param disable_p_refinement_for_families Families to disable p-refinement for
+   * Prepare \p DofMap and \p Assembly classes with our p-refinement information
    */
-  virtual void doingPRefinement(bool doing_p_refinement,
-                                const MultiMooseEnum & disable_p_refinement_for_families);
+  void preparePRefinement();
 
   /**
-   * @returns whether the kind of adaptivity we're doing is p-refinement
+   * @returns whether we're doing p-refinement
    */
   [[nodiscard]] bool doingPRefinement() const;
 
@@ -1034,6 +1026,12 @@ protected:
    */
   bool verifyVectorTags() const;
 
+  /**
+   * Mark a variable family for either disabling or enabling p-refinement with valid parameters of a
+   * variable
+   */
+  void markFamilyPRefinement(const InputParameters & params);
+
   /// The currently declared tags
   std::map<TagName, TagID> _matrix_tag_name_to_tag_id;
 
@@ -1042,8 +1040,6 @@ protected:
 
   /// The Factory for building objects
   Factory & _factory;
-
-  std::vector<libMesh::CouplingMatrix> _nonlocal_cm; /// nonlocal coupling matrix;
 
   DiracKernelInfo _dirac_kernel_info;
 
@@ -1084,9 +1080,6 @@ protected:
   std::vector<std::set<TagID>> _active_sc_var_coupleable_matrix_tags;
 
   std::vector<std::set<TagID>> _active_sc_var_coupleable_vector_tags;
-
-  /// nonlocal coupling requirement flag
-  bool _requires_nonlocal_coupling;
 
   /// Whether or not to use default libMesh coupling
   bool _default_ghosting;
@@ -1202,6 +1195,11 @@ private:
 
   /// Whether p-refinement has been requested at any point during the simulation
   bool _have_p_refinement;
+
+  /// Indicate whether a family is disabled for p-refinement
+  std::unordered_map<FEFamily, bool> _family_for_p_refinement;
+  /// The set of variable families by default disable p-refinement
+  static const std::unordered_set<FEFamily> _default_families_without_p_refinement;
 
   friend class Restartable;
 };
@@ -1403,9 +1401,9 @@ SubProblem::addFunctor(const std::string & name,
       {
         auto & [requested_functor_is_ad, requestor_is_ad] = request_info_it->second;
         if (!requested_functor_is_ad && requestor_is_ad && added_functor_is_ad)
-          mooseError("We are requesting a non-AD functor from an AD object, but the true functor "
-                     "is AD. This means we could be dropping important derivatives. We will not "
-                     "allow this");
+          mooseError("We are requesting a non-AD functor '" + name +
+                     "' from an AD object, but the true functor is AD. This means we could be "
+                     "dropping important derivatives. We will not allow this");
         // We're going to eventually check whether we've fulfilled all functor requests and our
         // check will be that the multimap is empty. This request is fulfilled, so erase it from the
         // map now

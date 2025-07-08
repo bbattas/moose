@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -91,6 +91,7 @@ MultiAppPostprocessorInterpolationTransfer::execute()
     }
     case FROM_MULTIAPP:
     {
+      errorIfObjectExecutesOnTransferInSourceApp(_postprocessor);
       std::unique_ptr<InverseDistanceInterpolation<LIBMESH_DIM>> idi;
 
       switch (_interp_type)

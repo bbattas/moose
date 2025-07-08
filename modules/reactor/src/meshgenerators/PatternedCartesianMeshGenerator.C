@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -62,7 +62,7 @@ PatternedCartesianMeshGenerator::validParams()
                         false,
                         "Whether a positions file is generated in the core mesh mode.");
   params.addParam<bool>("assign_control_drum_id",
-                        true,
+                        false,
                         "Whether control drum id is assigned to the mesh as an extra integer.");
   std::string position_file_default = "positions_meta.data";
   params.addParam<std::string>(
@@ -100,6 +100,10 @@ PatternedCartesianMeshGenerator::validParams()
                         true,
                         "Whether the outward interface boundary sidesets are created.");
   params.addParam<BoundaryName>(
+      "stitching_boundary_name",
+      std::to_string(OUTER_SIDESET_ID),
+      "Name of the boundary used for stitching pins togethers and with the background region");
+  params.addParam<BoundaryName>(
       "external_boundary_name", BoundaryName(), "Optional customized external boundary name.");
   params.addParam<bool>("deform_non_circular_region",
                         true,
@@ -123,6 +127,15 @@ PatternedCartesianMeshGenerator::validParams()
       "boundary_region_element_type",
       quad_elem_type,
       "Type of the quadrilateral elements to be generated in the boundary region.");
+  params.addParam<bool>(
+      "allow_unused_inputs",
+      false,
+      "Whether additional input assemblies can be part of inputs without being used in lattice");
+  params.addParam<bool>(
+      "verbose_stitching",
+      false,
+      "Whether to output the number of nodes stitched when stitching pin and background meshes");
+
   params.addParamNamesToGroup(
       "pattern_boundary background_block_id background_block_name duct_block_ids duct_block_names "
       "external_boundary_id external_boundary_name create_inward_interface_boundaries "
@@ -165,6 +178,7 @@ PatternedCartesianMeshGenerator::PatternedCartesianMeshGenerator(const InputPara
                         ? getParam<std::vector<subdomain_id_type>>("duct_block_ids")
                         : std::vector<subdomain_id_type>()),
     _duct_block_names(getParam<std::vector<SubdomainName>>("duct_block_names")),
+    _stitching_boundary_name(getParam<BoundaryName>("stitching_boundary_name")),
     _external_boundary_id(isParamValid("external_boundary_id")
                               ? getParam<boundary_id_type>("external_boundary_id")
                               : 0),
@@ -176,7 +190,9 @@ PatternedCartesianMeshGenerator::PatternedCartesianMeshGenerator(const InputPara
     _use_exclude_id(isParamValid("exclude_id")),
     _use_interface_boundary_id_shift(isParamValid("interface_boundary_id_shift_pattern")),
     _boundary_quad_elem_type(
-        getParam<MooseEnum>("boundary_region_element_type").template getEnum<QUAD_ELEM_TYPE>())
+        getParam<MooseEnum>("boundary_region_element_type").template getEnum<QUAD_ELEM_TYPE>()),
+    _allow_unused_inputs(getParam<bool>("allow_unused_inputs")),
+    _verbose_stitching(getParam<bool>("verbose_stitching"))
 {
   declareMeshProperty("pattern_pitch_meta", 0.0);
   declareMeshProperty("input_pitch_meta", 0.0);
@@ -215,10 +231,11 @@ PatternedCartesianMeshGenerator::PatternedCartesianMeshGenerator(const InputPara
     paramError(
         "pattern",
         "Elements of this parameter must be smaller than the length of inputs (0-indexing).");
-  if ((unsigned int)std::distance(pattern_1d.begin(),
-                                  std::unique(pattern_1d.begin(), pattern_1d.end())) <
-      _input_names.size())
-    paramError("pattern", "All the meshes provided in inputs must be used here.");
+  if (std::set<unsigned int>(pattern_1d.begin(), pattern_1d.end()).size() < _input_names.size() &&
+      !_allow_unused_inputs)
+    paramError("pattern",
+               "All the meshes provided in inputs must be used in the lattice pattern. To bypass "
+               "this requirement, set 'allow_unused_inputs = true'");
 
   if (isParamValid("background_block_id"))
   {
@@ -726,14 +743,19 @@ PatternedCartesianMeshGenerator::generate()
             out_mesh->set_subdomain_name_map().insert(increment_subdomain_map.begin(),
                                                       increment_subdomain_map.end());
 
+            const auto stitching_boundary_id_base =
+                MooseMeshUtils::getBoundaryID(_stitching_boundary_name, *out_mesh);
+            const auto stitching_boundary_id_periph =
+                MooseMeshUtils::getBoundaryID(_stitching_boundary_name, *tmp_peripheral_mesh);
+
             MeshTools::Modification::translate(
                 *tmp_peripheral_mesh, deltax + j * input_pitch, deltay, 0);
             out_mesh->stitch_meshes(*tmp_peripheral_mesh,
-                                    OUTER_SIDESET_ID,
-                                    OUTER_SIDESET_ID,
+                                    stitching_boundary_id_base,
+                                    stitching_boundary_id_periph,
                                     TOLERANCE,
                                     /*clear_stitched_boundary_ids=*/true,
-                                    /*verbose=*/false);
+                                    _verbose_stitching);
           }
 
           continue;
@@ -767,12 +789,16 @@ PatternedCartesianMeshGenerator::generate()
                             _interface_boundary_id_shift_pattern[i][j],
                             input_interface_boundary_ids[pattern]);
 
+      const auto stitching_boundary_id_1 =
+          MooseMeshUtils::getBoundaryID(_stitching_boundary_name, *out_mesh);
+      const auto stitching_boundary_id_2 =
+          MooseMeshUtils::getBoundaryID(_stitching_boundary_name, pattern_mesh);
       out_mesh->stitch_meshes(pattern_mesh,
-                              OUTER_SIDESET_ID,
-                              OUTER_SIDESET_ID,
+                              stitching_boundary_id_1,
+                              stitching_boundary_id_2,
                               TOLERANCE,
                               /*clear_stitched_boundary_ids=*/false,
-                              /*verbose=*/false);
+                              _verbose_stitching);
 
       // Translate back now that we've stitched so that anyone else that uses this mesh has it at
       // the origin
@@ -786,15 +812,19 @@ PatternedCartesianMeshGenerator::generate()
     }
   }
 
-  // Check if OUTER_SIDESET_ID is really the external boundary. Correct if needed.
+  // Check if stitching_boundary_id is really the external boundary. Correct if needed.
   auto side_list = out_mesh->get_boundary_info().build_side_list();
+  const auto stitching_boundary_id =
+      MooseMeshUtils::getBoundaryID(_stitching_boundary_name, *out_mesh);
   for (auto & sl : side_list)
   {
-    if (std::get<2>(sl) == OUTER_SIDESET_ID)
+    // Remove it as an internal boundary
+    if (std::get<2>(sl) == stitching_boundary_id)
       if (out_mesh->elem_ptr(std::get<0>(sl))->neighbor_ptr(std::get<1>(sl)) != nullptr)
         out_mesh->get_boundary_info().remove_side(
             out_mesh->elem_ptr(std::get<0>(sl)), std::get<1>(sl), std::get<2>(sl));
   }
+
   out_mesh->get_boundary_info().clear_boundary_node_ids();
 
   out_mesh->get_boundary_info().build_node_list_from_side_list();
@@ -815,7 +845,7 @@ PatternedCartesianMeshGenerator::generate()
     const Real azi_tol = 1E-8;
     for (unsigned int i = 0; i < node_list.size(); ++i)
     {
-      if (std::get<1>(node_list[i]) == OUTER_SIDESET_ID)
+      if (std::get<1>(node_list[i]) == stitching_boundary_id)
       {
         node_azi_list.push_back(
             std::make_pair(atan2(out_mesh->node_ref(std::get<0>(node_list[i]))(1),
@@ -860,7 +890,6 @@ PatternedCartesianMeshGenerator::generate()
     const Real azi_tol = 1E-8;
     std::vector<std::tuple<Real, Point, std::vector<Real>, dof_id_type>> control_drum_tmp;
     std::vector<dof_id_type> control_drum_id_sorted;
-    unsigned int drum_integer_index = out_mesh->get_elem_integer_index("control_drum_id");
     for (unsigned int i = 0; i < control_drum_positions_x.size(); ++i)
     {
       control_drum_positions_x[i] -= origin_x;
@@ -905,6 +934,7 @@ PatternedCartesianMeshGenerator::generate()
 
     if (_assign_control_drum_id)
     {
+      unsigned int drum_integer_index = out_mesh->get_elem_integer_index("control_drum_id");
       for (const auto & elem : out_mesh->element_ptr_range())
       {
         dof_id_type unsorted_control_drum_id = elem->get_extra_integer(drum_integer_index);
@@ -953,14 +983,16 @@ PatternedCartesianMeshGenerator::generate()
   }
   // Assign customized outer surface boundary id and name
   if (_external_boundary_id > 0)
-    MooseMesh::changeBoundaryId(*out_mesh, OUTER_SIDESET_ID, _external_boundary_id, false);
+    MooseMesh::changeBoundaryId(*out_mesh, stitching_boundary_id, _external_boundary_id, false);
   if (!_external_boundary_name.empty())
   {
-    out_mesh->get_boundary_info().sideset_name(
-        _external_boundary_id > 0 ? _external_boundary_id : (boundary_id_type)OUTER_SIDESET_ID) =
+    out_mesh->get_boundary_info().sideset_name(_external_boundary_id > 0
+                                                   ? _external_boundary_id
+                                                   : (boundary_id_type)stitching_boundary_id) =
         _external_boundary_name;
-    out_mesh->get_boundary_info().nodeset_name(
-        _external_boundary_id > 0 ? _external_boundary_id : (boundary_id_type)OUTER_SIDESET_ID) =
+    out_mesh->get_boundary_info().nodeset_name(_external_boundary_id > 0
+                                                   ? _external_boundary_id
+                                                   : (boundary_id_type)stitching_boundary_id) =
         _external_boundary_name;
   }
   // Merge the boundary name maps of all the input meshed to generate the output mesh's boundary
@@ -1014,6 +1046,8 @@ PatternedCartesianMeshGenerator::addPeripheralMesh(
   std::vector<std::pair<Real, Real>> sub_positions_inner;
   std::vector<std::pair<Real, Real>> sub_d_positions_outer;
 
+  const auto stitching_boundary_id = MooseMeshUtils::getBoundaryID(_stitching_boundary_name, mesh);
+
   if (mesh_type == CORNER_MESH)
     // corner mesh has two sides that need peripheral meshes.
     // each element has three sub-elements, representing beginning, middle, and ending azimuthal
@@ -1054,12 +1088,13 @@ PatternedCartesianMeshGenerator::addPeripheralMesh(
                                           (i != extra_dist.size() - 1) &&
                                               _create_outward_interface_boundaries);
 
-      if (mesh.is_prepared()) // Need to prepare if the other is prepared to stitch
-        meshp0->prepare_for_use();
+      // The other_mesh must be prepared before stitching
+      meshp0->prepare_for_use();
 
       // rotate the peripheral mesh to the desired side of the hexagon.
       MeshTools::Modification::rotate(*meshp0, rotation_angle, 0, 0);
-      mesh.stitch_meshes(*meshp0, OUTER_SIDESET_ID, OUTER_SIDESET_ID, TOLERANCE, true, false);
+      mesh.stitch_meshes(
+          *meshp0, stitching_boundary_id, OUTER_SIDESET_ID, TOLERANCE, true, _verbose_stitching);
       sub_positions_inner.resize(0);
       sub_d_positions_outer.resize(0);
     }

@@ -1,5 +1,5 @@
 #* This file is part of the MOOSE framework
-#* https://www.mooseframework.org
+#* https://mooseframework.inl.gov
 #*
 #* All rights reserved, see COPYRIGHT for full restrictions
 #* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -58,7 +58,8 @@ class OutputInterface:
         output = ''
         if self.separate_output_path:
             try:
-                output = open(self.separate_output_path, 'r').read()
+                with open(self.separate_output_path, 'r') as f:
+                    output = f.read()
             except FileNotFoundError:
                 pass
         else:
@@ -76,7 +77,8 @@ class OutputInterface:
         if not output:
             return
         if self.separate_output_path:
-            open(self.separate_output_path, 'w').write(output)
+            with open(self.separate_output_path, 'w') as f:
+                f.write(output)
         else:
             self.output = output
 
@@ -85,7 +87,8 @@ class OutputInterface:
         if not output:
             return
         if self.separate_output_path:
-            open(self.separate_output_path, 'a').write(output)
+            with open(self.separate_output_path, 'a') as f:
+                f.write(output)
         else:
             self.output += output
 
