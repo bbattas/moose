@@ -68,11 +68,16 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
     // _vals_var(coupledIndices("v")),
     _var_name_base(getParam<std::string>("var_name_base")),
     _variable_L(getParam<bool>("variable_L")),
-    _dLdop(getMaterialPropertyDerivative<Real>("mob_name", _var.name())),
-    _d2Ldop2(getMaterialPropertyDerivative<Real>("mob_name", _var.name(), _var.name())),
-    _dLdgrad_op(getMaterialProperty<RealGradient>("dL_dgradop_name")),
-    _d2Ldgrad_op2(getMaterialProperty<RealTensorValue>("d2L_dgradop2_name")),
-    _d2Ldopdgrad_op(getMaterialPropertyDerivative<RealGradient>("dL_dgradop_name", _var.name())),
+    _dLdop(_variable_L ? &getMaterialPropertyDerivative<Real>("mob_name", _var.name()) : nullptr),
+    _d2Ldop2(_variable_L
+                 ? &getMaterialPropertyDerivative<Real>("mob_name", _var.name(), _var.name())
+                 : nullptr),
+    _dLdgrad_op(_variable_L ? &getMaterialProperty<RealGradient>("dL_dgradop_name") : nullptr),
+    _d2Ldgrad_op2(_variable_L ? &getMaterialProperty<RealTensorValue>("d2L_dgradop2_name")
+                              : nullptr),
+    _d2Ldopdgrad_op(
+        _variable_L ? &getMaterialPropertyDerivative<RealGradient>("dL_dgradop_name", _var.name())
+                    : nullptr),
     _dLdarg(_n_args),
     _d2Ldargdop(_n_args),
     _d2Ldarg2(_n_args),
@@ -108,17 +113,18 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
                    "parameter.");
     }
 
-    _dLdarg[i] = &getMaterialPropertyDerivative<Real>("mob_name", i);
-    // _dkappadarg[i] = &getMaterialPropertyDerivative<Real>("kappa_name", i);
-    _d2Ldargdop[i] = &getMaterialPropertyDerivative<Real>("mob_name", iname, _var.name());
-    _d2Ldargdgradop[i] = &getMaterialPropertyDerivative<RealGradient>("dL_dgradop_name", iname);
-    _gradarg[i] = &(ivar->gradSln());
-    // _gradarg[i] = &coupledGradient(ivar->name());
-    _second_arg[i] = &(ivar->secondSln());
+    if (_variable_L)
+    {
+      _dLdarg[i] = &getMaterialPropertyDerivative<Real>("mob_name", i);
+      _d2Ldargdop[i] = &getMaterialPropertyDerivative<Real>("mob_name", iname, _var.name());
+      _d2Ldargdgradop[i] = &getMaterialPropertyDerivative<RealGradient>("dL_dgradop_name", iname);
+      _d2Ldarg2[i].resize(_n_args);
+      for (unsigned int j = 0; j < _n_args; ++j)
+        _d2Ldarg2[i][j] = &getMaterialPropertyDerivative<Real>("mob_name", i, j);
 
-    _d2Ldarg2[i].resize(_n_args);
-    for (unsigned int j = 0; j < _n_args; ++j)
-      _d2Ldarg2[i][j] = &getMaterialPropertyDerivative<Real>("mob_name", i, j);
+      _gradarg[i] = &(ivar->gradSln());
+      _second_arg[i] = &(ivar->secondSln());
+    }
 
     // ID the number at the end of the args to determine which dLdgrad to use
     // Check if coupled var starts with the var_name_base (grain op)
@@ -126,25 +132,27 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
     {
       _grain_ids.push_back(i);
       _eta_vals.push_back(&coupledValue("coupled_variables", i));
-      // _grain_set.insert(i);
-      // Pull the number at the end of the grain op
-      const std::size_t pos = iname.find_last_not_of("0123456789");
-      if (pos == std::string::npos || pos + 1 == iname.size())
-        mooseError("Variable '",
-                   iname,
-                   "' does not end in a numeric suffix, despite starting with var_name_base.");
-      const std::string digits = iname.substr(pos + 1);
-      // mooseWarning("digits = ", digits);
-      _dLdgradarg[i] = &getMaterialProperty<RealGradient>("dLdgrad_eta_" + digits);
-      _d2Ldgradarg2[i] = &getMaterialProperty<RealTensorValue>("d2Ldgrad_eta2_" + digits);
-      _d2Ldgradargdarg[i].resize(_n_args);
-      // _d2Ldgradargdarg[i] =
-      //     &getMaterialPropertyDerivative<RealGradient>("dLdgrad_eta_" + digits, iname);
-      _d2Ldgradargdop[i] =
-          &getMaterialPropertyDerivative<RealGradient>("dLdgrad_eta_" + digits, _var.name());
-      for (unsigned int j = 0; j < _n_args; ++j)
-        _d2Ldgradargdarg[i][j] = &getMaterialPropertyDerivative<RealGradient>(
-            "dLdgrad_eta_" + digits, _coupled_standard_moose_vars[j]->name());
+      if (_variable_L)
+      {
+        // Pull the number at the end of the grain op
+        const std::size_t pos = iname.find_last_not_of("0123456789");
+        if (pos == std::string::npos || pos + 1 == iname.size())
+          mooseError("Variable '",
+                     iname,
+                     "' does not end in a numeric suffix, despite starting with var_name_base.");
+        const std::string digits = iname.substr(pos + 1);
+        // mooseWarning("digits = ", digits);
+        _dLdgradarg[i] = &getMaterialProperty<RealGradient>("dLdgrad_eta_" + digits);
+        _d2Ldgradarg2[i] = &getMaterialProperty<RealTensorValue>("d2Ldgrad_eta2_" + digits);
+        _d2Ldgradargdarg[i].resize(_n_args);
+        // _d2Ldgradargdarg[i] =
+        //     &getMaterialPropertyDerivative<RealGradient>("dLdgrad_eta_" + digits, iname);
+        _d2Ldgradargdop[i] =
+            &getMaterialPropertyDerivative<RealGradient>("dLdgrad_eta_" + digits, _var.name());
+        for (unsigned int j = 0; j < _n_args; ++j)
+          _d2Ldgradargdarg[i][j] = &getMaterialPropertyDerivative<RealGradient>(
+              "dLdgrad_eta_" + digits, _coupled_standard_moose_vars[j]->name());
+      }
     }
   }
 }
@@ -158,8 +166,8 @@ ACInterfaceAnisoGamma::initialSetup()
 RealGradient
 ACInterfaceAnisoGamma::gradL() // Includes grad op dependence
 {
-  RealGradient g = _grad_u[_qp] * _dLdop[_qp];
-  g += _second_u[_qp] * _dLdgrad_op[_qp];
+  RealGradient g = _grad_u[_qp] * (*_dLdop)[_qp];
+  g += _second_u[_qp] * (*_dLdgrad_op)[_qp];
   for (unsigned int i = 0; i < _n_args; ++i)
   {
     g += (*_gradarg[i])[_qp] * (*_dLdarg[i])[_qp];
@@ -217,26 +225,27 @@ ACInterfaceAnisoGamma::computeQpJacobian()
     // Grad L partials
     static const RealTensorValue I(1, 0, 0, 0, 1, 0, 0, 0, 1);
     // The direct u pieces
-    RealGradient dgradLdu = _d2Ldop2[_qp] * _grad_u[_qp] + _d2Ldopdgrad_op[_qp] * _second_u[_qp];
-    RealTensorValue dgradLdgradu = libMesh::outer_product(_d2Ldopdgrad_op[_qp], _grad_u[_qp]) +
-                                   I * _dLdop[_qp] + _d2Ldgrad_op2[_qp] * _second_u[_qp];
+    RealGradient dgradLdu =
+        (*_d2Ldop2)[_qp] * _grad_u[_qp] + (*_d2Ldopdgrad_op)[_qp] * _second_u[_qp];
+    RealTensorValue dgradLdgradu = libMesh::outer_product((*_d2Ldopdgrad_op)[_qp], _grad_u[_qp]) +
+                                   I * (*_dLdop)[_qp] + (*_d2Ldgrad_op2)[_qp] * _second_u[_qp];
     // The cross terms with eta/gradeta dependence in grad L
     for (unsigned int i = 0; i < _n_args; ++i)
     {
       dgradLdu += (*_d2Ldargdop[i])[_qp] * (*_gradarg[i])[_qp] +
                   (*_d2Ldgradargdop[i])[_qp] * (*_second_arg[i])[_qp];
       dgradLdgradu += libMesh::outer_product((*_d2Ldargdgradop[i])[_qp], (*_gradarg[i])[_qp]) -
-                      _d2Ldgrad_op2[_qp] * (*_second_arg[i])[_qp];
+                      (*_d2Ldgrad_op2)[_qp] * (*_second_arg[i])[_qp];
     }
 
     // Direct L dependence
-    ddir += _dLdop[_qp] * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() * _phi[_j][_qp] *
-            _grad_test[_i][_qp];
+    ddir += (*_dLdop)[_qp] * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
+            _phi[_j][_qp] * _grad_test[_i][_qp];
     // Direct grad L dependence
     ddir += dgradLdu * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() * _phi[_j][_qp] *
             _test[_i][_qp];
     // Indirect L dependence (of grad u)
-    dind += _dLdgrad_op[_qp] * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
+    dind += (*_dLdgrad_op)[_qp] * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
             _grad_phi[_j][_qp] * _grad_test[_i][_qp];
     // Indirect grad L dependence (of grad u)
     dind += dgradLdgradu * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
@@ -278,7 +287,7 @@ ACInterfaceAnisoGamma::computeQpOffDiagJacobian(unsigned int jvar)
                                   (*_d2Ldargdgradop[cvar])[_qp] * _second_u[_qp];
         RealTensorValue dgradLdgradarg =
             libMesh::outer_product((*_d2Ldgradargdop[cvar])[_qp], _grad_u[_qp]) -
-            _d2Ldgrad_op2[_qp] * _second_u[_qp] + I * (*_dLdarg[cvar])[_qp] -
+            (*_d2Ldgrad_op2)[_qp] * _second_u[_qp] + I * (*_dLdarg[cvar])[_qp] -
             (*_d2Ldgradarg2[cvar])[_qp] * (*_second_arg[cvar])[_qp];
         // Could have more of the dgradLdgradarg into cross terms if those were defined that way
         // The cross terms with eta/gradeta dependence in grad L

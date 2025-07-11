@@ -17,12 +17,12 @@
 /**
  * Inclination dependent properties for AGG
  */
-class GGInclinationMaterial : public DerivativeMaterialInterface<Material> // Material
+class GGIncOld : public DerivativeMaterialInterface<Material> // Material
 {
 public:
   static InputParameters validParams();
 
-  GGInclinationMaterial(const InputParameters & parameters);
+  GGIncOld(const InputParameters & parameters);
 
 protected:
   virtual void computeQpProperties();
@@ -79,7 +79,6 @@ protected:
 
   MaterialProperty<Real> & _testout;
   MaterialProperty<Real> & _testout2;
-  MaterialProperty<Real> & _testout3;
   MaterialProperty<RealGradient> & _testoutgrad;
   MaterialProperty<RealTensorValue> & _testoutgrad2;
   MaterialProperty<RealGradient> & _inclin;
@@ -115,6 +114,5 @@ protected:
 
   const bool _continuous;
   int _angular_func;
-  int _alpha_case;
   const Real _intol;
 };

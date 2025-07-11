@@ -64,13 +64,13 @@ protected:
   const bool _variable_L;
 
   /// @{ Mobility derivatives w.r.t. order parameter
-  const MaterialProperty<Real> & _dLdop;
-  const MaterialProperty<Real> & _d2Ldop2;
+  const MaterialProperty<Real> * _dLdop;
+  const MaterialProperty<Real> * _d2Ldop2;
   /// @}
 
-  const MaterialProperty<RealGradient> & _dLdgrad_op;
-  const MaterialProperty<RealTensorValue> & _d2Ldgrad_op2;
-  const MaterialProperty<RealGradient> & _d2Ldopdgrad_op;
+  const MaterialProperty<RealGradient> * _dLdgrad_op;
+  const MaterialProperty<RealTensorValue> * _d2Ldgrad_op2;
+  const MaterialProperty<RealGradient> * _d2Ldopdgrad_op;
 
   // /// kappa derivative w.r.t. order parameter
   // const MaterialProperty<Real> & _dkappadop;

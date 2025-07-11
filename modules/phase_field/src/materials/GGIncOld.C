@@ -7,12 +7,12 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#include "GGInclinationMaterial.h"
+#include "GGIncOld.h"
 
-registerMooseObject("PhaseFieldApp", GGInclinationMaterial);
+registerMooseObject("PhaseFieldApp", GGIncOld);
 
 InputParameters
-GGInclinationMaterial::validParams()
+GGIncOld::validParams()
 {
   InputParameters params = Material::validParams();
   params.addClassDescription("Inclination dependent properties for AGG.");
@@ -55,13 +55,11 @@ GGInclinationMaterial::validParams()
   MooseEnum angular_func("atan=0 acos=1", "atan");
   params.addParam<MooseEnum>(
       "angular_func", angular_func, "Which angular distance function to use.");
-  MooseEnum alphacase("base=0 ngb=1 thresh=2 exclude=3 zero=4 subzero=5", "base");
-  params.addParam<MooseEnum>("alphacase", alphacase, "Which alpha option to use.");
-  params.addParam<Real>("intol", 1e-6, "Gradient magnitude tolerance");
+  params.addParam<Real>("gradtol", 1e-6, "Gradient magnitude tolerance");
   return params;
 }
 
-GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
+GGIncOld::GGIncOld(const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     // : Material(parameters),
     _op_num(coupledComponents("v")),
@@ -98,7 +96,6 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     // TEMP TEST OUTPUTS
     _testout(declareProperty<Real>("testout")),
     _testout2(declareProperty<Real>("testout2")),
-    _testout3(declareProperty<Real>("testout3")),
     _testoutgrad(declareProperty<RealGradient>("testoutgrad")),
     _testoutgrad2(declareProperty<RealTensorValue>("testoutgrad2")),
     _inclin(declareProperty<RealGradient>("inclin_vec")),
@@ -116,8 +113,7 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _mu(declareProperty<Real>(getParam<MaterialPropertyName>("mu_name"))),
     _continuous(getParam<bool>("continuous")),
     _angular_func(getParam<MooseEnum>("angular_func")),
-    _alpha_case(getParam<MooseEnum>("alphacase")),
-    _intol(getParam<Real>("intol"))
+    _intol(getParam<Real>("gradtol"))
 
 {
   if (_op_num == 0)
@@ -185,7 +181,7 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
 }
 
 void
-GGInclinationMaterial::computeQpProperties()
+GGIncOld::computeQpProperties()
 {
   // Zero out the derivatives for gamma wrt grad_eta
   for (unsigned int i = 0; i < _op_num; ++i)
@@ -234,7 +230,6 @@ GGInclinationMaterial::computeQpProperties()
   dinc_dgeta_list.clear();
   d2inc_dgeta2_list.clear();
   _testout2[_qp] = 0.0;
-  _testout3[_qp] = 0.0;
   _dadb[_qp] = RealGradient(0.0, 0.0, 0.0);
   _d2adb2[_qp] = RealTensorValue(0.0);
   _d3adb3[_qp] = RealTensorValue(0.0);
@@ -282,96 +277,28 @@ GGInclinationMaterial::computeQpProperties()
           RealGradient dincij_dgradetai(0.0, 0.0, 0.0);
           RealGradient dinc_dgetai(0.0, 0.0, 0.0);
           RealTensorValue d2inc_dgetai2(0.0);
-          // _hgb_pairs.push_back((*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] *
-          //                      (*_vals[j])[_qp]);
-
-          if (ngb.norm() > 1.0e-10)
+          _hgb_pairs.push_back((*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] *
+                               (*_vals[j])[_qp]);
+          // _testout2[_qp] = ngb.norm();
+          // Real i_norm = (*_grad_vals[i])[_qp].norm();
+          // Real j_norm = (*_grad_vals[j])[_qp].norm();
+          // if (i_norm >= _intol)
+          //   _testout2[_qp] = (*_grad_vals[j])[_qp].norm();
+          // else
+          //   _testout2[_qp] = 2.0;
+          // Real j_norm = (*_grad_vals[j])[_qp].norm();
+          if (ngb.norm() >
+              1.0e-10) // &&
+                       // (i_norm >= _intol ||
+                       //  j_norm >= _intol)) // && i_norm >= 0.01 && j_norm >= 0.01) // 1.0e-10
           {
-            RealGradient uxyz(0.0, 0.0, 0.0);
-            Real alpha = 0.0;
-            bool alpha_skip = false;
-            bool alpha_zero = false;
-            switch (_alpha_case)
-            {
-              case 0:
-                // Default/old version
-                uxyz = ngb;
-                alpha = 1 / uxyz.norm();
-                ngb /= ngb.norm();
-                _testout2[_qp] = alpha;
-                break;
-              case 1:
-                // NGB Before Alpha/uxyz
-                ngb /= ngb.norm();
-                uxyz = ngb;
-                alpha = 1 / uxyz.norm();
-                _testout2[_qp] = alpha;
-                break;
-              case 2:
-                // Tolerances/thresholds to truncate alpha
-                uxyz = ngb;
-                alpha = 1 / std::max(uxyz.norm(), _intol);
-                ngb /= ngb.norm();
-                _testout2[_qp] = alpha;
-                break;
-              case 3:
-                // Remove or skip elements with alpha below threshold
-                uxyz = ngb;
-                if (uxyz.norm() < _intol)
-                {
-                  alpha_skip = true;
-                  _testout2[_qp] = -1;
-                }
-                else
-                {
-                  alpha = 1 / uxyz.norm();
-                  _testout2[_qp] = alpha;
-                  ngb /= ngb.norm();
-                }
-                break;
-              case 4:
-                // alpha = zero if outside threshold?
-                uxyz = ngb;
-                if (uxyz.norm() < _intol)
-                {
-                  alpha = 0.0;
-                }
-                else
-                {
-                  alpha = 1 / uxyz.norm();
-                }
-                ngb /= ngb.norm();
-                _testout2[_qp] = alpha;
-                break;
-              case 5:
-                // Sub zero- set all pieces using alpha to 0 instead of just alpha?
-                uxyz = ngb;
-                if (uxyz.norm() < _intol)
-                {
-                  alpha = 0.0;
-                  alpha_zero = true;
-                  _testout2[_qp] = -1.0;
-                }
-                else
-                {
-                  alpha = 1 / uxyz.norm();
-                  _testout2[_qp] = alpha;
-                }
-                ngb /= ngb.norm();
-                _testout3[_qp] = uxyz.norm();
-                // _testout2[_qp] = alpha;
-                break;
-              default:
-                mooseError("Unknown alphacase = ", _alpha_case);
-            }
             // ngb /= ngb.norm();       // Really dont think this should be here?
-            // RealGradient uxyz = ngb; // thought the math needed uxyz in derivs not normalized?
+            RealGradient uxyz = ngb; // thought the math needed uxyz in derivs not normalized?
             // Real alpha = 1 / uxyz.norm();
-            // _testout2[_qp] = 1 / uxyz.norm();
-            // const Real alpha_tol = 0.1;
-            // Real alpha = 1 / std::max(uxyz.norm(), alpha_tol);
-            // ngb /= ngb.norm();
-            if ((_angular_func == 0) && !alpha_skip)
+            const Real alpha_tol = 0.1;
+            Real alpha = 1 / std::max(uxyz.norm(), alpha_tol);
+            ngb /= ngb.norm();
+            if (_angular_func == 0)
             {
               R = std::sqrt((ngb(1) * ngb(1)) + (ngb(2) * ngb(2)));
               a_dist = std::atan2(R, ngb(0));
@@ -402,59 +329,44 @@ GGInclinationMaterial::computeQpProperties()
                 Real d2incdAB = R * R - ngb(0) * ngb(0);
                 RealGradient dincdphi(0.0, 0.0, 0.0);
                 RealTensorValue d2incdphi2(0.0);
-                if (alpha_zero)
+                for (unsigned int p = 0; p < 3; ++p)
                 {
-                  for (unsigned int p = 0; p < 3; ++p)
+                  dincdphi(p) = dincdA * dAdphi(p) + dincdB * dBdphi(p);
+                  for (unsigned int q = 0; q < 3; ++q)
                   {
-                    dinc_dgetai(p) = 0.0;
-                    for (unsigned int q = 0; q < 3; ++q)
+                    dphi_dgradetai(p, q) =
+                        alpha * dij(p, q) - alpha * alpha * alpha * uxyz(p) * uxyz(q);
+                    d2incdphi2(p, q) = (d2incdA2 * dAdphi(q) * dAdphi(p)) +
+                                       d2incdAB * (dAdphi(q) * dBdphi(p) + dAdphi(p) * dBdphi(q)) +
+                                       (d2incdB2 * dBdphi(q) * dBdphi(p)) +
+                                       (dincdA * d2Adphiji(p, q)) + (dincdB * d2Bdphiji(p, q));
+                    for (unsigned int r = 0; r < 3; ++r)
                     {
-                      d2inc_dgetai2(p, q) = 0.0;
+                      d2phi_dgradetai2(p, q, r) =
+                          alpha * alpha * alpha *
+                          (3 * alpha * alpha * uxyz(p) * uxyz(q) * uxyz(r) - uxyz(p) * dij(q, r) -
+                           uxyz(q) * dij(p, r) - uxyz(r) * dij(p, q));
                     }
                   }
-                }
-                else
-                {
-                  for (unsigned int p = 0; p < 3; ++p)
+                  // }
+                  // for (unsigned int p = 0; p < 3; ++p)
+                  // {
+                  for (unsigned int q = 0; q < 3; ++q)
                   {
-                    dincdphi(p) = dincdA * dAdphi(p) + dincdB * dBdphi(p);
-                    for (unsigned int q = 0; q < 3; ++q)
-                    {
-                      dphi_dgradetai(p, q) =
-                          alpha * dij(p, q) - alpha * alpha * alpha * uxyz(p) * uxyz(q);
-                      d2incdphi2(p, q) =
-                          (d2incdA2 * dAdphi(q) * dAdphi(p)) +
-                          d2incdAB * (dAdphi(q) * dBdphi(p) + dAdphi(p) * dBdphi(q)) +
-                          (d2incdB2 * dBdphi(q) * dBdphi(p)) + (dincdA * d2Adphiji(p, q)) +
-                          (dincdB * d2Bdphiji(p, q));
-                      for (unsigned int r = 0; r < 3; ++r)
+                    dinc_dgetai(p) += dincdphi(q) * dphi_dgradetai(q, p);
+                    for (unsigned int r = 0; r < 3; ++r)
+                      for (unsigned int s = 0; s < 3; ++s)
                       {
-                        d2phi_dgradetai2(p, q, r) =
-                            alpha * alpha * alpha *
-                            (3 * alpha * alpha * uxyz(p) * uxyz(q) * uxyz(r) - uxyz(p) * dij(q, r) -
-                             uxyz(q) * dij(p, r) - uxyz(r) * dij(p, q));
+                        d2inc_dgetai2(q, r) +=
+                            d2incdphi2(p, s) * dphi_dgradetai(p, r) * dphi_dgradetai(s, q) +
+                            dincdphi(p) * d2phi_dgradetai2(p, q, r);
                       }
-                    }
-                    // }
-                    // for (unsigned int p = 0; p < 3; ++p)
-                    // {
-                    for (unsigned int q = 0; q < 3; ++q)
-                    {
-                      dinc_dgetai(p) += dincdphi(q) * dphi_dgradetai(q, p);
-                      for (unsigned int r = 0; r < 3; ++r)
-                        for (unsigned int s = 0; s < 3; ++s)
-                        {
-                          d2inc_dgetai2(q, r) +=
-                              d2incdphi2(p, s) * dphi_dgradetai(p, r) * dphi_dgradetai(s, q) +
-                              dincdphi(p) * d2phi_dgradetai2(p, q, r);
-                        }
-                    }
                   }
                 }
                 if (idx1 == 0 && idx2 == 1)
                 {
-                  // _testout2[_qp] = alpha; // uxyz.norm();
-                  _dadb[_qp] = uxyz; // dincdphi;
+                  _testout2[_qp] = alpha; // uxyz.norm();
+                  _dadb[_qp] = uxyz;      // dincdphi;
                   _d2adb2[_qp] = d2incdphi2;
                   _d3adb3[_qp] = dphi_dgradetai;
                 }
@@ -476,7 +388,7 @@ GGInclinationMaterial::computeQpProperties()
                 //     temp_dincldgradetaiz);
               }
             }
-            else if ((_angular_func == 1) && !alpha_skip)
+            else if (_angular_func == 1)
             {
               // Trim values outside allowed range (which shouldnt exist anyway in ngb)
               Real cx = std::max(-1.0, std::min(1.0, ngb(0)));
@@ -535,20 +447,15 @@ GGInclinationMaterial::computeQpProperties()
                 _d3adb3[_qp] = dphi_dgradetai;
               }
             }
-            else if (!alpha_skip)
+            else
             {
               mooseError("Angular function must be 0 or 1");
             }
 
-            if (!alpha_skip)
-            {
-              _inc_pairs.push_back(a_dist); // Radians // * 180 / M_PI for degrees
-              // _dincdgradetai_pairs.push_back(dincij_dgradetai);
-              dinc_dgeta_list.push_back(dinc_dgetai);
-              d2inc_dgeta2_list.push_back(d2inc_dgetai2);
-              _hgb_pairs.push_back((*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] *
-                                   (*_vals[j])[_qp]);
-            }
+            // _inc_pairs.push_back(a_dist); // Radians // * 180 / M_PI for degrees
+            // // _dincdgradetai_pairs.push_back(dincij_dgradetai);
+            // dinc_dgeta_list.push_back(dinc_dgetai);
+            // d2inc_dgeta2_list.push_back(d2inc_dgetai2);
           }
           else
           {
@@ -557,12 +464,10 @@ GGInclinationMaterial::computeQpProperties()
             // a_dist = (libMesh::pi / (2 * _theta_pre)) - _inc_ij_0;
             // a_dist = -1;
           }
-          // _inc_pairs.push_back(a_dist); // Radians // * 180 / M_PI for degrees
-          // // _dincdgradetai_pairs.push_back(dincij_dgradetai);
-          // dinc_dgeta_list.push_back(dinc_dgetai);
-          // d2inc_dgeta2_list.push_back(d2inc_dgetai2);
-          // _hgb_pairs.push_back((*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] *
-          //                      (*_vals[j])[_qp]);
+          _inc_pairs.push_back(a_dist); // Radians // * 180 / M_PI for degrees
+          // _dincdgradetai_pairs.push_back(dincij_dgradetai);
+          dinc_dgeta_list.push_back(dinc_dgetai);
+          d2inc_dgeta2_list.push_back(d2inc_dgetai2);
         }
   }
   // Combine the inclination now!
