@@ -39,6 +39,10 @@ ACInterfaceAnisoGamma::validParams()
                         "this is set to false L must be constant over the "
                         "entire domain!)");
   params.addParam<bool>("skip_off", false, "Skip the off-diagonal part, for testing/debugging.");
+  params.addParam<std::string>("mask_name",
+                               "",
+                               "Name of a MaterialProperty to use as a mask.  "
+                               "If empty, mask = 1.0 everywhere.");
   // params.addRequiredCoupledVar("v",
   //                              "Array of coupled order parameter names for OTHER order
   //                              parameters");
@@ -60,6 +64,7 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
     _dgammadgrad_op(getMaterialProperty<RealGradient>("dgamma_dgradop_name")),
     _d2gammadgrad_op2(getMaterialProperty<RealTensorValue>("d2gamma_dgradop2_name")),
     _skip_off(getParam<bool>("skip_off")),
+    _mask(nullptr),
     // Grain OP list as per ACGrGrPoly
     _grain_ids(),
     // _grain_set(),
@@ -92,6 +97,18 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
     _gradarg(_n_args),
     _second_arg(_n_args)
 {
+  // Pull a mask value if there is one
+  const std::string & mask_name = getParam<std::string>("mask_name");
+  if (!mask_name.empty())
+  {
+    mooseWarning("Mask Name is ", mask_name);
+    _mask = &getMaterialProperty<Real>(mask_name);
+  }
+  else
+  {
+    mooseWarning("Mask name is empty!");
+  }
+
   // Get mobility and kappa derivatives and coupled variable gradients
   // mooseWarning("NAMEBASE: ", _var_name_base);
   // std::vector<unsigned int> _grain_ids;
@@ -207,7 +224,8 @@ ACInterfaceAnisoGamma::sumSqEtaj()
 Real
 ACInterfaceAnisoGamma::computeQpResidual()
 {
-  return _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() * nablaLPsi();
+  const Real mask_val = _mask ? (*_mask)[_qp] : 1.0;
+  return mask_val * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() * nablaLPsi();
 }
 
 Real
@@ -252,7 +270,9 @@ ACInterfaceAnisoGamma::computeQpJacobian()
             _grad_phi[_j][_qp] * _test[_i][_qp];
   }
 
-  return ddir + dind;
+  const Real mask_val = _mask ? (*_mask)[_qp] : 1.0;
+
+  return mask_val * (ddir + dind);
 }
 
 Real
@@ -312,8 +332,11 @@ ACInterfaceAnisoGamma::computeQpOffDiagJacobian(unsigned int jvar)
         dind += dgradLdgradarg * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
                 _grad_phi[_j][_qp] * _test[_i][_qp];
       }
+
+      const Real mask_val = _mask ? (*_mask)[_qp] : 1.0;
+
       // Output the grain_op based offdiagonal
-      return ddir + dind;
+      return mask_val * (ddir + dind);
     }
 
     // Non-grain OP offdiag

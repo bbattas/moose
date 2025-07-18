@@ -43,6 +43,7 @@ GGInclinationMaterial::validParams()
   params.addParam<Real>("free_energy_m", 1, "Free energy function constant m");
   params.addParam<bool>(
       "L_of_eta", false, "Is L a function of eta, requiring those derivatives to be defined.");
+  params.addParam<bool>("aniso_L", false, "Is L anisotropic, else L=L0.");
   params.addParam<MaterialPropertyName>("L0", "AC mobility prefactor/reference value material.");
   params.addParam<MaterialPropertyName>("gamma0",
                                         "gamma prefactor/reference value material (for mu calc).");
@@ -55,9 +56,12 @@ GGInclinationMaterial::validParams()
   MooseEnum angular_func("atan=0 acos=1", "atan");
   params.addParam<MooseEnum>(
       "angular_func", angular_func, "Which angular distance function to use.");
-  MooseEnum alphacase("base=0 ngb=1 thresh=2 exclude=3 zero=4 subzero=5", "base");
+  MooseEnum alphacase("base=0 ngb=1 thresh=2 exclude=3 zero=4 subzero=5 hgb=6 both=7", "base");
   params.addParam<MooseEnum>("alphacase", alphacase, "Which alpha option to use.");
-  params.addParam<Real>("intol", 1e-6, "Gradient magnitude tolerance");
+  params.addParam<Real>("intol", 1e-6, "hgbalpha tolerance");
+  params.addParam<Real>("altol", 1e-6, "alpha tolerance");
+  params.addParam<MaterialPropertyName>("hgb", "hgb", "Name of gb switching function.");
+  params.addParam<bool>("moelans_mu", true, "Is mu defined per moelans aniso, else = sigma.");
   return params;
 }
 
@@ -84,7 +88,10 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _dgammadgrad_eta(_op_num),
     _d2gammadgrad_eta2_name(getParam<std::vector<MaterialPropertyName>>("d2gamma_grad_eta2_names")),
     _d2gammadgrad_eta2(_op_num),
+    _moelans_mu(getParam<bool>("moelans_mu")),
+    // _mu0(getParam<Real>("mu0")),
     // Inclincation dependent L
+    _aniso_L(getParam<bool>("aniso_L")),
     _L_of_eta(getParam<bool>("L_of_eta")),
     _L_name(getParam<MaterialPropertyName>("L_name")),
     _L(declareProperty<Real>(_L_name)),
@@ -99,6 +106,9 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _testout(declareProperty<Real>("testout")),
     _testout2(declareProperty<Real>("testout2")),
     _testout3(declareProperty<Real>("testout3")),
+    _alpha_out(declareProperty<Real>("alpha_out")),
+    _gtnum(declareProperty<Real>("gtnum")),
+    _atens(declareProperty<RealTensorValue>("atens")),
     _testoutgrad(declareProperty<RealGradient>("testoutgrad")),
     _testoutgrad2(declareProperty<RealTensorValue>("testoutgrad2")),
     _inclin(declareProperty<RealGradient>("inclin_vec")),
@@ -117,7 +127,9 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _continuous(getParam<bool>("continuous")),
     _angular_func(getParam<MooseEnum>("angular_func")),
     _alpha_case(getParam<MooseEnum>("alphacase")),
-    _intol(getParam<Real>("intol"))
+    _intol(getParam<Real>("intol")),
+    _altol(getParam<Real>("altol")),
+    _hgb(getMaterialProperty<Real>("hgb"))
 
 {
   if (_op_num == 0)
@@ -219,7 +231,7 @@ GGInclinationMaterial::computeQpProperties()
       _gb_ij_pairs.push_back(i);
     }
   }
-
+  _gtnum[_qp] = _gb_ij_pairs.size();
   // Make a copy and sort
   _gb_ij_sorted = _gb_ij_pairs;
   std::sort(_gb_ij_sorted.begin(), _gb_ij_sorted.end());
@@ -238,6 +250,9 @@ GGInclinationMaterial::computeQpProperties()
   _dadb[_qp] = RealGradient(0.0, 0.0, 0.0);
   _d2adb2[_qp] = RealTensorValue(0.0);
   _d3adb3[_qp] = RealTensorValue(0.0);
+  _alpha_out[_qp] = 0.0;
+  _atens[_qp] = RealTensorValue(0.0);
+  RealTensorValue alphatens(0.0);
 
   switch (_gb_ij_pairs.size())
   {
@@ -248,6 +263,7 @@ GGInclinationMaterial::computeQpProperties()
       // _inclination_distance[_qp] = 0.0;
       _inclination_distance[_qp] = (libMesh::pi / (2 * _theta_pre)) - _inc_ij_0;
       _inclination[_qp] = 1.0;
+      _alpha_out[_qp] = _gb_ij_sorted[0];
       break;
     // case 2:
     //   unsigned int i = _gb_ij_sorted[0];
@@ -291,6 +307,9 @@ GGInclinationMaterial::computeQpProperties()
             Real alpha = 0.0;
             bool alpha_skip = false;
             bool alpha_zero = false;
+            Real hovtol = _hgb[_qp] / _altol;
+            Real invtol = 1 / _intol;
+            // Real newatol = 1 / _altol;
             switch (_alpha_case)
             {
               case 0:
@@ -346,11 +365,54 @@ GGInclinationMaterial::computeQpProperties()
               case 5:
                 // Sub zero- set all pieces using alpha to 0 instead of just alpha?
                 uxyz = ngb;
-                if (uxyz.norm() < _intol)
+                if (uxyz.norm() < invtol) //_intol)
                 {
                   alpha = 0.0;
                   alpha_zero = true;
+                  _testout2[_qp] = -2.0;
+                }
+                else
+                {
+                  alpha = 1 / uxyz.norm();
+                  _testout2[_qp] = alpha;
+                }
+                ngb /= ngb.norm();
+                _testout3[_qp] = uxyz.norm();
+                // _testout2[_qp] = alpha;
+                break;
+              case 6:
+                // hgb- use hgb*alpha as the cutoff check
+                uxyz = ngb;
+                if (uxyz.norm() < hovtol)
+                {
+                  alpha = 0.0;
+                  // alpha_zero = true;
                   _testout2[_qp] = -1.0;
+                }
+                else
+                {
+                  alpha = 1 / uxyz.norm();
+                  _testout2[_qp] = alpha;
+                }
+                ngb /= ngb.norm();
+                _testout3[_qp] = uxyz.norm();
+                // _testout2[_qp] = alpha;
+                break;
+              case 7:
+                // BOTH: hgb and alpha- use hgb*alpha as well as straight alpha cutoff
+                uxyz = ngb;
+                // newha /= uxyz.norm();
+                if (uxyz.norm() < hovtol) // hgb
+                {
+                  alpha = 0.0;
+                  // alpha_zero = true;
+                  _testout2[_qp] = -1.0;
+                }
+                else if (uxyz.norm() < invtol) // subzero
+                {
+                  alpha = 0.0;
+                  // alpha_zero = true;
+                  _testout2[_qp] = -2.0;
                 }
                 else
                 {
@@ -363,6 +425,11 @@ GGInclinationMaterial::computeQpProperties()
                 break;
               default:
                 mooseError("Unknown alphacase = ", _alpha_case);
+            }
+            _alpha_out[_qp] = alpha;
+            if ((i < 3) && (j < 3))
+            {
+              alphatens(i, j) = alpha;
             }
             // ngb /= ngb.norm();       // Really dont think this should be here?
             // RealGradient uxyz = ngb; // thought the math needed uxyz in derivs not normalized?
@@ -564,6 +631,7 @@ GGInclinationMaterial::computeQpProperties()
           // _hgb_pairs.push_back((*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] *
           //                      (*_vals[j])[_qp]);
         }
+      _atens[_qp] = alphatens;
   }
   // Combine the inclination now!
   // temp weighted combination of just the angle
@@ -684,7 +752,35 @@ GGInclinationMaterial::computeQpProperties()
   std::vector<RealGradient> & dfinc_m_dgeta = dfinc_dgeta;
   std::vector<RealTensorValue> & d2finc_m_dgeta2 = d2finc_dgeta2;
   // Now for L
-  _L[_qp] = _L0[_qp] * _inclination[_qp] * finc_m;
+  if (_aniso_L)
+  {
+    _L[_qp] = _L0[_qp] * _inclination[_qp] * finc_m;
+    if (_L_of_eta)
+    {
+      // Put the actual derivative here if L = f(u)
+    }
+    else
+    {
+      // Not a function of u
+      for (unsigned int i = 0; i < _op_num; ++i)
+      {
+        (*_dLdeta[i])[_qp] = 0.0;
+        for (unsigned int j = 0; j < i; ++j)
+        {
+          (*_d2Ldetadeta[j][i])[_qp] = 0.0;
+          (*_d2Ldgrad_etadeta[i][j])[_qp] = RealGradient(0.0);
+        }
+        (*_dLdgrad_eta[i])[_qp] =
+            _L0[_qp] * (_inclination[_qp] * dfinc_m_dgeta[i] + dfinc_dgeta[i] * finc_m);
+        (*_d2Ldgrad_eta2[i])[_qp] =
+            _L0[_qp] * (_inclination[_qp] * d2finc_m_dgeta2[i] +
+                        2 * libMesh::outer_product(dfinc_m_dgeta[i], dfinc_dgeta[i]) +
+                        d2finc_dgeta2[i] * finc_m);
+      }
+    }
+  }
+  else
+    _L[_qp] = _L0[_qp];
 
   for (unsigned int i = 0; i < _op_num; ++i)
   {
@@ -699,53 +795,57 @@ GGInclinationMaterial::computeQpProperties()
                        dpoly_g_dg2 * (2 * dg_dfinc * dg_dfinc *
                                           libMesh::outer_product(dfinc_dgeta[i], dfinc_dgeta[i]) +
                                       2 * g * dg_dfinc * d2finc_dgeta2[i]));
-    if (_L_of_eta)
-    {
-      // Put the actual derivative here if L = f(u)
-      // (*_dLdeta[i])[_qp] = 0.0;
-      // for (unsigned int j = 0; j < i; ++j)
-      //   (*_d2Ldetadeta[j][i])[_qp] = 0.0;
-      // (*_d2Ldetadgrad_eta[i])[_qp] = RealGradient(0.0);
-      // (*_dLdgrad_eta[i])[_qp] =
-      //     _L0[_qp] * (_inclination[_qp] * dfinc_m_dgeta[i] + dfinc_dgeta[i] * finc_m);
-      // (*_d2Ldgrad_eta2[i])[_qp] =
-      //     _L0[_qp] * (_inclination[_qp] * d2finc_m_dgeta2[i] +
-      //                 2 * libMesh::outer_product(dfinc_m_dgeta[i], dfinc_dgeta[i]) +
-      //                 d2finc_dgeta2[i] * finc_m);
-    }
-    else
-    {
-      // Not a function of u
-      (*_dLdeta[i])[_qp] = 0.0;
-      for (unsigned int j = 0; j < i; ++j)
-      {
-        (*_d2Ldetadeta[j][i])[_qp] = 0.0;
-        (*_d2Ldgrad_etadeta[i][j])[_qp] = RealGradient(0.0);
-      }
-      (*_dLdgrad_eta[i])[_qp] =
-          _L0[_qp] * (_inclination[_qp] * dfinc_m_dgeta[i] + dfinc_dgeta[i] * finc_m);
-      (*_d2Ldgrad_eta2[i])[_qp] =
-          _L0[_qp] * (_inclination[_qp] * d2finc_m_dgeta2[i] +
-                      2 * libMesh::outer_product(dfinc_m_dgeta[i], dfinc_dgeta[i]) +
-                      d2finc_dgeta2[i] * finc_m);
-    }
+    // if (_L_of_eta)
+    // {
+    //   // Put the actual derivative here if L = f(u)
+    //   // (*_dLdeta[i])[_qp] = 0.0;
+    //   // for (unsigned int j = 0; j < i; ++j)
+    //   //   (*_d2Ldetadeta[j][i])[_qp] = 0.0;
+    //   // (*_d2Ldetadgrad_eta[i])[_qp] = RealGradient(0.0);
+    //   // (*_dLdgrad_eta[i])[_qp] =
+    //   //     _L0[_qp] * (_inclination[_qp] * dfinc_m_dgeta[i] + dfinc_dgeta[i] * finc_m);
+    //   // (*_d2Ldgrad_eta2[i])[_qp] =
+    //   //     _L0[_qp] * (_inclination[_qp] * d2finc_m_dgeta2[i] +
+    //   //                 2 * libMesh::outer_product(dfinc_m_dgeta[i], dfinc_dgeta[i]) +
+    //   //                 d2finc_dgeta2[i] * finc_m);
+    // }
+    // else
+    // {
+    //   // Not a function of u
+    //   (*_dLdeta[i])[_qp] = 0.0;
+    //   for (unsigned int j = 0; j < i; ++j)
+    //   {
+    //     (*_d2Ldetadeta[j][i])[_qp] = 0.0;
+    //     (*_d2Ldgrad_etadeta[i][j])[_qp] = RealGradient(0.0);
+    //   }
+    //   (*_dLdgrad_eta[i])[_qp] =
+    //       _L0[_qp] * (_inclination[_qp] * dfinc_m_dgeta[i] + dfinc_dgeta[i] * finc_m);
+    //   (*_d2Ldgrad_eta2[i])[_qp] =
+    //       _L0[_qp] * (_inclination[_qp] * d2finc_m_dgeta2[i] +
+    //                   2 * libMesh::outer_product(dfinc_m_dgeta[i], dfinc_dgeta[i]) +
+    //                   d2finc_dgeta2[i] * finc_m);
+    // }
   }
 
-  // mu calc
-  _mu[_qp] = _L0[_qp] * _gamma0[_qp] * std::sqrt(_kappa / _const_m) * finc_m;
+  // mu calc- Moelans
+  if (_moelans_mu)
+    _mu[_qp] = _L0[_qp] * _gamma0[_qp] * std::sqrt(_kappa / _const_m) * finc_m;
+  else
+    _mu[_qp] = _gbe_inc[_qp];
 
   // dINC_dGradEta[i];
 
   // REMEMBER INC here is the f = cos (phi^{\prime})
-  _testout[_qp] = 0.0;
+  _testout[_qp] = std::sqrt(1 / f0_int);
+  _testout2[_qp] = g;
   _testoutgrad[_qp] = RealGradient(0.0);
   _testoutgrad2[_qp] = RealTensorValue(0.0);
-  if (_inc_pairs.size() > 0)
-  {
-    _testout[_qp] = _inc_pairs[0];
-    _testoutgrad[_qp] = dinc_dgeta_list[0];    // dfinc_dgeta[0];
-    _testoutgrad2[_qp] = d2inc_dgeta2_list[0]; // d2finc_dgeta2[0];
-  }
+  // if (_inc_pairs.size() > 0)
+  // {
+  //   _testout[_qp] = _inc_pairs[0];
+  //   _testoutgrad[_qp] = dinc_dgeta_list[0];    // dfinc_dgeta[0];
+  //   _testoutgrad2[_qp] = d2inc_dgeta2_list[0]; // d2finc_dgeta2[0];
+  // }
   RealGradient inclin = (*_grad_vals[0])[_qp] - (*_grad_vals[1])[_qp];
   Real mag = inclin.norm();
   if (mag > 1e-4)

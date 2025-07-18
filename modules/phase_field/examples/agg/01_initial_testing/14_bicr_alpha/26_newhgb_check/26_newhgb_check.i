@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 17_subzero_misc.i
-# File Location: /examples/agg/01_initial_testing/14_bicr_alpha/17_subzero_misc
-# Created Date: Thursday July 10th 2025
+# File: 26_newhgb_check.i
+# File Location: /examples/agg/01_initial_testing/14_bicr_alpha/26_newhgb_check
+# Created Date: Thursday July 17th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday July 14th 2025
+# Last Modified: Thursday July 17th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  miscellaneous testing input
-#
+#  making sure the slight changes to hgb version in newV still work here
+#   for the simple bicrystal
 #
 #
 ##############################################################################
@@ -28,8 +28,8 @@
   zmax = 0
   elem_type = QUAD4
   parallel_type = DISTRIBUTED
-  uniform_refine = 0
-  second_order = true
+  uniform_refine = 1
+  second_order = false
 []
 
 [GlobalParams]
@@ -152,11 +152,11 @@
   []
   # custom inclin
   [inc_x]
-    order = FIRST
+    order = CONSTANT
     family = MONOMIAL
   []
   [inc_y]
-    order = FIRST
+    order = CONSTANT
     family = MONOMIAL
   []
 []
@@ -166,7 +166,7 @@
     [GrainGrowth]
       mobility = L0 #_aniso
       kappa = kappa
-      order = SECOND
+      order = FIRST
       family = LAGRANGE
     []
   []
@@ -297,15 +297,17 @@
     inc_ij_0 = 0 #1.57
     continuous = false
     angular_func = atan
-    alphacase = SUBZERO
-    intol = 0.1
+    alphacase = BOTH #SUBZERO
+    intol = 200 # cut if alpha > intol
+    altol = 10 # cut if h*alpha > altol
+    hgb = hgb
     # Output Names
     inclination_name = inclination_mat
     L_name = L_aniso
     gamma_name = gamma_asymm
     mu_name = mu
     output_properties = 'gamma_asymm L_aniso mu gb_energy int_width inclination_mat inclination_distance
-    testout testout2 testout3 testoutgrad testoutgrad2 inclin_vec dadb d2adb2 d3adb3 alpha_out'
+    testout testout2 testout3 testoutgrad testoutgrad2 inclin_vec dadb d2adb2 d3adb3 alpha_out atens'
     outputs = 'exodus'
   []
   [sumgr]
@@ -327,7 +329,16 @@
     property_name = hgb
     coupled_variables = 'gr0 gr1'
     expression = 'hb:=gr0*gr0 + gr1*gr1;
-                  4 * (1 - hb) * (1 - hb)'
+                  hg:=4 * (1 - hb) * (1 - hb);
+                  if(hg>1.0,1.0,hg)'
+    outputs = 'exodus'
+  []
+  [h_inc]
+    type = ParsedMaterial
+    property_name = h_inc
+    coupled_variables = 'gr0 gr1'
+    material_property_names = 'hgb'
+    expression = 'if(hgb>0.8,1,0)'
     outputs = 'exodus'
   []
   [h_alpha]

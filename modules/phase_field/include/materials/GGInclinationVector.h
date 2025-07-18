@@ -27,8 +27,14 @@ protected:
   MaterialProperty<RealGradient> & _inclination_vector;
   MaterialProperty<Real> & _ang_dist;
 
+  /// Enum to select gb identifying method
+  int _gb_id_type;
+
   /// Grain tracker object
-  const GrainTracker & _grain_tracker;
+  const GrainTracker * _grain_tracker;
+
+  // hgb threshold cutoff
+  const Real _hgb_threshold;
 
   /// parameters to store the EBSD id and corresponding value on GB
   std::vector<unsigned int> _gb_ij_pairs;

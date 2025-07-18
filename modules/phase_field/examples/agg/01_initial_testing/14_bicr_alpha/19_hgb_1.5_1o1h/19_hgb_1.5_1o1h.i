@@ -1,16 +1,16 @@
 ##############################################################################
-# File: 17_subzero_misc.i
-# File Location: /examples/agg/01_initial_testing/14_bicr_alpha/17_subzero_misc
-# Created Date: Thursday July 10th 2025
+# File: 19_hgb_1.5_1o1h.i
+# File Location: /examples/agg/01_initial_testing/14_bicr_alpha/19_hgb_1.5_1o1h
+# Created Date: Tuesday July 15th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday July 14th 2025
+# Last Modified: Tuesday July 15th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  miscellaneous testing input
-#
-#
+#  First order mesh 1UR with iso L
+#  Using the hgb*alpha threshold/cutoff, testing various values of the thresh
+#  hgb*alpha < 1.5
 #
 ##############################################################################
 
@@ -28,8 +28,8 @@
   zmax = 0
   elem_type = QUAD4
   parallel_type = DISTRIBUTED
-  uniform_refine = 0
-  second_order = true
+  uniform_refine = 1
+  second_order = false
 []
 
 [GlobalParams]
@@ -152,11 +152,11 @@
   []
   # custom inclin
   [inc_x]
-    order = FIRST
+    order = CONSTANT
     family = MONOMIAL
   []
   [inc_y]
-    order = FIRST
+    order = CONSTANT
     family = MONOMIAL
   []
 []
@@ -166,7 +166,7 @@
     [GrainGrowth]
       mobility = L0 #_aniso
       kappa = kappa
-      order = SECOND
+      order = FIRST
       family = LAGRANGE
     []
   []
@@ -297,8 +297,11 @@
     inc_ij_0 = 0 #1.57
     continuous = false
     angular_func = atan
-    alphacase = SUBZERO
-    intol = 0.1
+    alphacase = HGB #SUBZERO
+    intol = 1.5#0.2
+    # alphacase = SUBZERO
+    # intol = 0.2
+    hgb = hgb
     # Output Names
     inclination_name = inclination_mat
     L_name = L_aniso

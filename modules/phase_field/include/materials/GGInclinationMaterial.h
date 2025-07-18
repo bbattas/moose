@@ -64,7 +64,11 @@ protected:
   std::vector<MaterialPropertyName> _d2gammadgrad_eta2_name;
   std::vector<MaterialProperty<RealTensorValue> *> _d2gammadgrad_eta2;
 
+  // mu stuff
+  const bool _moelans_mu;
+
   // L mobility parameters
+  const bool _aniso_L;
   const bool _L_of_eta;
   const MaterialPropertyName _L_name;
   MaterialProperty<Real> & _L;
@@ -80,6 +84,9 @@ protected:
   MaterialProperty<Real> & _testout;
   MaterialProperty<Real> & _testout2;
   MaterialProperty<Real> & _testout3;
+  MaterialProperty<Real> & _alpha_out;
+  MaterialProperty<Real> & _gtnum;
+  MaterialProperty<RealTensorValue> & _atens;
   MaterialProperty<RealGradient> & _testoutgrad;
   MaterialProperty<RealTensorValue> & _testoutgrad2;
   MaterialProperty<RealGradient> & _inclin;
@@ -117,4 +124,7 @@ protected:
   int _angular_func;
   int _alpha_case;
   const Real _intol;
+  const Real _altol;
+
+  const MaterialProperty<Real> & _hgb;
 };

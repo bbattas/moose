@@ -47,6 +47,8 @@ protected:
   const MaterialProperty<RealTensorValue> & _d2gammadgrad_op2;
 
   const bool _skip_off;
+  // Adding a mask for GB only and to smooth it out a bit
+  const MaterialProperty<Real> * _mask;
 
   std::vector<unsigned int> _grain_ids;
   // std::unordered_set<unsigned int> grain_set;
