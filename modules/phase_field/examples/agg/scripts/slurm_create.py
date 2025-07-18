@@ -263,6 +263,11 @@ def slurmWrite(cwd,inputName):
         # Current Problem Nodes (6/7/24)
         if cl_args.force:
             slurmList.append('#SBATCH --exclude=c0701a-s30,c0703a-s18,c0706a-s18,c0707a-s21')
+        # RH8 vs RH9
+        if cl_args.rh8:
+            slurmList.append('#SBATCH --constraint=el8')
+        else:
+            slurmList.append('#SBATCH --constraint=el9')
 
         # On to the actual job to submit
         # Define Locations
@@ -283,8 +288,8 @@ def slurmWrite(cwd,inputName):
         else:
             mpiflag = '--mpi=pmix_v5'
             slurmList.append('')
-            slurmList.append('export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/pmix/5.6.0/lib')
-            slurmList.append('export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/slurm/lib64/libpmi.so')
+            # slurmList.append('export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/pmix/5.6.0/lib')
+            # slurmList.append('export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/slurm/lib64/libpmi.so')
             slurmList.append('export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77')
             slurmList.append('module purge')
             slurmList.append('module load ufrc mkl/2025.1.0 gcc/14.2.0 openmpi/5.0.7 python/3.12 cmake/3.30.5')
