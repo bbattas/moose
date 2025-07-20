@@ -71,7 +71,7 @@
     threshold = 0.001
     connecting_threshold = 0.0008
     compute_halo_maps = true # Only necessary for displaying HALOS
-    halo_level = 4 #6
+    halo_level = 3 #6
     compute_var_to_feature_map = true
   []
 []
@@ -500,7 +500,11 @@
   exodus = true # Exodus file will be outputted
   #nemesis = true
   csv = true
-  checkpoint = true
+  # checkpoint = true
+  [checkpoint]
+    type = Checkpoint
+    num_files = 5
+  []
   [console]
     type = Console
     max_rows = 20 # Will print the 20 most recent postprocessor values to the screen
