@@ -1,7 +1,7 @@
 ##############################################################################
-# File: 03_vishal_aniso.i
-# File Location: /examples/agg/01_initial_testing/16_complex_alpha/03_vishal_aniso
-# Created Date: Friday July 18th 2025
+# File: 05_vishal_aniso_1core.i
+# File Location: /examples/agg/01_initial_testing/16_complex_alpha/05_vishal_aniso_1core
+# Created Date: Sunday July 20th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Sunday July 20th 2025
@@ -9,6 +9,7 @@
 # -----
 # Description:
 #  Aniso version of input 02 which is vishals iso GG problem he sent me
+#   Had to add another grain op at least based on lower GT thresholds
 #
 #  This simulation predicts GB migration of a 2D copper polycrystal with
 #   100 grains represented with 18 order parameters
@@ -18,6 +19,7 @@
 #  2 nodes of 32/30 with 8gb/cpu according to vishal (64/512gb)
 # Yeah thats not right it needs like 10 nodes of 30 not 1 of 64
 # 8 is a comfy 12.5k ish dofs per core?
+# This is for trying it on one node (no way it works right)
 ##############################################################################
 
 [Mesh]
