@@ -41,7 +41,7 @@
 
 [GlobalParams]
   # Parameters used by several kernels that are defined globally to simplify input file
-  op_num = 13 #12 # Number of order parameters used
+  op_num = 14 #12 # Number of order parameters used
   var_name_base = gr # Base name of grains
   # T = 1400 # Constant temperature of the simulation (for mobility calculation)
 []
@@ -73,7 +73,7 @@
     threshold = 0.001
     connecting_threshold = 0.0008
     compute_halo_maps = true # Only necessary for displaying HALOS
-    halo_level = 3 #6
+    halo_level = 2 #6
     compute_var_to_feature_map = true
   []
 []
@@ -120,7 +120,7 @@
   [gr0_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr0
-    coupled_variables = 'gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12'
+    coupled_variables = 'gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_0
     d2gamma_dgradop2_name = d2gammadgrad_eta2_0
@@ -132,7 +132,7 @@
   [gr1_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr1
-    coupled_variables = 'gr0 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12'
+    coupled_variables = 'gr0 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_1
     d2gamma_dgradop2_name = d2gammadgrad_eta2_1
@@ -144,7 +144,7 @@
   [gr2_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr2
-    coupled_variables = 'gr0 gr1 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12'
+    coupled_variables = 'gr0 gr1 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_2
     d2gamma_dgradop2_name = d2gammadgrad_eta2_2
@@ -156,7 +156,7 @@
   [gr3_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr3
-    coupled_variables = 'gr0 gr1 gr2 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12'
+    coupled_variables = 'gr0 gr1 gr2 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_3
     d2gamma_dgradop2_name = d2gammadgrad_eta2_3
@@ -168,7 +168,7 @@
   [gr4_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr4
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_4
     d2gamma_dgradop2_name = d2gammadgrad_eta2_4
@@ -180,7 +180,7 @@
   [gr5_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr5
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr6 gr7 gr8 gr9 gr10 gr11 gr12'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_5
     d2gamma_dgradop2_name = d2gammadgrad_eta2_5
@@ -192,7 +192,7 @@
   [gr6_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr6
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr7 gr8 gr9 gr10 gr11 gr12'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr7 gr8 gr9 gr10 gr11 gr12 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_6
     d2gamma_dgradop2_name = d2gammadgrad_eta2_6
@@ -204,7 +204,7 @@
   [gr7_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr7
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr8 gr9 gr10 gr11 gr12'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr8 gr9 gr10 gr11 gr12 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_7
     d2gamma_dgradop2_name = d2gammadgrad_eta2_7
@@ -216,7 +216,7 @@
   [gr8_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr8
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr9 gr10 gr11 gr12'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr9 gr10 gr11 gr12 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_8
     d2gamma_dgradop2_name = d2gammadgrad_eta2_8
@@ -228,7 +228,7 @@
   [gr9_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr9
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr10 gr11 gr12'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr10 gr11 gr12 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_9
     d2gamma_dgradop2_name = d2gammadgrad_eta2_9
@@ -240,7 +240,7 @@
   [gr10_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr10
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr11 gr12'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr11 gr12 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_10
     d2gamma_dgradop2_name = d2gammadgrad_eta2_10
@@ -252,7 +252,7 @@
   [gr11_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr11
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr12'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr12 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_11
     d2gamma_dgradop2_name = d2gammadgrad_eta2_11
@@ -264,10 +264,22 @@
   [gr12_ACIaniso]
     type = ACInterfaceAnisoGamma
     variable = gr12
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr13'
     gamma_name = gamma_asymm
     dgamma_dgradop_name = dgammadgrad_eta_12
     d2gamma_dgradop2_name = d2gammadgrad_eta2_12
+    mob_name = L
+    variable_L = false
+    skip_off = false
+    mask_name = hgb
+  []
+  [gr13_ACIaniso]
+    type = ACInterfaceAnisoGamma
+    variable = gr13
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12'
+    gamma_name = gamma_asymm
+    dgamma_dgradop_name = dgammadgrad_eta_13
+    d2gamma_dgradop2_name = d2gammadgrad_eta2_13
     mob_name = L
     variable_L = false
     skip_off = false
@@ -391,7 +403,7 @@
     property_name = hgb
     coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12'
     expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2 + gr3*gr3 + gr4*gr4 + gr5*gr5 +
-    gr6*gr6 + gr7*gr7 + gr8*gr8 + gr9*gr9 + gr10*gr10 + gr11*gr11 + gr12*gr12;
+    gr6*gr6 + gr7*gr7 + gr8*gr8 + gr9*gr9 + gr10*gr10 + gr11*gr11 + gr12*gr12 + gr13*gr13;
                   hg:=4 * (1 - hb) * (1 - hb);
                   if(hg>1.0,1.0,hg)'
     outputs = 'exodus'
