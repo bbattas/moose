@@ -71,7 +71,7 @@
     threshold = 0.001
     connecting_threshold = 0.0008
     compute_halo_maps = true # Only necessary for displaying HALOS
-    halo_level = 6
+    halo_level = 4 #6
     compute_var_to_feature_map = true
   []
 []
