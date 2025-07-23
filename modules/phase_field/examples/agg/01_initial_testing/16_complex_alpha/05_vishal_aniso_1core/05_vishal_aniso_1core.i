@@ -4,7 +4,7 @@
 # Created Date: Sunday July 20th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Sunday July 20th 2025
+# Last Modified: Wednesday July 23rd 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -60,7 +60,7 @@
     # output_adjacency_matrix = true
     coloring_algorithm = bt
     file_name = '../02_vishal_iso/Case3_grains_centers.txt'
-    # int_width = 6
+    int_width = 6
   []
   # [./term]
   #   type = Terminator
