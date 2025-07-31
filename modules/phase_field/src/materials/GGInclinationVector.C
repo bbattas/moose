@@ -11,7 +11,9 @@ GGInclinationVector::validParams()
       "v", "var_name_base", "op_num", "Array of coupled variables");
   params.addParam<std::string>(
       "grain_tracker", "", "The GrainTracker UserObject to get values from.");
-  MooseEnum gbident("GRAINTRACKER=0 HGB=1", "GRAINTRACKER");
+  params.addParam<std::string>(
+      "hgb", "", "The GB switching function if manually defining it (GBID=SWITCH).");
+  MooseEnum gbident("GRAINTRACKER=0 HGB=1 SWITCH=2", "GRAINTRACKER");
   params.addParam<MooseEnum>("gb_id_method", gbident, "Which approach to use to select the GB.");
   params.addParam<Real>(
       "hgb_threshold", 0.6, "Cutoff for GB switching function to select GB region.");
@@ -30,17 +32,26 @@ GGInclinationVector::GGInclinationVector(const InputParameters & parameters)
     // Grain Tracker/EBSD for GB identification
     _gb_id_type(getParam<MooseEnum>("gb_id_method")),
     _grain_tracker(nullptr),
+    _hgb_external(nullptr),
     _hgb_threshold(getParam<Real>("hgb_threshold"))
 {
   if (_op_num == 0)
     mooseError("Model requires op_num > 0");
 
+  // Check for GT user object if using that case
   std::string gt_name = getParam<std::string>("grain_tracker");
   if ((_gb_id_type == 0) && (!gt_name.empty()))
     _grain_tracker = &getUserObject<GrainTracker>(gt_name);
   else if ((_gb_id_type == 0) && (gt_name.empty()))
     mooseError(
         "GGInclinationVector requires a grain_tracker specified if gb_id_method = GRAINTRACKER.");
+
+  // Check for hgb input if using case 2 (SWITCH)
+  std::string hgb_name = getParam<std::string>("hgb");
+  if ((_gb_id_type == 2) && (!hgb_name.empty()))
+    _hgb_external = &getMaterialProperty<Real>(hgb_name);
+  else if ((_gb_id_type == 2) && (hgb_name.empty()))
+    mooseError("GGInclinationVector requires a hgb specified if gb_id_method = SWITCH.");
 
   _vals.resize(_op_num);
   _grad_vals.resize(_op_num);
@@ -85,6 +96,21 @@ GGInclinationVector::computeQpProperties()
         hbulk += (*_vals[i])[_qp] * (*_vals[i])[_qp];
       hgb_thresh = 4 * (1 - hbulk) * (1 - hbulk);
       if (hgb_thresh > _hgb_threshold)
+      {
+        _gb_ij_pairs.resize(_op_num);
+        std::iota(_gb_ij_pairs.begin(), _gb_ij_pairs.end(), 0);
+      }
+      else
+      {
+        _gb_ij_pairs.clear();
+      }
+      break;
+    }
+    case 2:
+    {
+      // Input HGB method
+      // Check hgb threshold
+      if ((*_hgb_external)[_qp] > _hgb_threshold)
       {
         _gb_ij_pairs.resize(_op_num);
         std::iota(_gb_ij_pairs.begin(), _gb_ij_pairs.end(), 0);

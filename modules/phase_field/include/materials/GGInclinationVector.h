@@ -33,6 +33,9 @@ protected:
   /// Grain tracker object
   const GrainTracker * _grain_tracker;
 
+  // input hgb for case SWITCH
+  const MaterialProperty<Real> * _hgb_external;
+
   // hgb threshold cutoff
   const Real _hgb_threshold;
 

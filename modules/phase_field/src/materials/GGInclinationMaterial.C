@@ -109,6 +109,8 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _alpha_out(declareProperty<Real>("alpha_out")),
     _gtnum(declareProperty<Real>("gtnum")),
     _atens(declareProperty<RealTensorValue>("atens")),
+    _t2tens(declareProperty<RealTensorValue>("t2tens")),
+    _ngbtens(declareProperty<RealTensorValue>("ngbtens")),
     _testoutgrad(declareProperty<RealGradient>("testoutgrad")),
     _testoutgrad2(declareProperty<RealTensorValue>("testoutgrad2")),
     _inclin(declareProperty<RealGradient>("inclin_vec")),
@@ -253,6 +255,8 @@ GGInclinationMaterial::computeQpProperties()
   _alpha_out[_qp] = 0.0;
   _atens[_qp] = RealTensorValue(0.0);
   RealTensorValue alphatens(0.0);
+  RealTensorValue ttens(0.0);
+  RealTensorValue ngbtens(0.0);
 
   switch (_gb_ij_pairs.size())
   {
@@ -402,22 +406,37 @@ GGInclinationMaterial::computeQpProperties()
                 // BOTH: hgb and alpha- use hgb*alpha as well as straight alpha cutoff
                 uxyz = ngb;
                 // newha /= uxyz.norm();
-                if (uxyz.norm() < hovtol) // hgb
+                if (uxyz.norm() < hovtol) // hgb (altol)
                 {
                   alpha = 0.0;
                   // alpha_zero = true;
                   _testout2[_qp] = -1.0;
+                  if ((i < 3) && (j < 3))
+                  {
+                    ttens(i, j) = -1.0;
+                    ngbtens(i, j) = _hgb[_qp] / uxyz.norm(); // -1.0;
+                  }
                 }
-                else if (uxyz.norm() < invtol) // subzero
+                else if (uxyz.norm() < invtol) // subzero (intol)
                 {
                   alpha = 0.0;
                   // alpha_zero = true;
                   _testout2[_qp] = -2.0;
+                  if ((i < 3) && (j < 3))
+                  {
+                    ttens(i, j) = -2.0;
+                    ngbtens(i, j) = _hgb[_qp] / uxyz.norm(); //-2.0;
+                  }
                 }
                 else
                 {
                   alpha = 1 / uxyz.norm();
                   _testout2[_qp] = alpha;
+                  if ((i < 3) && (j < 3))
+                  {
+                    ttens(i, j) = alpha;
+                    ngbtens(i, j) = _hgb[_qp] / uxyz.norm(); // uxyz.norm();
+                  }
                 }
                 ngb /= ngb.norm();
                 _testout3[_qp] = uxyz.norm();
@@ -632,7 +651,11 @@ GGInclinationMaterial::computeQpProperties()
           //                      (*_vals[j])[_qp]);
         }
       _atens[_qp] = alphatens;
+      // _t2tens[_qp] = ttens;
+      // _ngbtens[_qp] = ngbtens;
   }
+  _t2tens[_qp] = ttens;
+  _ngbtens[_qp] = ngbtens;
   // Combine the inclination now!
   // temp weighted combination of just the angle
   std::vector<RealGradient> dINC_dGradEta(_op_num, RealGradient(0.0));
@@ -837,7 +860,7 @@ GGInclinationMaterial::computeQpProperties()
 
   // REMEMBER INC here is the f = cos (phi^{\prime})
   _testout[_qp] = std::sqrt(1 / f0_int);
-  _testout2[_qp] = g;
+  // _testout2[_qp] = g;
   _testoutgrad[_qp] = RealGradient(0.0);
   _testoutgrad2[_qp] = RealTensorValue(0.0);
   // if (_inc_pairs.size() > 0)

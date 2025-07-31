@@ -355,6 +355,7 @@ pics/
 core.phase_field*
 *.avi
 terminal_out*
+*.parquet
 # clangd cache data
 .cache
 

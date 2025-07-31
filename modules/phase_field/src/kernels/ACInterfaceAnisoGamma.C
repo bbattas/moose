@@ -101,7 +101,7 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
   const std::string & mask_name = getParam<std::string>("mask_name");
   if (!mask_name.empty())
   {
-    mooseWarning("Mask Name is ", mask_name);
+    // mooseWarning("Mask Name is ", mask_name);
     _mask = &getMaterialProperty<Real>(mask_name);
   }
   else
