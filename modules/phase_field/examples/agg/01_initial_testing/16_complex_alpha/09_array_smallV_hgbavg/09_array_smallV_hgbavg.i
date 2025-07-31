@@ -540,11 +540,11 @@ i_tol = 100
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  dtmin = 0.1
+  # dtmin = 0.1
   end_time = 1000000.0
   [TimeStepper]
     type = IterationAdaptiveDT
-    dt = 0.1
+    dt = 0.01
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 8
