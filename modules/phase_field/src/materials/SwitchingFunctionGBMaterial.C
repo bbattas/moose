@@ -21,9 +21,11 @@ SwitchingFunctionGBMaterialTempl<is_ad>::validParams()
   params.addRequiredParam<MaterialPropertyName>(
       "h_name", "Name of the switching function material property for the grain boundaries");
   params.addRequiredCoupledVar("grain_ops", "Vector of order parameters for the given phase");
-  params.addParam<Real>("hgb_threshold", 1e-4, "Lower limit cutoff for hgb.");
+  params.addParam<Real>("hgb_threshold", 0.0, "Lower limit cutoff for hgb.");
   // params.addRequiredCoupledVar("all_ops", "Vector of all order parameters for all phases that you
   // want derivatives wrt");
+  MooseEnum func_type("base=0 moelans=1", "base");
+  params.addParam<MooseEnum>("func_type", func_type, "Which hgb option to use.");
   params.addClassDescription("Calculates the switching function for a grain boundary in a "
                              "multi-phase, multi-order parameter model");
   return params;
@@ -38,6 +40,7 @@ SwitchingFunctionGBMaterialTempl<is_ad>::SwitchingFunctionGBMaterialTempl(
     _eta_gb(coupledGenericValues<is_ad>("grain_ops")),
     _eta_gb_names(coupledNames("grain_ops")),
     _hgb_threshold(getParam<Real>("hgb_threshold")),
+    _func_type(getParam<MooseEnum>("func_type")),
     // _num_eta(coupledComponents("all_ops")),
     // _eta(coupledGenericValues<is_ad>("all_ops")),
     // _eta_names(coupledNames("all_ops")),
@@ -76,20 +79,71 @@ template <bool is_ad>
 void
 SwitchingFunctionGBMaterialTempl<is_ad>::computeQpProperties()
 {
+  // OTHERWISE we actually calculate
   GenericReal<is_ad> hgb = 0.0;
+  // GenericReal<is_ad> hgb_val = 0.0;
 
-  for (unsigned int i = 0; i < _num_eta_gb; ++i)
-    for (unsigned int j = i + 1; j < _num_eta_gb; ++j)
+  switch (_func_type)
+  {
+    case 0:
     {
-      hgb += (*_eta_gb[i])[_qp] * (*_eta_gb[i])[_qp] * (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
+      // Previous use: $16 \sum \eta_i^2 \eta_j^2$
+      // HGB
+      for (unsigned int i = 0; i < _num_eta_gb; ++i)
+        for (unsigned int j = i + 1; j < _num_eta_gb; ++j)
+        {
+          hgb += (*_eta_gb[i])[_qp] * (*_eta_gb[i])[_qp] * (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
+        }
+      hgb *= 16;
+
+      // DERIVATIVES
+      for (unsigned int i = 0; i < _num_eta_gb; ++i)
+      {
+        // Calculate sum of non i OPs squares for derivatives
+        GenericReal<is_ad> sum_other = 0.0;
+        for (unsigned int j = 0; j < _num_eta_gb; ++j)
+        {
+          if (i != j)
+          {
+            sum_other += (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
+          }
+        }
+        // First derivatives
+        (*_prop_dh[i])[_qp] = 32 * (*_eta_gb[i])[_qp] * sum_other;
+        // Second derivatives only for same var twice (rest assuming 0)
+        (*_prop_d2h[i][i])[_qp] = 32 * sum_other;
+      }
+      break;
     }
 
-  // _prop_h[_qp] = 16 * hgb;
-  // Calculate 16 * hgb and check against threshold
-  GenericReal<is_ad> hgb_val = 16 * hgb;
+    case 1:
+    {
+      // Using the MOELANS version $\eta_i^2 \eta_j^2 / \sum \eta_i^2 \eta_j^2$
+      GenericReal<is_ad> numer = 0.0;
+      GenericReal<is_ad> denom = 0.0;
+      for (unsigned int i = 0; i < _num_eta_gb; ++i)
+        for (unsigned int j = i + 1; j < _num_eta_gb; ++j)
+        {
+          numer +=
+              (*_eta_gb[i])[_qp] * (*_eta_gb[i])[_qp] * (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
+          denom +=
+              (*_eta_gb[i])[_qp] * (*_eta_gb[i])[_qp] * (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
+        }
+      // numer = (*_eta_gb[0])[_qp] * (*_eta_gb[0])[_qp] * (*_eta_gb[1])[_qp] * (*_eta_gb[1])[_qp];
+      if (denom < 1e-8)
+        hgb = 0.0;
+      else
+        hgb = numer / denom;
+      break;
+    }
+
+    default:
+      mooseError("Unknown func_type = ", _func_type);
+      break;
+  }
 
   // If h_val is below the threshold, set _prop_h to 0 and return early
-  if (hgb_val < _hgb_threshold)
+  if (hgb < _hgb_threshold)
   {
     _prop_h[_qp] = 0.0;
 
@@ -106,74 +160,73 @@ SwitchingFunctionGBMaterialTempl<is_ad>::computeQpProperties()
     }
     return;
   }
-
   // ELSE: Define hgb and its derivatives
-  _prop_h[_qp] = hgb_val;
+  _prop_h[_qp] = hgb;
 
-  // // For derivatives: sum of other squares
-  // // GenericReal<is_ad> sum_other = 0.0;
-  // std::vector<GenericReal<is_ad>> sum_other(_num_eta_gb, 0.0);
+  // // // For derivatives: sum of other squares
+  // // // GenericReal<is_ad> sum_other = 0.0;
+  // // std::vector<GenericReal<is_ad>> sum_other(_num_eta_gb, 0.0);
+  // // for (unsigned int i = 0; i < _num_eta_gb; ++i)
+  // // {
+  // //   GenericReal<is_ad> sum_tmp = 0.0;
+  // //   for (unsigned int j = 0; j < _num_eta_gb; ++j)
+  // //   {
+  // //     if (i != j)
+  // //     {
+  // //       sum_tmp += (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
+  // //     }
+  // //   }
+  // //   sum_other[i] = sum_tmp;
+  // // }
+
   // for (unsigned int i = 0; i < _num_eta_gb; ++i)
   // {
-  //   GenericReal<is_ad> sum_tmp = 0.0;
+  //   // Calculate sum of non i OPs squares for derivatives
+  //   GenericReal<is_ad> sum_other = 0.0;
   //   for (unsigned int j = 0; j < _num_eta_gb; ++j)
   //   {
   //     if (i != j)
   //     {
-  //       sum_tmp += (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
+  //       sum_other += (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
   //     }
   //   }
-  //   sum_other[i] = sum_tmp;
-  // }
-
-  for (unsigned int i = 0; i < _num_eta_gb; ++i)
-  {
-    // Calculate sum of non i OPs squares for derivatives
-    GenericReal<is_ad> sum_other = 0.0;
-    for (unsigned int j = 0; j < _num_eta_gb; ++j)
-    {
-      if (i != j)
-      {
-        sum_other += (*_eta_gb[j])[_qp] * (*_eta_gb[j])[_qp];
-      }
-    }
-    // First derivatives
-    (*_prop_dh[i])[_qp] = 32 * (*_eta_gb[i])[_qp] * sum_other;
-    // Second derivatives only for same var twice (rest assuming 0)
-    (*_prop_d2h[i][i])[_qp] = 32 * sum_other;
-
-    // // Manually set second derivatives to zero for i != j and assign the diagonal term
-    // for (unsigned int j = 0; j < _num_eta_gb; ++j)
-    // {
-    //   if (i == j)
-    //   {
-    //     (*_prop_d2h[i][j])[_qp] = 32 * sum_other;
-    //   }
-    //   else
-    //   {
-    //     (*_prop_d2h[i][j])[_qp] = 0.0; // Previously assumed it defaulted to 0 if undefined?
-    //   }
-    // }
-  }
-
-  // for (unsigned int i = 0; i < _num_eta_gb; ++i)
-  // {
   //   // First derivatives
-  //   (*_prop_dh[i])[_qp] = 32 * (*_eta_gb[i])[_qp] * sum_other[i];
+  //   (*_prop_dh[i])[_qp] = 32 * (*_eta_gb[i])[_qp] * sum_other;
+  //   // Second derivatives only for same var twice (rest assuming 0)
+  //   (*_prop_d2h[i][i])[_qp] = 32 * sum_other;
 
-  //   // Second derivatives
-  //   for (unsigned int j = 0; j < _num_eta_gb; ++j)
-  //   {
-  //     if (i == j)
-  //     {
-  //       (*_prop_d2h[i][j])[_qp] = 32 * sum_other[i];
-  //     }
-  //     else // Removed the cross term second derivatives
-  //     {
-  //       (*_prop_d2h[i][j])[_qp] = 0.0;//64 * (*_eta_gb[i])[_qp] * (*_eta_gb[j])[_qp];
-  //     }
-  //   }
+  //   // // Manually set second derivatives to zero for i != j and assign the diagonal term
+  //   // for (unsigned int j = 0; j < _num_eta_gb; ++j)
+  //   // {
+  //   //   if (i == j)
+  //   //   {
+  //   //     (*_prop_d2h[i][j])[_qp] = 32 * sum_other;
+  //   //   }
+  //   //   else
+  //   //   {
+  //   //     (*_prop_d2h[i][j])[_qp] = 0.0; // Previously assumed it defaulted to 0 if undefined?
+  //   //   }
+  //   // }
   // }
+
+  // // for (unsigned int i = 0; i < _num_eta_gb; ++i)
+  // // {
+  // //   // First derivatives
+  // //   (*_prop_dh[i])[_qp] = 32 * (*_eta_gb[i])[_qp] * sum_other[i];
+
+  // //   // Second derivatives
+  // //   for (unsigned int j = 0; j < _num_eta_gb; ++j)
+  // //   {
+  // //     if (i == j)
+  // //     {
+  // //       (*_prop_d2h[i][j])[_qp] = 32 * sum_other[i];
+  // //     }
+  // //     else // Removed the cross term second derivatives
+  // //     {
+  // //       (*_prop_d2h[i][j])[_qp] = 0.0;//64 * (*_eta_gb[i])[_qp] * (*_eta_gb[j])[_qp];
+  // //     }
+  // //   }
+  // // }
 }
 
 // explicit instantiation

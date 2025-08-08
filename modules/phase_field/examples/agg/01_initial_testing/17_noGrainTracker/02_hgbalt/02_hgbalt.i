@@ -1,16 +1,16 @@
 ##############################################################################
-# File: 01_noGT_debug.i
-# File Location: /examples/agg/01_initial_testing/17_noGrainTracker/01_noGT_debug
-# Created Date: Monday August 4th 2025
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 02_hgbalt.i
+# File Location: /examples/agg/01_initial_testing/17_noGrainTracker/02_hgbalt
+# Created Date: Friday August 8th 2025
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday August 8th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testbed input for not including grain tracker to try to avoid any errors
-#   that come from that
-#
+#  Alternate hgb (avg of uncapped a and b)
+#  Using hyper with no preconditioning (as per vishals)- same as input 03 for
+#   the hgb comparison
 #
 ##############################################################################
 
@@ -522,8 +522,9 @@ i_tol = 10
     coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2 + gr3*gr3 + gr4*gr4 + gr5*gr5 + gr6*gr6 +
     gr7*gr7 + gr8*gr8 + gr9*gr9 + gr10*gr10;
-                  hg:=4 * (1 - hb) * (1 - hb);
-                  if(hg>1.0,1.0,hg)'
+                  4 * (1 - hb) * (1 - hb)'
+    # hg:=4 * (1 - hb) * (1 - hb);
+    # if(hg>1.0,1.0,hg)'
     outputs = 'exodus'
     #  + gr11*gr11 + gr12*gr12 + gr13*gr13 + gr14*gr14 + gr15*gr15
   []
@@ -540,12 +541,12 @@ i_tol = 10
     property_name = hgb
     coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     material_property_names = 'hgb_a hgb_b'
-    expression = 'h1:=if(hgb_a>1,1,if(hgb_a<0,0.0,hgb_a));
-                  h2:=if(hgb_b>1,1,if(hgb_b<0,0.0,hgb_b));
-                  h3:=(h1 + h2);
-                  if(h3>1,1,if(h3<0,0.0,h3))'
-    # expression = 'h3:=(hgb_a + hgb_b)/2;
+    # expression = 'h1:=if(hgb_a>1,1,if(hgb_a<0,0.0,hgb_a));
+    #               h2:=if(hgb_b>1,1,if(hgb_b<0,0.0,hgb_b));
+    #               h3:=(h1 + h2);
     #               if(h3>1,1,if(h3<0,0.0,h3))'
+    expression = 'h3:=(hgb_a + hgb_b)/2;
+                  if(h3>1,1,if(h3<0,0.0,h3))'
     outputs = 'exodus' #h3:=h1+h2;
   []
   [sumgr]
@@ -708,5 +709,5 @@ i_tol = 10
     heaviest_branch = true # Default is false
     heaviest_sections = 7 # Default is 0
   []
-  # file_base = 10_hgbcap_i${i_tol}_a${a_tol}
+  file_base = 02_hgbalt_i${i_tol}_a${a_tol}
 []

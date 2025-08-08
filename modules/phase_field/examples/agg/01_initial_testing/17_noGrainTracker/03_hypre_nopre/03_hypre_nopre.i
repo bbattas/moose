@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 01_noGT_debug.i
-# File Location: /examples/agg/01_initial_testing/17_noGrainTracker/01_noGT_debug
-# Created Date: Monday August 4th 2025
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 03_hypre_nopre.i
+# File Location: /examples/agg/01_initial_testing/17_noGrainTracker/03_hypre_nopre
+# Created Date: Friday August 8th 2025
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday August 8th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testbed input for not including grain tracker to try to avoid any errors
-#   that come from that
+#  Normal (or main) hgb function with the same hypre and no smp preconditioner
+#   same as 02 for hgb comparison
 #
 #
 ##############################################################################
@@ -708,5 +708,5 @@ i_tol = 10
     heaviest_branch = true # Default is false
     heaviest_sections = 7 # Default is 0
   []
-  # file_base = 10_hgbcap_i${i_tol}_a${a_tol}
+  file_base = 03_hypre_nopre_i${i_tol}_a${a_tol}
 []

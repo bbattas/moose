@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 01_noGT_debug.i
-# File Location: /examples/agg/01_initial_testing/17_noGrainTracker/01_noGT_debug
-# Created Date: Monday August 4th 2025
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 04_hypre_fullSMP.i
+# File Location: /examples/agg/01_initial_testing/17_noGrainTracker/04_hypre_fullSMP
+# Created Date: Friday August 8th 2025
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday August 8th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testbed input for not including grain tracker to try to avoid any errors
-#   that come from that
+#  Full SMP preconditioning with the same hypre petsc options from vishal
+#
 #
 #
 ##############################################################################
@@ -627,12 +627,12 @@ i_tol = 10
 #   # [../]
 # []
 
-# [Preconditioning]
-#   [SMP]
-#     type = SMP
-#     full = true
-#   []
-# []
+[Preconditioning]
+  [SMP]
+    type = SMP
+    full = true
+  []
+[]
 
 [Executioner]
   type = Transient # Type of executioner, here it is transient with an adaptive time step
@@ -708,5 +708,5 @@ i_tol = 10
     heaviest_branch = true # Default is false
     heaviest_sections = 7 # Default is 0
   []
-  # file_base = 10_hgbcap_i${i_tol}_a${a_tol}
+  file_base = 04_hypre_fullSMP_i${i_tol}_a${a_tol}
 []

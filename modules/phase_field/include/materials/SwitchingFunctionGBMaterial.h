@@ -42,6 +42,8 @@ protected:
 
   Real _hgb_threshold;
 
+  int _func_type;
+
   // /// Order parameters for all phases (including alpha)
   // const unsigned int _num_eta;
   // const std::vector<const GenericVariableValue<is_ad> *> _eta;

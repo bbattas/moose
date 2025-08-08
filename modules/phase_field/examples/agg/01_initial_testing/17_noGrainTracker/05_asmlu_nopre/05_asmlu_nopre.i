@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 01_noGT_debug.i
-# File Location: /examples/agg/01_initial_testing/17_noGrainTracker/01_noGT_debug
-# Created Date: Monday August 4th 2025
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 05_asmlu_nopre.i
+# File Location: /examples/agg/01_initial_testing/17_noGrainTracker/05_asmlu_nopre
+# Created Date: Friday August 8th 2025
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday August 8th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testbed input for not including grain tracker to try to avoid any errors
-#   that come from that
+#  ASM LU without the smp preconditioning for comparison
+#
 #
 #
 ##############################################################################
@@ -642,10 +642,10 @@ i_tol = 10
   solve_type = 'PJFNK'
 
   # Uses newton iteration to solve the problem.
-  petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart -mat_mffd_type'
-  petsc_options_value = 'hypre boomeramg 101 ds'
-  # petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
-  # petsc_options_value = 'asm        preonly       lu           2'
+  # petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart -mat_mffd_type'
+  # petsc_options_value = 'hypre boomeramg 101 ds'
+  petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
+  petsc_options_value = 'asm        preonly       lu           2'
 
   l_max_its = 30 # Max number of linear iterations
   l_tol = 1e-6 # Relative tolerance for linear solves
@@ -708,5 +708,5 @@ i_tol = 10
     heaviest_branch = true # Default is false
     heaviest_sections = 7 # Default is 0
   []
-  # file_base = 10_hgbcap_i${i_tol}_a${a_tol}
+  file_base = 05_asmlu_nopre_i${i_tol}_a${a_tol}
 []

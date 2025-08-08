@@ -42,8 +42,12 @@ protected:
   // std::vector<std::vector<Real>> & _inclination;
   // RealTensorValue
 
+  /// Enum for grain op identification
+  int _gb_case;
   /// Grain tracker object
-  const GrainTracker & _grain_tracker;
+  const GrainTracker * _grain_tracker;
+  const FeatureFloodCount * _ffc_tracker;
+  const Real _gt_tol;
 
   /// EBSD reader user object
   // const EBSDReader & _ebsd_reader;
@@ -81,11 +85,14 @@ protected:
   std::vector<MaterialProperty<RealTensorValue> *> _d2Ldgrad_eta2;
   std::vector<std::vector<MaterialProperty<RealGradient> *>> _d2Ldgrad_etadeta;
 
+  MaterialProperty<Real> & _opout;
+  MaterialProperty<Real> & _opout2;
   MaterialProperty<Real> & _testout;
   MaterialProperty<Real> & _testout2;
   MaterialProperty<Real> & _testout3;
   MaterialProperty<Real> & _alpha_out;
   MaterialProperty<Real> & _gtnum;
+  MaterialProperty<Real> & _altnum;
   MaterialProperty<RealTensorValue> & _atens;
   MaterialProperty<RealTensorValue> & _t2tens;
   MaterialProperty<RealTensorValue> & _ngbtens;
@@ -114,7 +121,11 @@ protected:
   /// parameters to store the EBSD id and corresponding value on GB
   // std::vector<unsigned int> _gb_pairs;
   // std::vector<Real> _gb_op_pairs;
+  std::vector<Real> _gb_test_pairs;
+  MaterialProperty<RealGradient> & _gb_test_grad;
+  MaterialProperty<RealGradient> & _alt_vec;
   std::vector<unsigned int> _gb_ij_pairs;
+  std::vector<unsigned int> _alt_ij_pairs;
   std::vector<unsigned int> _gb_ij_sorted;
 
   // For storing in inclination calc for combination at the end

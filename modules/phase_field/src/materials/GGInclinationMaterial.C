@@ -22,6 +22,7 @@ GGInclinationMaterial::validParams()
                                         "Name of inclination cos function material output");
   params.addParam<UserObjectName>("grain_tracker",
                                   "The GrainTracker UserObject to get values from.");
+  params.addParam<UserObjectName>("ffc", "The FFC UserObject to get values from.");
   // params.addParam<UserObjectName>("ebsd_reader", "The EBSDReader GeneralUserObject");
   params.addParam<Real>("delta_ij", 0.05, "Anisotropy weight in cos function");
   params.addParam<Real>(
@@ -60,8 +61,11 @@ GGInclinationMaterial::validParams()
   params.addParam<MooseEnum>("alphacase", alphacase, "Which alpha option to use.");
   params.addParam<Real>("intol", 1e-6, "hgbalpha tolerance");
   params.addParam<Real>("altol", 1e-6, "alpha tolerance");
+  params.addParam<Real>("gt_tol", 0.001, "alpha tolerance");
   params.addParam<MaterialPropertyName>("hgb", "hgb", "Name of gb switching function.");
   params.addParam<bool>("moelans_mu", true, "Is mu defined per moelans aniso, else = sigma.");
+  MooseEnum gb_case("graintracker=0 ffc=1 all=2", "graintracker");
+  params.addParam<MooseEnum>("gb_case", gb_case, "Which GB OP identification/selection option.");
   return params;
 }
 
@@ -78,7 +82,11 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     // Inclination vector for polar plots
     // _inclination_vector(declareProperty<Real>("inclination_vector")),
     // Grain Tracker/EBSD for GB identification
-    _grain_tracker(getUserObject<GrainTracker>("grain_tracker")),
+    _gb_case(getParam<MooseEnum>("gb_case")),
+    _grain_tracker(isParamValid("grain_tracker") ? &getUserObject<GrainTracker>("grain_tracker")
+                                                 : nullptr),
+    _ffc_tracker(isParamValid("ffc") ? &getUserObject<FeatureFloodCount>("ffc") : nullptr),
+    _gt_tol(getParam<Real>("gt_tol")),
     // _ebsd_reader(getUserObject<EBSDReader>("ebsd_reader")),
     _delta_ij(getParam<Real>("delta_ij")),
     _theta_pre(getParam<Real>("theta_prefactor")),
@@ -103,11 +111,14 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _d2Ldgrad_eta2(_op_num),
     _d2Ldgrad_etadeta(_op_num),
     // TEMP TEST OUTPUTS
+    _opout(declareProperty<Real>("opout")),
+    _opout2(declareProperty<Real>("opout2")),
     _testout(declareProperty<Real>("testout")),
     _testout2(declareProperty<Real>("testout2")),
     _testout3(declareProperty<Real>("testout3")),
     _alpha_out(declareProperty<Real>("alpha_out")),
     _gtnum(declareProperty<Real>("gtnum")),
+    _altnum(declareProperty<Real>("altnum")),
     _atens(declareProperty<RealTensorValue>("atens")),
     _t2tens(declareProperty<RealTensorValue>("t2tens")),
     _ngbtens(declareProperty<RealTensorValue>("ngbtens")),
@@ -126,6 +137,8 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _gamma0(getMaterialProperty<Real>("gamma0")),
     _int_width(declareProperty<Real>("int_width")),
     _mu(declareProperty<Real>(getParam<MaterialPropertyName>("mu_name"))),
+    _gb_test_grad(declareProperty<RealGradient>("gb_test_grad")),
+    _alt_vec(declareProperty<RealGradient>("alt_vec")),
     _continuous(getParam<bool>("continuous")),
     _angular_func(getParam<MooseEnum>("angular_func")),
     _alpha_case(getParam<MooseEnum>("alphacase")),
@@ -148,6 +161,8 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     paramError("d2gamma_grad_eta2_names",
                "Specify either as many entries as op_num values or none at all for auto-naming the "
                "gamma gradients with respect to gradient of grain OPs.");
+
+  // ADD SOME ERROR FOR CASE AND GT VS FFC INPUTS SINCE THEYRE OPTIONAL
 
   // automatic names for the gamma properties
   if (_dgammadgrad_eta_name.size() == 0)
@@ -206,34 +221,150 @@ GGInclinationMaterial::computeQpProperties()
     (*_dgammadgrad_eta[i])[_qp] = RealGradient(0.0, 0.0, 0.0);
   // From the ComputeGBMisorientationType:
   // Find out the number of boundary unique_id and save them
-  // _gb_pairs.clear();
+  _gb_test_pairs.clear();
   // _gb_op_pairs.clear();
+
+  // GB OP Numbers List
   _gb_ij_pairs.clear();
-  if (_continuous)
+  //
+  _alt_ij_pairs.clear();
+
+  // For whatever reason it seems to need this GT or FFC varToFeatureVector or it
+  //  just falls apart trying to solve (NL specifically fails)?
+  switch (_gb_case)
   {
-    // Give it every OP index once
-    _gb_ij_pairs.resize(_op_num);
-    std::iota(_gb_ij_pairs.begin(), _gb_ij_pairs.end(), 0);
+    case 0:
+    {
+      // Grain Tracker Case
+      const auto & op_to_grains = (*_grain_tracker).getVarToFeatureVector(_current_elem->id());
+      for (auto i : index_range(op_to_grains))
+      {
+        if (op_to_grains[i] == FeatureFloodCount::invalid_id)
+          continue;
+
+        _gb_ij_pairs.push_back(i);
+        // TEMP
+        _gb_test_pairs.push_back(op_to_grains[i]);
+      }
+      break;
+    }
+
+    case 1:
+    {
+      // FFC Case
+      const auto & op_to_grains = (*_ffc_tracker).getVarToFeatureVector(_current_elem->id());
+      for (auto i : index_range(op_to_grains))
+      {
+        if (op_to_grains[i] == FeatureFloodCount::invalid_id)
+          continue;
+
+        _gb_ij_pairs.push_back(i);
+        // TEMP
+        _gb_test_pairs.push_back(op_to_grains[i]);
+      }
+      break;
+    }
+
+    case 2:
+    {
+      // Variable threshold cutoffs- BROKEN/FAILS
+      for (unsigned int i = 0; i < _op_num; ++i)
+      {
+        if ((*_vals[i])[_qp] >= _gt_tol)
+        {
+          _gb_ij_pairs.push_back(i);
+        }
+      }
+      break;
+    }
+
+    default:
+      mooseError("Unknown gb_case = ", _gb_case);
+      break;
+  }
+
+  // if (_continuous)
+  // {
+  //   // const auto & op_to_grains = FeatureFloodCount::getVarToFeatureVector(_current_elem->id());
+  //   // const auto & op_to_grains = _current_elem->id();
+  //   for (unsigned int i = 0; i < _op_num; ++i)
+  //   {
+  //     if ((*_vals[i])[_qp] >= _gt_tol)
+  //     {
+  //       // if (i == FeatureFloodCount::invalid_id)
+  //       //   continue;
+  //       _gb_test_pairs.push_back(i); //(*_vals[i])[_qp]);
+  //       _gb_ij_pairs.push_back(i);
+  //     }
+  //   }
+  // }
+  // else
+  // {
+  //   const auto & op_to_grains = (*_grain_tracker).getVarToFeatureVector(_current_elem->id());
+  //   for (auto i : index_range(op_to_grains))
+  //   {
+  //     if (op_to_grains[i] == FeatureFloodCount::invalid_id)
+  //       continue;
+
+  //     // Real i_norm = (*_grad_vals[i])[_qp].norm();
+  //     // if (i_norm >= 0.01)
+  //     //   _gb_ij_pairs.push_back(i);
+  //     // continue;
+
+  //     // _gb_pairs.push_back(_ebsd_reader.getFeatureID(op_to_grains[i]));
+  //     // _gb_op_pairs.push_back((*_vals[i])[_qp]);
+  //     _gb_test_pairs.push_back(op_to_grains[i]);
+  //     _gb_ij_pairs.push_back(i);
+  //     // if ((*_vals[i])[_qp] >= _gt_tol)
+  //     // {
+  //     //   // _gb_test_pairs.push_back((*_vals[i])[_qp]);
+  //     //   _gb_ij_pairs.push_back(i);
+  //     // }
+  //     // else
+  //     //   _gb_test_pairs.push_back(-2);
+  //   }
+  //   const auto & alt_to_grains = (*_ffc_tracker).getVarToFeatureVector(_current_elem->id());
+  //   for (auto i : index_range(alt_to_grains))
+  //   {
+  //     if (alt_to_grains[i] == FeatureFloodCount::invalid_id)
+  //       continue;
+  //     _alt_ij_pairs.push_back(i);
+  //   }
+  // }
+  _gtnum[_qp] = _gb_ij_pairs.size();
+  _altnum[_qp] = _alt_ij_pairs.size();
+  _opout[_qp] = -1;
+  _opout2[_qp] = -1;
+  RealGradient gb_vec(-1, -1, -1);
+  RealGradient alt_vec(-1, -1, -1);
+  if (_gb_ij_pairs.size() == 1)
+  {
+    _opout[_qp] = _gb_ij_pairs[0];
+    gb_vec(0) = _gb_test_pairs[0];
+  }
+  else if (_gb_ij_pairs.size() > 1)
+  {
+    _opout[_qp] = _gb_ij_pairs[0];
+    _opout2[_qp] = _gb_ij_pairs[1];
+    gb_vec(0) = _gb_test_pairs[0];
+    gb_vec(1) = _gb_test_pairs[1];
   }
   else
   {
-    const auto & op_to_grains = _grain_tracker.getVarToFeatureVector(_current_elem->id());
-    for (auto i : index_range(op_to_grains))
-    {
-      if (op_to_grains[i] == FeatureFloodCount::invalid_id)
-        continue;
-
-      // Real i_norm = (*_grad_vals[i])[_qp].norm();
-      // if (i_norm >= 0.01)
-      //   _gb_ij_pairs.push_back(i);
-      // continue;
-
-      // _gb_pairs.push_back(_ebsd_reader.getFeatureID(op_to_grains[i]));
-      // _gb_op_pairs.push_back((*_vals[i])[_qp]);
-      _gb_ij_pairs.push_back(i);
-    }
+    _opout[_qp] = -1;
+    _opout2[_qp] = -1;
   }
-  _gtnum[_qp] = _gb_ij_pairs.size();
+  if (_gb_test_pairs.size() > 2)
+  {
+    gb_vec(0) = _gb_test_pairs[0];
+    gb_vec(1) = _gb_test_pairs[1];
+    gb_vec(2) = _gb_test_pairs[2];
+  }
+  _gb_test_grad[_qp] = gb_vec;
+  for (auto i : index_range(_alt_ij_pairs))
+    alt_vec(i) = _alt_ij_pairs[i];
+  _alt_vec[_qp] = alt_vec;
+
   // Make a copy and sort
   _gb_ij_sorted = _gb_ij_pairs;
   std::sort(_gb_ij_sorted.begin(), _gb_ij_sorted.end());
@@ -859,7 +990,7 @@ GGInclinationMaterial::computeQpProperties()
   // dINC_dGradEta[i];
 
   // REMEMBER INC here is the f = cos (phi^{\prime})
-  _testout[_qp] = std::sqrt(1 / f0_int);
+  // _testout[_qp] = std::sqrt(1 / f0_int);
   // _testout2[_qp] = g;
   _testoutgrad[_qp] = RealGradient(0.0);
   _testoutgrad2[_qp] = RealTensorValue(0.0);
