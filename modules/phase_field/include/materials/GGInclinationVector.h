@@ -33,6 +33,9 @@ protected:
   /// Grain tracker object
   const GrainTracker * _grain_tracker;
 
+  /// FFC object
+  const FeatureFloodCount * _ffc_tracker;
+
   // input hgb for case SWITCH
   const MaterialProperty<Real> * _hgb_external;
 

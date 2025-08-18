@@ -9,11 +9,15 @@ GGInclinationVector::validParams()
   params.addClassDescription("Measures the inclination as a vector along the grain boundaries.");
   params.addRequiredCoupledVarWithAutoBuild(
       "v", "var_name_base", "op_num", "Array of coupled variables");
-  params.addParam<std::string>(
-      "grain_tracker", "", "The GrainTracker UserObject to get values from.");
-  params.addParam<std::string>(
-      "hgb", "", "The GB switching function if manually defining it (GBID=SWITCH).");
-  MooseEnum gbident("GRAINTRACKER=0 HGB=1 SWITCH=2", "GRAINTRACKER");
+  // params.addParam<std::string>(
+  //     "grain_tracker", "", "The GrainTracker UserObject to get values from.");
+  params.addParam<UserObjectName>("grain_tracker",
+                                  "The GrainTracker UserObject to get values from.");
+  params.addParam<UserObjectName>("ffc", "The FFC UserObject to get values from.");
+  params.addParam<MaterialPropertyName>("hgb", "Name of GB switching function.");
+  // params.addParam<std::string>(
+  //     "hgb", "", "The GB switching function if manually defining it (GBID=SWITCH).");
+  MooseEnum gbident("GRAINTRACKER=0 HGB=1 SWITCH=2 FFC=3", "GRAINTRACKER");
   params.addParam<MooseEnum>("gb_id_method", gbident, "Which approach to use to select the GB.");
   params.addParam<Real>(
       "hgb_threshold", 0.6, "Cutoff for GB switching function to select GB region.");
@@ -31,27 +35,35 @@ GGInclinationVector::GGInclinationVector(const InputParameters & parameters)
     _ang_dist(declareProperty<Real>("ang_dist")),
     // Grain Tracker/EBSD for GB identification
     _gb_id_type(getParam<MooseEnum>("gb_id_method")),
-    _grain_tracker(nullptr),
-    _hgb_external(nullptr),
+    _grain_tracker(isParamValid("grain_tracker") ? &getUserObject<GrainTracker>("grain_tracker")
+                                                 : nullptr),
+    _ffc_tracker(isParamValid("ffc") ? &getUserObject<FeatureFloodCount>("ffc") : nullptr),
+    _hgb_external(isParamValid("hgb") ? &getMaterialProperty<Real>("hgb") : nullptr),
     _hgb_threshold(getParam<Real>("hgb_threshold"))
 {
   if (_op_num == 0)
     mooseError("Model requires op_num > 0");
 
   // Check for GT user object if using that case
-  std::string gt_name = getParam<std::string>("grain_tracker");
-  if ((_gb_id_type == 0) && (!gt_name.empty()))
-    _grain_tracker = &getUserObject<GrainTracker>(gt_name);
-  else if ((_gb_id_type == 0) && (gt_name.empty()))
-    mooseError(
-        "GGInclinationVector requires a grain_tracker specified if gb_id_method = GRAINTRACKER.");
+  // std::string gt_name = getParam<std::string>("grain_tracker");
+  // mooseWarning("GTName = ", gt_name);
+  // if ((_gb_id_type == 0) && (!gt_name.empty()))
+  //   _grain_tracker = &getUserObject<GrainTracker>(gt_name);
+  // else if ((_gb_id_type == 3) && (!gt_name.empty()))
+  //   _ffc_tracker = &getUserObject<FeatureFloodCount>(gt_name);
+  // else if ((_gb_id_type == 0) && (gt_name.empty()))
+  //   mooseError(
+  //       "GGInclinationVector requires a grain_tracker specified if gb_id_method =
+  //       GRAINTRACKER.");
+  // else if ((_gb_id_type == 3) && (gt_name.empty()))
+  //   mooseError("GGInclinationVector requires a grain_tracker specified if gb_id_method = FFC.");
 
-  // Check for hgb input if using case 2 (SWITCH)
-  std::string hgb_name = getParam<std::string>("hgb");
-  if ((_gb_id_type == 2) && (!hgb_name.empty()))
-    _hgb_external = &getMaterialProperty<Real>(hgb_name);
-  else if ((_gb_id_type == 2) && (hgb_name.empty()))
-    mooseError("GGInclinationVector requires a hgb specified if gb_id_method = SWITCH.");
+  // // Check for hgb input if using case 2 (SWITCH)
+  // std::string hgb_name = getParam<std::string>("hgb");
+  // if ((_gb_id_type == 2) && (!hgb_name.empty()))
+  //   _hgb_external = &getMaterialProperty<Real>(hgb_name);
+  // else if ((_gb_id_type == 2) && (hgb_name.empty()))
+  //   mooseError("GGInclinationVector requires a hgb specified if gb_id_method = SWITCH.");
 
   _vals.resize(_op_num);
   _grad_vals.resize(_op_num);
@@ -118,6 +130,19 @@ GGInclinationVector::computeQpProperties()
       else
       {
         _gb_ij_pairs.clear();
+      }
+      break;
+    }
+    case 3:
+    {
+      // FFC method
+      const auto & op_to_grains = (*_ffc_tracker).getVarToFeatureVector(_current_elem->id());
+      for (auto i : index_range(op_to_grains))
+      {
+        if (op_to_grains[i] == FeatureFloodCount::invalid_id)
+          continue;
+
+        _gb_ij_pairs.push_back(i);
       }
       break;
     }
