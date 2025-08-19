@@ -17,7 +17,7 @@ GGInclinationVector::validParams()
   params.addParam<MaterialPropertyName>("hgb", "Name of GB switching function.");
   // params.addParam<std::string>(
   //     "hgb", "", "The GB switching function if manually defining it (GBID=SWITCH).");
-  MooseEnum gbident("GRAINTRACKER=0 HGB=1 SWITCH=2 FFC=3", "GRAINTRACKER");
+  MooseEnum gbident("GRAINTRACKER=0 HGB=1 SWITCH=2 FFC=3 COMBO=4", "GRAINTRACKER");
   params.addParam<MooseEnum>("gb_id_method", gbident, "Which approach to use to select the GB.");
   params.addParam<Real>(
       "hgb_threshold", 0.6, "Cutoff for GB switching function to select GB region.");
@@ -143,6 +143,20 @@ GGInclinationVector::computeQpProperties()
           continue;
 
         _gb_ij_pairs.push_back(i);
+      }
+      break;
+    }
+    case 4:
+    {
+      // Input HGB method combined with FFC for non-interpolating results
+      const auto & op_to_grains = (*_ffc_tracker).getVarToFeatureVector(_current_elem->id());
+      for (auto i : index_range(op_to_grains))
+      {
+        if (op_to_grains[i] == FeatureFloodCount::invalid_id)
+          continue;
+
+        if ((*_hgb_external)[_current_elem->id()] > _hgb_threshold)
+          _gb_ij_pairs.push_back(i);
       }
       break;
     }
