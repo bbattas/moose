@@ -49,6 +49,7 @@ protected:
   const bool _skip_off;
   // Adding a mask for GB only and to smooth it out a bit
   const MaterialProperty<Real> * _mask;
+  const bool _mask_tf;
 
   std::vector<unsigned int> _grain_ids;
   // std::unordered_set<unsigned int> grain_set;

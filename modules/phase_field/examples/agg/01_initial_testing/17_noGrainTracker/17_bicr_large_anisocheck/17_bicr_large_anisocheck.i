@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 16_bicr_inclination_vec.i
-# File Location: /examples/agg/01_initial_testing/17_noGrainTracker/16_bicr_inclination_vec
-# Created Date: Monday August 18th 2025
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 17_bicr_large_anisocheck.i
+# File Location: /examples/agg/01_initial_testing/17_noGrainTracker/17_bicr_large_anisocheck
+# Created Date: Thursday August 21st 2025
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday August 21st 2025
+# Last Modified: Friday August 22nd 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Testing a bicrystal circle grain to look at weighting the inclincaiton
-#   vector output calculation by the IW using TIGER
+#  checking with a larger bicrystal to see if the aniso material properties
+#   without the aniso kernel shows basically the same result as with the kernel??
 #
 #
 ##############################################################################
@@ -22,12 +22,12 @@ i_tol = 100
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2 # Problem dimension
-    nx = 80 # Number of elements in the x-direction
-    ny = 80 # Number of elements in the y-direction
+    nx = 160 # Number of elements in the x-direction
+    ny = 160 # Number of elements in the y-direction
     xmin = 0 # minimum x-coordinate of the mesh
-    xmax = 80 # maximum x-coordinate of the mesh
+    xmax = 160 # maximum x-coordinate of the mesh
     ymin = 0 # minimum y-coordinate of the mesh
-    ymax = 80 # maximum y-coordinate of the mesh
+    ymax = 160 # maximum y-coordinate of the mesh
     # elem_type = QUAD4 # Type of elements used in the mesh
     # uniform_refine = 3 # Initial uniform refinement of the mesh
   []
@@ -66,20 +66,20 @@ i_tol = 100
     type = SmoothCircleIC
     invalue = 1
     outvalue = 0
-    radius = 20
+    radius = 60
     variable = gr0
-    x1 = 40
-    y1 = 40
+    x1 = 80
+    y1 = 80
     int_width = 6
   []
   [gr1_IC]
     type = SmoothCircleIC
     invalue = 0
     outvalue = 1
-    radius = 20
+    radius = 60
     variable = gr1
-    x1 = 40
-    y1 = 40
+    x1 = 80
+    y1 = 80
     int_width = 6
   []
 []
@@ -231,7 +231,7 @@ i_tol = 100
     #
     moelans_mu = false
     aniso_L = false
-    delta_ij = 0.5
+    delta_ij = 0.6
     theta_prefactor = 2
     inc_ij_0 = 0 #1.57
     continuous = false
@@ -247,7 +247,7 @@ i_tol = 100
     gamma_name = gamma_asymm
     mu_name = mu
     gb_energy = sigma
-    output_properties = 'gamma_asymm L mu sigma int_width t2tens' # inclination_mat t2tens'
+    output_properties = 'gamma_asymm L mu sigma int_width' # t2tens' # inclination_mat t2tens'
     outputs = 'exodus'
   []
   [hgb_a]
@@ -343,6 +343,14 @@ i_tol = 100
     type = ElementAverageMaterialProperty
     mat_prop = gamma_asymm
   []
+  [gr0]
+    type = ElementIntegralVariablePostprocessor
+    variable = gr0
+  []
+  [gr1]
+    type = ElementIntegralVariablePostprocessor
+    variable = gr1
+  []
 []
 
 # [VectorPostprocessors]
@@ -388,13 +396,13 @@ i_tol = 100
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  end_time = 5
+  end_time = 20
   # dtmin = 0.1
   # end_time = 1000000.0
-  # num_steps = 10
+  # num_steps = 1
   automatic_scaling = true
   compute_scaling_once = false
-  dt = 0.05
+  dt = 0.08
   # [TimeStepper]
   #   type = IterationAdaptiveDT
   #   dt = 0.01
@@ -448,5 +456,6 @@ i_tol = 100
     heaviest_sections = 7 # Default is 0
   []
   # file_base = 12_halt_hypre_nopre_i${i_tol}_a${a_tol}
-  file_base = an_long
+  file_base = 17_bicr_large_withnewKernel
+  # file_base = test
 []
