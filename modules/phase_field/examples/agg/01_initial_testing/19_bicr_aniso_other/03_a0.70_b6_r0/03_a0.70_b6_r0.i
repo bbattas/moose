@@ -4,8 +4,8 @@
 # Created Date: Tuesday August 26th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday August 26th 2025
-# Modified By: Battas,Brandon Scott
+# Last Modified: Wednesday August 27th 2025
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Bicrystal input for recreating lins tests from his paper
@@ -200,7 +200,7 @@ i_tol = 100
     inc_ij_0 = 0 #1.57
     continuous = false
     gt_tol = 0.00
-    angular_func = atan
+    angular_func = ATAN_2D
     alphacase = BOTH
     intol = ${i_tol} #200 # cut if alpha > intol
     altol = ${a_tol} #10 #1.5 # cut if h*alpha > altol
