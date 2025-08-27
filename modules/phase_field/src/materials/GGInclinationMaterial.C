@@ -54,9 +54,15 @@ GGInclinationMaterial::validParams()
   params.addParam<MaterialPropertyName>("mu_name", "mu_aniso", "Name of anisotropic mu output.");
   params.addParam<bool>(
       "continuous", false, "Disregard GT and calculate for all variables everywhere.");
-  MooseEnum angular_func("atan=0 acos=1", "atan");
+  MooseEnum angular_func("atan=0 acos=1 atan_2D=2 atan_3D=3", "atan");
   params.addParam<MooseEnum>(
-      "angular_func", angular_func, "Which angular distance function to use.");
+      "angular_func",
+      angular_func,
+      "Which angular distance function to use. "
+      "atan: atan2(sqrt(y^2+z^2), x) in [0,pi]; "
+      "acos: acos(x) in [0,pi]; "
+      "atan_2D: oriented angle atan2(y,x) in [0,2pi); "
+      "atan_3D: oriented azimuth around +x (atan2(z,y)) in [0,2pi) *UNTESTED*.");
   MooseEnum alphacase("base=0 ngb=1 thresh=2 exclude=3 zero=4 subzero=5 hgb=6 both=7", "base");
   params.addParam<MooseEnum>("alphacase", alphacase, "Which alpha option to use.");
   params.addParam<Real>("intol", 1e-6, "hgbalpha tolerance");
@@ -427,6 +433,9 @@ GGInclinationMaterial::computeQpProperties()
         {
           unsigned int i = _gb_ij_sorted[idx1];
           unsigned int j = _gb_ij_sorted[idx2];
+          // if j-i points outward from lower grain number
+          // if i-j like in paper points inward on lower grain number
+          // Can also invert it by doing ngb = -ngb
           RealGradient ngb = (*_grad_vals[i])[_qp] - (*_grad_vals[j])[_qp];
           Real R = 0.0;
           Real a_dist = 0.0;
@@ -750,6 +759,173 @@ GGInclinationMaterial::computeQpProperties()
                 _dadb[_qp] = dincdphi;
                 _d2adb2[_qp] = d2incdphi2;
                 _d3adb3[_qp] = dphi_dgradetai;
+              }
+            }
+            else if ((_angular_func == 2) && !alpha_skip)
+            {
+              // 2D ONLY VERSION?
+              // ATAN returning full 360 degrees instead of just 0-180 for +/-180
+              // --- Oriented azimuth around +x, referenced from +y, increasing toward +z ---
+              // ngb is already normalized above in your code path.
+              const Real x = ngb(0);
+              const Real y = ngb(1);
+
+              // Value ([-pi, pi] -> [0, 2pi))
+              Real theta = std::atan2(y, x);
+              if (theta < 0.0)
+                theta += 2.0 * libMesh::pi;
+              a_dist = theta;
+
+              // --- First derivatives wrt phi (= components of normalized ngb) ---
+              // theta = atan2(z, y)
+              // dθ/dx = -y/(x^2+y^2), dθ/dy = x/(x^2+y^2), dθ/dz = 0
+              const Real r2 = x * x + y * y;
+              const Real r2_eps = 1e-20; // robust near axis
+              const Real rdenom = std::max(r2, r2_eps);
+
+              RealGradient dincdphi(0.0, 0.0, 0.0);
+              dincdphi(0) = -y / rdenom; // dθ/dx
+              dincdphi(1) = x / rdenom;  // dθ/dy
+              dincdphi(2) = 0.0;         // dθ/dz
+
+              // --- Second derivatives (Hessian) wrt phi ---
+              // ∂²θ/∂x² =  2xy / r2^2
+              // ∂²θ/∂y² = -2xy / r2^2
+              // ∂²θ/∂x∂y = ∂²θ/∂y∂x = (y^2 - x^2) / r2^2
+              const Real inv_r2 = 1.0 / rdenom;
+              const Real inv_r2_2 = inv_r2 * inv_r2;
+
+              RealTensorValue d2incdphi2(0.0);
+              d2incdphi2(0, 0) = 2.0 * x * y * inv_r2_2;
+              d2incdphi2(1, 1) = -2.0 * x * y * inv_r2_2;
+              const Real dxy = (y * y - x * x) * inv_r2_2;
+              d2incdphi2(0, 1) = dxy;
+              d2incdphi2(1, 0) = dxy;
+              // z-rows/cols remain zero
+
+              // --- Chain rule to grad(eta_i) and its second derivatives ---
+              // COPIED FROM ABOVE SECTIONS
+              RealTensorValue dij(1, 0, 0, 0, 1, 0, 0, 0, 1);
+              RankTwoTensor dphi_dgradetai;
+              RankThreeTensor d2phi_dgradetai2;
+              for (unsigned int p = 0; p < 3; ++p)
+              {
+                for (unsigned int q = 0; q < 3; ++q)
+                {
+                  dphi_dgradetai(p, q) =
+                      alpha * dij(p, q) - alpha * alpha * alpha * uxyz(p) * uxyz(q);
+                  for (unsigned int r = 0; r < 3; ++r)
+                  {
+                    d2phi_dgradetai2(p, q, r) =
+                        alpha * alpha * alpha *
+                        (3 * alpha * alpha * uxyz(p) * uxyz(q) * uxyz(r) - uxyz(p) * dij(q, r) -
+                         uxyz(q) * dij(p, r) - uxyz(r) * dij(p, q));
+                  }
+                }
+                for (unsigned int q = 0; q < 3; ++q)
+                {
+                  dinc_dgetai(p) += dincdphi(q) * dphi_dgradetai(q, p);
+                  for (unsigned int r = 0; r < 3; ++r)
+                    for (unsigned int s = 0; s < 3; ++s)
+                    {
+                      d2inc_dgetai2(q, r) +=
+                          d2incdphi2(p, s) * dphi_dgradetai(p, r) * dphi_dgradetai(s, q) +
+                          dincdphi(p) * d2phi_dgradetai2(p, q, r);
+                    }
+                }
+              }
+              if (idx1 == 0 && idx2 == 1)
+              {
+                _dadb[_qp] = ngb; // dincdphi;
+                // _d2adb2[_qp] = d2incdphi2;
+                // _d3adb3[_qp] = dphi_dgradetai;
+              }
+            }
+            else if ((_angular_func == 3) && !alpha_skip)
+            {
+              // ATAN returning full 360 degrees instead of just 0-180 for +/-180
+              // --- Oriented azimuth around +x, referenced from +y, increasing toward +z ---
+              // ngb is already normalized above in your code path.
+              const Real y = ngb(1);
+              const Real z = ngb(2);
+
+              // Value ([-pi, pi] -> [0, 2pi))
+              Real theta = std::atan2(z, y);
+              if (theta < 0.0)
+                theta += 2.0 * libMesh::pi;
+              a_dist = theta;
+
+              // --- First derivatives wrt phi (= components of normalized ngb) ---
+              // theta = atan2(z, y)
+              // dtheta/dy = -z / (y^2 + z^2)
+              // dtheta/dz =  y / (y^2 + z^2)
+              // dtheta/dx = 0 (because angle is defined in the plane orthogonal to x)
+              const Real r2 = y * y + z * z;
+              RealGradient dincdphi(0.0, 0.0, 0.0);
+              RealTensorValue d2incdphi2(0.0);
+
+              // Robustify near the axis (when y≈z≈0). You already skip with alpha_skip;
+              // we still guard here in case of extremely small r2.
+              const Real r2_eps = 1e-20;
+              const Real rdenom = std::max(r2, r2_eps);
+
+              dincdphi(0) = 0.0;         // dθ/dx
+              dincdphi(1) = -z / rdenom; // dθ/dy
+              dincdphi(2) = y / rdenom;  // dθ/dz
+
+              // --- Second derivatives (Hessian) wrt phi ---
+              // ∂²θ/∂y² =  2yz / r2^2
+              // ∂²θ/∂z² = -2yz / r2^2
+              // ∂²θ/∂y∂z = ∂²θ/∂z∂y = (z^2 - y^2) / r2^2
+              const Real inv_r2 = 1.0 / rdenom;
+              const Real inv_r2_2 = inv_r2 * inv_r2;
+
+              const Real dyy = 2.0 * y * z * inv_r2_2;     // (1,1)
+              const Real dzz = -2.0 * y * z * inv_r2_2;    // (2,2)
+              const Real dyz = (z * z - y * y) * inv_r2_2; // (1,2) and (2,1)
+
+              // Fill symmetric Hessian in y,z block. All x-rows/cols are zero.
+              d2incdphi2(1, 1) = dyy;
+              d2incdphi2(2, 2) = dzz;
+              d2incdphi2(1, 2) = dyz;
+              d2incdphi2(2, 1) = dyz;
+
+              // --- Chain rule to grad(eta_i) and its second derivatives ---
+              // COPIED FROM ABOVE SECTIONS
+              RealTensorValue dij(1, 0, 0, 0, 1, 0, 0, 0, 1);
+              RankTwoTensor dphi_dgradetai;
+              RankThreeTensor d2phi_dgradetai2;
+              for (unsigned int p = 0; p < 3; ++p)
+              {
+                for (unsigned int q = 0; q < 3; ++q)
+                {
+                  dphi_dgradetai(p, q) =
+                      alpha * dij(p, q) - alpha * alpha * alpha * uxyz(p) * uxyz(q);
+                  for (unsigned int r = 0; r < 3; ++r)
+                  {
+                    d2phi_dgradetai2(p, q, r) =
+                        alpha * alpha * alpha *
+                        (3 * alpha * alpha * uxyz(p) * uxyz(q) * uxyz(r) - uxyz(p) * dij(q, r) -
+                         uxyz(q) * dij(p, r) - uxyz(r) * dij(p, q));
+                  }
+                }
+                for (unsigned int q = 0; q < 3; ++q)
+                {
+                  dinc_dgetai(p) += dincdphi(q) * dphi_dgradetai(q, p);
+                  for (unsigned int r = 0; r < 3; ++r)
+                    for (unsigned int s = 0; s < 3; ++s)
+                    {
+                      d2inc_dgetai2(q, r) +=
+                          d2incdphi2(p, s) * dphi_dgradetai(p, r) * dphi_dgradetai(s, q) +
+                          dincdphi(p) * d2phi_dgradetai2(p, q, r);
+                    }
+                }
+              }
+              if (idx1 == 0 && idx2 == 1)
+              {
+                _dadb[_qp] = ngb; // dincdphi;
+                // _d2adb2[_qp] = d2incdphi2;
+                // _d3adb3[_qp] = dphi_dgradetai;
               }
             }
             else if (!alpha_skip)
