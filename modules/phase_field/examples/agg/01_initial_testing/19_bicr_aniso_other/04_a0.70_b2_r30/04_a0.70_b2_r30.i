@@ -4,7 +4,7 @@
 # Created Date: Tuesday August 26th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday August 27th 2025
+# Last Modified: Thursday August 28th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -197,7 +197,7 @@ i_tol = 100
     aniso_L = false
     delta_ij = 0.7
     theta_prefactor = 2
-    inc_ij_0 = 0.5236 #1.57
+    inc_ij_0 = -0.5236 #1.57
     continuous = false
     gt_tol = 0.00
     angular_func = ATAN_2D
