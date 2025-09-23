@@ -2,7 +2,7 @@ function start_incl_dependence
 addpath .
 % invoer = 'incl_dependence_single_grain_inputt';%'incl_dependence_bicr';
 invoer = 'incl_dependence_bicr_m6';
-n = 20000;%30000; %30000;
+n = 200000;%30000; %30000;
 n_old = 0;
 
 %   eta{1} = zeros(100);
@@ -15,10 +15,10 @@ n_old = 0;
 % end
 
 % --- domain & initial condition (replace the nested loops) ---
-N  = 161;          % 161 points -> 160 intervals ("elements")
-cx = 81; cy = 81;  % center index (1-based). 81 gives symmetric -80..80
-% cx = 321; cy = 321;  % center index (1-based). 81 gives symmetric -80..80
-R  = 60;           % radius in grid points (physical R = R * deltax)
+N  = 801;%161;          % 161 points -> 160 intervals ("elements")
+% cx = 81; cy = 81;  % center index (1-based). 81 gives symmetric -80..80
+cx = 401; cy = 401;  % center index (1-based). 81 gives symmetric -80..80
+R  = 300;%60;           % radius in grid points (physical R = R * deltax)
 
 eta{1} = zeros(N, N);
 [I, J] = ndgrid(1:N, 1:N);
@@ -33,4 +33,4 @@ grain_area = [];
 %load incl_dependence_single_grain_input_kin_acnn20000
 % Was saving at 2500 for 30000
 
-[eta,sumetasqu,grain_area] = anisotropic_grgr_incl_in_gamma(invoer,n,n_old,eta,1000,grain_area);
+[eta,sumetasqu,grain_area] = anisotropic_grgr_incl_in_gamma(invoer,n,n_old,eta,10000,grain_area);
