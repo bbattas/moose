@@ -4,8 +4,8 @@
 # Created Date: Tuesday September 2nd 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday September 22nd 2025
-# Modified By: Battas,Brandon Scott
+# Last Modified: Tuesday September 23rd 2025
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Comparison with matlab code
@@ -33,6 +33,7 @@ i_tol = 100
   []
   parallel_type = DISTRIBUTED # Periodic BCs
   # uniform_refine = 1
+  second_order = true
 []
 
 [GlobalParams]
@@ -45,6 +46,7 @@ i_tol = 100
 [Variables]
   # Variable block, where all variables in the simulation are declared
   [PolycrystalVariables]
+    order = SECOND
   []
 []
 
@@ -55,7 +57,7 @@ i_tol = 100
     threshold = 0.01
     connecting_threshold = 0.01
     compute_var_to_feature_map = true
-    compute_halo_maps = true # Only necessary for displaying HALOS
+    compute_halo_maps = false # Only necessary for displaying HALOS
     execute_on = 'initial timestep_end'
     # use_less_than_threshold_comparison = true
   []
@@ -95,17 +97,17 @@ i_tol = 100
     order = CONSTANT
     family = MONOMIAL
   []
-  [gr_halos]
-    order = CONSTANT
-    family = MONOMIAL
-  []
+  # [gr_halos]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
 []
 
 [Kernels]
   # Kernel block, where the kernels defining the residual equations are set up.
   [PolycrystalKernel]
     # Custom action creating all necessary kernels for grain growth.  All input parameters are up in GlobalParams
-    variable_mobility = false
+    variable_mobility = true #false
   []
   [gr0_ACIaniso]
     type = ACInterfaceAnisoGamma
@@ -115,9 +117,12 @@ i_tol = 100
     dgamma_dgradop_name = dgammadgrad_eta_0
     d2gamma_dgradop2_name = d2gammadgrad_eta2_0
     mob_name = L
-    variable_L = false
+    variable_L = true
     skip_off = false
     mask_name = hgb
+    # Variable L
+    dL_dgradop_name = dLdgrad_eta_0
+    d2L_dgradop2_name = d2Ldgrad_eta2_0
   []
   [gr1_ACIaniso]
     type = ACInterfaceAnisoGamma
@@ -127,9 +132,12 @@ i_tol = 100
     dgamma_dgradop_name = dgammadgrad_eta_1
     d2gamma_dgradop2_name = d2gammadgrad_eta2_1
     mob_name = L
-    variable_L = false
+    variable_L = true
     skip_off = false
     mask_name = hgb
+    # Variable L
+    dL_dgradop_name = dLdgrad_eta_1
+    d2L_dgradop2_name = d2Ldgrad_eta2_1
   []
 []
 
@@ -148,13 +156,13 @@ i_tol = 100
     field_display = UNIQUE_REGION
     execute_on = 'initial timestep_end'
   []
-  [gr_halos]
-    type = FeatureFloodCountAux
-    variable = gr_halos
-    flood_counter = gr_flood_uo
-    field_display = HALOS
-    execute_on = 'initial timestep_end'
-  []
+  # [gr_halos]
+  #   type = FeatureFloodCountAux
+  #   variable = gr_halos
+  #   flood_counter = gr_flood_uo
+  #   field_display = HALOS
+  #   execute_on = 'initial timestep_end'
+  # []
 []
 
 [BCs]
@@ -193,8 +201,8 @@ i_tol = 100
     L0 = L0
     gamma0 = gamma_iso
     #
-    moelans_mu = false
-    aniso_L = false
+    moelans_mu = true
+    aniso_L = true
     delta_ij = 0.3
     theta_prefactor = 6
     inc_ij_0 = 0 #1.57
@@ -370,7 +378,7 @@ i_tol = 100
   dtmax = 0.5
   [TimeStepper]
     type = IterationAdaptiveDT
-    dt = 0.05
+    dt = 0.01
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 6
