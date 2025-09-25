@@ -1082,6 +1082,8 @@ GGInclinationMaterial::computeQpProperties()
   std::vector<RealGradient> & dfinc_m_dgeta = dfinc_dgeta;
   std::vector<RealTensorValue> & d2finc_m_dgeta2 = d2finc_dgeta2;
   // Now for L
+  _t2tens[_qp](2, 2) = _inclination[_qp] * _inclination[_qp];
+  _t2tens[_qp](2, 1) = _inclination[_qp] * finc_m;
   if (_aniso_L)
   {
     _L[_qp] = _L0[_qp] * _inclination[_qp] * finc_m;
@@ -1100,12 +1102,14 @@ GGInclinationMaterial::computeQpProperties()
           (*_d2Ldetadeta[j][i])[_qp] = 0.0;
           (*_d2Ldgrad_etadeta[i][j])[_qp] = RealGradient(0.0);
         }
-        (*_dLdgrad_eta[i])[_qp] =
-            _L0[_qp] * (_inclination[_qp] * dfinc_m_dgeta[i] + dfinc_dgeta[i] * finc_m);
-        (*_d2Ldgrad_eta2[i])[_qp] =
-            _L0[_qp] * (_inclination[_qp] * d2finc_m_dgeta2[i] +
-                        2 * libMesh::outer_product(dfinc_m_dgeta[i], dfinc_dgeta[i]) +
-                        d2finc_dgeta2[i] * finc_m);
+        // (*_dLdgrad_eta[i])[_qp] =
+        //     _L0[_qp] * (_inclination[_qp] * dfinc_m_dgeta[i] + dfinc_dgeta[i] * finc_m);
+        // (*_d2Ldgrad_eta2[i])[_qp] =
+        //     _L0[_qp] * (_inclination[_qp] * d2finc_m_dgeta2[i] +
+        //                 2 * libMesh::outer_product(dfinc_m_dgeta[i], dfinc_dgeta[i]) +
+        //                 d2finc_dgeta2[i] * finc_m);
+        (*_dLdgrad_eta[i])[_qp] = _L0[_qp] * dfinc_dgeta[i];
+        (*_d2Ldgrad_eta2[i])[_qp] = _L0[_qp] * d2finc_dgeta2[i];
       }
     }
   }
