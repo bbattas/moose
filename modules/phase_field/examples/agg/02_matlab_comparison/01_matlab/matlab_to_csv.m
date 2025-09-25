@@ -17,8 +17,10 @@ function matlab_to_csv(matfile, outfile)
     eta2 = S.eta{2};
 
     % Grid info (from your description)
-    N = 161;
-    deltax = 1.0;
+    % N = 161;
+    % deltax = 1.0;
+    N = 801;
+    deltax = 0.2;
 
     % Build coordinates 0..160
     x = (0:N-1) * deltax;

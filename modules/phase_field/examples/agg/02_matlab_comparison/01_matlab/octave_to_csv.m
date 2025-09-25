@@ -19,7 +19,7 @@ function octave_to_csv(matfile, outfile)
 
       % Grid info (assuming 161x161 as before)
       N = size(eta1, 1);  % safer than hardcoding 161
-      deltax = 1.0;
+      deltax = 0.2;%1.0;
 
       % Build coordinate arrays
       x = (0:N-1) * deltax;
