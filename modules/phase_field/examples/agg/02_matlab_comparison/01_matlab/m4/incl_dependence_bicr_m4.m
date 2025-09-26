@@ -8,7 +8,7 @@ deltax = 0.2; %1 %0.2; % grid spacing
 deltat = 0.0001; %0.003; % time step
 order_par = 2; % number of order parameters (eta) or number different grain types considered
 bound_cond = 'pp'; % type of boundary conditions; pp : periodic (possible vlaues 'pp' (periodic), 'pn' (periodic along 1 direction and Neumann along the other), 'nn' (Neumann), 'dd' (Dirichlett))
-delta_s = [0 0.3; 0 0]; % anisotropy strength factor grain boundary energy
+delta_s = [0 0.2; 0 0]; % anisotropy strength factor grain boundary energy
 
 delta_s_kin = [0 0; 0 0]; % anisotropy strength factor grain boundary mobility
 n_fold = [0 4; 0 0]; % 4- or 6- fold symmetry in grainboundary energy

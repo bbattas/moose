@@ -1078,15 +1078,15 @@ GGInclinationMaterial::computeQpProperties()
   // Build Anisotropic L
   // If gb mobility were a different f we would use that instead of 2 of the gb energy ones
   // These are basically placeholders so that the L derivations will still work if we change these
-  Real & finc_m = _inclination[_qp];
-  std::vector<RealGradient> & dfinc_m_dgeta = dfinc_dgeta;
-  std::vector<RealTensorValue> & d2finc_m_dgeta2 = d2finc_dgeta2;
+  // We assume based on the matlab code that generally this part is actually not anisotropic
+  //  delta_s_kin = [0 0; 0 0]; % anisotropy strength factor grain boundary mobility
+  // Real & finc_m = _inclination[_qp];
+  // std::vector<RealGradient> & dfinc_m_dgeta = dfinc_dgeta;
+  // std::vector<RealTensorValue> & d2finc_m_dgeta2 = d2finc_dgeta2;
   // Now for L
-  _t2tens[_qp](2, 2) = _inclination[_qp] * _inclination[_qp];
-  _t2tens[_qp](2, 1) = _inclination[_qp] * finc_m;
   if (_aniso_L)
   {
-    _L[_qp] = _L0[_qp] * _inclination[_qp] * finc_m;
+    _L[_qp] = _L0[_qp] * _inclination[_qp]; // * finc_m;
     if (_L_of_eta)
     {
       // Put the actual derivative here if L = f(u)
@@ -1163,7 +1163,7 @@ GGInclinationMaterial::computeQpProperties()
 
   // mu calc- Moelans
   if (_moelans_mu)
-    _mu[_qp] = _L0[_qp] * _gamma0[_qp] * std::sqrt(_kappa / _const_m) * finc_m;
+    _mu[_qp] = _L0[_qp] * _gamma0[_qp] * std::sqrt(_kappa / _const_m); // * finc_m;
   else
     _mu[_qp] = _gbe_inc[_qp];
 

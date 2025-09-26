@@ -4,7 +4,7 @@
 # Created Date: Thursday September 25th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday September 25th 2025
+# Last Modified: Friday September 26th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -117,7 +117,7 @@ i_tol = 100
     dgamma_dgradop_name = dgammadgrad_eta_0
     d2gamma_dgradop2_name = d2gammadgrad_eta2_0
     mob_name = L
-    variable_L = false #true #false
+    variable_L = true #true #false
     skip_off = false
     mask_name = hgb
     # Variable L
@@ -132,7 +132,7 @@ i_tol = 100
     dgamma_dgradop_name = dgammadgrad_eta_1
     d2gamma_dgradop2_name = d2gammadgrad_eta2_1
     mob_name = L
-    variable_L = false #true #false
+    variable_L = true #true #false
     skip_off = false
     mask_name = hgb
     # Variable L
@@ -368,10 +368,10 @@ i_tol = 100
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  # end_time = 20
+  end_time = 20
   # dtmin = 0.1
   # end_time = 1000000.0
-  num_steps = 5
+  # num_steps = 5
   automatic_scaling = true
   compute_scaling_once = false
   # dt = 0.05

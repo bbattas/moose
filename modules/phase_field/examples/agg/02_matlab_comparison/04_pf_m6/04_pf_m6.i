@@ -4,7 +4,7 @@
 # Created Date: Tuesday September 2nd 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday September 23rd 2025
+# Last Modified: Friday September 26th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -203,7 +203,7 @@ i_tol = 100
     #
     moelans_mu = true
     aniso_L = true
-    delta_ij = 0.3
+    delta_ij = 0.2
     theta_prefactor = 6
     inc_ij_0 = 0 #1.57
     continuous = false
@@ -368,7 +368,7 @@ i_tol = 100
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  end_time = 20
+  end_time = 40
   # dtmin = 0.1
   # end_time = 1000000.0
   # num_steps = 1
