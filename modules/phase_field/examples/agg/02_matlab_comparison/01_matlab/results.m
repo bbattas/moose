@@ -22,6 +22,21 @@ matlab_to_csv('m4/incl_dependence_bicr_m4nn150000.mat', 'results/matlab_m4_15s.c
 matlab_to_csv('m6/incl_dependence_bicr_m6nn150000.mat', 'results/matlab_m6_15s.csv')
 
 % 20s results
-matlab_to_csv('m2/incl_dependence_bicr_m2einde200000.mat', 'results/matlab_m2_20s.csv')
-matlab_to_csv('m4/incl_dependence_bicr_m4einde200000.mat', 'results/matlab_m4_20s.csv')
-matlab_to_csv('m6/incl_dependence_bicr_m6einde200000.mat', 'results/matlab_m6_20s.csv')
+matlab_to_csv('m2/incl_dependence_bicr_m2nn200000.mat', 'results/matlab_m2_20s.csv')
+matlab_to_csv('m4/incl_dependence_bicr_m4nn200000.mat', 'results/matlab_m4_20s.csv')
+matlab_to_csv('m6/incl_dependence_bicr_m6nn200000.mat', 'results/matlab_m6_20s.csv')
+
+% 25s results
+matlab_to_csv('m2/incl_dependence_bicr_m2nn250000.mat', 'results/matlab_m2_25s.csv')
+matlab_to_csv('m4/incl_dependence_bicr_m4nn250000.mat', 'results/matlab_m4_25s.csv')
+matlab_to_csv('m6/incl_dependence_bicr_m6nn250000.mat', 'results/matlab_m6_25s.csv')
+
+% 30 results
+matlab_to_csv('m2/incl_dependence_bicr_m2nn300000.mat', 'results/matlab_m2_30s.csv')
+matlab_to_csv('m4/incl_dependence_bicr_m4nn300000.mat', 'results/matlab_m4_30s.csv')
+matlab_to_csv('m6/incl_dependence_bicr_m6nn300000.mat', 'results/matlab_m6_30s.csv')
+
+% 40s results
+matlab_to_csv('m2/incl_dependence_bicr_m2einde400000.mat', 'results/matlab_m2_40s.csv')
+matlab_to_csv('m4/incl_dependence_bicr_m4einde400000.mat', 'results/matlab_m4_40s.csv')
+matlab_to_csv('m6/incl_dependence_bicr_m6einde400000.mat', 'results/matlab_m6_40s.csv')
