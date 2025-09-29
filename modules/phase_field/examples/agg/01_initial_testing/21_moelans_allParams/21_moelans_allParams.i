@@ -1,17 +1,25 @@
 ##############################################################################
-# File: 20_moelansL_debug.i
-# File Location: /examples/agg/01_initial_testing/20_moelansL_debug
-# Created Date: Thursday September 25th 2025
+# File: 21_moelans_allParams.i
+# File Location: /examples/agg/01_initial_testing/21_moelans_allParams
+# Created Date: Monday September 29th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday September 29th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  cos weight = 0.3, theta prefactor = 4, rotation = 0
-#  Trying to work out why this matlab comparison input is so bad.
-#  It was forming lamellar errors/problems along the GB so the inclinaiton
-#   was alternating positive and negative or similar from element to element.
+#  Using all the moelans parameters from the matlab bicrystal to get hopefully
+#   better convergence and avoid the squiggle failure on the points of the 4pole cos
+#
+# GBE = 0.25
+# Kappa = 0.3
+# m (or mu) = 0.9375
+# Max a* for specified kappa/m/gbe = 0.6179
+# Best m ≈ 1.068445e+00 yields a* ≈ 0.7272
+# g = 0.4714
+# g^2 = 0.2222
+# gamma = 1.4984
+# iw = 1.5974
 ##############################################################################
 
 a_tol = 100
@@ -22,17 +30,17 @@ i_tol = 100
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2 # Problem dimension
-    nx = 160 # Number of elements in the x-direction
-    ny = 160 # Number of elements in the y-direction
+    nx = 100 # Number of elements in the x-direction
+    ny = 100 # Number of elements in the y-direction
     xmin = 0 # minimum x-coordinate of the mesh
-    xmax = 160 # maximum x-coordinate of the mesh
+    xmax = 20 # maximum x-coordinate of the mesh
     ymin = 0 # minimum y-coordinate of the mesh
-    ymax = 160 # maximum y-coordinate of the mesh
+    ymax = 20 # maximum y-coordinate of the mesh
     # elem_type = QUAD4 # Type of elements used in the mesh
     # uniform_refine = 3 # Initial uniform refinement of the mesh
   []
   parallel_type = DISTRIBUTED # Periodic BCs
-  second_order = false
+  second_order = true
   # uniform_refine = 1
 []
 
@@ -46,7 +54,7 @@ i_tol = 100
 [Variables]
   # Variable block, where all variables in the simulation are declared
   [PolycrystalVariables]
-    order = FIRST
+    order = SECOND
   []
 []
 
@@ -72,21 +80,21 @@ i_tol = 100
     type = SmoothCircleIC
     invalue = 1
     outvalue = 0
-    radius = 60
+    radius = 8
     variable = gr0
-    x1 = 80
-    y1 = 80
-    int_width = 6
+    x1 = 10
+    y1 = 10
+    int_width = 1.6
   []
   [gr1_IC]
     type = SmoothCircleIC
     invalue = 0
     outvalue = 1
-    radius = 60
+    radius = 8
     variable = gr1
-    x1 = 80
-    y1 = 80
-    int_width = 6
+    x1 = 10
+    y1 = 10
+    int_width = 1.6
   []
 []
 
@@ -107,7 +115,7 @@ i_tol = 100
   # Kernel block, where the kernels defining the residual equations are set up.
   [PolycrystalKernel]
     # Custom action creating all necessary kernels for grain growth.  All input parameters are up in GlobalParams
-    variable_mobility = false #false
+    variable_mobility = true #false
   []
   [gr0_ACIaniso]
     type = ACInterfaceAnisoGamma
@@ -117,12 +125,13 @@ i_tol = 100
     dgamma_dgradop_name = dgammadgrad_eta_0
     d2gamma_dgradop2_name = d2gammadgrad_eta2_0
     mob_name = L
-    variable_L = false #true #false
+    variable_L = true #true #false
     skip_off = false
     mask_name = hgb
     # Variable L
     dL_dgradop_name = dLdgrad_eta_0
     d2L_dgradop2_name = d2Ldgrad_eta2_0
+    # mu = mu_alt
   []
   [gr1_ACIaniso]
     type = ACInterfaceAnisoGamma
@@ -132,12 +141,13 @@ i_tol = 100
     dgamma_dgradop_name = dgammadgrad_eta_1
     d2gamma_dgradop2_name = d2gammadgrad_eta2_1
     mob_name = L
-    variable_L = false #true #false
+    variable_L = true #true #false
     skip_off = false
     mask_name = hgb
     # Variable L
     dL_dgradop_name = dLdgrad_eta_1
     d2L_dgradop2_name = d2Ldgrad_eta2_1
+    # mu = mu_alt
   []
 []
 
@@ -187,8 +197,9 @@ i_tol = 100
   []
   [constants]
     type = GenericConstantMaterial
-    prop_names = 'L0         gamma_iso kappa_op  iw_iso gbe_iso'
-    prop_values = '1.15382e-6   1.5    2.07337e7   6   4.60748e6'
+    prop_names = 'L0         gamma_iso kappa_op  iw_iso gbe_iso mu_alt'
+    # prop_values = '1.15382e-6   1.5    2.07337e7   6   4.60748e6'
+    prop_values = '0.8333     1.5        0.3       1.6   0.25   1.0'
   []
   [aniso_mat]
     type = GGInclinationMaterial
@@ -196,14 +207,14 @@ i_tol = 100
     # grain_tracker = grain_tracker
     ffc = gr_flood_uo
     gb_energy_input = gbe_iso
-    kappa = 2.07337e7 #0.3 #kappa
-    free_energy_m = 5.521269e6 #4.5e6 #0.9375 #const_m
+    kappa = 0.3 #2.07337e7 #0.3 #kappa
+    free_energy_m = 0.9375 #5.521269e6 #4.5e6 #0.9375 #const_m
     L0 = L0
     gamma0 = gamma_iso
     #
     moelans_mu = true #true #false
-    aniso_L = false #false
-    delta_ij = 0.3
+    aniso_L = true #false
+    delta_ij = 0.15
     theta_prefactor = 4
     inc_ij_0 = 0 #1.57
     continuous = false
@@ -374,11 +385,11 @@ i_tol = 100
   # num_steps = 5
   automatic_scaling = true
   compute_scaling_once = false
-  # dt = 0.05
+  # dt = 0.003
   dtmax = 0.5
   [TimeStepper]
     type = IterationAdaptiveDT
-    dt = 0.0001
+    dt = 0.003
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 6

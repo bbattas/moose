@@ -17,6 +17,7 @@ ACInterfaceAnisoGamma::validParams()
   InputParameters params = JvarMapKernelInterface<Kernel>::validParams();
   params.addClassDescription("Gradient energy Allen-Cahn Kernel");
   params.addParam<MaterialPropertyName>("mob_name", "L", "The mobility used with the kernel");
+  params.addParam<MaterialPropertyName>("mu", "mu", "FE constant m/mu");
   params.addParam<MaterialPropertyName>(
       "gamma_name", "gamma_aniso", "The gamma used with the kernel");
   params.addParam<MaterialPropertyName>(
@@ -59,6 +60,7 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
     _second_test(secondTest()),
     _second_phi(secondPhi()),
     _L(getMaterialProperty<Real>("mob_name")),
+    _mu(getMaterialProperty<Real>(getParam<MaterialPropertyName>("mu"))),
     _gamma(getMaterialProperty<Real>(getParam<MaterialPropertyName>("gamma_name"))),
     _dgammadgrad_op(getMaterialProperty<RealGradient>("dgamma_dgradop_name")),
     _d2gammadgrad_op2(getMaterialProperty<RealTensorValue>("d2gamma_dgradop2_name")),
@@ -227,9 +229,10 @@ Real
 ACInterfaceAnisoGamma::computeQpResidual()
 {
   if (_mask_tf)
-    return (*_mask)[_qp] * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() * nablaLPsi();
+    return (*_mask)[_qp] * _mu[_qp] * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() *
+           nablaLPsi();
   else
-    return _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() * nablaLPsi();
+    return _mu[_qp] * _u[_qp] * _u[_qp] * _dgammadgrad_op[_qp] * sumSqEtaj() * nablaLPsi();
 }
 
 Real
@@ -275,9 +278,9 @@ ACInterfaceAnisoGamma::computeQpJacobian()
   }
 
   if (_mask_tf)
-    return (*_mask)[_qp] * (ddir + dind);
+    return (*_mask)[_qp] * _mu[_qp] * (ddir + dind);
   else
-    return (ddir + dind);
+    return _mu[_qp] * (ddir + dind);
 }
 
 Real
@@ -340,9 +343,9 @@ ACInterfaceAnisoGamma::computeQpOffDiagJacobian(unsigned int jvar)
 
       // Output the grain_op based offdiagonal
       if (_mask_tf)
-        return (*_mask)[_qp] * (ddir + dind);
+        return (*_mask)[_qp] * _mu[_qp] * (ddir + dind);
       else
-        return (ddir + dind);
+        return _mu[_qp] * (ddir + dind);
     }
 
     // Non-grain OP offdiag

@@ -1163,7 +1163,11 @@ GGInclinationMaterial::computeQpProperties()
 
   // mu calc- Moelans
   if (_moelans_mu)
-    _mu[_qp] = _L0[_qp] * _gamma0[_qp] * std::sqrt(_kappa / _const_m); // * finc_m;
+  {
+    // _mu[_qp] = _L0[_qp] * _gamma0[_qp] * std::sqrt(_kappa / _const_m); // * finc_m;
+    // _mu[_qp] = _L0[_qp] * _inclination[_qp] * std::sqrt(_kappa / _const_m) / 0.471404;
+    _mu[_qp] = _const_m;
+  }
   else
     _mu[_qp] = _gbe_inc[_qp];
 

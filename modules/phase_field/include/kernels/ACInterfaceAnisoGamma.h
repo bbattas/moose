@@ -41,6 +41,9 @@ protected:
   /// Mobility
   const MaterialProperty<Real> & _L;
 
+  /// FE Constant m/mu
+  const MaterialProperty<Real> & _mu;
+
   // Gamma
   const MaterialProperty<Real> & _gamma;
   const MaterialProperty<RealGradient> & _dgammadgrad_op;
