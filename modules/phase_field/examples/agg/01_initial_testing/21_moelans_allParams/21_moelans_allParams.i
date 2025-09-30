@@ -4,7 +4,7 @@
 # Created Date: Monday September 29th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday September 29th 2025
+# Last Modified: Tuesday September 30th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -40,7 +40,7 @@ i_tol = 100
     # uniform_refine = 3 # Initial uniform refinement of the mesh
   []
   parallel_type = DISTRIBUTED # Periodic BCs
-  second_order = true
+  second_order = false
   # uniform_refine = 1
 []
 
@@ -54,7 +54,7 @@ i_tol = 100
 [Variables]
   # Variable block, where all variables in the simulation are declared
   [PolycrystalVariables]
-    order = SECOND
+    order = FIRST
   []
 []
 
@@ -115,40 +115,40 @@ i_tol = 100
   # Kernel block, where the kernels defining the residual equations are set up.
   [PolycrystalKernel]
     # Custom action creating all necessary kernels for grain growth.  All input parameters are up in GlobalParams
-    variable_mobility = true #false
+    variable_mobility = false #false
   []
-  [gr0_ACIaniso]
-    type = ACInterfaceAnisoGamma
-    variable = gr0
-    coupled_variables = 'gr1' # gr11 gr12 gr13 gr14 gr15'
-    gamma_name = gamma_asymm
-    dgamma_dgradop_name = dgammadgrad_eta_0
-    d2gamma_dgradop2_name = d2gammadgrad_eta2_0
-    mob_name = L
-    variable_L = true #true #false
-    skip_off = false
-    mask_name = hgb
-    # Variable L
-    dL_dgradop_name = dLdgrad_eta_0
-    d2L_dgradop2_name = d2Ldgrad_eta2_0
-    # mu = mu_alt
-  []
-  [gr1_ACIaniso]
-    type = ACInterfaceAnisoGamma
-    variable = gr1
-    coupled_variables = 'gr0' # gr11 gr12 gr13 gr14 gr15'
-    gamma_name = gamma_asymm
-    dgamma_dgradop_name = dgammadgrad_eta_1
-    d2gamma_dgradop2_name = d2gammadgrad_eta2_1
-    mob_name = L
-    variable_L = true #true #false
-    skip_off = false
-    mask_name = hgb
-    # Variable L
-    dL_dgradop_name = dLdgrad_eta_1
-    d2L_dgradop2_name = d2Ldgrad_eta2_1
-    # mu = mu_alt
-  []
+  # [gr0_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr0
+  #   coupled_variables = 'gr1' # gr11 gr12 gr13 gr14 gr15'
+  #   gamma_name = gamma_asymm
+  #   dgamma_dgradop_name = dgammadgrad_eta_0
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_0
+  #   mob_name = L
+  #   variable_L = false #true #false
+  #   skip_off = false
+  #   mask_name = hgb
+  #   # Variable L
+  #   dL_dgradop_name = dLdgrad_eta_0
+  #   d2L_dgradop2_name = d2Ldgrad_eta2_0
+  #   mu = mu_alt
+  # []
+  # [gr1_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr1
+  #   coupled_variables = 'gr0' # gr11 gr12 gr13 gr14 gr15'
+  #   gamma_name = gamma_asymm
+  #   dgamma_dgradop_name = dgammadgrad_eta_1
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_1
+  #   mob_name = L
+  #   variable_L = false #true #false
+  #   skip_off = false
+  #   mask_name = hgb
+  #   # Variable L
+  #   dL_dgradop_name = dLdgrad_eta_1
+  #   d2L_dgradop2_name = d2Ldgrad_eta2_1
+  #   mu = mu_alt
+  # []
 []
 
 [AuxKernels]
@@ -199,7 +199,7 @@ i_tol = 100
     type = GenericConstantMaterial
     prop_names = 'L0         gamma_iso kappa_op  iw_iso gbe_iso mu_alt'
     # prop_values = '1.15382e-6   1.5    2.07337e7   6   4.60748e6'
-    prop_values = '0.8333     1.5        0.3       1.6   0.25   1.0'
+    prop_values = '0.8333     1.5        0.3       1.6   0.25   0.9375 '#0.46875'
   []
   [aniso_mat]
     type = GGInclinationMaterial
@@ -213,10 +213,10 @@ i_tol = 100
     gamma0 = gamma_iso
     #
     moelans_mu = true #true #false
-    aniso_L = true #false
-    delta_ij = 0.15
+    aniso_L = false #false
+    delta_ij = 0.5# 0.15
     theta_prefactor = 4
-    inc_ij_0 = 0 #1.57
+    inc_ij_0 = 0.0#0.785398 #1.57
     continuous = false
     gt_tol = 0.00
     angular_func = ATAN_2D
@@ -230,7 +230,8 @@ i_tol = 100
     gamma_name = gamma_asymm
     mu_name = mu
     gb_energy = sigma
-    output_properties = 'gamma_asymm L mu sigma int_width t2tens inclination_distance inclination_mat' # t2tens' # inclination_mat t2tens'
+    output_properties = 'gamma_asymm L mu sigma int_width t2tens inclination_distance inclination_mat
+    dgammadgrad_eta_0 d2gammadgrad_eta2_0' # t2tens' # inclination_mat t2tens'
     outputs = 'exodus'
   []
   [hgb_a]
@@ -374,12 +375,12 @@ i_tol = 100
 
   l_max_its = 60 # Max number of linear iterations
   l_tol = 1e-6 # Relative tolerance for linear solves
-  nl_max_its = 18 # Max number of nonlinear iterations
+  nl_max_its = 12 # Max number of nonlinear iterations
   nl_rel_tol = 1e-8 #1e-10 # Relative tolerance for nonlienar solves
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  end_time = 20
+  end_time = 40#8
   # dtmin = 0.1
   # end_time = 1000000.0
   # num_steps = 5
@@ -389,11 +390,11 @@ i_tol = 100
   dtmax = 0.5
   [TimeStepper]
     type = IterationAdaptiveDT
-    dt = 0.003
+    dt = 0.0001
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 6
-    linear_iteration_ratio = 1e5
+    linear_iteration_ratio = 50#1e5
   []
 
   # start_time = 0.0
