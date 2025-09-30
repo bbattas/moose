@@ -2,7 +2,7 @@ function start_incl_dependence
 addpath .
 % invoer = 'incl_dependence_single_grain_inputt';%'incl_dependence_bicr';
 invoer = 'incl_dependence_bicr_m4';
-n = 400000;%30000; %30000;
+n = 200000;%30000; %30000;
 n_old = 0;
 
 %   eta{1} = zeros(100);
@@ -33,4 +33,4 @@ grain_area = [];
 %load incl_dependence_single_grain_input_kin_acnn20000
 % Was saving at 2500 for 30000
 
-[eta,sumetasqu,grain_area] = anisotropic_grgr_incl_in_gamma(invoer,n,n_old,eta,10000,grain_area);
+[eta,sumetasqu,grain_area] = anisotropic_grgr_incl_in_gamma(invoer,n,n_old,eta,5000,grain_area);

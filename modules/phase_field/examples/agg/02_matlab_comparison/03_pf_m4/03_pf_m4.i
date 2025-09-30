@@ -4,7 +4,7 @@
 # Created Date: Tuesday September 2nd 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday September 26th 2025
+# Last Modified: Tuesday September 30th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -203,7 +203,7 @@ i_tol = 100
     #
     moelans_mu = true #false
     aniso_L = true #false
-    delta_ij = 0.2
+    delta_ij = 0.08
     theta_prefactor = 4
     inc_ij_0 = 0 #1.57
     continuous = false
@@ -363,7 +363,7 @@ i_tol = 100
 
   l_max_its = 60 # Max number of linear iterations
   l_tol = 1e-6 # Relative tolerance for linear solves
-  nl_max_its = 18 # Max number of nonlinear iterations
+  nl_max_its = 12 # Max number of nonlinear iterations
   nl_rel_tol = 1e-8 #1e-10 # Relative tolerance for nonlienar solves
   # nl_abs_tol = 1e-10
 
@@ -382,7 +382,7 @@ i_tol = 100
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 6
-    linear_iteration_ratio = 1e5
+    linear_iteration_ratio = 30#1e5
   []
 
   # start_time = 0.0

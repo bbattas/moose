@@ -5,10 +5,10 @@ g = [0 0.43063; 0 0]; %[0 sqrt(2)/3; 0 0]; % g-values
 L = [0 1.15382e-6; 0 0]; %[0 0.8333; 0 0];-6 % kinetic coefficient in Allen Cahn equations
 m = 5.521269e6; %0.9375; % prefactor in homogeneous free energy
 deltax = 0.2; %1 %0.2; % grid spacing
-deltat = 0.0001; %0.003; % time step
+deltat = 0.0002; %0.003; % time step
 order_par = 2; % number of order parameters (eta) or number different grain types considered
 bound_cond = 'pp'; % type of boundary conditions; pp : periodic (possible vlaues 'pp' (periodic), 'pn' (periodic along 1 direction and Neumann along the other), 'nn' (Neumann), 'dd' (Dirichlett))
-delta_s = [0 0.2; 0 0]; % anisotropy strength factor grain boundary energy
+delta_s = [0 0.08; 0 0]; % anisotropy strength factor grain boundary energy
 
 delta_s_kin = [0 0; 0 0]; % anisotropy strength factor grain boundary mobility
 n_fold = [0 2; 0 0]; % 4- or 6- fold symmetry in grainboundary energy
