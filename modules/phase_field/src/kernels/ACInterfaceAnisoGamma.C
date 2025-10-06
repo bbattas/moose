@@ -116,7 +116,8 @@ ACInterfaceAnisoGamma::ACInterfaceAnisoGamma(const InputParameters & parameters)
   // Get mobility and kappa derivatives and coupled variable gradients
   // mooseWarning("NAMEBASE: ", _var_name_base);
   // std::vector<unsigned int> _grain_ids;
-  // mooseWarning("Coupled stuff: ", _n_args);
+  mooseWarning("Coupled args in agg kernel: ", _n_args);
+  mooseWarning("HGB mask in agg kernel: ", _mask_tf);
   for (unsigned int i = 0; i < _n_args; ++i)
   {
     // mooseWarning("Into initial");
