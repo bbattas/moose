@@ -4,8 +4,8 @@
 # Created Date: Friday October 3rd 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday October 3rd 2025
-# Modified By: Brandon Battas
+# Last Modified: Monday October 6th 2025
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Aniso input with a magnitude of 0.70 and theta prefactor = 2
@@ -354,9 +354,9 @@ i_tol = 100
   # petsc_options_value = 'asm        preonly       lu           2'
 
   l_max_its = 60 # Max number of linear iterations
-  l_tol = 1e-6 # Relative tolerance for linear solves
+  l_tol = 1e-4 # Relative tolerance for linear solves
   nl_max_its = 12 # Max number of nonlinear iterations
-  nl_rel_tol = 1e-8 #1e-10 # Relative tolerance for nonlienar solves
+  nl_rel_tol = 1e-6 #1e-10 # Relative tolerance for nonlienar solves
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
@@ -374,7 +374,7 @@ i_tol = 100
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 6
-    linear_iteration_ratio = 30 #1e5
+    linear_iteration_ratio = 1e5
   []
 
   # start_time = 0.0

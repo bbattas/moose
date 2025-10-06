@@ -1,16 +1,16 @@
 ##############################################################################
-# File: 10_a0.60_b2.i
-# File Location: /examples/agg/01_initial_testing/22_bicr_fullkernel_anisoMag/10_a0.60_b2
-# Created Date: Friday October 3rd 2025
-# Author: Brandon Battas (bbattas@ufl.edu)
+# File: 12_a0.60_b2_asm.i
+# File Location: /examples/agg/01_initial_testing/22_bicr_fullkernel_anisoMag/12_a0.60_b2_asm
+# Created Date: Monday October 6th 2025
+# Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday October 6th 2025
 # Modified By: Battas,Brandon Scott
 # -----
 # Description:
-#  Aniso input with a magnitude of 0.60 and theta prefactor = 2
-#  Bicrystal for comparing to Lin's paper
-#  with m correction
+#  alternate version to try avoiding the dtmin failure around 5-8 seconds
+#  Using asm lu instead of hypre
+#
 #
 ##############################################################################
 
@@ -348,10 +348,10 @@ i_tol = 100
   solve_type = 'PJFNK'
 
   # Uses newton iteration to solve the problem.
-  petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart -mat_mffd_type'
-  petsc_options_value = 'hypre boomeramg 101 ds'
-  # petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
-  # petsc_options_value = 'asm        preonly       lu           2'
+  # petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart -mat_mffd_type'
+  # petsc_options_value = 'hypre boomeramg 101 ds'
+  petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
+  petsc_options_value = 'asm        preonly       lu           2'
 
   l_max_its = 60 # Max number of linear iterations
   l_tol = 1e-4 # Relative tolerance for linear solves
