@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 04_a0.05_debug.i
-# File Location: /examples/agg/01_initial_testing/23_bicr_newton/04_a0.05_debug
-# Created Date: Monday October 6th 2025
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 01_initial_debug.i
+# File Location: /examples/agg/01_initial_testing/24_newMat/01_initial_debug
+# Created Date: Thursday October 9th 2025
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday October 8th 2025
+# Last Modified: Friday October 10th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Test input for looking at aspects of the kernel and whatnot with newton
+#  Debugging input for the new inclination base material
 #
 #
 #
@@ -57,7 +57,6 @@ i_tol = 100
     compute_var_to_feature_map = true
     compute_halo_maps = true # Only necessary for displaying HALOS
     execute_on = 'initial timestep_end'
-    outputs = csv
     # use_less_than_threshold_comparison = true
   []
   [term]
@@ -100,6 +99,30 @@ i_tol = 100
     order = CONSTANT
     family = MONOMIAL
   []
+  # [theta_00]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  [theta_01]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  # [theta_11]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  [theta_01_x]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [theta_01_y]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [theta_01_z]
+    order = CONSTANT
+    family = MONOMIAL
+  []
 []
 
 [Kernels]
@@ -108,30 +131,30 @@ i_tol = 100
     # Custom action creating all necessary kernels for grain growth.  All input parameters are up in GlobalParams
     variable_mobility = false
   []
-  [gr0_ACIaniso]
-    type = ACInterfaceAnisoGamma
-    variable = gr0
-    coupled_variables = 'gr1' # gr11 gr12 gr13 gr14 gr15'
-    gamma_name = gamma_asymm
-    dgamma_dgradop_name = dgammadgrad_eta_0
-    d2gamma_dgradop2_name = d2gammadgrad_eta2_0
-    mob_name = L
-    variable_L = false
-    skip_off = false
-    mask_name = hgb
-  []
-  [gr1_ACIaniso]
-    type = ACInterfaceAnisoGamma
-    variable = gr1
-    coupled_variables = 'gr0' # gr11 gr12 gr13 gr14 gr15'
-    gamma_name = gamma_asymm
-    dgamma_dgradop_name = dgammadgrad_eta_1
-    d2gamma_dgradop2_name = d2gammadgrad_eta2_1
-    mob_name = L
-    variable_L = false
-    skip_off = false
-    mask_name = hgb
-  []
+  # [gr0_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr0
+  #   coupled_variables = 'gr1' # gr11 gr12 gr13 gr14 gr15'
+  #   gamma_name = gamma_asymm
+  #   dgamma_dgradop_name = dgammadgrad_eta_0
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_0
+  #   mob_name = L
+  #   variable_L = false
+  #   skip_off = false
+  #   mask_name = hgb
+  # []
+  # [gr1_ACIaniso]
+  #   type = ACInterfaceAnisoGamma
+  #   variable = gr1
+  #   coupled_variables = 'gr0' # gr11 gr12 gr13 gr14 gr15'
+  #   gamma_name = gamma_asymm
+  #   dgamma_dgradop_name = dgammadgrad_eta_1
+  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_1
+  #   mob_name = L
+  #   variable_L = false
+  #   skip_off = false
+  #   mask_name = hgb
+  # []
 []
 
 [AuxKernels]
@@ -154,6 +177,60 @@ i_tol = 100
     variable = gr_halos
     flood_counter = gr_flood_uo
     field_display = HALOS
+    execute_on = 'initial timestep_end'
+  []
+  # [theta_00]
+  #   type = MatVectorComponentAux
+  #   variable = theta_00
+  #   property = theta_ij
+  #   i = 0
+  #   j = 0
+  #   execute_on = 'initial timestep_end'
+  # []
+  [theta_01]
+    type = MatVectorComponentAux
+    variable = theta_01
+    property = theta_ij
+    i = 0
+    j = 1
+    execute_on = 'initial timestep_end'
+  []
+  # [theta_11]
+  #   type = MatVectorComponentAux
+  #   variable = theta_11
+  #   property = theta_ij
+  #   i = 1
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  [theta_01_x]
+    type = MatVectorComponentAux
+    variable = theta_01_x
+    property = dtheta_dgradeta
+    gradient = true
+    component = 0
+    i = 0
+    j = 1
+    execute_on = 'initial timestep_end'
+  []
+  [theta_01_y]
+    type = MatVectorComponentAux
+    variable = theta_01_y
+    property = dtheta_dgradeta
+    gradient = true
+    component = 1
+    i = 0
+    j = 1
+    execute_on = 'initial timestep_end'
+  []
+  [theta_01_z]
+    type = MatVectorComponentAux
+    variable = theta_01_z
+    property = dtheta_dgradeta
+    gradient = true
+    component = 2
+    i = 0
+    j = 1
     execute_on = 'initial timestep_end'
   []
 []
@@ -183,45 +260,60 @@ i_tol = 100
     prop_names = 'L0         gamma_iso kappa_op  iw_iso gbe_iso'
     prop_values = '1.15382e-6   1.5    2.07337e7   6   4.60748e6'
   []
-  [aniso_mat]
-    type = GGInclinationMaterial
-    gb_case = ffc
-    # grain_tracker = grain_tracker
+  [constants_2]
+    type = GenericConstantMaterial
+    prop_names = 'L        gamma_asymm   mu      int_width'
+    prop_values = '1.15382e-6  1.5     5.521269e6   6 '
+  []
+  [GBInc_Base]
+    type = GBInclinationBase
+    gb_id_method = ffc
     ffc = gr_flood_uo
-    gb_energy_input = gbe_iso
-    kappa = 2.07337e7 #0.3 #kappa
-    free_energy_m = 5.521269e6 #4.5e6 #0.9375 #const_m
-    L0 = L0
-    gamma0 = gamma_iso
-    #
-    moelans_mu = true
-    aniso_L = false
-    delta_ij = 0.05
-    theta_prefactor = 2
-    inc_ij_0 = 0 #1.57
-    continuous = false
-    gt_tol = 0.00
     angular_func = ATAN_2D
-    alphacase = BOTH
     intol = ${i_tol} #200 # cut if alpha > intol
     altol = ${a_tol} #10 #1.5 # cut if h*alpha > altol
-    hgb = hgb
-    # Output Names
-    inclination_name = inclination_mat
-    L_name = L
-    gamma_name = gamma_asymm
-    mu_name = mu
-    gb_energy = sigma
-    output_properties = 'gamma_asymm L mu sigma int_width inclination_mat testout' # t2tens' # inclination_mat t2tens'
+    output_properties = 'theta_ij gtnum dtheta_dgradeta d2theta_dgradeta2'
     outputs = 'exodus'
   []
-  [hgb_m]
-    type = ParsedMaterial
-    property_name = hgb_m
-    coupled_variables = 'gr0 gr1'
-    expression = 'gr0*gr0 / (gr0*gr0 + gr1*gr1)'
-    outputs = 'exodus'
-  []
+  # [theta_01_out]
+  #   type = ParsedMaterial
+  #   property_name = theta_01_out
+  #   material_property_names = 'theta_ij'
+  #   expression = 'theta_ij(0)'
+  #   outputs = 'exodus'
+  # []
+  # [aniso_mat]
+  #   type = GGInclinationMaterial
+  #   gb_case = ffc
+  #   # grain_tracker = grain_tracker
+  #   ffc = gr_flood_uo
+  #   gb_energy_input = gbe_iso
+  #   kappa = 2.07337e7 #0.3 #kappa
+  #   free_energy_m = 5.521269e6 #4.5e6 #0.9375 #const_m
+  #   L0 = L0
+  #   gamma0 = gamma_iso
+  #   #
+  #   moelans_mu = true
+  #   aniso_L = false
+  #   delta_ij = 0.05
+  #   theta_prefactor = 2
+  #   inc_ij_0 = 0 #1.57
+  #   continuous = false
+  #   gt_tol = 0.00
+  #   angular_func = ATAN_2D
+  #   alphacase = BOTH
+  #   intol = ${i_tol} #200 # cut if alpha > intol
+  #   altol = ${a_tol} #10 #1.5 # cut if h*alpha > altol
+  #   hgb = hgb
+  #   # Output Names
+  #   inclination_name = inclination_mat
+  #   L_name = L
+  #   gamma_name = gamma_asymm
+  #   mu_name = mu
+  #   gb_energy = sigma
+  #   output_properties = 'gamma_asymm L mu sigma int_width' # t2tens' # inclination_mat t2tens'
+  #   outputs = 'exodus'
+  # []
   [hgb_a]
     type = ParsedMaterial
     property_name = hgb_a
@@ -269,45 +361,44 @@ i_tol = 100
     type = PerfGraphData
     section_name = "Root"
     data_type = TOTAL
-    outputs = csv
   []
-  # [nl_its]
-  #   type = NumNonlinearIterations
-  # []
-  # [l_its]
-  #   type = NumLinearIterations
-  # []
-  # [timestep]
-  #   type = TimestepSize
-  # []
-  # [n_elements]
-  #   type = NumElements
+  [nl_its]
+    type = NumNonlinearIterations
+  []
+  [l_its]
+    type = NumLinearIterations
+  []
+  [timestep]
+    type = TimestepSize
+  []
+  [n_elements]
+    type = NumElements
+    execute_on = 'initial timestep_end'
+  []
+  [n_nodes]
+    type = NumNodes
+    execute_on = 'initial timestep_end'
+  []
+  [DOFs]
+    type = NumDOFs
+    execute_on = 'initial timestep_end'
+  []
+  # [avg_grain_volumes]
+  #   type = AverageGrainVolume
+  #   feature_counter = grain_tracker
   #   execute_on = 'initial timestep_end'
   # []
-  # [n_nodes]
-  #   type = NumNodes
-  #   execute_on = 'initial timestep_end'
-  # []
-  # [DOFs]
-  #   type = NumDOFs
-  #   execute_on = 'initial timestep_end'
-  # []
-  # # [avg_grain_volumes]
-  # #   type = AverageGrainVolume
-  # #   feature_counter = grain_tracker
-  # #   execute_on = 'initial timestep_end'
-  # # []
-  # [tot_gr_op]
-  #   type = ElementIntegralMaterialProperty
-  #   mat_prop = sumgr
-  # []
-  # [max_mpi_memory]
-  #   type = MemoryUsage
-  #   value_type = max_process
-  #   report_peak_value = True
-  #   mem_units = MEGABYTES
-  #   execute_on = 'NONLINEAR TIMESTEP_END'
-  # []
+  [tot_gr_op]
+    type = ElementIntegralMaterialProperty
+    mat_prop = sumgr
+  []
+  [max_mpi_memory]
+    type = MemoryUsage
+    value_type = max_process
+    report_peak_value = True
+    mem_units = MEGABYTES
+    execute_on = 'NONLINEAR TIMESTEP_END'
+  []
   # [avg_iw]
   #   type = ElementAverageMaterialProperty
   #   mat_prop = int_width
@@ -316,14 +407,14 @@ i_tol = 100
   #   type = ElementAverageMaterialProperty
   #   mat_prop = gamma_asymm
   # []
-  # [gr0]
-  #   type = ElementIntegralVariablePostprocessor
-  #   variable = gr0
-  # []
-  # [gr1]
-  #   type = ElementIntegralVariablePostprocessor
-  #   variable = gr1
-  # []
+  [gr0]
+    type = ElementIntegralVariablePostprocessor
+    variable = gr0
+  []
+  [gr1]
+    type = ElementIntegralVariablePostprocessor
+    variable = gr1
+  []
 []
 
 # [VectorPostprocessors]
@@ -354,35 +445,35 @@ i_tol = 100
   scheme = bdf2 # Type of time integration (2nd order backward euler), defaults to 1st order backward euler
 
   #Preconditioned JFNK (default)
-  solve_type = 'NEWTON'
+  solve_type = 'PJFNK'
 
   # Uses newton iteration to solve the problem.
-  # petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart -mat_mffd_type'
-  # petsc_options_value = 'hypre boomeramg 101 ds'
-  petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
-  petsc_options_value = 'asm        preonly       lu           2'
+  petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart -mat_mffd_type'
+  petsc_options_value = 'hypre boomeramg 101 ds'
+  # petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
+  # petsc_options_value = 'asm        preonly       lu           2'
 
   l_max_its = 60 # Max number of linear iterations
-  l_tol = 1e-4 # Relative tolerance for linear solves
+  l_tol = 1e-6 # Relative tolerance for linear solves
   nl_max_its = 12 # Max number of nonlinear iterations
-  nl_rel_tol = 1e-12 #1e-10 # Relative tolerance for nonlienar solves
+  nl_rel_tol = 1e-8 #1e-10 # Relative tolerance for nonlienar solves
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  end_time = 40
+  # end_time = 40
   # dtmin = 0.1
   # end_time = 1000000.0
-  # num_steps = 1
+  num_steps = 2
   automatic_scaling = true
   compute_scaling_once = false
   # dt = 0.05
-  # dtmax = 0.5
+  dtmax = 0.5
   [TimeStepper]
     type = IterationAdaptiveDT
-    dt = 0.1
+    dt = 0.005
     cutback_factor = 0.9
     growth_factor = 1.1
-    optimal_iterations = 6 #6
+    optimal_iterations = 6
     linear_iteration_ratio = 30 #1e5
   []
 
@@ -422,13 +513,13 @@ i_tol = 100
   #   type = Console
   #   max_rows = 20 # Will print the 20 most recent postprocessor values to the screen
   # []
-  [pgraph]
-    type = PerfGraphOutput
-    execute_on = 'initial final' # Default is "final"
-    level = 2 # Default is 1
-    heaviest_branch = true # Default is false
-    heaviest_sections = 7 # Default is 0
-  []
+  # [pgraph]
+  #   type = PerfGraphOutput
+  #   execute_on = 'initial final' # Default is "final"
+  #   level = 2 # Default is 1
+  #   heaviest_branch = true # Default is false
+  #   heaviest_sections = 7 # Default is 0
+  # []
   # file_base = 12_halt_hypre_nopre_i${i_tol}_a${a_tol}
   # file_base = 17_bicr_large_withnewKernel
   # file_base = test

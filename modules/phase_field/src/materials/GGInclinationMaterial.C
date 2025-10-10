@@ -384,6 +384,10 @@ GGInclinationMaterial::computeQpProperties()
   std::vector<RealTensorValue> d2inc_dgeta2_list;
   dinc_dgeta_list.clear();
   d2inc_dgeta2_list.clear();
+  if (_gb_ij_sorted.size() > 0)
+    _testout[_qp] = _gb_ij_sorted[0];
+  else
+    _testout[_qp] = -1;
   _testout2[_qp] = 0.0;
   _testout3[_qp] = 0.0;
   _dadb[_qp] = RealGradient(0.0, 0.0, 0.0);
