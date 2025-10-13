@@ -304,8 +304,8 @@ ACInterfaceAnisoGamma::computeQpOffDiagJacobian(unsigned int jvar)
       Real ddir = 2 * (*_coupled_standard_moose_vars[cvar]).sln()[_qp] * _u[_qp] * _u[_qp] *
                   _dgammadgrad_op[_qp] * _phi[_j][_qp] * nablaLPsi();
       // Indirect dependence on grad_arg
-      Real dind = 0.0; // _u[_qp] * _u[_qp] * (-_d2gammadgrad_op2[_qp]) * sumSqEtaj() *
-                       // _grad_phi[_j][_qp] * nablaLPsi();
+      Real dind = _u[_qp] * _u[_qp] * (-_d2gammadgrad_op2[_qp]) * sumSqEtaj() * _grad_phi[_j][_qp] *
+                  nablaLPsi();
 
       if (_variable_L)
       {

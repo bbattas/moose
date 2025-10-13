@@ -1,6 +1,8 @@
 #pragma once
-#include <cstddef>
+#include <cstddef>      //size::t
 #include "MooseError.h" // mooseAssert / mooseError (or use <cassert> assert())
+#include <utility>      // std::pair
+#include <cmath>        // std::sqrt
 
 namespace GBPairPacking
 {
@@ -79,10 +81,39 @@ pack_upper_checked(std::size_t i, std::size_t j, std::size_t N)
   if (!(i < j && j < N))
     mooseError("pack_upper_checked: need 0 <= i < j < N, got i=", i, " j=", j, " N=", N);
   const auto k = j * (j - 1) / 2 + i;
-  // Belt-and-suspenders: ensure k is within the allocated range
+  // ensure k is within the allocated range
   if (k >= count_upper(N))
     mooseError("pack_upper_checked: computed index out of range: k=", k);
   return k;
+}
+
+// ---------- UNpackers (k -> (i,j)) ----------
+
+// Strict upper (no diagonal), columns j = 1..N-1, rows i = 0..j-1
+// Use: auto [i, j] = GBPairPacking::unpack_upper(k);
+inline std::pair<std::size_t, std::size_t>
+unpack_upper(std::size_t k)
+{
+  // find column j s.t. j*(j-1)/2 <= k < (j+1)*j/2
+  const double kd = static_cast<double>(k);
+  const std::size_t j =
+      static_cast<std::size_t>(std::floor((1.0 + std::sqrt(1.0 + 8.0 * kd)) / 2.0));
+  const std::size_t base = j * (j - 1) / 2;
+  const std::size_t i = k - base; // 0 <= i < j
+  return {i, j};
+}
+
+// Upper including diagonal, columns j = 0..N-1, rows i = 0..j
+inline std::pair<std::size_t, std::size_t>
+unpack_upper_incl_diag(std::size_t k)
+{
+  // find column j s.t. j*(j+1)/2 <= k < (j+1)*(j+2)/2
+  const double kd = static_cast<double>(k);
+  const std::size_t j =
+      static_cast<std::size_t>(std::floor((std::sqrt(8.0 * kd + 1.0) - 1.0) / 2.0));
+  const std::size_t base = j * (j + 1) / 2;
+  const std::size_t i = k - base; // 0 <= i <= j
+  return {i, j};
 }
 
 }

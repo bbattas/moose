@@ -4,8 +4,8 @@
 # Created Date: Thursday October 9th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday October 10th 2025
-# Modified By: Brandon Battas
+# Last Modified: Monday October 13th 2025
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Debugging input for the new inclination base material
@@ -103,7 +103,11 @@ i_tol = 100
   #   order = CONSTANT
   #   family = MONOMIAL
   # []
-  [theta_01]
+  [inc_01]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [theta_01_v]
     order = CONSTANT
     family = MONOMIAL
   []
@@ -187,9 +191,17 @@ i_tol = 100
   #   j = 0
   #   execute_on = 'initial timestep_end'
   # []
-  [theta_01]
+  [inc_01]
     type = MatVectorComponentAux
-    variable = theta_01
+    variable = inc_01
+    property = inclination
+    i = 0
+    j = 1
+    execute_on = 'initial timestep_end'
+  []
+  [theta_01_v]
+    type = MatVectorComponentAux
+    variable = theta_01_v
     property = theta_ij
     i = 0
     j = 1
@@ -265,14 +277,27 @@ i_tol = 100
     prop_names = 'L        gamma_asymm   mu      int_width'
     prop_values = '1.15382e-6  1.5     5.521269e6   6 '
   []
-  [GBInc_Base]
-    type = GBInclinationBase
+  # [GBInc_Base]
+  #   type = GBInclinationBase
+  #   gb_id_method = ffc
+  #   ffc = gr_flood_uo
+  #   angular_func = ATAN_2D
+  #   intol = ${i_tol} #200 # cut if alpha > intol
+  #   altol = ${a_tol} #10 #1.5 # cut if h*alpha > altol
+  #   output_properties = 'theta_ij gtnum dtheta_dgradeta d2theta_dgradeta2'
+  #   outputs = 'exodus'
+  # []
+  [GBInc_cos]
+    type = GBInclination
     gb_id_method = ffc
     ffc = gr_flood_uo
     angular_func = ATAN_2D
     intol = ${i_tol} #200 # cut if alpha > intol
     altol = ${a_tol} #10 #1.5 # cut if h*alpha > altol
-    output_properties = 'theta_ij gtnum dtheta_dgradeta d2theta_dgradeta2'
+    # Inclination function
+    ifunc_a = 0.5
+    ifunc_b = 2
+    output_properties = 'theta_ij gtnum dtheta_dgradeta d2theta_dgradeta2 testout1 testout2 inclination'
     outputs = 'exodus'
   []
   # [theta_01_out]
