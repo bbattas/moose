@@ -19,6 +19,8 @@ protected:
 
   MaterialProperty<Real> & _testout1;
   MaterialProperty<Real> & _testout2;
+  MaterialProperty<RealGradient> & _testoutgrad;
+  MaterialProperty<RealTensorValue> & _testouttens;
 
   // Enum for which inclination function to use
   int _inc_func;
@@ -30,6 +32,20 @@ protected:
 
   // Inclination output (1+cos)
   MaterialProperty<std::vector<Real>> & _inclination;
+
+  // gamma_ij and derivatives flatpacked to a vector with GBPairPacking
+  MaterialProperty<std::vector<Real>> & _gamma_ij;
+  MaterialProperty<std::vector<RealGradient>> & _dgamma_dgradeta;
+  MaterialProperty<std::vector<RealTensorValue>> & _d2gamma_dgradeta2;
+
+  // GBE
+  const MaterialProperty<Real> & _gbe_iso; // input
+  MaterialProperty<Real> & _gbe_aniso;     // output
+
+  // Other Free Energy terms
+  const MaterialProperty<Real> & _kappa;
+  Real _const_m;
+  MaterialProperty<Real> & _mu;
 
   /// total number of grains
   // const unsigned int _op_num;

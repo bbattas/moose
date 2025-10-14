@@ -4,7 +4,7 @@
 # Created Date: Thursday October 9th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday October 13th 2025
+# Last Modified: Tuesday October 14th 2025
 # Modified By: Battas,Brandon Scott
 # -----
 # Description:
@@ -297,7 +297,7 @@ i_tol = 100
     # Inclination function
     ifunc_a = 0.5
     ifunc_b = 2
-    output_properties = 'theta_ij gtnum dtheta_dgradeta d2theta_dgradeta2 testout1 testout2 inclination'
+    output_properties = 'gtnum testout1 testout2 testoutgrad testouttens inclination' #theta_ij dtheta_dgradeta d2theta_dgradeta2
     outputs = 'exodus'
   []
   # [theta_01_out]
