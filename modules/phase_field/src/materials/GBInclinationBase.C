@@ -41,7 +41,8 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
     _theta_ij(declareProperty<std::vector<Real>>("theta_ij")),
     _dtheta_dgradeta(declareProperty<std::vector<RealGradient>>("dtheta_dgradeta")),
     _d2theta_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2theta_dgradeta2")),
-    // _dtheta_dgradeta(declareProperty<RealGradient>("dincdgrad_eta")),
+    _ij_i(declareProperty<std::vector<unsigned int>>("ij_i")),
+    _ij_j(declareProperty<std::vector<unsigned int>>("ij_j")),
     // Grain Tracker/FFC for GB identification
     _gb_case(getParam<MooseEnum>("gb_id_method")),
     _grain_tracker(isParamValid("grain_tracker") ? &getUserObject<GrainTracker>("grain_tracker")
@@ -52,7 +53,8 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
     _angular_func(getParam<MooseEnum>("angular_func")),
     _intol(getParam<Real>("intol")),
     _altol(getParam<Real>("altol")),
-    _hgb(getMaterialProperty<Real>(getParam<MaterialPropertyName>("hgb")))
+    _hgb(getMaterialProperty<Real>(getParam<MaterialPropertyName>("hgb"))),
+    _no_ij_pairs(declareProperty<bool>("no_ij_pairs"))
 
 {
   if (_op_num < 2)
@@ -88,10 +90,15 @@ GBInclinationBase::computeQpProperties()
   std::fill(dtheta.begin(), dtheta.end(), RealGradient(0.0));
   std::fill(d2theta.begin(), d2theta.end(), RealTensorValue(0.0));
 
-  _k2i.clear();
-  _k2j.clear();
-  _k2i.reserve(num_pairs);
-  _k2j.reserve(num_pairs);
+  auto & k2i = _ij_i[_qp];
+  auto & k2j = _ij_j[_qp];
+  if (k2i.size() != num_pairs)
+    k2i.resize(num_pairs);
+  if (k2j.size() != num_pairs)
+    k2j.resize(num_pairs);
+  // optional: initialize to a sentinel (here UINT_MAX)
+  std::fill(k2i.begin(), k2i.end(), 4);
+  std::fill(k2j.begin(), k2j.end(), 4);
 
   // Find out the number of boundary unique_id and save them
   _gb_ij_list.clear();
@@ -278,8 +285,8 @@ GBInclinationBase::computeQpProperties()
                   theta[k] = a_dist;
                   dtheta[k] = dtheta_dgetai;    // this is d/d \nabla \eta_i = -d/dj
                   d2theta[k] = d2theta_dgetai2; // this is d2/d \nabla \eta_i^2 = d2/djj = -d2/dij
-                  _k2i[k] = i;
-                  _k2j[k] = j;
+                  k2i[k] = i;
+                  k2j[k] = j;
 
                   // _inclination[_qp] = 1.0;
                   break;
@@ -292,4 +299,8 @@ GBInclinationBase::computeQpProperties()
           }
         }
   }
+  // Save a bool for if we need to treat this qp as isotropic in children materials
+  // true means skip all the vectored calcs at this qp
+  _no_ij_pairs[_qp] =
+      std::all_of(theta.begin(), theta.end(), [](const Real v) { return v == -1.0; });
 }

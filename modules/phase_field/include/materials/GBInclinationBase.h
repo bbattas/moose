@@ -31,8 +31,8 @@ protected:
   MaterialProperty<std::vector<RealTensorValue>> & _d2theta_dgradeta2;
 
   // Save the ij thats associated with each one so we can skip a sqrt calc later to unpack
-  std::vector<std::size_t> _k2i;
-  std::vector<std::size_t> _k2j;
+  MaterialProperty<std::vector<unsigned int>> & _ij_i; // use unsigned int if dont need -1
+  MaterialProperty<std::vector<unsigned int>> & _ij_j;
 
   /// Enum for grain op identification
   int _gb_case;
@@ -56,4 +56,7 @@ protected:
 
   // GB switching function for use with altol
   const MaterialProperty<Real> & _hgb;
+
+  // Check if there are no actual ij pairs at this qp
+  MaterialProperty<bool> & _no_ij_pairs;
 };

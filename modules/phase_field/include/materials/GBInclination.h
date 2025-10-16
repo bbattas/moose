@@ -47,6 +47,18 @@ protected:
   Real _const_m;
   MaterialProperty<Real> & _mu;
 
+  MaterialProperty<Real> & _int_width;
+
+  MaterialProperty<Real> & _gamma_asymm;
+
+  // AC Mobility
+  const bool _aniso_L;
+  const MaterialProperty<Real> & _L0;
+  MaterialProperty<std::vector<Real>> & _L_ij;
+  MaterialProperty<std::vector<RealGradient>> & _dL_dgradeta;
+  MaterialProperty<std::vector<RealTensorValue>> & _d2L_dgradeta2;
+  MaterialProperty<Real> & _L;
+
   /// total number of grains
   // const unsigned int _op_num;
 

@@ -28,6 +28,10 @@ GBInclination::validParams()
       "kappa", "kappa", "Gradient energy constant kappa material name.");
   params.addParam<Real>(
       "free_energy_m", 1, "Free energy function constant m (or mu in PF kernels).");
+  // OPTIONAL Anisotropic L
+  params.addParam<bool>("aniso_L", false, "Is L anisotropic, else L=L0.");
+  params.addParam<MaterialPropertyName>(
+      "L0", "L0", "AC mobility prefactor/reference value material.");
   // params.addParam<UserObjectName>("grain_tracker",
   //                                 "The GrainTracker UserObject to get values from.");
   // params.addParam<UserObjectName>("ffc", "The FFC UserObject to get values from.");
@@ -70,7 +74,16 @@ GBInclination::GBInclination(const InputParameters & parameters)
     // Other Free Energy Props
     _kappa(getMaterialProperty<Real>(getParam<MaterialPropertyName>("kappa"))),
     _const_m(getParam<Real>("free_energy_m")),
-    _mu(declareProperty<Real>("mu"))
+    _mu(declareProperty<Real>("mu")),
+    _int_width(declareProperty<Real>("int_width")),
+    _gamma_asymm(declareProperty<Real>("gamma_asymm")),
+    // Optional Anisotropic L
+    _aniso_L(getParam<bool>("aniso_L")),
+    _L0(getMaterialProperty<Real>("L0")),
+    _L_ij(declareProperty<std::vector<Real>>("L_ij")),
+    _dL_dgradeta(declareProperty<std::vector<RealGradient>>("dL_dgradeta")),
+    _d2L_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2L_dgradeta2")),
+    _L(declareProperty<Real>("L"))
 // _op_num(coupledComponents("v")),
 // _vals(coupledValues("v")),
 // _vals_name(_op_num),
@@ -116,9 +129,6 @@ GBInclination::computeQpProperties()
   auto & theta = _theta_ij[_qp];
   auto & dtheta = _dtheta_dgradeta[_qp];
   auto & d2theta = _d2theta_dgradeta2[_qp];
-  // mooseAssert(theta.size() == _k2ij.size(),
-  //             "theta/_k2ij size mismatch"); // move to error checking and makr sure both = num
-  //             pairs
 
   // Declare inclination flatpacked vector
   auto & finc = _inclination[_qp];
@@ -153,12 +163,40 @@ GBInclination::computeQpProperties()
   std::fill(dgamma.begin(), dgamma.end(), RealGradient(0.0));
   std::fill(d2gamma.begin(), d2gamma.end(), RealTensorValue(0.0));
 
+  // Declare/build L_ij
+  auto & Lij = _L_ij[_qp];
+  auto & dL = _dL_dgradeta[_qp];
+  auto & d2L = _d2L_dgradeta2[_qp];
+  // Size once per QP (no-op if already correct); then initialize values
+  if (Lij.size() != num_pairs)
+    Lij.resize(num_pairs);
+  if (dL.size() != num_pairs)
+    dL.resize(num_pairs);
+  if (d2L.size() != num_pairs)
+    d2L.resize(num_pairs);
+  std::fill(Lij.begin(), Lij.end(), 0.0);
+  std::fill(dL.begin(), dL.end(), RealGradient(0.0));
+  std::fill(d2L.begin(), d2L.end(), RealTensorValue(0.0));
+
   // Hard-coded coefficients (for poly gamma)
   constexpr Real a1 = -3.0944; // coefficient for g2^4
   constexpr Real a2 = -1.8169; // coefficient for g2^3
   constexpr Real a3 = 10.323;  // coefficient for g2^2
   constexpr Real a4 = -8.1819; // coefficient for g2
   constexpr Real a5 = 2.0033;  // constant term
+
+  // IW initialization
+  std::vector<Real> iw_ij;
+  iw_ij.clear();
+  if (iw_ij.size() != num_pairs)
+    iw_ij.resize(num_pairs);
+  std::fill(iw_ij.begin(), iw_ij.end(), 0.0);
+
+  // hgb storage
+  Real hgb_tot = 0.0;
+  Real iw_sum = 0.0;
+  Real gamma_sum = 0.0;
+  Real Lij_sum = 0.0;
 
   _testout1[_qp] = -1; //(*_vals[i])[_qp];
   _testout2[_qp] = -1; //(*_vals[j])[_qp];
@@ -171,8 +209,9 @@ GBInclination::computeQpProperties()
     // Maybe also add an OP value check for i and j to skip? should be handled by ffc/gt though
 
     // Actually compute for this k=ij
-    const std::size_t i = _k2i[k];
-    const std::size_t j = _k2j[k];
+    const std::size_t i = _ij_i[_qp][k];
+    const std::size_t j = _ij_j[_qp][k];
+
     // choose which inclination function
     switch (_inc_func)
     {
@@ -197,18 +236,86 @@ GBInclination::computeQpProperties()
         break;
     }
     // Calculate gamma
-    Real g = _gbe_iso[_qp] * finc[k] / (std::sqrt(_kappa * _const_m));
-    Real dg_df = _gbe_iso[_qp] / (std::sqrt(_kappa * _const_m));
+    Real g = _gbe_iso[_qp] * finc[k] / (std::sqrt(_kappa[_qp] * _const_m));
+    Real dg_df = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _const_m));
     Real g2 = g * g;
     // Polynomial (inverse gamma for 0.5 < gamma < 40)
-    Real poly_g = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
-    Real dpoly_g_dg2 = 4 * a1 * g2 * g2 * g2 + 3 * a2 * g2 * g2 + 2 * a3 * g2 + a4;
-    Real d2poly_g_dg22 = 12 * a1 * g2 * g2 + 6 * a2 * g2 + 2 * a3;
+    Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
+    Real dpg = 4 * a1 * g2 * g2 * g2 + 3 * a2 * g2 * g2 + 2 * a3 * g2 + a4;
+    Real d2pg = 12 * a1 * g2 * g2 + 6 * a2 * g2 + 2 * a3;
     // Save gamma_ij
-    gamma[k] = 1 / poly_g;
-    // DERIVS and IW and L?
+    gamma[k] = 1 / pg;
+    dgamma[k] = -2 * g * gamma[k] * dpg * dg_df * dfinc_dgradeta[k];
+    d2gamma[k] = 2 * gamma[k] * gamma[k] * dg_df * dg_df *
+                     (4 * g2 * gamma[k] * dpg * dpg - 2 * g2 * d2pg - dpg) *
+                     libMesh::outer_product(dfinc_dgradeta[k], dfinc_dgradeta[k]) -
+                 2 * g * gamma[k] * dpg * dg_df * d2finc_dgradeta2[k];
+
+    // Calculate IW
+    Real f0_int =
+        (((((0.0788 * pg - 0.4955) * pg + 1.2244) * pg - 1.5281) * pg + 1.0686) * pg - 0.5563) *
+            pg +
+        0.2907;
+    iw_ij[k] = (std::sqrt(_kappa[_qp] / _const_m)) * (std::sqrt(1 / f0_int));
+
+    // Save summation properties
+    hgb_tot += (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+    iw_sum += iw_ij[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+    gamma_sum +=
+        gamma[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+
+    // Optionally anisotropic L
+    if (_aniso_L)
+    {
+      // could do the Lij and derivativs in the kernel instead?
+      Lij[k] = _L0[_qp] * finc[k];
+      Lij_sum += Lij[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+      dL[k] = _L0[_qp] * dfinc_dgradeta[k];
+      d2L[k] = _L0[_qp] * d2finc_dgradeta2[k];
+    }
   }
-  _testout1[_qp] = finc[0];
-  _testoutgrad[_qp] = dfinc_dgradeta[0];
-  _testouttens[_qp] = d2finc_dgradeta2[0];
+  // Summation and whole outputs
+  // Check if no ij pairs at qp use finc = 1 for calculation of condensed output
+  if (_no_ij_pairs[_qp])
+  {
+    Real g = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _const_m));
+    Real g2 = g * g;
+    Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
+    _gamma_asymm[_qp] = 1 / pg; // 1.5;
+    // IW
+    Real f0_int =
+        (((((0.0788 * pg - 0.4955) * pg + 1.2244) * pg - 1.5281) * pg + 1.0686) * pg - 0.5563) *
+            pg +
+        0.2907;
+    _int_width[_qp] = (std::sqrt(_kappa[_qp] / _const_m)) * (std::sqrt(1 / f0_int));
+  }
+  else
+  {
+    _int_width[_qp] = iw_sum / hgb_tot;
+    _gamma_asymm[_qp] = gamma_sum / hgb_tot;
+  }
+  _mu[_qp] = _const_m;
+
+  // AC Mobility
+  if ((!_aniso_L) || (_no_ij_pairs[_qp]))
+  {
+    // Normal constant L formulation
+    _L[_qp] = _L0[_qp];
+  }
+  else
+  {
+    // eta summation of moelans L_ij
+    _L[_qp] = Lij_sum / hgb_tot;
+  }
+
+  _testout1[_qp] = -1;
+  _testout2[_qp] = -1;
+  if ((_ij_i[_qp]).size() > 0)
+  {
+    _testout1[_qp] = _ij_i[_qp][0];
+    _testout2[_qp] = _ij_j[_qp][0];
+  }
+
+  _testoutgrad[_qp] = dgamma[0];
+  _testouttens[_qp] = d2gamma[0];
 }

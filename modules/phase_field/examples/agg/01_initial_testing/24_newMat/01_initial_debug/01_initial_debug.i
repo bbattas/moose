@@ -4,8 +4,8 @@
 # Created Date: Thursday October 9th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday October 14th 2025
-# Modified By: Battas,Brandon Scott
+# Last Modified: Thursday October 16th 2025
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Debugging input for the new inclination base material
@@ -107,6 +107,18 @@ i_tol = 100
     order = CONSTANT
     family = MONOMIAL
   []
+  [gamma_01_v]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  # [i_0]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [j_0]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
   [theta_01_v]
     order = CONSTANT
     family = MONOMIAL
@@ -134,6 +146,24 @@ i_tol = 100
   [PolycrystalKernel]
     # Custom action creating all necessary kernels for grain growth.  All input parameters are up in GlobalParams
     variable_mobility = false
+  []
+  [gr0_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr0
+    coupled_variables = 'gr1'
+    debug_kernel = true
+    skip_off = true
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr1_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr1
+    coupled_variables = 'gr0'
+    debug_kernel = true
+    skip_off = true
+    variable_L = false
+    mask_name = hgb
   []
   # [gr0_ACIaniso]
   #   type = ACInterfaceAnisoGamma
@@ -199,6 +229,32 @@ i_tol = 100
     j = 1
     execute_on = 'initial timestep_end'
   []
+  [gamma_01_v]
+    type = MatVectorComponentAux
+    variable = gamma_01_v
+    property = gamma_ij
+    i = 0
+    j = 1
+    execute_on = 'initial timestep_end'
+  []
+  # [i_0]
+  #   type = MatVectorComponentAux
+  #   variable = i_0
+  #   property = ij_i
+  #   is_ij = true
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [j_0]
+  #   type = MatVectorComponentAux
+  #   variable = j_0
+  #   property = ij_j
+  #   is_ij = true
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
   [theta_01_v]
     type = MatVectorComponentAux
     variable = theta_01_v
@@ -272,11 +328,11 @@ i_tol = 100
     prop_names = 'L0         gamma_iso kappa_op  iw_iso gbe_iso'
     prop_values = '1.15382e-6   1.5    2.07337e7   6   4.60748e6'
   []
-  [constants_2]
-    type = GenericConstantMaterial
-    prop_names = 'L        gamma_asymm   mu      int_width'
-    prop_values = '1.15382e-6  1.5     5.521269e6   6 '
-  []
+  # [constants_2]
+  #   type = GenericConstantMaterial
+  #   prop_names = 'L        '#gamma_asymm'# int_width'#   mu'
+  #   prop_values = '1.15382e-6 '#' 1.5 '#'    6        '#5.521269e6'
+  # []
   # [GBInc_Base]
   #   type = GBInclinationBase
   #   gb_id_method = ffc
@@ -295,9 +351,15 @@ i_tol = 100
     intol = ${i_tol} #200 # cut if alpha > intol
     altol = ${a_tol} #10 #1.5 # cut if h*alpha > altol
     # Inclination function
-    ifunc_a = 0.5
+    ifunc_a = 0.2
     ifunc_b = 2
-    output_properties = 'gtnum testout1 testout2 testoutgrad testouttens inclination' #theta_ij dtheta_dgradeta d2theta_dgradeta2
+    # Other Properties
+    gb_energy_iso_name = gbe_iso
+    kappa = kappa_op
+    free_energy_m = 5.521269e6
+    output_properties = 'gtnum testout1 testout2
+    int_width gamma_asymm' #theta_ij dtheta_dgradeta d2theta_dgradeta2
+    # testout1 testout2 testoutgrad testouttens
     outputs = 'exodus'
   []
   # [theta_01_out]
@@ -479,7 +541,7 @@ i_tol = 100
   # petsc_options_value = 'asm        preonly       lu           2'
 
   l_max_its = 60 # Max number of linear iterations
-  l_tol = 1e-6 # Relative tolerance for linear solves
+  l_tol = 1e-4 # Relative tolerance for linear solves
   nl_max_its = 12 # Max number of nonlinear iterations
   nl_rel_tol = 1e-8 #1e-10 # Relative tolerance for nonlienar solves
   # nl_abs_tol = 1e-10
