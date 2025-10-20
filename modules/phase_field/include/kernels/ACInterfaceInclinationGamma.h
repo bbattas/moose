@@ -80,4 +80,34 @@ protected:
 
   // Convenience: get eta_k and grad phi_j at this qp
   inline Real eta_at(unsigned k) const { return (*_eta_by_op[k])[_qp]; }
+
+  // Other approach, build lists of eta within args and tie the number along with the arg id
+  // std::vector<unsigned int> _grain_args;
+  // std::vector<unsigned int> _grain_idx; // unsigned int
+  // std::vector<const VariableValue *> _grain_vals;
+  // std::vector<unsigned int> _grain_k_test;
+  std::unordered_map<unsigned int, const VariableValue *> _grain_val_by_k;    // key = k
+  std::unordered_map<unsigned int, const VariableValue *> _grain_val_by_argi; // key = i
+
+  // Inline, const, and noexcept (optional).
+  inline const VariableValue * get_val_by_k(unsigned int j) const noexcept
+  {
+    if (auto it = _grain_val_by_k.find(j); it != _grain_val_by_k.end())
+      return it->second;
+    return nullptr;
+  }
+
+  inline const VariableValue * get_val_by_argi(unsigned int arg_i) const noexcept
+  {
+    if (auto it = _grain_val_by_argi.find(arg_i); it != _grain_val_by_argi.end())
+      return it->second;
+    return nullptr;
+  }
+
+  // const VariableValue * get_val(unsigned int j)
+  // {
+  //   if (auto it = _grain_val_by_idx.find(j); it != _grain_val_by_idx.end())
+  //     return it->second;
+  //   return nullptr; // not present
+  // }
 };

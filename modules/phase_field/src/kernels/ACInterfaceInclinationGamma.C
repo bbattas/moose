@@ -51,9 +51,16 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
     _debug_kernel(getParam<bool>("debug_kernel")),
     _mask(isParamValid("mask_name") ? &getMaterialProperty<Real>("mask_name") : nullptr),
     _mask_tf(isParamValid("mask_name")),
-    _gradarg(_n_args)
-
+    _gradarg(_n_args),
+    // other approach
+    // _grain_args(),
+    // _grain_idx(),
+    // _grain_vals(),
+    // _grain_k_test(),
+    _grain_val_by_k(),
+    _grain_val_by_argi()
 {
+  mooseWarning("Coupled args in agg kernel: ", _n_args);
   // Parse my OP index from my variable name
   _my_op = OpIndexUtils::parseOpIndex(_var.name(), _var_name_base);
 
@@ -69,15 +76,34 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
   for (unsigned i = 0; i < _n_args; ++i)
   {
     MooseVariable * ivar = _coupled_standard_moose_vars[i];
-    const unsigned k = OpIndexUtils::parseOpIndex(ivar->name(), _var_name_base);
+    const VariableName iname = ivar->name();
+    if (iname == _var.name())
+    {
+      if (isCoupled("args"))
+        paramError("args",
+                   "The kernel variable should not be specified in the coupled `args` parameter.");
+      else
+        paramError("coupled_variables",
+                   "The kernel variable should not be specified in the coupled `coupled_variables` "
+                   "parameter.");
+    }
 
-    // Validate against op_num
-    if (k >= _op_num)
-      mooseError(
-          "Coupled variable '", ivar->name(), "' has OP index ", k, " but op_num = ", _op_num, ".");
+    if (MooseUtils::beginsWith(iname, _var_name_base) && (iname != _var.name()))
+    {
+      const unsigned k = OpIndexUtils::parseOpIndex(ivar->name(), _var_name_base);
+      // Validate against op_num
+      if (k >= _op_num)
+        mooseError(
+            "Coupled variable '", iname, "' has OP index ", k, " but op_num = ", _op_num, ".");
+      _grain_val_by_k.emplace(k, &coupledValue("coupled_variables", i));
+      _grain_val_by_argi.emplace(i, &coupledValue("coupled_variables", i));
+      //
+      _eta_by_op[k] = &(ivar->sln());
+      _op_to_jvar[k] = static_cast<int>(ivar->number());
+    }
 
-    _eta_by_op[k] = &(ivar->sln());
-    _op_to_jvar[k] = static_cast<int>(ivar->number());
+    // _eta_by_op[k] = &(ivar->sln());
+    // _op_to_jvar[k] = static_cast<int>(ivar->number());
     _gradarg[i] = &(ivar->gradSln()); // your existing gradient cache
   }
   // debugging dump
@@ -103,6 +129,14 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
       if (!named && k == _my_op)
         oss << "  name='" << _var.name() << "'";
       oss << "\n";
+    }
+    for (unsigned i = 0; i < _op_num; ++i)
+    {
+      oss << "k=" << i << "  grain_val_k=" << get_val_by_k(i) << "\n";
+    }
+    for (unsigned i = 0; i < _n_args; ++i)
+    {
+      oss << "arg_i=" << i << "  grain_val_i=" << get_val_by_argi(i) << "\n";
     }
     mooseWarning(oss.str()); // use mooseInfo if you prefer non-yellow output
   }
@@ -155,6 +189,7 @@ ACInterfaceInclinationGamma::computeQpResidual()
     // Determine which is the "other" OP in the pair and get its value
     const unsigned other_op = (_my_op == i) ? j : i;
     const Real eta_other = eta_at(other_op);
+    // const Real eta_other = get_val_by_k(other_op);
     // const Real eta_fac = _u[_qp] * _u[_qp] * (eta_other * eta_other); // η_u^2 * η_other^2
 
     // sign from symmetry: dγ/d∇η_i = - dγ/d∇η_j
@@ -211,6 +246,7 @@ ACInterfaceInclinationGamma::computeQpJacobian()
     const Real sgn = (_my_op == i) ? 1.0 : -1.0;
     const unsigned other_op = (_my_op == i) ? j : i;
     const Real eta_other = eta_at(other_op);
+    // const Real eta_other = get_val_by_k(other_op);
 
     ddir += 2 * _u[_qp] * sgn * dgamma[k] * eta_other * eta_other * _phi[_j][_qp] * nablaLPsi();
     dind +=
