@@ -91,6 +91,13 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
     if (MooseUtils::beginsWith(iname, _var_name_base) && (iname != _var.name()))
     {
       const unsigned k = OpIndexUtils::parseOpIndex(ivar->name(), _var_name_base);
+      if (k == _my_op)
+        mooseError("Arg variable ",
+                   iname,
+                   " has OP index ",
+                   k,
+                   " but the variable for this kernel is ",
+                   _var.name());
       // Validate against op_num
       if (k >= _op_num)
         mooseError(
@@ -285,14 +292,15 @@ ACInterfaceInclinationGamma::computeQpOffDiagJacobian(unsigned int jvar)
     if (v < 0)
       return 0.0;
 
-    const RealGradient nabla_Lpsi = nablaLPsi();
-
+    // shorthand
     const auto & ii = _ij_i[_qp];
     const auto & jj = _ij_j[_qp];
     const auto & dgamma = _dgammaij_dgradeta[_qp];
     const auto & d2gamma = _d2gammaij_dgradeta2[_qp];
 
-    Real J = 0.0;
+    // Real J = 0.0;
+    Real ddir = 0.0; // derivative wrt u
+    Real dind = 0.0; // derivative wrt grad_u
 
     for (std::size_t k = 0; k < ii.size(); ++k)
     {
@@ -304,28 +312,41 @@ ACInterfaceInclinationGamma::computeQpOffDiagJacobian(unsigned int jvar)
       if (!(contains_u && contains_v))
         continue;
 
-      const Real eta_i = eta_at(i), eta_j = eta_at(j);
-      const Real eta_fac = eta_i * eta_i * eta_j * eta_j;
+      // const Real eta_i = eta_at(i), eta_j = eta_at(j);
+      // const Real eta_fac = eta_i * eta_i * eta_j * eta_j;
 
-      const bool u_is_i = (_my_op == i);
-      const unsigned other_of_u = u_is_i ? j : i;
+      // const bool u_is_i = (_my_op == i);
+      // const unsigned other_of_u = u_is_i ? j : i;
 
       // sign for dγ wrt ∇η_u:
-      const Real sgn_u = u_is_i ? 1.0 : -1.0;
+      // const Real sgn_u = u_is_i ? 1.0 : -1.0;
+
+      const Real sgn = (_my_op == i) ? 1.0 : -1.0;
+      const unsigned other_op = (_my_op == i) ? j : i;
+      const Real eta_other = eta_at(other_op);
 
       // (1) factor derivative w.r.t. eta_v
       // d/d(eta_v) [eta_i^2 eta_j^2] = 2*eta_v*(other)^2
-      const Real other = (static_cast<unsigned>(v) == i) ? eta_j : eta_i;
-      const Real d_fac_dv = 2.0 * eta_at(static_cast<unsigned>(v)) * other * other;
-      J += sgn_u * (dgamma[k] * nabla_Lpsi) * d_fac_dv * _phi[_j][_qp];
+      // const Real other = (static_cast<unsigned>(v) == i) ? eta_j : eta_i;
+      // const Real d_fac_dv = 2.0 * eta_at(static_cast<unsigned>(v)) * other * other;
+      // J += sgn_u * (dgamma[k] * nablaLPsi()) * d_fac_dv * _phi[_j][_qp];
 
       // (2) mixed second derivative piece:
       // d/d(∇eta_v) [∂γ/∂∇eta_u] : ∇φ_j
       // Using your stated symmetry: mixed = - (diagonal wrt u)
-      const RealGradient mixed_times_gradphi = -(d2gamma[k] * _grad_phi[_j][_qp]);
-      J += sgn_u * (mixed_times_gradphi * nabla_Lpsi) * eta_fac;
+      // const RealGradient mixed_times_gradphi = -(d2gamma[k] * _grad_phi[_j][_qp]);
+      // J += sgn_u * (mixed_times_gradphi * nablaLPsi()) * eta_fac;
+
+      // Direct dependence on arg
+      ddir += 2 * eta_other * _u[_qp] * _u[_qp] * sgn * dgamma[k] * _phi[_j][_qp] * nablaLPsi();
+      // Indirect dependence on grad_arg
+      dind += _u[_qp] * _u[_qp] * (-d2gamma[k] * _grad_phi[_j][_qp]) * eta_other * eta_other *
+              nablaLPsi();
     }
 
-    return J;
+    if (_mask_tf)
+      return (*_mask)[_qp] * _mu[_qp] * (ddir + dind);
+    else
+      return _mu[_qp] * (ddir + dind);
   }
 }

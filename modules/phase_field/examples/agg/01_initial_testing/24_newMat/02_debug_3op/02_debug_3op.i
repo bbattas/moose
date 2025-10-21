@@ -4,7 +4,7 @@
 # Created Date: Monday October 20th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday October 20th 2025
+# Last Modified: Tuesday October 21st 2025
 # Modified By: Battas,Brandon Scott
 # -----
 # Description:
@@ -187,7 +187,7 @@ i_tol = 100
     variable = gr0
     coupled_variables = 'gr1 gr2'
     debug_kernel = true
-    skip_off = true
+    skip_off = false
     variable_L = false
     # mask_name = hgb
   []
@@ -196,7 +196,7 @@ i_tol = 100
     variable = gr1
     coupled_variables = 'gr0 gr2'
     debug_kernel = true
-    skip_off = true
+    skip_off = false
     variable_L = false
     # mask_name = hgb
   []
@@ -205,7 +205,7 @@ i_tol = 100
     variable = gr2
     coupled_variables = 'gr0 gr1'
     debug_kernel = true
-    skip_off = true
+    skip_off = false
     variable_L = false
     # mask_name = hgb
   []
