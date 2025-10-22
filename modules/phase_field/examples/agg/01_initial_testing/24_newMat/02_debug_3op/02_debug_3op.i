@@ -4,8 +4,8 @@
 # Created Date: Monday October 20th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday October 21st 2025
-# Modified By: Battas,Brandon Scott
+# Last Modified: Wednesday October 22nd 2025
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  debugging input with 3 ops to check those effects in new mats/kernel
@@ -14,8 +14,8 @@
 #
 ##############################################################################
 
-a_tol = 100
-i_tol = 100
+# a_tol = 100
+# i_tol = 100
 
 [Mesh]
   # Mesh block.  Meshes can be read in or automatically generated
@@ -189,7 +189,7 @@ i_tol = 100
     debug_kernel = true
     skip_off = false
     variable_L = false
-    # mask_name = hgb
+    mask_name = hgb
   []
   [gr1_ACInc]
     type = ACInterfaceInclinationGamma
@@ -198,7 +198,7 @@ i_tol = 100
     debug_kernel = true
     skip_off = false
     variable_L = false
-    # mask_name = hgb
+    mask_name = hgb
   []
   [gr2_ACInc]
     type = ACInterfaceInclinationGamma
@@ -207,7 +207,7 @@ i_tol = 100
     debug_kernel = true
     skip_off = false
     variable_L = false
-    # mask_name = hgb
+    mask_name = hgb
   []
   # [gr0_ACIaniso]
   #   type = ACInterfaceAnisoGamma
@@ -440,8 +440,8 @@ i_tol = 100
     gb_id_method = ffc
     ffc = gr_flood_uo
     angular_func = ATAN_2D
-    intol = ${i_tol} #200 # cut if alpha > intol
-    altol = ${a_tol} #10 #1.5 # cut if h*alpha > altol
+    intol = 10 #100 #200 # cut if alpha > intol
+    altol = 100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
     ifunc_a = 0.2
     ifunc_b = 2
@@ -449,7 +449,7 @@ i_tol = 100
     gb_energy_iso_name = gbe_iso
     kappa = kappa_op
     free_energy_m = 5.521269e6
-    output_properties = 'gtnum testout1 testout2
+    output_properties = 'gtnum testout1 testout2 testoutgrad testouttens no_ij_pairs L testout3
     int_width gamma_asymm' #theta_ij dtheta_dgradeta d2theta_dgradeta2
     # testout1 testout2 testoutgrad testouttens
     outputs = 'exodus'
@@ -658,7 +658,7 @@ i_tol = 100
   dtmax = 0.5
   [TimeStepper]
     type = IterationAdaptiveDT
-    dt = 0.005
+    dt = 0.0001
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 6

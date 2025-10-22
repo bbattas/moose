@@ -308,14 +308,17 @@ GBInclination::computeQpProperties()
     _L[_qp] = Lij_sum / hgb_tot;
   }
 
-  _testout1[_qp] = -1;
+  if (_no_ij_pairs[_qp])
+    _testout1[_qp] = 0;
+  else
+    _testout1[_qp] = 1;
   _testout2[_qp] = -1;
-  if ((_ij_i[_qp]).size() > 0)
-  {
-    _testout1[_qp] = _ij_i[_qp][0];
-    _testout2[_qp] = _ij_j[_qp][0];
-  }
+  // if ((_ij_i[_qp]).size() > 0)
+  // {
+  //   _testout1[_qp] = _ij_i[_qp][0];
+  //   _testout2[_qp] = _ij_j[_qp][0];
+  // }
 
-  _testoutgrad[_qp] = dgamma[0];
-  _testouttens[_qp] = d2gamma[0];
+  _testoutgrad[_qp] = dgamma[1];
+  _testouttens[_qp] = d2gamma[1];
 }

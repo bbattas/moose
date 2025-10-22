@@ -54,7 +54,8 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
     _intol(getParam<Real>("intol")),
     _altol(getParam<Real>("altol")),
     _hgb(getMaterialProperty<Real>(getParam<MaterialPropertyName>("hgb"))),
-    _no_ij_pairs(declareProperty<bool>("no_ij_pairs"))
+    _no_ij_pairs(declareProperty<bool>("no_ij_pairs")),
+    _testout3(declareProperty<Real>("testout3"))
 
 {
   if (_op_num < 2)
@@ -154,6 +155,8 @@ GBInclinationBase::computeQpProperties()
       break;
   }
 
+  _testout3[_qp] = 0.0;
+
   _gtnum[_qp] = _gb_ij_list.size();
   std::sort(_gb_ij_list.begin(), _gb_ij_list.end());
 
@@ -198,6 +201,8 @@ GBInclinationBase::computeQpProperties()
             {
               alpha = 0.0;
               alpha_skip = true;
+              if (k == 1)
+                _testout3[_qp] = 1;
             }
             else
             {

@@ -59,4 +59,6 @@ protected:
 
   // Check if there are no actual ij pairs at this qp
   MaterialProperty<bool> & _no_ij_pairs;
+
+  MaterialProperty<Real> & _testout3;
 };
