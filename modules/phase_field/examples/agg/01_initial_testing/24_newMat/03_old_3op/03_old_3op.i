@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 01_initial_debug.i
-# File Location: /examples/agg/01_initial_testing/24_newMat/01_initial_debug
-# Created Date: Thursday October 9th 2025
+# File: 03_old_3op.i
+# File Location: /examples/agg/01_initial_testing/24_newMat/03_old_3op
+# Created Date: Friday October 24th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday October 27th 2025
+# Last Modified: Friday October 24th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Debugging input for the new inclination base material
+#  Old version of the material properties for comparison
 #
 #
 #
@@ -37,7 +37,7 @@ i_tol = 100
 
 [GlobalParams]
   # Parameters used by several kernels that are defined globally to simplify input file
-  op_num = 2 #15 # Number of order parameters used
+  op_num = 3 #15 # Number of order parameters used
   var_name_base = gr # Base name of grains
   # T = 1400 # Constant temperature of the simulation (for mobility calculation)
 []
@@ -51,7 +51,7 @@ i_tol = 100
 [UserObjects]
   [gr_flood_uo]
     type = FeatureFloodCount
-    variable = 'gr0 gr1'
+    variable = 'gr0 gr1 gr2'
     threshold = 0.01
     connecting_threshold = 0.01
     compute_var_to_feature_map = true
@@ -70,20 +70,31 @@ i_tol = 100
     type = SmoothCircleIC
     invalue = 1
     outvalue = 0
-    radius = 60
+    radius = 30 #60
     variable = gr0
-    x1 = 80
+    x1 = 50 #80
     y1 = 80
     int_width = 6
   []
   [gr1_IC]
     type = SmoothCircleIC
+    invalue = 1 #0
+    outvalue = 0 #1
+    radius = 30 #60
+    variable = gr1
+    x1 = 110 #80
+    y1 = 80
+    int_width = 6
+  []
+  [gr2_IC]
+    type = SpecifiedSmoothCircleIC
+    variable = gr2
+    radii = '30 30'
+    x_positions = '50 110'
+    y_positions = '80 80'
+    z_positions = '0 0'
     invalue = 0
     outvalue = 1
-    radius = 60
-    variable = gr1
-    x1 = 80
-    y1 = 80
     int_width = 6
   []
 []
@@ -103,14 +114,30 @@ i_tol = 100
   #   order = CONSTANT
   #   family = MONOMIAL
   # []
-  [inc_01]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [gamma_01_v]
-    order = CONSTANT
-    family = MONOMIAL
-  []
+  # [inc_01]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [inc_02]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [inc_12]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [gamma_01_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [gamma_02_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [gamma_12_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
   # [i_0]
   #   order = CONSTANT
   #   family = MONOMIAL
@@ -119,26 +146,34 @@ i_tol = 100
   #   order = CONSTANT
   #   family = MONOMIAL
   # []
-  [theta_01_v]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  # [theta_11]
+  # [theta_01_v]
   #   order = CONSTANT
   #   family = MONOMIAL
   # []
-  [theta_01_x]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [theta_01_y]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [theta_01_z]
-    order = CONSTANT
-    family = MONOMIAL
-  []
+  # [theta_02_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [theta_12_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # # [theta_11]
+  # #   order = CONSTANT
+  # #   family = MONOMIAL
+  # # []
+  # [theta_01_x]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [theta_01_y]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [theta_01_z]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
 []
 
 [Kernels]
@@ -150,18 +185,27 @@ i_tol = 100
   # [gr0_ACInc]
   #   type = ACInterfaceInclinationGamma
   #   variable = gr0
-  #   coupled_variables = 'gr1'
+  #   coupled_variables = 'gr1 gr2'
   #   debug_kernel = true
-  #   skip_off = true
+  #   skip_off = false
   #   variable_L = false
   #   mask_name = hgb
   # []
   # [gr1_ACInc]
   #   type = ACInterfaceInclinationGamma
   #   variable = gr1
-  #   coupled_variables = 'gr0'
+  #   coupled_variables = 'gr0 gr2'
   #   debug_kernel = true
-  #   skip_off = true
+  #   skip_off = false
+  #   variable_L = false
+  #   mask_name = hgb
+  # []
+  # [gr2_ACInc]
+  #   type = ACInterfaceInclinationGamma
+  #   variable = gr2
+  #   coupled_variables = 'gr0 gr1'
+  #   debug_kernel = true
+  #   skip_off = false
   #   variable_L = false
   #   mask_name = hgb
   # []
@@ -221,22 +265,54 @@ i_tol = 100
   #   j = 0
   #   execute_on = 'initial timestep_end'
   # []
-  [inc_01]
-    type = MatVectorComponentAux
-    variable = inc_01
-    property = inclination
-    i = 0
-    j = 1
-    execute_on = 'initial timestep_end'
-  []
-  [gamma_01_v]
-    type = MatVectorComponentAux
-    variable = gamma_01_v
-    property = gamma_ij
-    i = 0
-    j = 1
-    execute_on = 'initial timestep_end'
-  []
+  # [inc_01]
+  #   type = MatVectorComponentAux
+  #   variable = inc_01
+  #   property = inclination
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [inc_02]
+  #   type = MatVectorComponentAux
+  #   variable = inc_02
+  #   property = inclination
+  #   i = 0
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [inc_12]
+  #   type = MatVectorComponentAux
+  #   variable = inc_12
+  #   property = inclination
+  #   i = 1
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [gamma_01_v]
+  #   type = MatVectorComponentAux
+  #   variable = gamma_01_v
+  #   property = gamma_ij
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [gamma_02_v]
+  #   type = MatVectorComponentAux
+  #   variable = gamma_02_v
+  #   property = gamma_ij
+  #   i = 0
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [gamma_12_v]
+  #   type = MatVectorComponentAux
+  #   variable = gamma_12_v
+  #   property = gamma_ij
+  #   i = 1
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
   # [i_0]
   #   type = MatVectorComponentAux
   #   variable = i_0
@@ -254,15 +330,31 @@ i_tol = 100
   #   i = 0
   #   j = 1
   #   execute_on = 'initial timestep_end'
+  # # []
+  # [theta_01_v]
+  #   type = MatVectorComponentAux
+  #   variable = theta_01_v
+  #   property = theta_ij
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
   # []
-  [theta_01_v]
-    type = MatVectorComponentAux
-    variable = theta_01_v
-    property = theta_ij
-    i = 0
-    j = 1
-    execute_on = 'initial timestep_end'
-  []
+  # [theta_02_v]
+  #   type = MatVectorComponentAux
+  #   variable = theta_02_v
+  #   property = theta_ij
+  #   i = 0
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [theta_12_v]
+  #   type = MatVectorComponentAux
+  #   variable = theta_12_v
+  #   property = theta_ij
+  #   i = 1
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
   # [theta_11]
   #   type = MatVectorComponentAux
   #   variable = theta_11
@@ -271,36 +363,36 @@ i_tol = 100
   #   j = 1
   #   execute_on = 'initial timestep_end'
   # []
-  [theta_01_x]
-    type = MatVectorComponentAux
-    variable = theta_01_x
-    property = dtheta_dgradeta
-    gradient = true
-    component = 0
-    i = 0
-    j = 1
-    execute_on = 'initial timestep_end'
-  []
-  [theta_01_y]
-    type = MatVectorComponentAux
-    variable = theta_01_y
-    property = dtheta_dgradeta
-    gradient = true
-    component = 1
-    i = 0
-    j = 1
-    execute_on = 'initial timestep_end'
-  []
-  [theta_01_z]
-    type = MatVectorComponentAux
-    variable = theta_01_z
-    property = dtheta_dgradeta
-    gradient = true
-    component = 2
-    i = 0
-    j = 1
-    execute_on = 'initial timestep_end'
-  []
+  # [theta_01_x]
+  #   type = MatVectorComponentAux
+  #   variable = theta_01_x
+  #   property = dtheta_dgradeta
+  #   gradient = true
+  #   component = 0
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [theta_01_y]
+  #   type = MatVectorComponentAux
+  #   variable = theta_01_y
+  #   property = dtheta_dgradeta
+  #   gradient = true
+  #   component = 1
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [theta_01_z]
+  #   type = MatVectorComponentAux
+  #   variable = theta_01_z
+  #   property = dtheta_dgradeta
+  #   gradient = true
+  #   component = 2
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
 []
 
 [BCs]
@@ -343,25 +435,25 @@ i_tol = 100
   #   output_properties = 'theta_ij gtnum dtheta_dgradeta d2theta_dgradeta2'
   #   outputs = 'exodus'
   # []
-  [GBInc_cos]
-    type = GBInclination
-    gb_id_method = ffc
-    ffc = gr_flood_uo
-    angular_func = ATAN_2D
-    intol = ${i_tol} #200 # cut if alpha > intol
-    altol = ${a_tol} #10 #1.5 # cut if h*alpha > altol
-    # Inclination function
-    ifunc_a = 0.2
-    ifunc_b = 2
-    # Other Properties
-    gb_energy_iso_name = gbe_iso
-    kappa = kappa_op
-    free_energy_m = 5.521269e6
-    output_properties = 'gtnum testout1 testout2
-    int_width gamma_asymm' #theta_ij dtheta_dgradeta d2theta_dgradeta2
-    # testout1 testout2 testoutgrad testouttens
-    outputs = 'exodus'
-  []
+  # [GBInc_cos]
+  #   type = GBInclination
+  #   gb_id_method = ffc
+  #   ffc = gr_flood_uo
+  #   angular_func = ATAN_2D
+  #   intol = 100 #10 #100 #200 # cut if alpha > intol
+  #   altol = 100 #10 #1.5 # cut if h*alpha > altol
+  #   # Inclination function
+  #   ifunc_a = 0.2
+  #   ifunc_b = 2
+  #   # Other Properties
+  #   gb_energy_iso_name = gbe_iso
+  #   kappa = kappa_op
+  #   free_energy_m = 5.521269e6
+  #   output_properties = 'gtnum testout1 testout2 testoutgrad testouttens no_ij_pairs L testout3
+  #   int_width gamma_asymm' #theta_ij dtheta_dgradeta d2theta_dgradeta2
+  #   # testout1 testout2 testoutgrad testouttens
+  #   outputs = 'exodus'
+  # []
   # [theta_01_out]
   #   type = ParsedMaterial
   #   property_name = theta_01_out
@@ -369,43 +461,43 @@ i_tol = 100
   #   expression = 'theta_ij(0)'
   #   outputs = 'exodus'
   # []
-  # [aniso_mat]
-  #   type = GGInclinationMaterial
-  #   gb_case = ffc
-  #   # grain_tracker = grain_tracker
-  #   ffc = gr_flood_uo
-  #   gb_energy_input = gbe_iso
-  #   kappa = 2.07337e7 #0.3 #kappa
-  #   free_energy_m = 5.521269e6 #4.5e6 #0.9375 #const_m
-  #   L0 = L0
-  #   gamma0 = gamma_iso
-  #   #
-  #   moelans_mu = true
-  #   aniso_L = false
-  #   delta_ij = 0.05
-  #   theta_prefactor = 2
-  #   inc_ij_0 = 0 #1.57
-  #   continuous = false
-  #   gt_tol = 0.00
-  #   angular_func = ATAN_2D
-  #   alphacase = BOTH
-  #   intol = ${i_tol} #200 # cut if alpha > intol
-  #   altol = ${a_tol} #10 #1.5 # cut if h*alpha > altol
-  #   hgb = hgb
-  #   # Output Names
-  #   inclination_name = inclination_mat
-  #   L_name = L
-  #   gamma_name = gamma_asymm
-  #   mu_name = mu
-  #   gb_energy = sigma
-  #   output_properties = 'gamma_asymm L mu sigma int_width' # t2tens' # inclination_mat t2tens'
-  #   outputs = 'exodus'
-  # []
+  [aniso_mat]
+    type = GGInclinationMaterial
+    gb_case = ffc
+    # grain_tracker = grain_tracker
+    ffc = gr_flood_uo
+    gb_energy_input = gbe_iso
+    kappa = 2.07337e7 #0.3 #kappa
+    free_energy_m = 5.521269e6 #4.5e6 #0.9375 #const_m
+    L0 = L0
+    gamma0 = gamma_iso
+    #
+    moelans_mu = true
+    aniso_L = false
+    delta_ij = 0.2
+    theta_prefactor = 2
+    inc_ij_0 = 0 #1.57
+    continuous = false
+    gt_tol = 0.00
+    angular_func = ATAN_2D
+    alphacase = BOTH
+    intol = ${i_tol} #200 # cut if alpha > intol
+    altol = ${a_tol} #10 #1.5 # cut if h*alpha > altol
+    hgb = hgb
+    # Output Names
+    inclination_name = inclination_mat
+    L_name = L
+    gamma_name = gamma_asymm
+    mu_name = mu
+    gb_energy = gban #sigma
+    output_properties = 'gamma_asymm L mu gban int_width inclination_mat' # t2tens' # inclination_mat t2tens'
+    outputs = 'exodus'
+  []
   [hgb_a]
     type = ParsedMaterial
     property_name = hgb_a
-    coupled_variables = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
-    expression = 'hb:=gr0*gr0 + gr1*gr1;
+    coupled_variables = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2;
                   4 * (1 - hb) * (1 - hb)'
     # hg:=4 * (1 - hb) * (1 - hb);
     # if(hg>1.0,1.0,hg)'
@@ -415,7 +507,7 @@ i_tol = 100
   [hgb_b]
     type = SwitchingFunctionGBMaterial
     h_name = hgb_b
-    grain_ops = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    grain_ops = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     hgb_threshold = 0
     output_properties = 'hgb_b'
     outputs = 'exodus'
@@ -423,7 +515,7 @@ i_tol = 100
   [hgb]
     type = ParsedMaterial
     property_name = hgb
-    coupled_variables = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    coupled_variables = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     material_property_names = 'hgb_a hgb_b'
     # expression = 'h1:=if(hgb_a>1,1,if(hgb_a<0,0.0,hgb_a));
     #               h2:=if(hgb_b>1,1,if(hgb_b<0,0.0,hgb_b));
@@ -436,11 +528,20 @@ i_tol = 100
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
-    coupled_variables = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
-    expression = 'gr0 + gr1' # + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10'
+    coupled_variables = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    expression = 'gr0 + gr1 + gr2' # + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10'
     #  + gr11 + gr12 + gr13 + gr14 + gr15'
     outputs = 'exodus'
   []
+  # [sum_inc]
+  #   type = ParsedMaterial
+  #   property_name = sum_inc
+  #   coupled_variables = 'gr0 gr1 gr2 inc_01 inc_02 inc_12'
+  #   expression = 'num:= inc_01 * gr0 * gr0 * gr1 * gr1 + inc_02 * gr0 * gr0 * gr2 * gr2 + inc_12 * gr1 * gr1 * gr2 * gr2;
+  #   den:= gr0 * gr0 * gr1 * gr1 + gr0 * gr0 * gr2 * gr2 + gr1 * gr1 * gr2 * gr2;
+  #   num/den'
+  #   outputs = 'exodus'
+  # []
 []
 
 [Postprocessors]
@@ -547,9 +648,9 @@ i_tol = 100
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  # end_time = 40
+  end_time = 0.7
   # dtmin = 0.1
-  end_time = 10
+  # end_time = 1000000.0
   # num_steps = 2
   automatic_scaling = true
   compute_scaling_once = false
@@ -557,7 +658,7 @@ i_tol = 100
   dtmax = 0.5
   [TimeStepper]
     type = IterationAdaptiveDT
-    dt = 0.005
+    dt = 0.0001
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 6

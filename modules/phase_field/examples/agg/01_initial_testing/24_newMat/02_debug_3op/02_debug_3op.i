@@ -4,7 +4,7 @@
 # Created Date: Monday October 20th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday October 22nd 2025
+# Last Modified: Monday October 27th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -440,7 +440,7 @@
     gb_id_method = ffc
     ffc = gr_flood_uo
     angular_func = ATAN_2D
-    intol = 10 #100 #200 # cut if alpha > intol
+    intol = 100 #10 #100 #200 # cut if alpha > intol
     altol = 100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
     ifunc_a = 0.2
@@ -450,49 +450,50 @@
     kappa = kappa_op
     free_energy_m = 5.521269e6
     output_properties = 'gtnum testout1 testout2 testoutgrad testouttens no_ij_pairs L testout3
-    int_width gamma_asymm' #theta_ij dtheta_dgradeta d2theta_dgradeta2
+    int_width gamma_a' #theta_ij dtheta_dgradeta d2theta_dgradeta2
     # testout1 testout2 testoutgrad testouttens
     outputs = 'exodus'
   []
-  # [theta_01_out]
-  #   type = ParsedMaterial
-  #   property_name = theta_01_out
-  #   material_property_names = 'theta_ij'
-  #   expression = 'theta_ij(0)'
-  #   outputs = 'exodus'
-  # []
-  # [aniso_mat]
-  #   type = GGInclinationMaterial
-  #   gb_case = ffc
-  #   # grain_tracker = grain_tracker
-  #   ffc = gr_flood_uo
-  #   gb_energy_input = gbe_iso
-  #   kappa = 2.07337e7 #0.3 #kappa
-  #   free_energy_m = 5.521269e6 #4.5e6 #0.9375 #const_m
-  #   L0 = L0
-  #   gamma0 = gamma_iso
-  #   #
-  #   moelans_mu = true
-  #   aniso_L = false
-  #   delta_ij = 0.05
-  #   theta_prefactor = 2
-  #   inc_ij_0 = 0 #1.57
-  #   continuous = false
-  #   gt_tol = 0.00
-  #   angular_func = ATAN_2D
-  #   alphacase = BOTH
-  #   intol = ${i_tol} #200 # cut if alpha > intol
-  #   altol = ${a_tol} #10 #1.5 # cut if h*alpha > altol
-  #   hgb = hgb
-  #   # Output Names
-  #   inclination_name = inclination_mat
-  #   L_name = L
-  #   gamma_name = gamma_asymm
-  #   mu_name = mu
-  #   gb_energy = sigma
-  #   output_properties = 'gamma_asymm L mu sigma int_width' # t2tens' # inclination_mat t2tens'
-  #   outputs = 'exodus'
-  # []
+  [gamma_test]
+    type = ElementalGammaMaterial
+    gb_energy_iso_name = gbe_iso
+    kappa = kappa_op
+    free_energy_m = 5.521269e6
+    output_properties = 'gamma_asymm int_noij'
+    outputs = 'exodus'
+  []
+  [aniso_mat]
+    type = GGInclinationMaterial
+    gb_case = ffc
+    # grain_tracker = grain_tracker
+    ffc = gr_flood_uo
+    gb_energy_input = gbe_iso
+    kappa = 2.07337e7 #0.3 #kappa
+    free_energy_m = 5.521269e6 #4.5e6 #0.9375 #const_m
+    L0 = L0
+    gamma0 = gamma_iso
+    #
+    moelans_mu = true
+    aniso_L = false
+    delta_ij = 0.2
+    theta_prefactor = 2
+    inc_ij_0 = 0 #1.57
+    continuous = false
+    gt_tol = 0.00
+    angular_func = ATAN_2D
+    alphacase = BOTH
+    intol = 100 #${i_tol} #200 # cut if alpha > intol
+    altol = 100 #${a_tol} #10 #1.5 # cut if h*alpha > altol
+    hgb = hgb
+    # Output Names
+    inclination_name = inclination_mat
+    L_name = Lold
+    gamma_name = gamma_old
+    mu_name = muold
+    gb_energy = gbeold
+    output_properties = 'gamma_old Lold muold gbeold int_width_old' # t2tens' # inclination_mat t2tens'
+    outputs = 'exodus'
+  []
   [hgb_a]
     type = ParsedMaterial
     property_name = hgb_a
@@ -648,7 +649,7 @@
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  end_time = 10
+  end_time = 20
   # dtmin = 0.1
   # end_time = 1000000.0
   # num_steps = 2

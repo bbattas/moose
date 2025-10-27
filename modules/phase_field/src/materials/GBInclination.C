@@ -76,7 +76,7 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _const_m(getParam<Real>("free_energy_m")),
     _mu(declareProperty<Real>("mu")),
     _int_width(declareProperty<Real>("int_width")),
-    _gamma_asymm(declareProperty<Real>("gamma_asymm")),
+    _gamma_asymm(declareProperty<Real>("gamma_a")), // symm
     // Optional Anisotropic L
     _aniso_L(getParam<bool>("aniso_L")),
     _L0(getMaterialProperty<Real>("L0")),
@@ -84,39 +84,8 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _dL_dgradeta(declareProperty<std::vector<RealGradient>>("dL_dgradeta")),
     _d2L_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2L_dgradeta2")),
     _L(declareProperty<Real>("L"))
-// _op_num(coupledComponents("v")),
-// _vals(coupledValues("v")),
-// _vals_name(_op_num),
-// // Angular distance to the x axis
-// _theta_ij(declareProperty<std::vector<Real>>("theta_ij")),
-// _dtheta_dgradeta(declareProperty<std::vector<RealGradient>>("dtheta_dgradeta")),
-// _d2theta_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2theta_dgradeta2")),
-// // _dtheta_dgradeta(declareProperty<RealGradient>("dincdgrad_eta")),
-// // Grain Tracker/FFC for GB identification
-// _gb_case(getParam<MooseEnum>("gb_id_method")),
-// _grain_tracker(isParamValid("grain_tracker") ? &getUserObject<GrainTracker>("grain_tracker")
-//                                              : nullptr),
-// _ffc_tracker(isParamValid("ffc") ? &getUserObject<FeatureFloodCount>("ffc") : nullptr),
-// _gt_tol(getParam<Real>("gt_tol")),
-// _gtnum(declareProperty<Real>("gtnum")),
-// _angular_func(getParam<MooseEnum>("angular_func")),
-// _intol(getParam<Real>("intol")),
-// _altol(getParam<Real>("altol")),
-// _hgb(getMaterialProperty<Real>(getParam<MaterialPropertyName>("hgb")))
 
 {
-  // if (_op_num < 2)
-  //   mooseError("Inclination properties requires op_num >= 2");
-
-  // _vals.resize(_op_num);
-  // _grad_vals.resize(_op_num);
-
-  // for (unsigned int i = 0; i < _op_num; ++i)
-  // {
-  //   _vals[i] = &coupledValue("v", i);
-  //   _vals_name[i] = coupledName("v", i);
-  //   _grad_vals[i] = &coupledGradient("v", i);
-  // }
 }
 
 void
@@ -134,7 +103,7 @@ GBInclination::computeQpProperties()
   auto & finc = _inclination[_qp];
   if (finc.size() != num_pairs)
     finc.resize(num_pairs);
-  std::fill(finc.begin(), finc.end(), 0.0);
+  std::fill(finc.begin(), finc.end(), 1.0);
 
   // Declare derivative pieces we need for inclination function
   std::vector<RealGradient> dfinc_dgradeta;
@@ -159,7 +128,7 @@ GBInclination::computeQpProperties()
     dgamma.resize(num_pairs);
   if (d2gamma.size() != num_pairs)
     d2gamma.resize(num_pairs);
-  std::fill(gamma.begin(), gamma.end(), -1.0);
+  std::fill(gamma.begin(), gamma.end(), 1.0);
   std::fill(dgamma.begin(), dgamma.end(), RealGradient(0.0));
   std::fill(d2gamma.begin(), d2gamma.end(), RealTensorValue(0.0));
 
@@ -202,81 +171,84 @@ GBInclination::computeQpProperties()
   _testout2[_qp] = -1; //(*_vals[j])[_qp];
   _testoutgrad[_qp] = RealGradient(0.0);
 
-  for (std::size_t k = 0; k < theta.size(); ++k) // theta.size()
-  {
-    if (theta[k] == -1.0)
-      continue; // skip this k=ij
-    // Maybe also add an OP value check for i and j to skip? should be handled by ffc/gt though
-
-    // Actually compute for this k=ij
-    const std::size_t i = _ij_i[_qp][k];
-    const std::size_t j = _ij_j[_qp][k];
-
-    // choose which inclination function
-    switch (_inc_func)
+  if (!_no_ij_pairs[_qp])
+    for (std::size_t k = 0; k < theta.size(); ++k) // theta.size()
     {
-      case 0:
+      if (theta[k] == -1.0)
+        continue; // skip this k=ij
+      // Maybe also add an OP value check for i and j to skip? should be handled by ffc/gt though
+
+      // Actually compute for this k=ij
+      const std::size_t i = _ij_i[_qp][k];
+      const std::size_t j = _ij_j[_qp][k];
+
+      // choose which inclination function
+      switch (_inc_func)
       {
-        // cos: 1 + a * cos(b(theta + c))
-        const Real fcos = 1 + _if_a * std::cos(_if_b * (theta[k] + _if_c));
-        const Real dfcos = -1 * _if_a * _if_b * std::sin(_if_b * (theta[k] + _if_c));
-        const Real d2fcos = -1 * _if_a * _if_b * _if_b * std::cos(_if_b * (theta[k] + _if_c));
-        if (fcos >= 0.0)
+        case 0:
         {
-          finc[k] = fcos;
-          dfinc_dgradeta[k] = dfcos * dtheta[k];
-          d2finc_dgradeta2[k] =
-              d2fcos * libMesh::outer_product(dtheta[k], dtheta[k]) + dfcos * d2theta[k];
+          // cos: 1 + a * cos(b(theta + c))
+          const Real fcos = 1 + _if_a * std::cos(_if_b * (theta[k] + _if_c));
+          const Real dfcos = -1 * _if_a * _if_b * std::sin(_if_b * (theta[k] + _if_c));
+          const Real d2fcos = -1 * _if_a * _if_b * _if_b * std::cos(_if_b * (theta[k] + _if_c));
+          if (fcos >= 0.0)
+          {
+            finc[k] = fcos;
+            dfinc_dgradeta[k] = dfcos * dtheta[k];
+            d2finc_dgradeta2[k] =
+                d2fcos * libMesh::outer_product(dtheta[k], dtheta[k]) + dfcos * d2theta[k];
+          }
+          break;
         }
-        break;
+
+        default:
+          mooseError("Unknown inc_func = ", _inc_func);
+          break;
       }
+      // Calculate gamma
+      Real g = _gbe_iso[_qp] * finc[k] / (std::sqrt(_kappa[_qp] * _const_m));
+      Real dg_df = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _const_m));
+      Real g2 = g * g;
+      // Polynomial (inverse gamma for 0.5 < gamma < 40)
+      Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
+      Real dpg = 4 * a1 * g2 * g2 * g2 + 3 * a2 * g2 * g2 + 2 * a3 * g2 + a4;
+      Real d2pg = 12 * a1 * g2 * g2 + 6 * a2 * g2 + 2 * a3;
+      // Save gamma_ij
+      gamma[k] = 1 / pg;
+      dgamma[k] = -2 * g * gamma[k] * dpg * dg_df * dfinc_dgradeta[k];
+      d2gamma[k] = 2 * gamma[k] * gamma[k] * dg_df * dg_df *
+                       (4 * g2 * gamma[k] * dpg * dpg - 2 * g2 * d2pg - dpg) *
+                       libMesh::outer_product(dfinc_dgradeta[k], dfinc_dgradeta[k]) -
+                   2 * g * gamma[k] * dpg * dg_df * d2finc_dgradeta2[k];
 
-      default:
-        mooseError("Unknown inc_func = ", _inc_func);
-        break;
+      // Calculate IW
+      Real f0_int =
+          (((((0.0788 * pg - 0.4955) * pg + 1.2244) * pg - 1.5281) * pg + 1.0686) * pg - 0.5563) *
+              pg +
+          0.2907;
+      iw_ij[k] = (std::sqrt(_kappa[_qp] / _const_m)) * (std::sqrt(1 / f0_int));
+
+      // Save summation properties
+      hgb_tot += (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+      iw_sum +=
+          iw_ij[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+      gamma_sum +=
+          gamma[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+
+      // Optionally anisotropic L
+      if (_aniso_L)
+      {
+        // could do the Lij and derivativs in the kernel instead?
+        Lij[k] = _L0[_qp] * finc[k];
+        Lij_sum +=
+            Lij[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+        dL[k] = _L0[_qp] * dfinc_dgradeta[k];
+        d2L[k] = _L0[_qp] * d2finc_dgradeta2[k];
+      }
     }
-    // Calculate gamma
-    Real g = _gbe_iso[_qp] * finc[k] / (std::sqrt(_kappa[_qp] * _const_m));
-    Real dg_df = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _const_m));
-    Real g2 = g * g;
-    // Polynomial (inverse gamma for 0.5 < gamma < 40)
-    Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
-    Real dpg = 4 * a1 * g2 * g2 * g2 + 3 * a2 * g2 * g2 + 2 * a3 * g2 + a4;
-    Real d2pg = 12 * a1 * g2 * g2 + 6 * a2 * g2 + 2 * a3;
-    // Save gamma_ij
-    gamma[k] = 1 / pg;
-    dgamma[k] = -2 * g * gamma[k] * dpg * dg_df * dfinc_dgradeta[k];
-    d2gamma[k] = 2 * gamma[k] * gamma[k] * dg_df * dg_df *
-                     (4 * g2 * gamma[k] * dpg * dpg - 2 * g2 * d2pg - dpg) *
-                     libMesh::outer_product(dfinc_dgradeta[k], dfinc_dgradeta[k]) -
-                 2 * g * gamma[k] * dpg * dg_df * d2finc_dgradeta2[k];
-
-    // Calculate IW
-    Real f0_int =
-        (((((0.0788 * pg - 0.4955) * pg + 1.2244) * pg - 1.5281) * pg + 1.0686) * pg - 0.5563) *
-            pg +
-        0.2907;
-    iw_ij[k] = (std::sqrt(_kappa[_qp] / _const_m)) * (std::sqrt(1 / f0_int));
-
-    // Save summation properties
-    hgb_tot += (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
-    iw_sum += iw_ij[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
-    gamma_sum +=
-        gamma[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
-
-    // Optionally anisotropic L
-    if (_aniso_L)
-    {
-      // could do the Lij and derivativs in the kernel instead?
-      Lij[k] = _L0[_qp] * finc[k];
-      Lij_sum += Lij[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
-      dL[k] = _L0[_qp] * dfinc_dgradeta[k];
-      d2L[k] = _L0[_qp] * d2finc_dgradeta2[k];
-    }
-  }
   // Summation and whole outputs
   // Check if no ij pairs at qp use finc = 1 for calculation of condensed output
-  if (_no_ij_pairs[_qp])
+  if ((_no_ij_pairs[_qp]) || (hgb_tot < 1e-6))
   {
     Real g = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _const_m));
     Real g2 = g * g;
@@ -293,6 +265,16 @@ GBInclination::computeQpProperties()
   {
     _int_width[_qp] = iw_sum / hgb_tot;
     _gamma_asymm[_qp] = gamma_sum / hgb_tot;
+    // Real g = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _const_m));
+    // Real g2 = g * g;
+    // Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
+    // // _gamma_asymm[_qp] = 1 / pg; // 1.5;
+    // // IW
+    // Real f0_int =
+    //     (((((0.0788 * pg - 0.4955) * pg + 1.2244) * pg - 1.5281) * pg + 1.0686) * pg - 0.5563) *
+    //         pg +
+    //     0.2907;
+    // _int_width[_qp] = (std::sqrt(_kappa[_qp] / _const_m)) * (std::sqrt(1 / f0_int));
   }
   _mu[_qp] = _const_m;
 
@@ -312,7 +294,7 @@ GBInclination::computeQpProperties()
     _testout1[_qp] = 0;
   else
     _testout1[_qp] = 1;
-  _testout2[_qp] = -1;
+  _testout2[_qp] = hgb_tot;
   // if ((_ij_i[_qp]).size() > 0)
   // {
   //   _testout1[_qp] = _ij_i[_qp][0];

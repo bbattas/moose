@@ -119,17 +119,17 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     // TEMP TEST OUTPUTS
     _opout(declareProperty<Real>("opout")),
     _opout2(declareProperty<Real>("opout2")),
-    _testout(declareProperty<Real>("testout")),
-    _testout2(declareProperty<Real>("testout2")),
-    _testout3(declareProperty<Real>("testout3")),
+    // _testout(declareProperty<Real>("testout")),
+    // _testout2(declareProperty<Real>("testout2")),
+    // _testout3(declareProperty<Real>("testout3")),
     _alpha_out(declareProperty<Real>("alpha_out")),
-    _gtnum(declareProperty<Real>("gtnum")),
+    _gtnum(declareProperty<Real>("gtnum_old")),
     _altnum(declareProperty<Real>("altnum")),
     _atens(declareProperty<RealTensorValue>("atens")),
     _t2tens(declareProperty<RealTensorValue>("t2tens")),
     _ngbtens(declareProperty<RealTensorValue>("ngbtens")),
-    _testoutgrad(declareProperty<RealGradient>("testoutgrad")),
-    _testoutgrad2(declareProperty<RealTensorValue>("testoutgrad2")),
+    // _testoutgrad(declareProperty<RealGradient>("testoutgrad")),
+    // _testoutgrad2(declareProperty<RealTensorValue>("testoutgrad2")),
     _inclin(declareProperty<RealGradient>("inclin_vec")),
     _dadb(declareProperty<RealGradient>("dadb")),
     _d2adb2(declareProperty<RealTensorValue>("d2adb2")),
@@ -141,7 +141,7 @@ GGInclinationMaterial::GGInclinationMaterial(const InputParameters & parameters)
     _const_m(getParam<Real>("free_energy_m")),
     _L0(getMaterialProperty<Real>("L0")),
     _gamma0(getMaterialProperty<Real>("gamma0")),
-    _int_width(declareProperty<Real>("int_width")),
+    _int_width(declareProperty<Real>("int_width_old")),
     _mu(declareProperty<Real>(getParam<MaterialPropertyName>("mu_name"))),
     _gb_test_grad(declareProperty<RealGradient>("gb_test_grad")),
     _alt_vec(declareProperty<RealGradient>("alt_vec")),
@@ -384,12 +384,12 @@ GGInclinationMaterial::computeQpProperties()
   std::vector<RealTensorValue> d2inc_dgeta2_list;
   dinc_dgeta_list.clear();
   d2inc_dgeta2_list.clear();
-  if (_gb_ij_sorted.size() > 0)
-    _testout[_qp] = _gb_ij_sorted[0];
-  else
-    _testout[_qp] = -1;
-  _testout2[_qp] = 0.0;
-  _testout3[_qp] = 0.0;
+  // if (_gb_ij_sorted.size() > 0)
+  //   _testout[_qp] = _gb_ij_sorted[0];
+  // else
+  //   _testout[_qp] = -1;
+  // _testout2[_qp] = 0.0;
+  // _testout3[_qp] = 0.0;
   _dadb[_qp] = RealGradient(0.0, 0.0, 0.0);
   _d2adb2[_qp] = RealTensorValue(0.0);
   _d3adb3[_qp] = RealTensorValue(0.0);
@@ -465,21 +465,21 @@ GGInclinationMaterial::computeQpProperties()
                 uxyz = ngb;
                 alpha = 1 / uxyz.norm();
                 ngb /= ngb.norm();
-                _testout2[_qp] = alpha;
+                // _testout2[_qp] = alpha;
                 break;
               case 1:
                 // NGB Before Alpha/uxyz
                 ngb /= ngb.norm();
                 uxyz = ngb;
                 alpha = 1 / uxyz.norm();
-                _testout2[_qp] = alpha;
+                // _testout2[_qp] = alpha;
                 break;
               case 2:
                 // Tolerances/thresholds to truncate alpha
                 uxyz = ngb;
                 alpha = 1 / std::max(uxyz.norm(), _intol);
                 ngb /= ngb.norm();
-                _testout2[_qp] = alpha;
+                // _testout2[_qp] = alpha;
                 break;
               case 3:
                 // Remove or skip elements with alpha below threshold
@@ -487,12 +487,12 @@ GGInclinationMaterial::computeQpProperties()
                 if (uxyz.norm() < _intol)
                 {
                   alpha_skip = true;
-                  _testout2[_qp] = -1;
+                  // _testout2[_qp] = -1;
                 }
                 else
                 {
                   alpha = 1 / uxyz.norm();
-                  _testout2[_qp] = alpha;
+                  // _testout2[_qp] = alpha;
                   ngb /= ngb.norm();
                 }
                 break;
@@ -508,7 +508,7 @@ GGInclinationMaterial::computeQpProperties()
                   alpha = 1 / uxyz.norm();
                 }
                 ngb /= ngb.norm();
-                _testout2[_qp] = alpha;
+                // _testout2[_qp] = alpha;
                 break;
               case 5:
                 // Sub zero- set all pieces using alpha to 0 instead of just alpha?
@@ -517,15 +517,15 @@ GGInclinationMaterial::computeQpProperties()
                 {
                   alpha = 0.0;
                   alpha_zero = true;
-                  _testout2[_qp] = -2.0;
+                  // _testout2[_qp] = -2.0;
                 }
                 else
                 {
                   alpha = 1 / uxyz.norm();
-                  _testout2[_qp] = alpha;
+                  // _testout2[_qp] = alpha;
                 }
                 ngb /= ngb.norm();
-                _testout3[_qp] = uxyz.norm();
+                // _testout3[_qp] = uxyz.norm();
                 // _testout2[_qp] = alpha;
                 break;
               case 6:
@@ -535,15 +535,15 @@ GGInclinationMaterial::computeQpProperties()
                 {
                   alpha = 0.0;
                   // alpha_zero = true;
-                  _testout2[_qp] = -1.0;
+                  // _testout2[_qp] = -1.0;
                 }
                 else
                 {
                   alpha = 1 / uxyz.norm();
-                  _testout2[_qp] = alpha;
+                  // _testout2[_qp] = alpha;
                 }
                 ngb /= ngb.norm();
-                _testout3[_qp] = uxyz.norm();
+                // _testout3[_qp] = uxyz.norm();
                 // _testout2[_qp] = alpha;
                 break;
               case 7:
@@ -554,7 +554,7 @@ GGInclinationMaterial::computeQpProperties()
                 {
                   alpha = 0.0;
                   // alpha_zero = true;
-                  _testout2[_qp] = -1.0;
+                  // _testout2[_qp] = -1.0;
                   if ((i < 3) && (j < 3))
                   {
                     ttens(i, j) = -1.0;
@@ -565,7 +565,7 @@ GGInclinationMaterial::computeQpProperties()
                 {
                   alpha = 0.0;
                   // alpha_zero = true;
-                  _testout2[_qp] = -2.0;
+                  // _testout2[_qp] = -2.0;
                   if ((i < 3) && (j < 3))
                   {
                     ttens(i, j) = -2.0;
@@ -575,7 +575,7 @@ GGInclinationMaterial::computeQpProperties()
                 else
                 {
                   alpha = 1 / uxyz.norm();
-                  _testout2[_qp] = alpha;
+                  // _testout2[_qp] = alpha;
                   if ((i < 3) && (j < 3))
                   {
                     ttens(i, j) = alpha;
@@ -583,7 +583,7 @@ GGInclinationMaterial::computeQpProperties()
                   }
                 }
                 ngb /= ngb.norm();
-                _testout3[_qp] = uxyz.norm();
+                // _testout3[_qp] = uxyz.norm();
                 // _testout2[_qp] = alpha;
                 break;
               default:
@@ -1180,8 +1180,8 @@ GGInclinationMaterial::computeQpProperties()
   // REMEMBER INC here is the f = cos (phi^{\prime})
   // _testout[_qp] = std::sqrt(1 / f0_int);
   // _testout2[_qp] = g;
-  _testoutgrad[_qp] = RealGradient(0.0);
-  _testoutgrad2[_qp] = RealTensorValue(0.0);
+  // _testoutgrad[_qp] = RealGradient(0.0);
+  // _testoutgrad2[_qp] = RealTensorValue(0.0);
   // if (_inc_pairs.size() > 0)
   // {
   //   _testout[_qp] = _inc_pairs[0];

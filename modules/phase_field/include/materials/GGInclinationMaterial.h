@@ -87,17 +87,17 @@ protected:
 
   MaterialProperty<Real> & _opout;
   MaterialProperty<Real> & _opout2;
-  MaterialProperty<Real> & _testout;
-  MaterialProperty<Real> & _testout2;
-  MaterialProperty<Real> & _testout3;
+  // MaterialProperty<Real> & _testout;
+  // MaterialProperty<Real> & _testout2;
+  // MaterialProperty<Real> & _testout3;
   MaterialProperty<Real> & _alpha_out;
   MaterialProperty<Real> & _gtnum;
   MaterialProperty<Real> & _altnum;
   MaterialProperty<RealTensorValue> & _atens;
   MaterialProperty<RealTensorValue> & _t2tens;
   MaterialProperty<RealTensorValue> & _ngbtens;
-  MaterialProperty<RealGradient> & _testoutgrad;
-  MaterialProperty<RealTensorValue> & _testoutgrad2;
+  // MaterialProperty<RealGradient> & _testoutgrad;
+  // MaterialProperty<RealTensorValue> & _testoutgrad2;
   MaterialProperty<RealGradient> & _inclin;
 
   MaterialProperty<RealGradient> & _dadb;

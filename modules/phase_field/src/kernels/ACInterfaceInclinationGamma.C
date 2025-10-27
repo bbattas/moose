@@ -36,7 +36,7 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
     _op_num(getParam<unsigned int>("op_num")),
     // IJ pair information
     _var_name_base(getParam<std::string>("var_name_base")),
-    _no_ij_pairs(getMaterialProperty<bool>("no_ij_pairs")),
+    _no_ij_pairs(getMaterialProperty<bool>("elem_no_ij")), // no_ij_pairs
     _ij_i(getMaterialProperty<std::vector<unsigned int>>("ij_i")),
     _ij_j(getMaterialProperty<std::vector<unsigned int>>("ij_j")),
     // mu or const_m
