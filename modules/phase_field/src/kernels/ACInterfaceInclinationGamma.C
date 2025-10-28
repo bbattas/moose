@@ -51,14 +51,32 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
     _debug_kernel(getParam<bool>("debug_kernel")),
     _mask(isParamValid("mask_name") ? &getMaterialProperty<Real>("mask_name") : nullptr),
     _mask_tf(isParamValid("mask_name")),
+    // Variable L derivatives for u and gradeta
+    _dLdu(_variable_L ? &getMaterialPropertyDerivative<Real>("mob_name", _var.name()) : nullptr),
+    _d2Ldu2(_variable_L ? &getMaterialPropertyDerivative<Real>("mob_name", _var.name(), _var.name())
+                        : nullptr),
+    _dLdgrad_eta(_variable_L ? &getMaterialProperty<std::vector<RealGradient>>("dL_dgradeta")
+                             : nullptr),
+    _d2Ldgrad_eta2(_variable_L ? &getMaterialProperty<std::vector<RealTensorValue>>("d2L_dgradeta2")
+                               : nullptr),
+    _d2Ldudgrad_eta(_variable_L ? &getMaterialPropertyDerivative<std::vector<RealGradient>>(
+                                      "dL_dgradeta", _var.name())
+                                : nullptr),
+    // for n_args
+    _dLdarg(_n_args),
+    _d2Ldargdu(_n_args),
+    _d2Ldarg2(_n_args),
+    _d2Ldargdgrad_eta(_n_args),
     _gradarg(_n_args),
-    // other approach
-    // _grain_args(),
-    // _grain_idx(),
-    // _grain_vals(),
-    // _grain_k_test(),
-    _grain_val_by_k(),
-    _grain_val_by_argi()
+    _second_arg(_n_args)
+
+// other approach
+// _grain_args(),
+// _grain_idx(),
+// _grain_vals(),
+// _grain_k_test(),
+// _grain_val_by_k(),
+// _grain_val_by_argi()
 {
   mooseWarning("Coupled args in agg kernel: ", _n_args);
   // Parse my OP index from my variable name
@@ -102,17 +120,29 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
       if (k >= _op_num)
         mooseError(
             "Coupled variable '", iname, "' has OP index ", k, " but op_num = ", _op_num, ".");
-      _grain_val_by_k.emplace(k, &coupledValue("coupled_variables", i));
-      _grain_val_by_argi.emplace(i, &coupledValue("coupled_variables", i));
+      // _grain_val_by_k.emplace(k, &coupledValue("coupled_variables", i));
+      // _grain_val_by_argi.emplace(i, &coupledValue("coupled_variables", i));
       //
       _eta_by_op[k] = &(ivar->sln());
       _op_to_jvar[k] = static_cast<int>(ivar->number());
     }
 
-    // _eta_by_op[k] = &(ivar->sln());
-    // _op_to_jvar[k] = static_cast<int>(ivar->number());
-    _gradarg[i] = &(ivar->gradSln()); // your existing gradient cache
+    // Moelans L
+    if (_variable_L)
+    {
+      _gradarg[i] = &(ivar->gradSln());
+      _second_arg[i] = &(ivar->secondSln());
+      // L dependencies
+      _dLdarg[i] = &getMaterialPropertyDerivative<Real>("mob_name", i);
+      _d2Ldargdu[i] = &getMaterialPropertyDerivative<Real>("mob_name", iname, _var.name());
+      _d2Ldargdgrad_eta[i] =
+          &getMaterialPropertyDerivative<std::vector<RealGradient>>("dL_dgradeta", iname);
+      _d2Ldarg2[i].resize(_n_args);
+      for (unsigned int j = 0; j < _n_args; ++j)
+        _d2Ldarg2[i][j] = &getMaterialPropertyDerivative<Real>("mob_name", i, j);
+    }
   }
+
   // debugging dump
   if (_debug_kernel && this->processor_id() == 0)
   {
@@ -137,14 +167,14 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
         oss << "  name='" << _var.name() << "'";
       oss << "\n";
     }
-    for (unsigned i = 0; i < _op_num; ++i)
-    {
-      oss << "k=" << i << "  grain_val_k=" << get_val_by_k(i) << "\n";
-    }
-    for (unsigned i = 0; i < _n_args; ++i)
-    {
-      oss << "arg_i=" << i << "  grain_val_i=" << get_val_by_argi(i) << "\n";
-    }
+    // for (unsigned i = 0; i < _op_num; ++i)
+    // {
+    //   oss << "k=" << i << "  grain_val_k=" << get_val_by_k(i) << "\n";
+    // }
+    // for (unsigned i = 0; i < _n_args; ++i)
+    // {
+    //   oss << "arg_i=" << i << "  grain_val_i=" << get_val_by_argi(i) << "\n";
+    // }
     mooseWarning(oss.str()); // use mooseInfo if you prefer non-yellow output
   }
 }

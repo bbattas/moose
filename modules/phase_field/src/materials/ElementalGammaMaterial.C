@@ -31,7 +31,7 @@ ElementalGammaMaterial::validParams()
 
 ElementalGammaMaterial::ElementalGammaMaterial(const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
-    _gamma_in(getMaterialProperty<Real>("gamma_a")),
+    _gamma_in(getMaterialProperty<Real>("gamma_qp")),
     _gamma_out(declareProperty<Real>("gamma_asymm")),
     _no_ij_pairs(getMaterialProperty<bool>("no_ij_pairs")),
     _elem_no_ij(declareProperty<bool>("elem_no_ij")),

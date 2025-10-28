@@ -49,7 +49,7 @@ protected:
 
   MaterialProperty<Real> & _int_width;
 
-  MaterialProperty<Real> & _gamma_asymm;
+  MaterialProperty<Real> & _gamma_qp;
 
   // AC Mobility
   const bool _aniso_L;

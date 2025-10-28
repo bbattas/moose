@@ -65,8 +65,23 @@ protected:
   const MaterialProperty<Real> * _mask;
   const bool _mask_tf;
 
+  /// Variable L
+  /// wrt u
+  const MaterialProperty<Real> * _dLdu;
+  const MaterialProperty<Real> * _d2Ldu2;
+  // wrt grad etas (just need the u componenets though)
+  const MaterialProperty<std::vector<RealGradient>> * _dLdgrad_eta;
+  const MaterialProperty<std::vector<RealTensorValue>> * _d2Ldgrad_eta2;
+  const MaterialProperty<std::vector<RealGradient>> * _d2Ldudgrad_eta;
+  /// wrt n_args
+  std::vector<const MaterialProperty<Real> *> _dLdarg;
+  std::vector<const MaterialProperty<Real> *> _d2Ldargdu;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _d2Ldarg2;
+  std::vector<const MaterialProperty<std::vector<RealGradient>> *> _d2Ldargdgrad_eta;
+
   /// Gradients for all coupled variables
   std::vector<const VariableGradient *> _gradarg;
+  std::vector<const VariableSecond *> _second_arg;
 
   // New adds
   // My order-parameter index for u = eta_i
@@ -81,33 +96,21 @@ protected:
   // Convenience: get eta_k and grad phi_j at this qp
   inline Real eta_at(unsigned k) const { return (*_eta_by_op[k])[_qp]; }
 
-  // Other approach, build lists of eta within args and tie the number along with the arg id
-  // std::vector<unsigned int> _grain_args;
-  // std::vector<unsigned int> _grain_idx; // unsigned int
-  // std::vector<const VariableValue *> _grain_vals;
-  // std::vector<unsigned int> _grain_k_test;
-  std::unordered_map<unsigned int, const VariableValue *> _grain_val_by_k;    // key = k
-  std::unordered_map<unsigned int, const VariableValue *> _grain_val_by_argi; // key = i
+  // std::unordered_map<unsigned int, const VariableValue *> _grain_val_by_k;    // key = k
+  // std::unordered_map<unsigned int, const VariableValue *> _grain_val_by_argi; // key = i
 
-  // Inline, const, and noexcept (optional).
-  inline const VariableValue * get_val_by_k(unsigned int j) const noexcept
-  {
-    if (auto it = _grain_val_by_k.find(j); it != _grain_val_by_k.end())
-      return it->second;
-    return nullptr;
-  }
-
-  inline const VariableValue * get_val_by_argi(unsigned int arg_i) const noexcept
-  {
-    if (auto it = _grain_val_by_argi.find(arg_i); it != _grain_val_by_argi.end())
-      return it->second;
-    return nullptr;
-  }
-
-  // const VariableValue * get_val(unsigned int j)
+  // // Inline, const, and noexcept (optional).
+  // inline const VariableValue * get_val_by_k(unsigned int j) const noexcept
   // {
-  //   if (auto it = _grain_val_by_idx.find(j); it != _grain_val_by_idx.end())
+  //   if (auto it = _grain_val_by_k.find(j); it != _grain_val_by_k.end())
   //     return it->second;
-  //   return nullptr; // not present
+  //   return nullptr;
+  // }
+
+  // inline const VariableValue * get_val_by_argi(unsigned int arg_i) const noexcept
+  // {
+  //   if (auto it = _grain_val_by_argi.find(arg_i); it != _grain_val_by_argi.end())
+  //     return it->second;
+  //   return nullptr;
   // }
 };

@@ -76,7 +76,7 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _const_m(getParam<Real>("free_energy_m")),
     _mu(declareProperty<Real>("mu")),
     _int_width(declareProperty<Real>("int_width")),
-    _gamma_asymm(declareProperty<Real>("gamma_a")), // symm
+    _gamma_qp(declareProperty<Real>("gamma_qp")),
     // Optional Anisotropic L
     _aniso_L(getParam<bool>("aniso_L")),
     _L0(getMaterialProperty<Real>("L0")),
@@ -253,7 +253,7 @@ GBInclination::computeQpProperties()
     Real g = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _const_m));
     Real g2 = g * g;
     Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
-    _gamma_asymm[_qp] = 1 / pg; // 1.5;
+    _gamma_qp[_qp] = 1 / pg; // 1.5;
     // IW
     Real f0_int =
         (((((0.0788 * pg - 0.4955) * pg + 1.2244) * pg - 1.5281) * pg + 1.0686) * pg - 0.5563) *
@@ -264,17 +264,7 @@ GBInclination::computeQpProperties()
   else
   {
     _int_width[_qp] = iw_sum / hgb_tot;
-    _gamma_asymm[_qp] = gamma_sum / hgb_tot;
-    // Real g = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _const_m));
-    // Real g2 = g * g;
-    // Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
-    // // _gamma_asymm[_qp] = 1 / pg; // 1.5;
-    // // IW
-    // Real f0_int =
-    //     (((((0.0788 * pg - 0.4955) * pg + 1.2244) * pg - 1.5281) * pg + 1.0686) * pg - 0.5563) *
-    //         pg +
-    //     0.2907;
-    // _int_width[_qp] = (std::sqrt(_kappa[_qp] / _const_m)) * (std::sqrt(1 / f0_int));
+    _gamma_qp[_qp] = gamma_sum / hgb_tot;
   }
   _mu[_qp] = _const_m;
 
