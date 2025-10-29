@@ -69,15 +69,15 @@ protected:
   /// wrt u
   const MaterialProperty<Real> * _dLdu;
   const MaterialProperty<Real> * _d2Ldu2;
-  // wrt grad etas (just need the u componenets though)
-  const MaterialProperty<std::vector<RealGradient>> * _dLdgrad_eta;
-  const MaterialProperty<std::vector<RealTensorValue>> * _d2Ldgrad_eta2;
-  const MaterialProperty<std::vector<RealGradient>> * _d2Ldudgrad_eta;
-  /// wrt n_args
-  std::vector<const MaterialProperty<Real> *> _dLdarg;
-  std::vector<const MaterialProperty<Real> *> _d2Ldargdu;
-  std::vector<std::vector<const MaterialProperty<Real> *>> _d2Ldarg2;
-  std::vector<const MaterialProperty<std::vector<RealGradient>> *> _d2Ldargdgrad_eta;
+  // // wrt grad etas (just need the u componenets though)
+  // const MaterialProperty<std::vector<RealGradient>> * _dLdgrad_eta;
+  // const MaterialProperty<std::vector<RealTensorValue>> * _d2Ldgrad_eta2;
+  // const MaterialProperty<std::vector<RealGradient>> * _d2Ldudgrad_eta;
+  // /// wrt n_args
+  // std::vector<const MaterialProperty<Real> *> _dLdarg;
+  // std::vector<const MaterialProperty<Real> *> _d2Ldargdu;
+  // std::vector<std::vector<const MaterialProperty<Real> *>> _d2Ldarg2;
+  // std::vector<const MaterialProperty<std::vector<RealGradient>> *> _d2Ldargdgrad_eta;
 
   /// Gradients for all coupled variables
   std::vector<const VariableGradient *> _gradarg;

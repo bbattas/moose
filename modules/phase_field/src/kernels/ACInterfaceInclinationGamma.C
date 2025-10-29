@@ -55,18 +55,19 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
     _dLdu(_variable_L ? &getMaterialPropertyDerivative<Real>("mob_name", _var.name()) : nullptr),
     _d2Ldu2(_variable_L ? &getMaterialPropertyDerivative<Real>("mob_name", _var.name(), _var.name())
                         : nullptr),
-    _dLdgrad_eta(_variable_L ? &getMaterialProperty<std::vector<RealGradient>>("dL_dgradeta")
-                             : nullptr),
-    _d2Ldgrad_eta2(_variable_L ? &getMaterialProperty<std::vector<RealTensorValue>>("d2L_dgradeta2")
-                               : nullptr),
-    _d2Ldudgrad_eta(_variable_L ? &getMaterialPropertyDerivative<std::vector<RealGradient>>(
-                                      "dL_dgradeta", _var.name())
-                                : nullptr),
+    // _dLdgrad_eta(_variable_L ? &getMaterialProperty<std::vector<RealGradient>>("dL_dgradeta")
+    //                          : nullptr),
+    // _d2Ldgrad_eta2(_variable_L ?
+    // &getMaterialProperty<std::vector<RealTensorValue>>("d2L_dgradeta2")
+    //                            : nullptr),
+    // _d2Ldudgrad_eta(_variable_L ? &getMaterialPropertyDerivative<std::vector<RealGradient>>(
+    //                                   "dL_dgradeta", _var.name())
+    //                             : nullptr),
     // for n_args
-    _dLdarg(_n_args),
-    _d2Ldargdu(_n_args),
-    _d2Ldarg2(_n_args),
-    _d2Ldargdgrad_eta(_n_args),
+    // _dLdarg(_n_args),
+    // _d2Ldargdu(_n_args),
+    // _d2Ldarg2(_n_args),
+    // _d2Ldargdgrad_eta(_n_args),
     _gradarg(_n_args),
     _second_arg(_n_args)
 
@@ -132,14 +133,14 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
     {
       _gradarg[i] = &(ivar->gradSln());
       _second_arg[i] = &(ivar->secondSln());
-      // L dependencies
-      _dLdarg[i] = &getMaterialPropertyDerivative<Real>("mob_name", i);
-      _d2Ldargdu[i] = &getMaterialPropertyDerivative<Real>("mob_name", iname, _var.name());
-      _d2Ldargdgrad_eta[i] =
-          &getMaterialPropertyDerivative<std::vector<RealGradient>>("dL_dgradeta", iname);
-      _d2Ldarg2[i].resize(_n_args);
-      for (unsigned int j = 0; j < _n_args; ++j)
-        _d2Ldarg2[i][j] = &getMaterialPropertyDerivative<Real>("mob_name", i, j);
+      // // L dependencies
+      // _dLdarg[i] = &getMaterialPropertyDerivative<Real>("mob_name", i);
+      // _d2Ldargdu[i] = &getMaterialPropertyDerivative<Real>("mob_name", iname, _var.name());
+      // _d2Ldargdgrad_eta[i] =
+      //     &getMaterialPropertyDerivative<std::vector<RealGradient>>("dL_dgradeta", iname);
+      // _d2Ldarg2[i].resize(_n_args);
+      // for (unsigned int j = 0; j < _n_args; ++j)
+      //   _d2Ldarg2[i][j] = &getMaterialPropertyDerivative<Real>("mob_name", i, j);
     }
   }
 
