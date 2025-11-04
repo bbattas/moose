@@ -55,9 +55,19 @@ protected:
   const bool _aniso_L;
   const MaterialProperty<Real> & _L0;
   MaterialProperty<std::vector<Real>> & _L_ij;
-  MaterialProperty<std::vector<RealGradient>> & _dL_dgradeta;
-  MaterialProperty<std::vector<RealTensorValue>> & _d2L_dgradeta2;
+  // MaterialProperty<std::vector<RealGradient>> & _dL_dgradeta;
+  // MaterialProperty<std::vector<RealTensorValue>> & _d2L_dgradeta2;
   MaterialProperty<Real> & _L;
+
+  /// aniso L Derivatives
+  std::vector<MaterialProperty<Real> *> _dL_deta;
+  std::vector<std::vector<MaterialProperty<Real> *>> _d2L_deta2;
+  // d grad eta
+  std::vector<MaterialPropertyName> _dL_dgradeta_name;
+  std::vector<MaterialProperty<RealGradient> *> _dL_dgradeta;
+  std::vector<MaterialPropertyName> _d2L_dgradeta2_name;
+  std::vector<MaterialProperty<std::vector<RealTensorValue>> *> _d2L_dgradeta2;
+  std::vector<std::vector<MaterialProperty<RealGradient> *>> _d2L_dgradetadeta;
 
   /// total number of grains
   // const unsigned int _op_num;

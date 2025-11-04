@@ -23,7 +23,7 @@ protected:
   virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  // RealGradient gradL();
+  RealGradient gradL();
 
   /// the \f$ \nabla(L\psi) \f$ term
   RealGradient nablaLPsi();
@@ -69,14 +69,19 @@ protected:
   /// wrt u
   const MaterialProperty<Real> * _dLdu;
   const MaterialProperty<Real> * _d2Ldu2;
+  // gradient dependent
+  std::vector<const MaterialProperty<RealGradient> *> _dL_dgradeta;
+  std::vector<const MaterialProperty<RealGradient> *> _d2L_dgradudarg;
+  const MaterialProperty<std::vector<RealTensorValue>> * _d2L_dgradudgradeta;
+  std::vector<std::vector<const MaterialProperty<RealGradient> *>> _d2L_dgradetadarg;
   // // wrt grad etas (just need the u componenets though)
   // const MaterialProperty<std::vector<RealGradient>> * _dLdgrad_eta;
   // const MaterialProperty<std::vector<RealTensorValue>> * _d2Ldgrad_eta2;
   // const MaterialProperty<std::vector<RealGradient>> * _d2Ldudgrad_eta;
   // /// wrt n_args
-  // std::vector<const MaterialProperty<Real> *> _dLdarg;
-  // std::vector<const MaterialProperty<Real> *> _d2Ldargdu;
-  // std::vector<std::vector<const MaterialProperty<Real> *>> _d2Ldarg2;
+  std::vector<const MaterialProperty<Real> *> _dLdarg;
+  std::vector<const MaterialProperty<Real> *> _d2Ldargdu;
+  std::vector<std::vector<const MaterialProperty<Real> *>> _d2Ldarg2;
   // std::vector<const MaterialProperty<std::vector<RealGradient>> *> _d2Ldargdgrad_eta;
 
   /// Gradients for all coupled variables

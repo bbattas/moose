@@ -81,11 +81,42 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _aniso_L(getParam<bool>("aniso_L")),
     _L0(getMaterialProperty<Real>("L0")),
     _L_ij(declareProperty<std::vector<Real>>("L_ij")),
-    _dL_dgradeta(declareProperty<std::vector<RealGradient>>("dL_dgradeta")),
-    _d2L_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2L_dgradeta2")),
-    _L(declareProperty<Real>("L"))
+    // _dL_dgradeta(declareProperty<std::vector<RealGradient>>("dL_dgradeta")),
+    // _d2L_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2L_dgradeta2")),
+    _L(declareProperty<Real>("L")),
+    // Moelans L Derivatives
+    _dL_deta(_op_num),
+    _d2L_deta2(_op_num),
+    _dL_dgradeta_name(_op_num),
+    _dL_dgradeta(_op_num),
+    _d2L_dgradeta2_name(_op_num),
+    _d2L_dgradeta2(_op_num),
+    _d2L_dgradetadeta(_op_num)
 
 {
+  if (_aniso_L)
+  {
+    for (unsigned int i = 0; i < _op_num; ++i)
+    {
+      _dL_deta[i] = &declarePropertyDerivative<Real>("L", coupledName("v", i)); //_vals_name[i]);
+      _d2L_deta2[i].resize(_op_num);
+      // First-derivative wrt grad eta_i
+      _dL_dgradeta_name[i] = "dL_dgradeta_" + Moose::stringify(i);
+      _dL_dgradeta[i] = &declareProperty<RealGradient>(_dL_dgradeta_name[i]);
+      // Second-derivative wrt (grad eta_i, grad eta_*)
+      _d2L_dgradeta2_name[i] = "d2L_dgradeta2_" + Moose::stringify(i);
+      _d2L_dgradeta2[i] = &declareProperty<std::vector<RealTensorValue>>(_d2L_dgradeta2_name[i]);
+      // deta parts
+      _d2L_dgradetadeta[i].resize(_op_num);
+      for (unsigned int j = 0; j < _op_num; ++j)
+      {
+        _d2L_deta2[i][j] =
+            &declarePropertyDerivative<Real>("L", coupledName("v", i), coupledName("v", j));
+        _d2L_dgradetadeta[i][j] =
+            &declarePropertyDerivative<RealGradient>(_dL_dgradeta_name[i], coupledName("v", j));
+      }
+    }
+  }
 }
 
 void
@@ -134,18 +165,37 @@ GBInclination::computeQpProperties()
 
   // Declare/build L_ij
   auto & Lij = _L_ij[_qp];
-  auto & dL = _dL_dgradeta[_qp];
-  auto & d2L = _d2L_dgradeta2[_qp];
+  // auto & dL = _dL_dgradeta[_qp];
+  // auto & d2L = _d2L_dgradeta2[_qp];
   // Size once per QP (no-op if already correct); then initialize values
   if (Lij.size() != num_pairs)
     Lij.resize(num_pairs);
-  if (dL.size() != num_pairs)
-    dL.resize(num_pairs);
-  if (d2L.size() != num_pairs)
-    d2L.resize(num_pairs);
+  // if (dL.size() != num_pairs)
+  //   dL.resize(num_pairs);
+  // if (d2L.size() != num_pairs)
+  //   d2L.resize(num_pairs);
   std::fill(Lij.begin(), Lij.end(), 0.0);
-  std::fill(dL.begin(), dL.end(), RealGradient(0.0));
-  std::fill(d2L.begin(), d2L.end(), RealTensorValue(0.0));
+  // std::fill(dL.begin(), dL.end(), RealGradient(0.0));
+  // std::fill(d2L.begin(), d2L.end(), RealTensorValue(0.0));
+
+  if (_aniso_L)
+  {
+    for (unsigned int i = 0; i < _op_num; ++i)
+    {
+      // First-derivative wrt grad eta_i: zero it at this qp
+      (*_dL_dgradeta[i])[_qp] = RealGradient(0.0);
+      auto & d2L_i = (*_d2L_dgradeta2[i])[_qp];
+      if (d2L_i.size() != _op_num)
+        d2L_i.resize(_op_num);
+      std::fill(d2L_i.begin(), d2L_i.end(), RealTensorValue(0.0));
+      (*_dL_deta[i])[_qp] = 0.0;
+      for (unsigned int j = 0; j < _op_num; ++j)
+      {
+        (*_d2L_dgradetadeta[i][j])[_qp] = RealGradient(0.0);
+        (*_d2L_deta2[j][i])[_qp] = 0.0;
+      }
+    }
+  }
 
   // Hard-coded coefficients (for poly gamma)
   constexpr Real a1 = -3.0944; // coefficient for g2^4
@@ -238,12 +288,21 @@ GBInclination::computeQpProperties()
       // Optionally anisotropic L
       if (_aniso_L)
       {
+        Real gb2 = (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
         // could do the Lij and derivativs in the kernel instead?
         Lij[k] = _L0[_qp] * finc[k];
-        Lij_sum +=
-            Lij[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
-        dL[k] = _L0[_qp] * dfinc_dgradeta[k];
-        d2L[k] = _L0[_qp] * d2finc_dgradeta2[k];
+        Lij_sum += Lij[k] * gb2;
+        // dL[k] = _L0[_qp] * dfinc_dgradeta[k];
+        // d2L[k] = _L0[_qp] * d2finc_dgradeta2[k];
+        (*_dL_dgradeta[i])[_qp] += _L0[_qp] * dfinc_dgradeta[k] * gb2;
+        (*_dL_dgradeta[j])[_qp] -= _L0[_qp] * dfinc_dgradeta[k] * gb2;
+        auto & d2L_i = (*_d2L_dgradeta2[i])[_qp];
+        auto & d2L_j = (*_d2L_dgradeta2[j])[_qp];
+
+        d2L_i[i] += _L0[_qp] * d2finc_dgradeta2[k] * gb2; // (i,i)
+        d2L_j[j] += _L0[_qp] * d2finc_dgradeta2[k] * gb2; // (j,j)
+        d2L_i[j] -= _L0[_qp] * d2finc_dgradeta2[k] * gb2; // (i,j)
+        d2L_j[i] -= _L0[_qp] * d2finc_dgradeta2[k] * gb2; // (j,i)
       }
     }
   // Summation and whole outputs
@@ -269,15 +328,28 @@ GBInclination::computeQpProperties()
   _mu[_qp] = _const_m;
 
   // AC Mobility
-  if ((!_aniso_L) || (_no_ij_pairs[_qp]))
+  if (!_aniso_L)
   {
     // Normal constant L formulation
+    _L[_qp] = _L0[_qp];
+  }
+  else if (_no_ij_pairs[_qp])
+  {
+    // aniso L but skipping this qp
     _L[_qp] = _L0[_qp];
   }
   else
   {
     // eta summation of moelans L_ij
     _L[_qp] = Lij_sum / hgb_tot;
+    for (unsigned int i = 0; i < _op_num; ++i)
+    {
+      (*_dL_dgradeta[i])[_qp] /= hgb_tot;
+      for (unsigned int j = 0; j < _op_num; ++j)
+      {
+        (*_d2L_dgradeta2[i])[_qp][j] /= hgb_tot;
+      }
+    }
   }
 
   if (_no_ij_pairs[_qp])

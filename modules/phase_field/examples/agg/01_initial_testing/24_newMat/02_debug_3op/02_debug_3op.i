@@ -4,8 +4,8 @@
 # Created Date: Monday October 20th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday October 28th 2025
-# Modified By: Battas,Brandon Scott
+# Last Modified: Tuesday November 4th 2025
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  debugging input with 3 ops to check those effects in new mats/kernel
@@ -188,7 +188,7 @@
     coupled_variables = 'gr1 gr2'
     debug_kernel = true
     skip_off = false
-    variable_L = false
+    variable_L = true
     mask_name = hgb
   []
   [gr1_ACInc]
@@ -445,6 +445,8 @@
     # Inclination function
     ifunc_a = 0.2
     ifunc_b = 2
+    # L
+    aniso_L = true
     # Other Properties
     gb_energy_iso_name = gbe_iso
     kappa = kappa_op
@@ -543,6 +545,14 @@
     num/den'
     outputs = 'exodus'
   []
+  # [dLmat]
+  #   type = ParsedMaterial
+  #   property_name = dLmat
+  #   coupled_variables = 'gr0 gr1 gr2'
+  #   material_property_names = 'dL:=D[L,gr0]'
+  #   expression = 'dL'
+  #   outputs = 'exodus'
+  # []
 []
 
 [Postprocessors]

@@ -55,6 +55,11 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
     _dLdu(_variable_L ? &getMaterialPropertyDerivative<Real>("mob_name", _var.name()) : nullptr),
     _d2Ldu2(_variable_L ? &getMaterialPropertyDerivative<Real>("mob_name", _var.name(), _var.name())
                         : nullptr),
+
+    _dL_dgradeta(_n_args),
+    _d2L_dgradudarg(),
+    _d2L_dgradudgradeta(),
+    _d2L_dgradetadarg(_n_args),
     // _dLdgrad_eta(_variable_L ? &getMaterialProperty<std::vector<RealGradient>>("dL_dgradeta")
     //                          : nullptr),
     // _d2Ldgrad_eta2(_variable_L ?
@@ -64,9 +69,9 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
     //                                   "dL_dgradeta", _var.name())
     //                             : nullptr),
     // for n_args
-    // _dLdarg(_n_args),
-    // _d2Ldargdu(_n_args),
-    // _d2Ldarg2(_n_args),
+    _dLdarg(_n_args),
+    _d2Ldargdu(_n_args),
+    _d2Ldarg2(_n_args),
     // _d2Ldargdgrad_eta(_n_args),
     _gradarg(_n_args),
     _second_arg(_n_args)
@@ -82,6 +87,13 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
   mooseWarning("Coupled args in agg kernel: ", _n_args);
   // Parse my OP index from my variable name
   _my_op = OpIndexUtils::parseOpIndex(_var.name(), _var_name_base);
+  if (_variable_L)
+  {
+    _dL_dgradeta[_my_op] =
+        &getMaterialProperty<RealGradient>("dL_dgradeta_" + Moose::stringify(_my_op));
+    _d2L_dgradudgradeta = &getMaterialProperty<std::vector<RealTensorValue>>(
+        "d2L_dgradeta2_" + Moose::stringify(_my_op));
+  }
 
   // Pre-size using op_num — no need for max_op_seen
   _eta_by_op.assign(_op_num, nullptr);
@@ -123,24 +135,35 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
             "Coupled variable '", iname, "' has OP index ", k, " but op_num = ", _op_num, ".");
       // _grain_val_by_k.emplace(k, &coupledValue("coupled_variables", i));
       // _grain_val_by_argi.emplace(i, &coupledValue("coupled_variables", i));
-      //
       _eta_by_op[k] = &(ivar->sln());
       _op_to_jvar[k] = static_cast<int>(ivar->number());
+      if (_variable_L)
+      {
+        _dL_dgradeta[k] = &getMaterialProperty<RealGradient>("dL_dgradeta_" + Moose::stringify(k));
+        _d2L_dgradetadarg[k].resize(_n_args);
+        for (unsigned j = 0; j < _n_args; ++j)
+        {
+          _d2L_dgradetadarg[k][j] = &getMaterialPropertyDerivative<RealGradient>(
+              "dL_dgradeta_" + Moose::stringify(k), _coupled_standard_moose_vars[j]->name());
+        }
+        _gradarg[k] = &(ivar->gradSln());
+        _second_arg[k] = &(ivar->secondSln());
+      }
     }
 
     // Moelans L
     if (_variable_L)
     {
-      _gradarg[i] = &(ivar->gradSln());
-      _second_arg[i] = &(ivar->secondSln());
-      // // L dependencies
-      // _dLdarg[i] = &getMaterialPropertyDerivative<Real>("mob_name", i);
-      // _d2Ldargdu[i] = &getMaterialPropertyDerivative<Real>("mob_name", iname, _var.name());
+      // _gradarg[i] = &(ivar->gradSln());
+      // _second_arg[i] = &(ivar->secondSln());
+      // L dependencies
+      _dLdarg[i] = &getMaterialPropertyDerivative<Real>("mob_name", i);
+      _d2Ldargdu[i] = &getMaterialPropertyDerivative<Real>("mob_name", iname, _var.name());
       // _d2Ldargdgrad_eta[i] =
       //     &getMaterialPropertyDerivative<std::vector<RealGradient>>("dL_dgradeta", iname);
-      // _d2Ldarg2[i].resize(_n_args);
-      // for (unsigned int j = 0; j < _n_args; ++j)
-      //   _d2Ldarg2[i][j] = &getMaterialPropertyDerivative<Real>("mob_name", i, j);
+      _d2Ldarg2[i].resize(_n_args);
+      for (unsigned int j = 0; j < _n_args; ++j)
+        _d2Ldarg2[i][j] = &getMaterialPropertyDerivative<Real>("mob_name", i, j);
     }
   }
 
@@ -184,6 +207,21 @@ void
 ACInterfaceInclinationGamma::initialSetup()
 {
   validateCoupling<Real>("mob_name");
+}
+
+RealGradient
+ACInterfaceInclinationGamma::gradL() // Includes grad op dependence
+{
+  RealGradient g = _grad_u[_qp] * (*_dLdu)[_qp];
+  g += _second_u[_qp] * (*_dL_dgradeta[_my_op])[_qp];
+  for (unsigned int i = 0; i < _n_args; ++i)
+  {
+    if (i == _my_op)
+      continue;
+    g += (*_gradarg[i])[_qp] * (*_dLdarg[i])[_qp];
+    g += (*_second_arg[i])[_qp] * (*_dL_dgradeta[i])[_qp];
+  }
+  return g;
 }
 
 RealGradient
