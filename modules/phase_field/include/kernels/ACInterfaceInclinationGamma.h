@@ -70,14 +70,11 @@ protected:
   const MaterialProperty<Real> * _dLdu;
   const MaterialProperty<Real> * _d2Ldu2;
   // gradient dependent
-  std::vector<const MaterialProperty<RealGradient> *> _dL_dgradeta;
-  std::vector<const MaterialProperty<RealGradient> *> _d2L_dgradudarg;
+  // std::vector<const MaterialProperty<RealGradient> *> _dL_dgradeta;
+  // std::vector<const MaterialProperty<RealGradient> *> _d2L_dgradudarg;
   const MaterialProperty<std::vector<RealTensorValue>> * _d2L_dgradudgradeta;
-  std::vector<std::vector<const MaterialProperty<RealGradient> *>> _d2L_dgradetadarg;
-  // // wrt grad etas (just need the u componenets though)
-  // const MaterialProperty<std::vector<RealGradient>> * _dLdgrad_eta;
-  // const MaterialProperty<std::vector<RealTensorValue>> * _d2Ldgrad_eta2;
-  // const MaterialProperty<std::vector<RealGradient>> * _d2Ldudgrad_eta;
+  // std::vector<std::vector<const MaterialProperty<RealGradient> *>> _d2L_dgradetadarg;
+
   // /// wrt n_args
   std::vector<const MaterialProperty<Real> *> _dLdarg;
   std::vector<const MaterialProperty<Real> *> _d2Ldargdu;

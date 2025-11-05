@@ -4,8 +4,8 @@
 # Created Date: Monday October 20th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday November 4th 2025
-# Modified By: Brandon Battas
+# Last Modified: Wednesday November 5th 2025
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  debugging input with 3 ops to check those effects in new mats/kernel
@@ -32,6 +32,7 @@
     # uniform_refine = 3 # Initial uniform refinement of the mesh
   []
   parallel_type = DISTRIBUTED # Periodic BCs
+  second_order = true
   # uniform_refine = 1
 []
 
@@ -45,6 +46,7 @@
 [Variables]
   # Variable block, where all variables in the simulation are declared
   [PolycrystalVariables]
+    order = SECOND
   []
 []
 
@@ -181,6 +183,7 @@
   [PolycrystalKernel]
     # Custom action creating all necessary kernels for grain growth.  All input parameters are up in GlobalParams
     variable_mobility = false
+    # order = SECOND
   []
   [gr0_ACInc]
     type = ACInterfaceInclinationGamma
