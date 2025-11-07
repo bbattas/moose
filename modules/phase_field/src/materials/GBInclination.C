@@ -83,7 +83,7 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _L_ij(declareProperty<std::vector<Real>>("L_ij")),
     // _dL_dgradeta(declareProperty<std::vector<RealGradient>>("dL_dgradeta")),
     // _d2L_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2L_dgradeta2")),
-    _L(declareProperty<Real>("L")),
+    _L(_aniso_L ? declareProperty<Real>("L_qp") : declareProperty<Real>("L")),
     // Moelans L Derivatives
     _dL_deta(_op_num),
     _d2L_deta2(_op_num),

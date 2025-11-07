@@ -66,14 +66,18 @@ protected:
   const bool _mask_tf;
 
   /// Variable L
+  std::vector<bool> _grain_slots;
   /// wrt u
   const MaterialProperty<Real> * _dLdu;
   const MaterialProperty<Real> * _d2Ldu2;
   // gradient dependent
-  // std::vector<const MaterialProperty<RealGradient> *> _dL_dgradeta;
-  // std::vector<const MaterialProperty<RealGradient> *> _d2L_dgradudarg;
+  const MaterialProperty<RealGradient> * _dL_dgradu;
+  std::vector<const MaterialProperty<RealGradient> *> _dL_dgradeta;
+  const MaterialProperty<RealGradient> * _d2L_dgradudu;
+  std::vector<const MaterialProperty<RealGradient> *> _d2L_dgradudarg;
   const MaterialProperty<std::vector<RealTensorValue>> * _d2L_dgradudgradeta;
-  // std::vector<std::vector<const MaterialProperty<RealGradient> *>> _d2L_dgradetadarg;
+  std::vector<std::vector<const MaterialProperty<RealGradient> *>> _d2L_dgradetadarg;
+  std::vector<const MaterialProperty<RealGradient> *> _d2L_dgradetadu;
 
   // /// wrt n_args
   std::vector<const MaterialProperty<Real> *> _dLdarg;

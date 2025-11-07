@@ -26,6 +26,9 @@ ElementalGammaMaterial::validParams()
       "kappa", "kappa", "Gradient energy constant kappa material name.");
   params.addParam<Real>(
       "free_energy_m", 1, "Free energy function constant m (or mu in PF kernels).");
+  params.addParam<MaterialPropertyName>("L0", "L0", "Name of L prefactor/iso value.");
+  params.addParam<MaterialPropertyName>(
+      "L_qp", "L_qp", "Name of L with some qps dropped to be averaged.");
   return params;
 }
 
@@ -38,7 +41,12 @@ ElementalGammaMaterial::ElementalGammaMaterial(const InputParameters & parameter
     _int_noij(declareProperty<Real>("int_noij")),
     _gbe_iso(getMaterialProperty<Real>("gb_energy_iso_name")),
     _kappa(getMaterialProperty<Real>(getParam<MaterialPropertyName>("kappa"))),
-    _const_m(getParam<Real>("free_energy_m"))
+    _const_m(getParam<Real>("free_energy_m")),
+    _aniso_L(isParamValid("L_qp")),
+    _L0(getMaterialProperty<Real>(getParam<MaterialPropertyName>("L0"))),
+    _L_qp(_aniso_L ? &getMaterialProperty<Real>(getParam<MaterialPropertyName>("L_qp")) : nullptr),
+    _L_elem(_aniso_L ? &declareProperty<Real>("L") : nullptr)
+
 {
   // if (_op_num == 0)
   //   mooseError("Model requires op_num > 0");
@@ -87,11 +95,15 @@ ElementalGammaMaterial::computeProperties()
       Real g2 = g * g;
       Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
       _gamma_out[_qp] = 1 / pg;
+      if (_aniso_L)
+        (*_L_elem)[_qp] = _L0[_qp];
     }
     else
     {
       _int_noij[_qp] = 0;
       _gamma_out[_qp] = _gamma_in[_qp];
+      if (_aniso_L)
+        (*_L_elem)[_qp] = (*_L_qp)[_qp];
     }
   }
 }

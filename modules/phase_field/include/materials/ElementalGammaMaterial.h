@@ -28,4 +28,9 @@ protected:
   const MaterialProperty<Real> & _gbe_iso;
   const MaterialProperty<Real> & _kappa;
   Real _const_m;
+
+  const bool _aniso_L;
+  const MaterialProperty<Real> & _L0;
+  const MaterialProperty<Real> * _L_qp;
+  MaterialProperty<Real> * _L_elem;
 };

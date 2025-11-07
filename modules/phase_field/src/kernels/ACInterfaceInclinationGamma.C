@@ -52,13 +52,17 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
     _mask(isParamValid("mask_name") ? &getMaterialProperty<Real>("mask_name") : nullptr),
     _mask_tf(isParamValid("mask_name")),
     // Variable L derivatives for u and gradeta
+    _grain_slots(_n_args),
     _dLdu(_variable_L ? &getMaterialPropertyDerivative<Real>("mob_name", _var.name()) : nullptr),
     _d2Ldu2(_variable_L ? &getMaterialPropertyDerivative<Real>("mob_name", _var.name(), _var.name())
                         : nullptr),
-    // _dL_dgradeta(_n_args),
-    // _d2L_dgradudarg(),
+    _dL_dgradu(),
+    _dL_dgradeta(_n_args),
+    _d2L_dgradudu(),
+    _d2L_dgradudarg(_n_args),
     _d2L_dgradudgradeta(),
-    // _d2L_dgradetadarg(_n_args),
+    _d2L_dgradetadarg(_n_args),
+    _d2L_dgradetadu(_n_args),
     // for n_args
     _dLdarg(_n_args),
     _d2Ldargdu(_n_args),
@@ -78,12 +82,16 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
   mooseWarning("Coupled args in agg kernel: ", _n_args);
   // Parse my OP index from my variable name
   _my_op = OpIndexUtils::parseOpIndex(_var.name(), _var_name_base);
+  // _grain_slots.clear();
+  // _grain_slots.reserve(_n_args);
+
   if (_variable_L)
   {
-    // _dL_dgradeta[_my_op] =
-    //     &getMaterialProperty<RealGradient>("dL_dgradeta_" + Moose::stringify(_my_op));
+    _dL_dgradu = &getMaterialProperty<RealGradient>("dL_dgradeta_" + Moose::stringify(_my_op));
     _d2L_dgradudgradeta = &getMaterialProperty<std::vector<RealTensorValue>>(
         "d2L_dgradeta2_" + Moose::stringify(_my_op));
+    _d2L_dgradudu = &getMaterialPropertyDerivative<RealGradient>(
+        "dL_dgradeta_" + Moose::stringify(_my_op), _var.name());
   }
 
   // Pre-size using op_num — no need for max_op_seen
@@ -110,6 +118,8 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
                    "parameter.");
     }
 
+    _grain_slots[i] = false; // default to not a grain
+
     if (MooseUtils::beginsWith(iname, _var_name_base) && (iname != _var.name()))
     {
       const unsigned k = OpIndexUtils::parseOpIndex(ivar->name(), _var_name_base);
@@ -128,16 +138,20 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
       // _grain_val_by_argi.emplace(i, &coupledValue("coupled_variables", i));
       _eta_by_op[k] = &(ivar->sln());
       _op_to_jvar[k] = static_cast<int>(ivar->number());
+      // _grain_slots.push_back(i);
+      _grain_slots[i] = true; // this arg index is a grain
       if (_variable_L)
       {
-        mooseWarning("arg is a k of ", k);
-        // _dL_dgradeta[k] = &getMaterialProperty<RealGradient>("dL_dgradeta_" +
-        // Moose::stringify(k)); _d2L_dgradetadarg[k].resize(_n_args); for (unsigned j = 0; j <
-        // _n_args; ++j)
-        // {
-        //   _d2L_dgradetadarg[k][j] = &getMaterialPropertyDerivative<RealGradient>(
-        //       "dL_dgradeta_" + Moose::stringify(k), _coupled_standard_moose_vars[j]->name());
-        // }
+        mooseWarning("arg ", i, " is a k of ", k);
+        _dL_dgradeta[i] = &getMaterialProperty<RealGradient>("dL_dgradeta_" + Moose::stringify(k));
+        _d2L_dgradetadu[i] = &getMaterialPropertyDerivative<RealGradient>(
+            "dL_dgradeta_" + Moose::stringify(k), iname);
+        _d2L_dgradetadarg[i].resize(_n_args);
+        for (unsigned j = 0; j < _n_args; ++j)
+        {
+          _d2L_dgradetadarg[i][j] = &getMaterialPropertyDerivative<RealGradient>(
+              "dL_dgradeta_" + Moose::stringify(k), _coupled_standard_moose_vars[j]->name());
+        }
         // _gradarg[k] = &(ivar->gradSln());
         // _second_arg[k] = &(ivar->secondSln());
       }
@@ -151,6 +165,8 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
       // L dependencies
       _dLdarg[i] = &getMaterialPropertyDerivative<Real>("mob_name", i);
       _d2Ldargdu[i] = &getMaterialPropertyDerivative<Real>("mob_name", iname, _var.name());
+      _d2L_dgradudarg[i] = &getMaterialPropertyDerivative<RealGradient>(
+          "dL_dgradeta_" + Moose::stringify(_my_op), iname);
       // _d2Ldargdgrad_eta[i] =
       //     &getMaterialPropertyDerivative<std::vector<RealGradient>>("dL_dgradeta", iname);
       _d2Ldarg2[i].resize(_n_args);
@@ -169,7 +185,8 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
     for (unsigned k = 0; k < _op_num; ++k)
     {
       oss << "  OP " << k << ": "
-          << "val_ptr=" << (void *)_eta_by_op[k] << "  jvar=" << _op_to_jvar[k];
+          << "val_ptr=" << (void *)_eta_by_op[k] << "  jvar=" << _op_to_jvar[k]
+          << "  cvar=" << mapJvarToCvar(_op_to_jvar[k]);
       // Try to recover a name for clarity (best-effort)
       bool named = false;
       for (unsigned i = 0; i < _n_args && !named; ++i)
@@ -182,6 +199,10 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
       if (!named && k == _my_op)
         oss << "  name='" << _var.name() << "'";
       oss << "\n";
+    }
+    for (unsigned i = 0; i < _n_args; ++i)
+    {
+      oss << "arg_i=" << i << "  grain_val_i=" << _grain_slots[i] << "\n";
     }
     // for (unsigned i = 0; i < _op_num; ++i)
     // {
@@ -205,13 +226,14 @@ RealGradient
 ACInterfaceInclinationGamma::gradL() // Includes grad op dependence
 {
   RealGradient g = _grad_u[_qp] * (*_dLdu)[_qp];
-  // g += _second_u[_qp] * (*_dL_dgradeta[_my_op])[_qp];
+  g += _second_u[_qp] * (*_dL_dgradu)[_qp];
   for (unsigned int i = 0; i < _n_args; ++i)
   {
-    if (i == _my_op)
-      continue;
+    // if (i == _my_op)
+    //   continue;
     g += (*_gradarg[i])[_qp] * (*_dLdarg[i])[_qp];
-    // g += (*_second_arg[i])[_qp] * (*_dL_dgradeta[i])[_qp];
+    if (_grain_slots[i])
+      g += (*_second_arg[i])[_qp] * (*_dL_dgradeta[i])[_qp];
   }
   return g;
 }
@@ -222,8 +244,8 @@ ACInterfaceInclinationGamma::nablaLPsi() // RH $L \nabla \psi$
   // sum is the product rule gradient \f$ \nabla (L\psi) \f$
   RealGradient sum = _L[_qp] * _grad_test[_i][_qp];
 
-  // if (_variable_L)
-  //   sum += gradL() * _test[_i][_qp];
+  if (_variable_L)
+    sum += gradL() * _test[_i][_qp];
 
   return sum;
 }
@@ -293,23 +315,6 @@ ACInterfaceInclinationGamma::computeQpJacobian()
     if (_my_op != i && _my_op != j)
       continue;
 
-    // const Real eta_i = eta_at(i);
-    // const Real eta_j = eta_at(j);
-    // const Real eta_fac = eta_i * eta_i * eta_j * eta_j;
-    // const Real sgn = (_my_op == i) ? 1.0 : -1.0;
-
-    // // (1) factor derivative part: (dγ·∇(Lψ)) * d/d(u)[η_i^2 η_j^2] * φ_j
-    // const Real other = (_my_op == i) ? eta_j : eta_i;
-    // const Real d_fac_du = 2.0 * eta_at(_my_op) * other * other;
-    // J += sgn * (dgamma[k] * nabla_Lpsi) * d_fac_du * _phi[_j][_qp];
-
-    // // (2) dγ term derivative: ( (T · ∇φ_j) · ∇(Lψ) ) * η_i^2 η_j^2
-    // // Here d2gamma is ∂²γ/∂(∇η_i)². Using your symmetry, this is also
-    // // the diagonal second derivative for u; the sign 'sgn' already picks i vs j.
-    // const RealGradient T_times_gradphi = d2gamma[k] * _grad_phi[_j][_qp];
-    // J += sgn * (T_times_gradphi * nabla_Lpsi) * eta_fac;
-
-    // OR my way kinda
     // Determine which is the "other" OP in the pair and get its value
     const Real sgn = (_my_op == i) ? 1.0 : -1.0;
     const unsigned other_op = (_my_op == i) ? j : i;
@@ -319,11 +324,42 @@ ACInterfaceInclinationGamma::computeQpJacobian()
     ddir += 2 * _u[_qp] * sgn * dgamma[k] * eta_other * eta_other * _phi[_j][_qp] * nablaLPsi();
     dind +=
         _u[_qp] * _u[_qp] * d2gamma[k] * eta_other * eta_other * _grad_phi[_j][_qp] * nablaLPsi();
-  } // d2gamma is ii or jj here so both +
+    // d2gamma is ii or jj here so both +
 
-  if (_variable_L)
-  {
-    // add L dependencies
+    // Variable L Moelans
+    if (_variable_L)
+    {
+      // Grad L partials
+      static const RealTensorValue I(1, 0, 0, 0, 1, 0, 0, 0, 1);
+      // The direct u pieces
+      RealGradient dgradLdu =
+          (*_d2Ldu2)[_qp] * _grad_u[_qp] + (*_d2L_dgradudu)[_qp] * _second_u[_qp];
+      RealTensorValue dgradLdgradu = libMesh::outer_product((*_d2L_dgradudu)[_qp], _grad_u[_qp]) +
+                                     I * (*_dLdu)[_qp] +
+                                     (*_d2L_dgradudgradeta)[_qp][_my_op] * _second_u[_qp];
+      // The cross terms with eta/gradeta dependence in grad L
+      for (unsigned int i = 0; i < _n_args; ++i)
+      {
+        dgradLdu += (*_d2Ldargdu[i])[_qp] * (*_gradarg[i])[_qp];
+        if (_grain_slots[i])
+          dgradLdu += (*_d2L_dgradetadu[i])[_qp] * (*_second_arg[i])[_qp];
+        dgradLdgradu += libMesh::outer_product((*_d2L_dgradudarg[i])[_qp], (*_gradarg[i])[_qp]) -
+                        (*_d2L_dgradudgradeta)[_qp][_my_op] * (*_second_arg[i])[_qp];
+      }
+
+      // Direct L dependence
+      ddir += (*_dLdu)[_qp] * _u[_qp] * _u[_qp] * dgamma[k] * eta_other * eta_other *
+              _phi[_j][_qp] * _grad_test[_i][_qp];
+      // Direct grad L dependence
+      ddir += dgradLdu * _u[_qp] * _u[_qp] * dgamma[k] * eta_other * eta_other * _phi[_j][_qp] *
+              _test[_i][_qp];
+      // Indirect L dependence (of grad u)
+      dind += (*_dL_dgradu)[_qp] * _u[_qp] * _u[_qp] * dgamma[k] * eta_other * eta_other *
+              _grad_phi[_j][_qp] * _grad_test[_i][_qp];
+      // Indirect grad L dependence (of grad u)
+      dind += dgradLdgradu * _u[_qp] * _u[_qp] * dgamma[k] * eta_other * eta_other *
+              _grad_phi[_j][_qp] * _test[_i][_qp];
+    }
   }
 
   if (_mask_tf)
