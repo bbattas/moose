@@ -197,7 +197,8 @@ GBInclinationBase::computeQpProperties()
             // BOTH: hgb and alpha- use hgb*alpha as well as straight alpha cutoff
             uxyz = ngb;
             ngb /= ngb.norm(); // normalize ngb now that we have uxyz for the un-normalized
-            if ((uxyz.norm() < hovtol) || (uxyz.norm() < invtol)) // hgb (altol)
+            if (((uxyz.norm() < hovtol) && (hovtol != 0.0)) ||
+                ((uxyz.norm() < invtol) && (invtol != 0.0))) // hgb (altol)
             {
               alpha = 0.0;
               alpha_skip = true;

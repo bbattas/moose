@@ -443,10 +443,10 @@
     gb_id_method = ffc
     ffc = gr_flood_uo
     angular_func = ATAN_2D
-    intol = 100 #10 #100 #200 # cut if alpha > intol
-    altol = 100 #10 #1.5 # cut if h*alpha > altol
+    intol = 0 #100 #10 #100 #200 # cut if alpha > intol
+    altol = 0 #100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
-    ifunc_a = 0.2
+    ifunc_a = 0.08
     ifunc_b = 2
     # L
     aniso_L = true
@@ -670,6 +670,7 @@
   compute_scaling_once = false
   # dt = 0.05
   dtmax = 0.5
+  # dt = 2e-5
   [TimeStepper]
     type = IterationAdaptiveDT
     dt = 0.00001

@@ -212,8 +212,8 @@
     gb_id_method = ffc
     ffc = gr_flood_uo
     angular_func = ATAN_2D
-    intol = 100 #10 #100 #200 # cut if alpha > intol
-    altol = 100 #10 #1.5 # cut if h*alpha > altol
+    intol = 0 #100 #10 #100 #200 # cut if alpha > intol
+    altol = 0 #100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
     ifunc_a = 0.08
     ifunc_b = 6
