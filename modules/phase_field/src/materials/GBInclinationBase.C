@@ -191,28 +191,44 @@ GBInclinationBase::computeQpProperties()
           {
             RealGradient uxyz(0.0, 0.0, 0.0);
             Real alpha = 0.0;
-            bool alpha_skip = false;
-            Real hovtol = _hgb[_qp] / _altol;
-            Real invtol = 1 / _intol;
-            // BOTH: hgb and alpha- use hgb*alpha as well as straight alpha cutoff
             uxyz = ngb;
             ngb /= ngb.norm(); // normalize ngb now that we have uxyz for the un-normalized
-            if (((uxyz.norm() < hovtol) && (hovtol != 0.0)) ||
-                ((uxyz.norm() < invtol) && (invtol != 0.0))) // hgb (altol)
+            // alpha check
+            const bool hov_enabled = (_altol != 0.0);
+            const bool inv_enabled = (_intol != 0.0);
+            bool hov_trigger = false;
+            bool inv_trigger = false;
+            if (hov_enabled)
             {
-              alpha = 0.0;
-              alpha_skip = true;
-              if (k == 1)
-                _testout3[_qp] = 1;
+              const Real hovtol = _hgb[_qp] / _altol; // safe: _altol != 0 here
+              hov_trigger = (uxyz.norm() < hovtol);
             }
-            else
+            if (inv_enabled)
             {
-              alpha = 1 / uxyz.norm();
+              const Real invtol = 1.0 / _intol; // safe: _intol != 0 here
+              inv_trigger = (uxyz.norm() < invtol);
             }
+            // Combine logic: if both enabled, trip if EITHER trips
+            bool alpha_skip = (hov_trigger || inv_trigger);
+            // bool alpha_skip = false;
+            // if (((uxyz.norm() < hovtol) && (_altol != 0.0)) ||
+            //     ((uxyz.norm() < invtol) && (_intol != 0.0))) // hgb (altol)
+            // {
+            //   alpha = 0.0;
+            //   alpha_skip = true;
+            //   if (k == 1)
+            //     _testout3[_qp] = 1;
+            // }
+            // else
+            // {
+            //   alpha = 1 / uxyz.norm();
+            // }
 
             // Now calculate the inclination using arc-trig functions
             if (!alpha_skip)
             {
+              // moved here for checking if we arent skipping alpha
+              alpha = 1 / uxyz.norm();
               // "atan_2D=0 atan_3D=1 acos=2 atan_half=3"
               switch (_angular_func)
               {
