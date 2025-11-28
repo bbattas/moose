@@ -29,6 +29,7 @@ protected:
   const Real _if_a;
   const Real _if_b;
   const Real _if_c;
+  const Real _if_d;
 
   // Inclination output (1+cos)
   MaterialProperty<std::vector<Real>> & _inclination;

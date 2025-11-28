@@ -4,8 +4,8 @@
 # Created Date: Tuesday October 28th 2025
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday October 28th 2025
-# Modified By: Battas,Brandon Scott
+# Last Modified: Thursday November 13th 2025
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  NEwton test of new version of material and kernel using 0.05 and 2 for fcos
@@ -112,7 +112,7 @@
     debug_kernel = false
     skip_off = false
     variable_L = false
-    # mask_name = hgb
+    mask_name = hgb
   []
   [gr1_ACInc]
     type = ACInterfaceInclinationGamma
@@ -121,7 +121,7 @@
     debug_kernel = false
     skip_off = false
     variable_L = false
-    # mask_name = hgb
+    mask_name = hgb
   []
   # [gr2_ACInc]
   #   type = ACInterfaceInclinationGamma
@@ -227,16 +227,17 @@
     gb_id_method = ffc
     ffc = gr_flood_uo
     angular_func = ATAN_2D
-    intol = 100 #10 #100 #200 # cut if alpha > intol
-    altol = 100 #10 #1.5 # cut if h*alpha > altol
+    intol = 0 #100 #10 #100 #200 # cut if alpha > intol
+    altol = 0 #100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
-    ifunc_a = 0.02
+    ifunc_a = 0.05
     ifunc_b = 2
+    aniso_L = false
     # Other Properties
     gb_energy_iso_name = gbe_iso
     kappa = kappa_op
     free_energy_m = 5.521269e6
-    output_properties = 'gtnum testout1 testout2 testoutgrad testouttens no_ij_pairs L testout3
+    output_properties = 'gtnum testout1 testout2 testoutgrad testouttens no_ij_pairs testout3
     int_width gamma_a' #theta_ij dtheta_dgradeta d2theta_dgradeta2
     # testout1 testout2 testoutgrad testouttens
     outputs = 'exodus'

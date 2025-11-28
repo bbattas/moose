@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 02_debug_3op.i
-# File Location: /examples/agg/01_initial_testing/24_newMat/02_debug_3op
-# Created Date: Monday October 20th 2025
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 07_well_2op.i
+# File Location: /examples/agg/01_initial_testing/24_newMat/07_well_2op
+# Created Date: Tuesday November 18th 2025
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday November 13th 2025
+# Last Modified: Tuesday November 25th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  debugging input with 3 ops to check those effects in new mats/kernel
+#  Checking if the well works (better or at all) with a bicrystal
 #
 #
 #
@@ -32,13 +32,13 @@
     # uniform_refine = 3 # Initial uniform refinement of the mesh
   []
   parallel_type = DISTRIBUTED # Periodic BCs
-  second_order = true
+  second_order = false
   # uniform_refine = 1
 []
 
 [GlobalParams]
   # Parameters used by several kernels that are defined globally to simplify input file
-  op_num = 3 #15 # Number of order parameters used
+  op_num = 2 #15 # Number of order parameters used
   var_name_base = gr # Base name of grains
   # T = 1400 # Constant temperature of the simulation (for mobility calculation)
 []
@@ -46,14 +46,13 @@
 [Variables]
   # Variable block, where all variables in the simulation are declared
   [PolycrystalVariables]
-    order = SECOND
   []
 []
 
 [UserObjects]
   [gr_flood_uo]
     type = FeatureFloodCount
-    variable = 'gr0 gr1 gr2'
+    variable = 'gr0 gr1'
     threshold = 0.01
     connecting_threshold = 0.01
     compute_var_to_feature_map = true
@@ -72,31 +71,20 @@
     type = SmoothCircleIC
     invalue = 1
     outvalue = 0
-    radius = 30 #60
+    radius = 60
     variable = gr0
-    x1 = 50 #80
+    x1 = 80
     y1 = 80
     int_width = 6
   []
   [gr1_IC]
     type = SmoothCircleIC
-    invalue = 1 #0
-    outvalue = 0 #1
-    radius = 30 #60
-    variable = gr1
-    x1 = 110 #80
-    y1 = 80
-    int_width = 6
-  []
-  [gr2_IC]
-    type = SpecifiedSmoothCircleIC
-    variable = gr2
-    radii = '30 30'
-    x_positions = '50 110'
-    y_positions = '80 80'
-    z_positions = '0 0'
     invalue = 0
     outvalue = 1
+    radius = 60
+    variable = gr1
+    x1 = 80
+    y1 = 80
     int_width = 6
   []
 []
@@ -120,26 +108,26 @@
     order = CONSTANT
     family = MONOMIAL
   []
-  [inc_02]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [inc_12]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [gamma_01_v]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [gamma_02_v]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [gamma_12_v]
-    order = CONSTANT
-    family = MONOMIAL
-  []
+  # [inc_02]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [inc_12]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [gamma_01_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [gamma_02_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [gamma_12_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
   # [i_0]
   #   order = CONSTANT
   #   family = MONOMIAL
@@ -152,14 +140,14 @@
     order = CONSTANT
     family = MONOMIAL
   []
-  [theta_02_v]
-    order = CONSTANT
-    family = MONOMIAL
-  []
-  [theta_12_v]
-    order = CONSTANT
-    family = MONOMIAL
-  []
+  # [theta_02_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [theta_12_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
   # [theta_11]
   #   order = CONSTANT
   #   family = MONOMIAL
@@ -185,55 +173,31 @@
     variable_mobility = false
     # order = SECOND
   []
-  [gr0_ACInc]
-    type = ACInterfaceInclinationGamma
-    variable = gr0
-    coupled_variables = 'gr1 gr2'
-    debug_kernel = true
-    skip_off = false
-    variable_L = true
-    mask_name = hgb
-  []
-  [gr1_ACInc]
-    type = ACInterfaceInclinationGamma
-    variable = gr1
-    coupled_variables = 'gr0 gr2'
-    debug_kernel = true
-    skip_off = false
-    variable_L = true
-    mask_name = hgb
-  []
-  [gr2_ACInc]
-    type = ACInterfaceInclinationGamma
-    variable = gr2
-    coupled_variables = 'gr0 gr1'
-    debug_kernel = true
-    skip_off = false
-    variable_L = true
-    mask_name = hgb
-  []
-  # [gr0_ACIaniso]
-  #   type = ACInterfaceAnisoGamma
+  # [gr0_ACInc]
+  #   type = ACInterfaceInclinationGamma
   #   variable = gr0
-  #   coupled_variables = 'gr1' # gr11 gr12 gr13 gr14 gr15'
-  #   gamma_name = gamma_asymm
-  #   dgamma_dgradop_name = dgammadgrad_eta_0
-  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_0
-  #   mob_name = L
-  #   variable_L = false
+  #   coupled_variables = 'gr1 gr2'
+  #   debug_kernel = true
   #   skip_off = false
+  #   variable_L = false
   #   mask_name = hgb
   # []
-  # [gr1_ACIaniso]
-  #   type = ACInterfaceAnisoGamma
+  # [gr1_ACInc]
+  #   type = ACInterfaceInclinationGamma
   #   variable = gr1
-  #   coupled_variables = 'gr0' # gr11 gr12 gr13 gr14 gr15'
-  #   gamma_name = gamma_asymm
-  #   dgamma_dgradop_name = dgammadgrad_eta_1
-  #   d2gamma_dgradop2_name = d2gammadgrad_eta2_1
-  #   mob_name = L
-  #   variable_L = false
+  #   coupled_variables = 'gr0 gr2'
+  #   debug_kernel = true
   #   skip_off = false
+  #   variable_L = false
+  #   mask_name = hgb
+  # []
+  # [gr2_ACInc]
+  #   type = ACInterfaceInclinationGamma
+  #   variable = gr2
+  #   coupled_variables = 'gr0 gr1'
+  #   debug_kernel = true
+  #   skip_off = false
+  #   variable_L = false
   #   mask_name = hgb
   # []
 []
@@ -276,46 +240,46 @@
     j = 1
     execute_on = 'initial timestep_end'
   []
-  [inc_02]
-    type = MatVectorComponentAux
-    variable = inc_02
-    property = inclination
-    i = 0
-    j = 2
-    execute_on = 'initial timestep_end'
-  []
-  [inc_12]
-    type = MatVectorComponentAux
-    variable = inc_12
-    property = inclination
-    i = 1
-    j = 2
-    execute_on = 'initial timestep_end'
-  []
-  [gamma_01_v]
-    type = MatVectorComponentAux
-    variable = gamma_01_v
-    property = gamma_ij
-    i = 0
-    j = 1
-    execute_on = 'initial timestep_end'
-  []
-  [gamma_02_v]
-    type = MatVectorComponentAux
-    variable = gamma_02_v
-    property = gamma_ij
-    i = 0
-    j = 2
-    execute_on = 'initial timestep_end'
-  []
-  [gamma_12_v]
-    type = MatVectorComponentAux
-    variable = gamma_12_v
-    property = gamma_ij
-    i = 1
-    j = 2
-    execute_on = 'initial timestep_end'
-  []
+  # [inc_02]
+  #   type = MatVectorComponentAux
+  #   variable = inc_02
+  #   property = inclination
+  #   i = 0
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [inc_12]
+  #   type = MatVectorComponentAux
+  #   variable = inc_12
+  #   property = inclination
+  #   i = 1
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [gamma_01_v]
+  #   type = MatVectorComponentAux
+  #   variable = gamma_01_v
+  #   property = gamma_ij
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [gamma_02_v]
+  #   type = MatVectorComponentAux
+  #   variable = gamma_02_v
+  #   property = gamma_ij
+  #   i = 0
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [gamma_12_v]
+  #   type = MatVectorComponentAux
+  #   variable = gamma_12_v
+  #   property = gamma_ij
+  #   i = 1
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
   # [i_0]
   #   type = MatVectorComponentAux
   #   variable = i_0
@@ -342,22 +306,22 @@
     j = 1
     execute_on = 'initial timestep_end'
   []
-  [theta_02_v]
-    type = MatVectorComponentAux
-    variable = theta_02_v
-    property = theta_ij
-    i = 0
-    j = 2
-    execute_on = 'initial timestep_end'
-  []
-  [theta_12_v]
-    type = MatVectorComponentAux
-    variable = theta_12_v
-    property = theta_ij
-    i = 1
-    j = 2
-    execute_on = 'initial timestep_end'
-  []
+  # [theta_02_v]
+  #   type = MatVectorComponentAux
+  #   variable = theta_02_v
+  #   property = theta_ij
+  #   i = 0
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [theta_12_v]
+  #   type = MatVectorComponentAux
+  #   variable = theta_12_v
+  #   property = theta_ij
+  #   i = 1
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
   # [theta_11]
   #   type = MatVectorComponentAux
   #   variable = theta_11
@@ -446,8 +410,11 @@
     intol = 0 #100 #10 #100 #200 # cut if alpha > intol
     altol = 0 #100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
-    ifunc_a = 0.08
+    inc_func = SMOOTH_WELL
+    ifunc_a = 0.4
     ifunc_b = 2
+    ifunc_c = 90
+    ifunc_d = 10
     # L
     aniso_L = false
     # Other Properties
@@ -464,6 +431,7 @@
     gb_energy_iso_name = gbe_iso
     kappa = kappa_op
     free_energy_m = 5.521269e6
+    well = true
     output_properties = 'gamma_asymm int_noij'
     outputs = 'exodus'
   []
@@ -502,8 +470,8 @@
   [hgb_a]
     type = ParsedMaterial
     property_name = hgb_a
-    coupled_variables = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
-    expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2;
+    coupled_variables = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    expression = 'hb:=gr0*gr0 + gr1*gr1;
                   4 * (1 - hb) * (1 - hb)'
     # hg:=4 * (1 - hb) * (1 - hb);
     # if(hg>1.0,1.0,hg)'
@@ -513,7 +481,7 @@
   [hgb_b]
     type = SwitchingFunctionGBMaterial
     h_name = hgb_b
-    grain_ops = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    grain_ops = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     hgb_threshold = 0
     output_properties = 'hgb_b'
     outputs = 'exodus'
@@ -521,7 +489,7 @@
   [hgb]
     type = ParsedMaterial
     property_name = hgb
-    coupled_variables = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    coupled_variables = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     material_property_names = 'hgb_a hgb_b'
     # expression = 'h1:=if(hgb_a>1,1,if(hgb_a<0,0.0,hgb_a));
     #               h2:=if(hgb_b>1,1,if(hgb_b<0,0.0,hgb_b));
@@ -534,17 +502,26 @@
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
-    coupled_variables = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
-    expression = 'gr0 + gr1 + gr2' # + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10'
+    coupled_variables = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    expression = 'gr0 + gr1' # + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10'
     #  + gr11 + gr12 + gr13 + gr14 + gr15'
     outputs = 'exodus'
   []
   [sum_inc]
     type = ParsedMaterial
     property_name = sum_inc
-    coupled_variables = 'gr0 gr1 gr2 inc_01 inc_02 inc_12'
-    expression = 'num:= inc_01 * gr0 * gr0 * gr1 * gr1 + inc_02 * gr0 * gr0 * gr2 * gr2 + inc_12 * gr1 * gr1 * gr2 * gr2;
-    den:= gr0 * gr0 * gr1 * gr1 + gr0 * gr0 * gr2 * gr2 + gr1 * gr1 * gr2 * gr2;
+    coupled_variables = 'gr0 gr1 inc_01'
+    expression = 'num:= inc_01 * gr0 * gr0 * gr1 * gr1;
+    den:= gr0 * gr0 * gr1 * gr1;
+    num/den'
+    outputs = 'exodus'
+  []
+  [sum_theta]
+    type = ParsedMaterial
+    property_name = sum_theta
+    coupled_variables = 'gr0 gr1 theta_01_v'
+    expression = 'num:= theta_01_v * gr0 * gr0 * gr1 * gr1;
+    den:= gr0 * gr0 * gr1 * gr1;
     num/den'
     outputs = 'exodus'
   []
@@ -673,7 +650,7 @@
   # dt = 2e-5
   [TimeStepper]
     type = IterationAdaptiveDT
-    dt = 0.00001
+    dt = 0.001
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 6

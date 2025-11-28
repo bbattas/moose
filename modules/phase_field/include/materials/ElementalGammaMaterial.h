@@ -33,4 +33,8 @@ protected:
   const MaterialProperty<Real> & _L0;
   const MaterialProperty<Real> * _L_qp;
   MaterialProperty<Real> * _L_elem;
+
+  const bool _well;
+  const MaterialProperty<Real> & _int_width_in;
+  MaterialProperty<Real> & _int_width_out;
 };

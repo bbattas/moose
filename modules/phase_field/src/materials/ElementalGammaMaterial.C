@@ -29,6 +29,8 @@ ElementalGammaMaterial::validParams()
   params.addParam<MaterialPropertyName>("L0", "L0", "Name of L prefactor/iso value.");
   params.addParam<MaterialPropertyName>(
       "L_qp", "L_qp", "Name of L with some qps dropped to be averaged.");
+  params.addParam<bool>("aniso_L", false, "Is AC mobility L an inclination dependent variable.");
+  params.addParam<bool>("well", false, "Using well function for inclination?");
   return params;
 }
 
@@ -42,11 +44,13 @@ ElementalGammaMaterial::ElementalGammaMaterial(const InputParameters & parameter
     _gbe_iso(getMaterialProperty<Real>("gb_energy_iso_name")),
     _kappa(getMaterialProperty<Real>(getParam<MaterialPropertyName>("kappa"))),
     _const_m(getParam<Real>("free_energy_m")),
-    _aniso_L(isParamValid("L_qp")),
+    _aniso_L(getParam<bool>("aniso_L")),
     _L0(getMaterialProperty<Real>(getParam<MaterialPropertyName>("L0"))),
     _L_qp(_aniso_L ? &getMaterialProperty<Real>(getParam<MaterialPropertyName>("L_qp")) : nullptr),
-    _L_elem(_aniso_L ? &declareProperty<Real>("L") : nullptr)
-
+    _L_elem(_aniso_L ? &declareProperty<Real>("L") : nullptr),
+    _well(getParam<bool>("well")),
+    _int_width_in(getMaterialProperty<Real>("int_width_qp")),
+    _int_width_out(declareProperty<Real>("int_width"))
 {
   // if (_op_num == 0)
   //   mooseError("Model requires op_num > 0");
@@ -84,6 +88,40 @@ ElementalGammaMaterial::computeProperties()
     }
   }
 
+  bool gamma_change = false;
+  Real min_gamma = 0.0;
+  Real max_gamma = 0.0;
+  Real min_iw = 0.0;
+  Real max_iw = 0.0;
+  if (_well)
+  {
+    // initialize min/max from first qp
+    min_gamma = _gamma_in[0];
+    max_gamma = _gamma_in[0];
+
+    min_iw = _int_width_in[0];
+    max_iw = _int_width_in[0];
+
+    for (_qp = 1; _qp < _qrule->n_points(); ++_qp)
+    {
+      // check if any qp is different from the first one
+      if (_gamma_in[_qp] != _gamma_in[0])
+        gamma_change = true;
+
+      // update min / max
+      if (_gamma_in[_qp] < min_gamma)
+      {
+        min_gamma = _gamma_in[_qp];
+        max_iw = _int_width_in[_qp];
+      }
+      if (_gamma_in[_qp] > max_gamma)
+      {
+        max_gamma = _gamma_in[_qp];
+        min_iw = _int_width_in[_qp];
+      }
+    }
+  }
+
   for (_qp = 0; _qp < _qrule->n_points(); ++_qp)
   {
     _elem_no_ij[_qp] = elem_skip;
@@ -97,6 +135,20 @@ ElementalGammaMaterial::computeProperties()
       _gamma_out[_qp] = 1 / pg;
       if (_aniso_L)
         (*_L_elem)[_qp] = _L0[_qp];
+      // IW
+      Real f0_int =
+          (((((0.0788 * pg - 0.4955) * pg + 1.2244) * pg - 1.5281) * pg + 1.0686) * pg - 0.5563) *
+              pg +
+          0.2907;
+      _int_width_out[_qp] = (std::sqrt(_kappa[_qp] / _const_m)) * (std::sqrt(1 / f0_int));
+    }
+    else if (gamma_change)
+    {
+      _int_noij[_qp] = 2;
+      _gamma_out[_qp] = max_gamma;
+      if (_aniso_L)
+        (*_L_elem)[_qp] = (*_L_qp)[_qp];
+      _int_width_out[_qp] = min_iw;
     }
     else
     {
@@ -104,6 +156,7 @@ ElementalGammaMaterial::computeProperties()
       _gamma_out[_qp] = _gamma_in[_qp];
       if (_aniso_L)
         (*_L_elem)[_qp] = (*_L_qp)[_qp];
+      _int_width_out[_qp] = _int_width_in[_qp];
     }
   }
 }

@@ -10,14 +10,17 @@ GBInclination::validParams()
       "Child material to determine inclination dependent properties for AGG.");
   // params.addRequiredCoupledVarWithAutoBuild(
   //     "v", "var_name_base", "op_num", "Array of coupled variables");
-  MooseEnum inc_func("cos=0", "cos");
-  params.addParam<MooseEnum>("inc_func",
-                             inc_func,
-                             "Which inclination function to use.  "
-                             "cos: 1 + a * cos(b(theta + c));.");
+  MooseEnum inc_func("cos=0 well=1 man_well=2 smooth_well=3 smooth_half=4", "cos");
+  params.addParam<MooseEnum>(
+      "inc_func",
+      inc_func,
+      "Which inclination function to use.  "
+      "cos: 1 + a * cos(b(theta + c)); "
+      "well: b wells starting from angle c of (1 - a) within angle d of any well, else (1 + a).");
   params.addParam<Real>("ifunc_a", 0.05, "Inclination function constant a.");
   params.addParam<Real>("ifunc_b", 2, "Inclination function constant b.");
   params.addParam<Real>("ifunc_c", 0.0, "Inclination function constant c.");
+  params.addParam<Real>("ifunc_d", 10.0, "Inclination function constant d.");
   // GB ENERGY
   params.addParam<MaterialPropertyName>(
       "gb_energy_iso_name", "sigma_iso", "Isotropic GB energy before inclination dependence.");
@@ -62,6 +65,7 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _if_a(getParam<Real>("ifunc_a")),
     _if_b(getParam<Real>("ifunc_b")),
     _if_c(getParam<Real>("ifunc_c")),
+    _if_d(getParam<Real>("ifunc_d")),
     // Inclination (1 + cos) output
     _inclination(declareProperty<std::vector<Real>>("inclination")),
     // gamma_ij
@@ -75,7 +79,7 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _kappa(getMaterialProperty<Real>(getParam<MaterialPropertyName>("kappa"))),
     _const_m(getParam<Real>("free_energy_m")),
     _mu(declareProperty<Real>("mu")),
-    _int_width(declareProperty<Real>("int_width")),
+    _int_width(declareProperty<Real>("int_width_qp")),
     _gamma_qp(declareProperty<Real>("gamma_qp")),
     // Optional Anisotropic L
     _aniso_L(getParam<bool>("aniso_L")),
@@ -248,6 +252,125 @@ GBInclination::computeQpProperties()
             d2finc_dgradeta2[k] =
                 d2fcos * libMesh::outer_product(dtheta[k], dtheta[k]) + dfcos * d2theta[k];
           }
+          break;
+        }
+
+        case 1:
+        {
+          // well with b minimums of width +/-d with the first offset by angle c
+          const unsigned int nb = static_cast<unsigned int>(_if_b);
+          if (nb == 0)
+            break;
+          bool in_well = false;
+          const Real twopi = 2.0 * libMesh::pi;
+          const Real rad_d = _if_d * twopi / 360;
+          const Real spacing = twopi / _if_b;
+          for (unsigned int m = 0; m < nb && !in_well; ++m)
+          {
+            const Real center = (_if_c * twopi / 360) + m * spacing;
+            double d = fmod(theta[k] - center, twopi);
+            if (d < 0.0)
+              d += twopi;
+            d = std::min(d, twopi - d);
+            if (d < rad_d)
+              in_well = true;
+          }
+          const Real fwell = in_well ? (1.0 - _if_a) : (1.0 + _if_a);
+          finc[k] = fwell;
+          break;
+        }
+
+        case 2:
+        {
+          // hard coded well at 2 pole 90/270 with 10 deg
+          bool in_well = false;
+          const Real twopi = 2.0 * libMesh::pi;
+          const Real rad_d = 10 * twopi / 360;
+          const Real rad_w1 = 90 * twopi / 360;
+          const Real rad_w2 = 270 * twopi / 360;
+          const bool well_1 = (std::abs(theta[k] - rad_w1) < rad_d);
+          const bool well_2 = (std::abs(theta[k] - rad_w2) < rad_d);
+          in_well = (well_1 || well_2);
+          const Real fwell = in_well ? (1.0 - _if_a) : (1.0 + _if_a);
+          finc[k] = fwell;
+          break;
+        }
+
+        case 3:
+        {
+          // smoothed out well at 2 pole 90/270 with 10 deg
+          const Real twopi = 2.0 * libMesh::pi;
+          const Real td = theta[k] * 360 / twopi;
+          Real w = 0.0;
+          if (td > 78 && td < 82)
+          {
+            Real s = (td - 78) / 4;
+            w = s * s * s * (6.0 * s * s - 15.0 * s + 10.0);
+          }
+          else if (td > 258 && td < 262)
+          {
+            Real s = (td - 258) / 4;
+            w = s * s * s * (6.0 * s * s - 15.0 * s + 10.0);
+          }
+          else if (td > 98 && td < 102)
+          {
+            Real s = (td - 98) / 4;
+            w = 1 - (s * s * s * (6.0 * s * s - 15.0 * s + 10.0));
+          }
+          else if (td > 278 && td < 282)
+          {
+            Real s = (td - 278) / 4;
+            w = 1 - (s * s * s * (6.0 * s * s - 15.0 * s + 10.0));
+          }
+          else if (td >= 82 && td <= 98)
+          {
+            w = 1.0;
+          }
+          else if (td >= 262 && td <= 278)
+          {
+            w = 1.0;
+          }
+          const Real fwell = 1.0 + _if_a - (2 * w * _if_a);
+          finc[k] = fwell;
+          break;
+        }
+
+        case 4:
+        {
+          // smoothed out well at 2 pole 90/270 with 10 deg
+          const Real twopi = 2.0 * libMesh::pi;
+          const Real td = theta[k] * 360 / twopi;
+          Real w = 0.0;
+          if (td > 79 && td < 81)
+          {
+            Real s = (td - 79) / 2;
+            w = s * s * s * (6.0 * s * s - 15.0 * s + 10.0);
+          }
+          else if (td > 259 && td < 261)
+          {
+            Real s = (td - 259) / 2;
+            w = s * s * s * (6.0 * s * s - 15.0 * s + 10.0);
+          }
+          else if (td > 99 && td < 101)
+          {
+            Real s = (td - 99) / 2;
+            w = 1 - (s * s * s * (6.0 * s * s - 15.0 * s + 10.0));
+          }
+          else if (td > 279 && td < 281)
+          {
+            Real s = (td - 279) / 2;
+            w = 1 - (s * s * s * (6.0 * s * s - 15.0 * s + 10.0));
+          }
+          else if (td >= 81 && td <= 99)
+          {
+            w = 1.0;
+          }
+          else if (td >= 261 && td <= 279)
+          {
+            w = 1.0;
+          }
+          const Real fwell = 1.0 + _if_a - (2 * w * _if_a);
+          finc[k] = fwell;
           break;
         }
 
