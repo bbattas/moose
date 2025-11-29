@@ -1,16 +1,16 @@
 ##############################################################################
-# File: 01_11gr_cos_noGT.i
-# File Location: /examples/agg/01_initial_testing/26_polycrystal/01_11gr_cos_noGT
-# Created Date: Tuesday November 25th 2025
+# File: 09_11gr_cos_GT_a0.1.i
+# File Location: /examples/agg/01_initial_testing/26_polycrystal/09_11gr_cos_GT_a0.1
+# Created Date: Saturday November 29th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Saturday November 29th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  11 grain voronoi polycrystal ic, without using grain tracker
-#
-#
+#  11 grain voronoi polycrystal ic, WITH using grain tracker
+#  First reattempt with grain tracker insead of ffc
+#  Lower a (0.1 instead of 0.3)
 #
 ##############################################################################
 
@@ -47,19 +47,26 @@
     file_name = '../00_sub/small_11gr.txt'
     int_width = 6
   []
-  [gr_flood_uo]
-    type = FeatureFloodCount
-    variable = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
-    threshold = 0.01
-    connecting_threshold = 0.01
-    compute_var_to_feature_map = true
+  # [gr_flood_uo]
+  #   type = FeatureFloodCount
+  #   variable = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
+  #   threshold = 0.01
+  #   connecting_threshold = 0.01
+  #   compute_var_to_feature_map = true
+  #   compute_halo_maps = true # Only necessary for displaying HALOS
+  #   execute_on = 'initial timestep_end'
+  #   # use_less_than_threshold_comparison = true
+  # []
+  [grain_tracker]
+    type = GrainTracker
+    threshold = 0.01 #0.001
+    connecting_threshold = 0.01 #0.001 #0.0008
     compute_halo_maps = true # Only necessary for displaying HALOS
-    execute_on = 'initial timestep_end'
-    # use_less_than_threshold_comparison = true
+    compute_var_to_feature_map = true
   []
   [term]
     type = Terminator
-    expression = 'gr_flood_uo < 5'
+    expression = 'grain_tracker < 5'
   []
 []
 
@@ -203,14 +210,14 @@
   [gr_unique_grains]
     type = FeatureFloodCountAux
     variable = gr_unique_grains
-    flood_counter = gr_flood_uo
+    flood_counter = grain_tracker
     field_display = UNIQUE_REGION
     execute_on = 'initial timestep_end'
   []
   [gr_halos]
     type = FeatureFloodCountAux
     variable = gr_halos
-    flood_counter = gr_flood_uo
+    flood_counter = grain_tracker
     field_display = HALOS
     execute_on = 'initial timestep_end'
   []
@@ -230,8 +237,8 @@
     # grain_tracker = grain_tracker
     output_properties = 'inclination_vector ang_dist'
     gb_id_method = SWITCH
-    ffc = gr_flood_uo
-    # grain_tracker = gr_flood_uo
+    # ffc = gr_flood_uo
+    grain_tracker = grain_tracker
     hgb = hgb
     hgb_threshold = 0.5
     outputs = exodus
@@ -243,14 +250,15 @@
   []
   [GBInc_cos]
     type = GBInclination
-    gb_id_method = ffc
-    ffc = gr_flood_uo
+    gb_id_method = GRAINTRACKER
+    grain_tracker = grain_tracker
+    # ffc = gr_flood_uo
     angular_func = ATAN_2D
     intol = 100 #100 #10 #100 #200 # cut if alpha > intol
     altol = 100 #100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
     inc_func = COS
-    ifunc_a = 0.3
+    ifunc_a = 0.1
     ifunc_b = 2
     ifunc_c = 0
     ifunc_d = 0

@@ -1,7 +1,7 @@
 ##############################################################################
-# File: 01_11gr_cos_noGT.i
-# File Location: /examples/agg/01_initial_testing/26_polycrystal/01_11gr_cos_noGT
-# Created Date: Tuesday November 25th 2025
+# File: 07_11gr_cos_noGT_a0.1.i
+# File Location: /examples/agg/01_initial_testing/26_polycrystal/07_11gr_cos_noGT_a0.1
+# Created Date: Saturday November 29th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Saturday November 29th 2025
@@ -250,7 +250,7 @@
     altol = 100 #100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
     inc_func = COS
-    ifunc_a = 0.3
+    ifunc_a = 0.1
     ifunc_b = 2
     ifunc_c = 0
     ifunc_d = 0

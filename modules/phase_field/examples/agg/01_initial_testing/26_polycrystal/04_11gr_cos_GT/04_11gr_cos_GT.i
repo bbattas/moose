@@ -4,7 +4,7 @@
 # Created Date: Friday November 28th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday November 28th 2025
+# Last Modified: Saturday November 29th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -254,8 +254,8 @@
     grain_tracker = grain_tracker
     # ffc = gr_flood_uo
     angular_func = ATAN_2D
-    intol = 0 #100 #10 #100 #200 # cut if alpha > intol
-    altol = 0 #100 #10 #1.5 # cut if h*alpha > altol
+    intol = 100 #100 #10 #100 #200 # cut if alpha > intol
+    altol = 100 #100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
     inc_func = COS
     ifunc_a = 0.3

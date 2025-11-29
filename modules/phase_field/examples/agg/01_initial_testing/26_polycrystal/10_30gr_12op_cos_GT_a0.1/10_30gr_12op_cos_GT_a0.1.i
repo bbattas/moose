@@ -1,29 +1,29 @@
 ##############################################################################
-# File: 01_11gr_cos_noGT.i
-# File Location: /examples/agg/01_initial_testing/26_polycrystal/01_11gr_cos_noGT
-# Created Date: Tuesday November 25th 2025
+# File: 10_30gr_12op_cos_GT_a0.1.i
+# File Location: /examples/agg/01_initial_testing/26_polycrystal/10_30gr_12op_cos_GT_a0.1
+# Created Date: Saturday November 29th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Saturday November 29th 2025
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  11 grain voronoi polycrystal ic, without using grain tracker
-#
-#
-#
+#  30 grain voronoi polycrystal ic, WITH using grain tracker
+#  comes from previous test with reduced domain version of one of
+#   vishals ICs from old stuff
+#  12 ops- ~20cpus
 ##############################################################################
 
 [Mesh]
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2 # Problem dimension
-    nx = 80 # Number of elements in the x-direction
-    ny = 80 # Number of elements in the y-direction
+    nx = 128 # Number of elements in the x-direction
+    ny = 128 # Number of elements in the y-direction
     xmin = 0 # minimum x-coordinate of the mesh
-    xmax = 80 # maximum x-coordinate of the mesh
+    xmax = 128 # maximum x-coordinate of the mesh
     ymin = 0 # minimum y-coordinate of the mesh
-    ymax = 80 # maximum y-coordinate of the mesh
+    ymax = 128 # maximum y-coordinate of the mesh
     # elem_type = QUAD4 # Type of elements used in the mesh
     # uniform_refine = 3 # Initial uniform refinement of the mesh
   []
@@ -31,7 +31,7 @@
 []
 
 [GlobalParams]
-  op_num = 11
+  op_num = 12
   var_name_base = gr
 []
 
@@ -44,22 +44,29 @@
   [voronoi]
     type = PolycrystalVoronoi
     coloring_algorithm = bt
-    file_name = '../00_sub/small_11gr.txt'
+    file_name = '../00_sub/vishal_small_128.txt'
     int_width = 6
   []
-  [gr_flood_uo]
-    type = FeatureFloodCount
-    variable = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
-    threshold = 0.01
-    connecting_threshold = 0.01
-    compute_var_to_feature_map = true
+  # [gr_flood_uo]
+  #   type = FeatureFloodCount
+  #   variable = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
+  #   threshold = 0.01
+  #   connecting_threshold = 0.01
+  #   compute_var_to_feature_map = true
+  #   compute_halo_maps = true # Only necessary for displaying HALOS
+  #   execute_on = 'initial timestep_end'
+  #   # use_less_than_threshold_comparison = true
+  # []
+  [grain_tracker]
+    type = GrainTracker
+    threshold = 0.01 #0.001
+    connecting_threshold = 0.01 #0.001 #0.0008
     compute_halo_maps = true # Only necessary for displaying HALOS
-    execute_on = 'initial timestep_end'
-    # use_less_than_threshold_comparison = true
+    compute_var_to_feature_map = true
   []
   [term]
     type = Terminator
-    expression = 'gr_flood_uo < 5'
+    expression = 'grain_tracker < 6'
   []
 []
 
@@ -94,7 +101,7 @@
   [gr0_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr0
-    coupled_variables = 'gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
+    coupled_variables = 'gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -103,7 +110,7 @@
   [gr1_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr1
-    coupled_variables = 'gr0 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
+    coupled_variables = 'gr0 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -112,7 +119,7 @@
   [gr2_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr2
-    coupled_variables = 'gr0 gr1 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
+    coupled_variables = 'gr0 gr1 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -121,7 +128,7 @@
   [gr3_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr3
-    coupled_variables = 'gr0 gr1 gr2 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
+    coupled_variables = 'gr0 gr1 gr2 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -130,7 +137,7 @@
   [gr4_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr4
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr5 gr6 gr7 gr8 gr9 gr10'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -139,7 +146,7 @@
   [gr5_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr5
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr6 gr7 gr8 gr9 gr10'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr6 gr7 gr8 gr9 gr10 gr11'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -148,7 +155,7 @@
   [gr6_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr6
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr7 gr8 gr9 gr10'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr7 gr8 gr9 gr10 gr11'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -157,7 +164,7 @@
   [gr7_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr7
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr8 gr9 gr10'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr8 gr9 gr10 gr11'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -166,7 +173,7 @@
   [gr8_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr8
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr9 gr10'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr9 gr10 gr11'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -175,7 +182,7 @@
   [gr9_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr9
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr10'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr10 gr11'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -184,7 +191,16 @@
   [gr10_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr10
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr11'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr11_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr11
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -203,14 +219,14 @@
   [gr_unique_grains]
     type = FeatureFloodCountAux
     variable = gr_unique_grains
-    flood_counter = gr_flood_uo
+    flood_counter = grain_tracker
     field_display = UNIQUE_REGION
     execute_on = 'initial timestep_end'
   []
   [gr_halos]
     type = FeatureFloodCountAux
     variable = gr_halos
-    flood_counter = gr_flood_uo
+    flood_counter = grain_tracker
     field_display = HALOS
     execute_on = 'initial timestep_end'
   []
@@ -230,8 +246,8 @@
     # grain_tracker = grain_tracker
     output_properties = 'inclination_vector ang_dist'
     gb_id_method = SWITCH
-    ffc = gr_flood_uo
-    # grain_tracker = gr_flood_uo
+    # ffc = gr_flood_uo
+    grain_tracker = grain_tracker
     hgb = hgb
     hgb_threshold = 0.5
     outputs = exodus
@@ -243,14 +259,15 @@
   []
   [GBInc_cos]
     type = GBInclination
-    gb_id_method = ffc
-    ffc = gr_flood_uo
+    gb_id_method = GRAINTRACKER
+    grain_tracker = grain_tracker
+    # ffc = gr_flood_uo
     angular_func = ATAN_2D
     intol = 100 #100 #10 #100 #200 # cut if alpha > intol
     altol = 100 #100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
     inc_func = COS
-    ifunc_a = 0.3
+    ifunc_a = 0.1
     ifunc_b = 2
     ifunc_c = 0
     ifunc_d = 0
@@ -275,15 +292,15 @@
   [hgb_a]
     type = ParsedMaterial
     property_name = hgb_a
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
-    expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2 + gr3*gr3 + gr4*gr4 + gr5*gr5 + gr6*gr6 + gr7*gr7 + gr8*gr8 + gr9*gr9 + gr10*gr10;
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
+    expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2 + gr3*gr3 + gr4*gr4 + gr5*gr5 + gr6*gr6 + gr7*gr7 + gr8*gr8 + gr9*gr9 + gr10*gr10 + gr11*gr11;
                   4 * (1 - hb) * (1 - hb)'
     outputs = 'exodus'
   []
   [hgb_b]
     type = SwitchingFunctionGBMaterial
     h_name = hgb_b
-    grain_ops = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
+    grain_ops = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
     hgb_threshold = 0
     output_properties = 'hgb_b'
     outputs = 'exodus'
@@ -291,7 +308,7 @@
   [hgb]
     type = ParsedMaterial
     property_name = hgb
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
     material_property_names = 'hgb_a hgb_b'
     expression = 'h3:=(hgb_a + hgb_b)/2;
                   if(h3>1,1,if(h3<0,0.0,h3))'
@@ -300,8 +317,8 @@
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
-    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
+    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10 + gr11'
     outputs = 'exodus'
   []
 []

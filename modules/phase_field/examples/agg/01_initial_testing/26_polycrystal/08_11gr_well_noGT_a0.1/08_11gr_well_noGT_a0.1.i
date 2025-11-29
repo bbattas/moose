@@ -1,7 +1,7 @@
 ##############################################################################
-# File: 01_11gr_cos_noGT.i
-# File Location: /examples/agg/01_initial_testing/26_polycrystal/01_11gr_cos_noGT
-# Created Date: Tuesday November 25th 2025
+# File: 08_11gr_well_noGT_a0.1.i
+# File Location: /examples/agg/01_initial_testing/26_polycrystal/08_11gr_well_noGT_a0.1
+# Created Date: Saturday November 29th 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Saturday November 29th 2025
@@ -246,11 +246,11 @@
     gb_id_method = ffc
     ffc = gr_flood_uo
     angular_func = ATAN_2D
-    intol = 100 #100 #10 #100 #200 # cut if alpha > intol
-    altol = 100 #100 #10 #1.5 # cut if h*alpha > altol
+    intol = 0 #100 #10 #100 #200 # cut if alpha > intol
+    altol = 0 #100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
-    inc_func = COS
-    ifunc_a = 0.3
+    inc_func = SMOOTH_WELL
+    ifunc_a = 0.1
     ifunc_b = 2
     ifunc_c = 0
     ifunc_d = 0
@@ -268,7 +268,7 @@
     gb_energy_iso_name = gbe_iso
     kappa = kappa_op
     free_energy_m = 5.521269e6
-    well = false
+    well = true
     output_properties = 'gamma_asymm int_noij int_width'
     outputs = 'exodus'
   []
