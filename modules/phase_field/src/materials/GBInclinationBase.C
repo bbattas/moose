@@ -210,6 +210,17 @@ GBInclinationBase::computeQpProperties()
             }
             // Combine logic: if both enabled, trip if EITHER trips
             bool alpha_skip = (hov_trigger || inv_trigger);
+            // Check whats triggering where
+            if (idx1 == 0 && idx2 == 1)
+            {
+              if (hov_trigger && inv_trigger)
+                _testout3[_qp] = 3;
+              else if (hov_trigger && !inv_trigger)
+                _testout3[_qp] = 1;
+              else if (!hov_trigger && inv_trigger)
+                _testout3[_qp] = 2;
+            }
+
             // bool alpha_skip = false;
             // if (((uxyz.norm() < hovtol) && (_altol != 0.0)) ||
             //     ((uxyz.norm() < invtol) && (_intol != 0.0))) // hgb (altol)
