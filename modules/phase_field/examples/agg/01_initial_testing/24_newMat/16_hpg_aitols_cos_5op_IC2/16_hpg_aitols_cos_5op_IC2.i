@@ -448,7 +448,7 @@ i_tol = 0
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 6
-    linear_iteration_ratio = 30 #1e5
+    linear_iteration_ratio = 1e5
   []
 
   # start_time = 0.0
