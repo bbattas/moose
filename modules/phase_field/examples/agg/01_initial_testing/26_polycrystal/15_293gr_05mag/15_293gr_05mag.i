@@ -4,7 +4,7 @@
 # Created Date: Wednesday December 31st 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday December 31st 2025
+# Last Modified: Friday January 2nd 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -62,7 +62,7 @@ amag = 0.05
   [voronoi]
     type = PolycrystalVoronoi
     coloring_algorithm = bt
-    file_name = '2D_600x600_293_ctrs.txt'
+    file_name = '00_sub/2D_600x600_293_ctrs.txt'
     int_width = 8
   []
   [grain_tracker]
