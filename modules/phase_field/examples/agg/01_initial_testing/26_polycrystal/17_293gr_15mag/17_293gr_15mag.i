@@ -14,7 +14,7 @@
 #
 ##############################################################################
 
-i_tol = 1000
+i_tol = 0
 a_tol = 0
 amag = 0.15
 
@@ -483,11 +483,11 @@ amag = 0.15
   # dt = 2e-5
   [TimeStepper]
     type = IterationAdaptiveDT
-    dt = 0.001
+    dt = 1 #0.001
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 6
-    linear_iteration_ratio = 30 #1e5
+    linear_iteration_ratio = 1e5
   []
 
   # start_time = 0.0

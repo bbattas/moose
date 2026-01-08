@@ -4,7 +4,7 @@
 # Created Date: Wednesday December 31st 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday January 7th 2026
+# Last Modified: Thursday January 8th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -14,7 +14,7 @@
 #
 ##############################################################################
 
-i_tol = 1000
+i_tol = 0
 a_tol = 0
 amag = 0.05
 
@@ -483,7 +483,7 @@ amag = 0.05
   # dt = 2e-5
   [TimeStepper]
     type = IterationAdaptiveDT
-    dt = 0.001
+    dt = 1 #0.001
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 6
