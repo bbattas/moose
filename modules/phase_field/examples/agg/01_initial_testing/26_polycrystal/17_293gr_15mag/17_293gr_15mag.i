@@ -4,17 +4,17 @@
 # Created Date: Wednesday December 31st 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Saturday January 3rd 2026
+# Last Modified: Thursday January 8th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
 #  15% aniso cos
-#  hypre
+#  hypre - asmlu now
 #
 #
 ##############################################################################
 
-i_tol = 0
+i_tol = 1000
 a_tol = 0
 amag = 0.15
 
@@ -460,10 +460,10 @@ amag = 0.15
   solve_type = 'PJFNK'
 
   # Uses newton iteration to solve the problem.
-  petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart -mat_mffd_type'
-  petsc_options_value = 'hypre boomeramg 101 ds'
-  # petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
-  # petsc_options_value = 'asm        preonly       lu           2'
+  # petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart -mat_mffd_type'
+  # petsc_options_value = 'hypre boomeramg 101 ds'
+  petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
+  petsc_options_value = 'asm        preonly       lu           2'
 
   l_max_its = 60 # Max number of linear iterations
   l_tol = 1e-4 # Relative tolerance for linear solves
