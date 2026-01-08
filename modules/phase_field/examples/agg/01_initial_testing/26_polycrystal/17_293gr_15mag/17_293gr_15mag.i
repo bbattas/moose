@@ -465,10 +465,10 @@ amag = 0.15
   petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
   petsc_options_value = 'asm        preonly       lu           2'
 
-  l_max_its = 60 # Max number of linear iterations
+  l_max_its = 90 # Max number of linear iterations
   l_tol = 1e-4 # Relative tolerance for linear solves
   nl_max_its = 12 # Max number of nonlinear iterations
-  nl_rel_tol = 1e-8 #1e-10 # Relative tolerance for nonlienar solves
+  nl_rel_tol = 1e-7 #s1e-8 #1e-10 # Relative tolerance for nonlienar solves
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
