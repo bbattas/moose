@@ -4,7 +4,7 @@
 # Created Date: Wednesday December 31st 2025
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Saturday January 3rd 2026
+# Last Modified: Friday January 9th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -462,15 +462,15 @@ amag = 0.20
   # Uses newton iteration to solve the problem.
   # petsc_options_iname = '-pc_type -pc_hypre_type -ksp_gmres_restart -mat_mffd_type'
   # petsc_options_value = 'hypre boomeramg 101 ds'
-  # petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
-  # petsc_options_value = 'asm        preonly       lu           2'
-  petsc_options_iname = '-pc_type'
-  petsc_options_value = 'lu'
+  petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
+  petsc_options_value = 'asm        preonly       lu           2'
+  # petsc_options_iname = '-pc_type'
+  # petsc_options_value = 'lu'
 
-  l_max_its = 60 # Max number of linear iterations
+  l_max_its = 120#60 # Max number of linear iterations
   l_tol = 1e-4 # Relative tolerance for linear solves
   nl_max_its = 12 # Max number of nonlinear iterations
-  nl_rel_tol = 1e-8 #1e-10 # Relative tolerance for nonlienar solves
+  nl_rel_tol = 1e-7 #1e-8 #1e-10 # Relative tolerance for nonlienar solves
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
@@ -485,11 +485,11 @@ amag = 0.20
   # dt = 2e-5
   [TimeStepper]
     type = IterationAdaptiveDT
-    dt = 0.001
+    dt = 1 #0.001
     cutback_factor = 0.9
     growth_factor = 1.1
     optimal_iterations = 6
-    linear_iteration_ratio = 30 #1e5
+    linear_iteration_ratio = 1e5
   []
 
   # start_time = 0.0
