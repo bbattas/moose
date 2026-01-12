@@ -111,24 +111,24 @@ i_tol = 0
     # Custom action creating all necessary kernels for grain growth.  All input parameters are up in GlobalParams
     variable_mobility = false
   []
-  [gr0_ACInc]
-    type = ACInterfaceInclinationGamma
-    variable = gr0
-    coupled_variables = 'gr1'
-    debug_kernel = false
-    skip_off = false
-    variable_L = false
-    mask_name = hgb
-  []
-  [gr1_ACInc]
-    type = ACInterfaceInclinationGamma
-    variable = gr1
-    coupled_variables = 'gr0'
-    debug_kernel = false
-    skip_off = false
-    variable_L = false
-    mask_name = hgb
-  []
+  # [gr0_ACInc]
+  #   type = ACInterfaceInclinationGamma
+  #   variable = gr0
+  #   coupled_variables = 'gr1'
+  #   debug_kernel = false
+  #   skip_off = false
+  #   variable_L = false
+  #   mask_name = hgb
+  # []
+  # [gr1_ACInc]
+  #   type = ACInterfaceInclinationGamma
+  #   variable = gr1
+  #   coupled_variables = 'gr0'
+  #   debug_kernel = false
+  #   skip_off = false
+  #   variable_L = false
+  #   mask_name = hgb
+  # []
 []
 
 [AuxKernels]
@@ -195,7 +195,7 @@ i_tol = 0
     altol = ${a_tol} #100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
     inc_func = COS
-    ifunc_a = 0.1
+    ifunc_a = 0.0
     ifunc_b = 2
     ifunc_c = 0
     ifunc_d = 0
