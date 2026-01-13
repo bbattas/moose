@@ -4,8 +4,8 @@
 # Created Date: Monday January 12th 2026
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday January 12th 2026
-# Modified By: Battas,Brandon Scott
+# Last Modified: Tuesday January 13th 2026
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  half size bicrystal to test some of lins curvature stuff in VECTOR
@@ -22,8 +22,8 @@ i_tol = 0
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2 # Problem dimension
-    nx = 80 # Number of elements in the x-direction
-    ny = 80 # Number of elements in the y-direction
+    nx = 5 # Number of elements in the x-direction
+    ny = 5 # Number of elements in the y-direction
     xmin = 0 # minimum x-coordinate of the mesh
     xmax = 80 # maximum x-coordinate of the mesh
     ymin = 0 # minimum y-coordinate of the mesh
@@ -372,7 +372,7 @@ i_tol = 0
   compute_scaling_once = false
   # dt = 0.05
   # dtmax = 0.5
-  dt = 0.1
+  dt = 0.01
   # [TimeStepper]
   #   type = IterationAdaptiveDT
   #   dt = 0.01
