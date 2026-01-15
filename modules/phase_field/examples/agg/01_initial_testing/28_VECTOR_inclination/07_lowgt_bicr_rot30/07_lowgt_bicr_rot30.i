@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 01_exodus_test.i
-# File Location: /examples/agg/01_initial_testing/28_VECTOR_inclination/01_exodus_test
-# Created Date: Monday January 12th 2026
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 07_lowgt_bicr_rot30.i
+# File Location: /examples/agg/01_initial_testing/28_VECTOR_inclination/07_lowgt_bicr_rot30
+# Created Date: Thursday January 15th 2026
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday January 14th 2026
+# Last Modified: Thursday January 15th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  half size bicrystal to test some of lins curvature stuff in VECTOR
+#  bicrystal rotated 30 to compare angles on vector stuff
 #
 #
 #
@@ -22,12 +22,12 @@ i_tol = 0
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2 # Problem dimension
-    nx = 5 # Number of elements in the x-direction
-    ny = 5 # Number of elements in the y-direction
+    nx = 160 # Number of elements in the x-direction
+    ny = 160 # Number of elements in the y-direction
     xmin = 0 # minimum x-coordinate of the mesh
-    xmax = 80 # maximum x-coordinate of the mesh
+    xmax = 160 # maximum x-coordinate of the mesh
     ymin = 0 # minimum y-coordinate of the mesh
-    ymax = 80 # maximum y-coordinate of the mesh
+    ymax = 160 # maximum y-coordinate of the mesh
     # elem_type = QUAD4 # Type of elements used in the mesh
     # uniform_refine = 3 # Initial uniform refinement of the mesh
   []
@@ -52,8 +52,8 @@ i_tol = 0
   [grain_tracker]
     type = GrainTracker
     # variable = 'gr0 gr1 gr2 gr3 gr4'
-    threshold = 0.2
-    connecting_threshold = 0.2
+    threshold = 0.01
+    connecting_threshold = 0.01
     compute_var_to_feature_map = true
     compute_halo_maps = true # Only necessary for displaying HALOS
     execute_on = 'initial timestep_end'
@@ -70,20 +70,20 @@ i_tol = 0
     type = SmoothCircleIC
     invalue = 1
     outvalue = 0
-    radius = 30
+    radius = 60
     variable = gr0
-    x1 = 40
-    y1 = 40
+    x1 = 80
+    y1 = 80
     int_width = 6
   []
   [gr1_IC]
     type = SmoothCircleIC
     invalue = 0
     outvalue = 1
-    radius = 30
+    radius = 60
     variable = gr1
-    x1 = 40
-    y1 = 40
+    x1 = 80
+    y1 = 80
     int_width = 6
   []
 []
@@ -111,24 +111,24 @@ i_tol = 0
     # Custom action creating all necessary kernels for grain growth.  All input parameters are up in GlobalParams
     variable_mobility = false
   []
-  # [gr0_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr0
-  #   coupled_variables = 'gr1'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr1_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr1
-  #   coupled_variables = 'gr0'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
+  [gr0_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr0
+    coupled_variables = 'gr1'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr1_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr1
+    coupled_variables = 'gr0'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
 []
 
 [AuxKernels]
@@ -195,9 +195,9 @@ i_tol = 0
     altol = ${a_tol} #100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
     inc_func = COS
-    ifunc_a = 0.0
+    ifunc_a = 0.3
     ifunc_b = 2
-    ifunc_c = 0
+    ifunc_c = -0.5236
     ifunc_d = 0
     # L
     aniso_L = false
@@ -216,7 +216,7 @@ i_tol = 0
     free_energy_m = 5.521269e6
     well = false
     output_properties = 'gamma_asymm int_noij int_width'
-    outputs = 'out h5out nemesis h5nemesis'
+    outputs = 'out' # h5out nemesis h5nemesis'
   []
   [hgb_a]
     type = ParsedMaterial
@@ -256,7 +256,7 @@ i_tol = 0
     coupled_variables = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     expression = 'gr0 + gr1' # + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10'
     #  + gr11 + gr12 + gr13 + gr14 + gr15'
-    outputs = 'out h5out nemesis h5nemesis'
+    outputs = 'out' # h5out nemesis h5nemesis'
   []
 []
 
@@ -357,30 +357,30 @@ i_tol = 0
   # petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
   # petsc_options_value = 'asm        preonly       lu           2'
 
-  l_max_its = 60 # Max number of linear iterations
+  l_max_its = 60 #90 # Max number of linear iterations
   l_tol = 1e-4 # Relative tolerance for linear solves
   nl_max_its = 12 # Max number of nonlinear iterations
-  nl_rel_tol = 1e-8 #1e-10 # Relative tolerance for nonlienar solves
+  nl_rel_tol = 1e-7 #1e-10 # Relative tolerance for nonlienar solves
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  # end_time = 40
+  end_time = 25
   # dtmin = 0.1
   # end_time = 1000000.0
-  num_steps = 10
+  # num_steps = 10
   automatic_scaling = true
   compute_scaling_once = false
   # dt = 0.05
   # dtmax = 0.5
-  dt = 0.01
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   dt = 0.01
-  #   cutback_factor = 0.9
-  #   growth_factor = 1.1
-  #   optimal_iterations = 6
-  #   linear_iteration_ratio = 30 #1e5
-  # []
+  # dt = 0.01
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    dt = 0.1
+    cutback_factor = 0.9
+    growth_factor = 1.1
+    optimal_iterations = 6
+    linear_iteration_ratio = 1e5
+  []
 
   # start_time = 0.0
   # dt = 0.1
@@ -409,17 +409,17 @@ i_tol = 0
   [out]
     type = Exodus
   []
-  [h5out]
-    type = Exodus
-    write_hdf5 = true
-  []
-  [nemesis]
-    type = Nemesis
-  []
-  [h5nemesis]
-    type = Nemesis
-    write_hdf5 = true
-  []
+  # [h5out]
+  #   type = Exodus
+  #   write_hdf5 = true
+  # []
+  # [nemesis]
+  #   type = Nemesis
+  # []
+  # [h5nemesis]
+  #   type = Nemesis
+  #   write_hdf5 = true
+  # []
   #nemesis = true
   console = true
   csv = false

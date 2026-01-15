@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 01_exodus_test.i
-# File Location: /examples/agg/01_initial_testing/28_VECTOR_inclination/01_exodus_test
-# Created Date: Monday January 12th 2026
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 03_nonuniform_mesh.i
+# File Location: /examples/agg/01_initial_testing/28_VECTOR_inclination/03_nonuniform_mesh
+# Created Date: Wednesday January 14th 2026
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Wednesday January 14th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  half size bicrystal to test some of lins curvature stuff in VECTOR
+#  adjusting mesh to make sure things work right for vector/tiger
 #
 #
 #
@@ -23,7 +23,7 @@ i_tol = 0
     type = DistributedRectilinearMeshGenerator
     dim = 2 # Problem dimension
     nx = 5 # Number of elements in the x-direction
-    ny = 5 # Number of elements in the y-direction
+    ny = 6 # Number of elements in the y-direction
     xmin = 0 # minimum x-coordinate of the mesh
     xmax = 80 # maximum x-coordinate of the mesh
     ymin = 0 # minimum y-coordinate of the mesh
@@ -216,7 +216,7 @@ i_tol = 0
     free_energy_m = 5.521269e6
     well = false
     output_properties = 'gamma_asymm int_noij int_width'
-    outputs = 'out h5out nemesis h5nemesis'
+    outputs = 'out' # h5out nemesis h5nemesis'
   []
   [hgb_a]
     type = ParsedMaterial
@@ -256,7 +256,7 @@ i_tol = 0
     coupled_variables = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     expression = 'gr0 + gr1' # + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10'
     #  + gr11 + gr12 + gr13 + gr14 + gr15'
-    outputs = 'out h5out nemesis h5nemesis'
+    outputs = 'out' # h5out nemesis h5nemesis'
   []
 []
 
@@ -409,17 +409,17 @@ i_tol = 0
   [out]
     type = Exodus
   []
-  [h5out]
-    type = Exodus
-    write_hdf5 = true
-  []
-  [nemesis]
-    type = Nemesis
-  []
-  [h5nemesis]
-    type = Nemesis
-    write_hdf5 = true
-  []
+  # [h5out]
+  #   type = Exodus
+  #   write_hdf5 = true
+  # []
+  # [nemesis]
+  #   type = Nemesis
+  # []
+  # [h5nemesis]
+  #   type = Nemesis
+  #   write_hdf5 = true
+  # []
   #nemesis = true
   console = true
   csv = false

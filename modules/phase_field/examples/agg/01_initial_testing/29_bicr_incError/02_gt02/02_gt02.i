@@ -1,37 +1,35 @@
 ##############################################################################
-# File: 01_exodus_test.i
-# File Location: /examples/agg/01_initial_testing/28_VECTOR_inclination/01_exodus_test
-# Created Date: Monday January 12th 2026
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 02_gt02.i
+# File Location: /examples/agg/01_initial_testing/29_bicr_incError/02_gt02
+# Created Date: Thursday January 15th 2026
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday January 14th 2026
+# Last Modified: Thursday January 15th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  half size bicrystal to test some of lins curvature stuff in VECTOR
+#  same everything just increasing gt threshold to 0.2
 #
 #
 #
 ##############################################################################
-
-a_tol = 0
-i_tol = 0
 
 [Mesh]
   # Mesh block.  Meshes can be read in or automatically generated
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2 # Problem dimension
-    nx = 5 # Number of elements in the x-direction
-    ny = 5 # Number of elements in the y-direction
+    nx = 160 # Number of elements in the x-direction
+    ny = 160 # Number of elements in the y-direction
     xmin = 0 # minimum x-coordinate of the mesh
-    xmax = 80 # maximum x-coordinate of the mesh
+    xmax = 160 # maximum x-coordinate of the mesh
     ymin = 0 # minimum y-coordinate of the mesh
-    ymax = 80 # maximum y-coordinate of the mesh
+    ymax = 160 # maximum y-coordinate of the mesh
     # elem_type = QUAD4 # Type of elements used in the mesh
     # uniform_refine = 3 # Initial uniform refinement of the mesh
   []
   parallel_type = DISTRIBUTED # Periodic BCs
+  second_order = false
   # uniform_refine = 1
 []
 
@@ -49,9 +47,9 @@ i_tol = 0
 []
 
 [UserObjects]
-  [grain_tracker]
-    type = GrainTracker
-    # variable = 'gr0 gr1 gr2 gr3 gr4'
+  [gr_flood_uo]
+    type = FeatureFloodCount
+    variable = 'gr0 gr1'
     threshold = 0.2
     connecting_threshold = 0.2
     compute_var_to_feature_map = true
@@ -61,7 +59,7 @@ i_tol = 0
   []
   [term]
     type = Terminator
-    expression = 'grain_tracker < 2'
+    expression = 'gr_flood_uo < 2'
   []
 []
 
@@ -70,20 +68,20 @@ i_tol = 0
     type = SmoothCircleIC
     invalue = 1
     outvalue = 0
-    radius = 30
+    radius = 60
     variable = gr0
-    x1 = 40
-    y1 = 40
+    x1 = 80
+    y1 = 80
     int_width = 6
   []
   [gr1_IC]
     type = SmoothCircleIC
     invalue = 0
     outvalue = 1
-    radius = 30
+    radius = 60
     variable = gr1
-    x1 = 40
-    y1 = 40
+    x1 = 80
+    y1 = 80
     int_width = 6
   []
 []
@@ -91,18 +89,78 @@ i_tol = 0
 [AuxVariables]
   [bnds]
   []
-  [unique_grains]
+  [gr_unique_grains]
     order = CONSTANT
     family = MONOMIAL
   []
-  [halos]
+  [gr_halos]
     order = CONSTANT
     family = MONOMIAL
   []
-  [sum_inc]
+  # [theta_00]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  [inc_01]
     order = CONSTANT
     family = MONOMIAL
   []
+  # [inc_02]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [inc_12]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [gamma_01_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [gamma_02_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [gamma_12_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [i_0]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [j_0]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  [theta_01_v]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  # [theta_02_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [theta_12_v]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [theta_11]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [theta_01_x]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [theta_01_y]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
+  # [theta_01_z]
+  #   order = CONSTANT
+  #   family = MONOMIAL
+  # []
 []
 
 [Kernels]
@@ -110,21 +168,31 @@ i_tol = 0
   [PolycrystalKernel]
     # Custom action creating all necessary kernels for grain growth.  All input parameters are up in GlobalParams
     variable_mobility = false
+    # order = SECOND
   []
-  # [gr0_ACInc]
+  [gr0_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr0
+    coupled_variables = 'gr1'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr1_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr1
+    coupled_variables = 'gr0'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  # [gr2_ACInc]
   #   type = ACInterfaceInclinationGamma
-  #   variable = gr0
-  #   coupled_variables = 'gr1'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr1_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr1
-  #   coupled_variables = 'gr0'
-  #   debug_kernel = false
+  #   variable = gr2
+  #   coupled_variables = 'gr0 gr1'
+  #   debug_kernel = true
   #   skip_off = false
   #   variable_L = false
   #   mask_name = hgb
@@ -139,25 +207,156 @@ i_tol = 0
     variable = bnds
     execute_on = 'initial timestep_end'
   []
-  [unique_grains]
+  [gr_unique_grains]
     type = FeatureFloodCountAux
-    variable = unique_grains
-    flood_counter = grain_tracker
+    variable = gr_unique_grains
+    flood_counter = gr_flood_uo
     field_display = UNIQUE_REGION
     execute_on = 'initial timestep_end'
   []
-  [halos]
+  [gr_halos]
     type = FeatureFloodCountAux
-    variable = halos
-    flood_counter = grain_tracker
+    variable = gr_halos
+    flood_counter = gr_flood_uo
     field_display = HALOS
     execute_on = 'initial timestep_end'
   []
-  [sum_inc]
-    type = MatVectorijSum
+  # [theta_00]
+  #   type = MatVectorComponentAux
+  #   variable = theta_00
+  #   property = theta_ij
+  #   i = 0
+  #   j = 0
+  #   execute_on = 'initial timestep_end'
+  # []
+  [inc_01]
+    type = MatVectorComponentAux
+    variable = inc_01
     property = inclination
-    variable = sum_inc
+    i = 0
+    j = 1
+    execute_on = 'initial timestep_end'
   []
+  # [inc_02]
+  #   type = MatVectorComponentAux
+  #   variable = inc_02
+  #   property = inclination
+  #   i = 0
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [inc_12]
+  #   type = MatVectorComponentAux
+  #   variable = inc_12
+  #   property = inclination
+  #   i = 1
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [gamma_01_v]
+  #   type = MatVectorComponentAux
+  #   variable = gamma_01_v
+  #   property = gamma_ij
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [gamma_02_v]
+  #   type = MatVectorComponentAux
+  #   variable = gamma_02_v
+  #   property = gamma_ij
+  #   i = 0
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [gamma_12_v]
+  #   type = MatVectorComponentAux
+  #   variable = gamma_12_v
+  #   property = gamma_ij
+  #   i = 1
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [i_0]
+  #   type = MatVectorComponentAux
+  #   variable = i_0
+  #   property = ij_i
+  #   is_ij = true
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [j_0]
+  #   type = MatVectorComponentAux
+  #   variable = j_0
+  #   property = ij_j
+  #   is_ij = true
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  [theta_01_v]
+    type = MatVectorComponentAux
+    variable = theta_01_v
+    property = theta_ij
+    i = 0
+    j = 1
+    execute_on = 'initial timestep_end'
+  []
+  # [theta_02_v]
+  #   type = MatVectorComponentAux
+  #   variable = theta_02_v
+  #   property = theta_ij
+  #   i = 0
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [theta_12_v]
+  #   type = MatVectorComponentAux
+  #   variable = theta_12_v
+  #   property = theta_ij
+  #   i = 1
+  #   j = 2
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [theta_11]
+  #   type = MatVectorComponentAux
+  #   variable = theta_11
+  #   property = theta_ij
+  #   i = 1
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [theta_01_x]
+  #   type = MatVectorComponentAux
+  #   variable = theta_01_x
+  #   property = dtheta_dgradeta
+  #   gradient = true
+  #   component = 0
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [theta_01_y]
+  #   type = MatVectorComponentAux
+  #   variable = theta_01_y
+  #   property = dtheta_dgradeta
+  #   gradient = true
+  #   component = 1
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
+  # [theta_01_z]
+  #   type = MatVectorComponentAux
+  #   variable = theta_01_z
+  #   property = dtheta_dgradeta
+  #   gradient = true
+  #   component = 2
+  #   i = 0
+  #   j = 1
+  #   execute_on = 'initial timestep_end'
+  # []
 []
 
 [BCs]
@@ -174,28 +373,42 @@ i_tol = 0
     # grain_tracker = grain_tracker
     output_properties = 'inclination_vector ang_dist'
     gb_id_method = SWITCH
-    # ffc = gr_flood_uo
-    grain_tracker = grain_tracker
+    ffc = gr_flood_uo
+    # grain_tracker = gr_flood_uo
     hgb = hgb
     hgb_threshold = 0.5
-    # outputs = exodus
+    outputs = exodus
   []
   [constants]
     type = GenericConstantMaterial
     prop_names = 'L0         gamma_iso kappa_op  iw_iso gbe_iso'
     prop_values = '1.15382e-6   1.5    2.07337e7   6   4.60748e6'
   []
+  # [constants_2]
+  #   type = GenericConstantMaterial
+  #   prop_names = 'L        '#gamma_asymm'# int_width'#   mu'
+  #   prop_values = '1.15382e-6 '#' 1.5 '#'    6        '#5.521269e6'
+  # []
+  # [GBInc_Base]
+  #   type = GBInclinationBase
+  #   gb_id_method = ffc
+  #   ffc = gr_flood_uo
+  #   angular_func = ATAN_2D
+  #   intol = ${i_tol} #200 # cut if alpha > intol
+  #   altol = ${a_tol} #10 #1.5 # cut if h*alpha > altol
+  #   output_properties = 'theta_ij gtnum dtheta_dgradeta d2theta_dgradeta2'
+  #   outputs = 'exodus'
+  # []
   [GBInc_cos]
     type = GBInclination
-    gb_id_method = GRAINTRACKER
-    # ffc = gr_flood_uo
-    grain_tracker = grain_tracker
+    gb_id_method = ffc
+    ffc = gr_flood_uo
     angular_func = ATAN_2D
-    intol = ${i_tol} #100 #10 #100 #200 # cut if alpha > intol
-    altol = ${a_tol} #100 #10 #1.5 # cut if h*alpha > altol
+    intol = 0 #100 #10 #100 #200 # cut if alpha > intol
+    altol = 0 #100 #10 #1.5 # cut if h*alpha > altol
     # Inclination function
     inc_func = COS
-    ifunc_a = 0.0
+    ifunc_a = 0.3
     ifunc_b = 2
     ifunc_c = 0
     ifunc_d = 0
@@ -205,9 +418,9 @@ i_tol = 0
     gb_energy_iso_name = gbe_iso
     kappa = kappa_op
     free_energy_m = 5.521269e6
-    # output_properties = 'gtnum no_ij_pairs gamma_a'
-    # # testout1 testout2 testoutgrad testouttens
-    # outputs = 'exodus'
+    output_properties = 'gtnum no_ij_pairs gamma_a'
+    # testout1 testout2 testoutgrad testouttens
+    outputs = 'exodus'
   []
   [gamma_test]
     type = ElementalGammaMaterial
@@ -216,8 +429,40 @@ i_tol = 0
     free_energy_m = 5.521269e6
     well = false
     output_properties = 'gamma_asymm int_noij int_width'
-    outputs = 'out h5out nemesis h5nemesis'
+    outputs = 'exodus'
   []
+  # [aniso_mat]
+  #   type = GGInclinationMaterial
+  #   gb_case = ffc
+  #   # grain_tracker = grain_tracker
+  #   ffc = gr_flood_uo
+  #   gb_energy_input = gbe_iso
+  #   kappa = 2.07337e7 #0.3 #kappa
+  #   free_energy_m = 5.521269e6 #4.5e6 #0.9375 #const_m
+  #   L0 = L0
+  #   gamma0 = gamma_iso
+  #   #
+  #   moelans_mu = true
+  #   aniso_L = false
+  #   delta_ij = 0.2
+  #   theta_prefactor = 2
+  #   inc_ij_0 = 0 #1.57
+  #   continuous = false
+  #   gt_tol = 0.00
+  #   angular_func = ATAN_2D
+  #   alphacase = BOTH
+  #   intol = 100 #${i_tol} #200 # cut if alpha > intol
+  #   altol = 100 #${a_tol} #10 #1.5 # cut if h*alpha > altol
+  #   hgb = hgb
+  #   # Output Names
+  #   inclination_name = inclination_mat
+  #   L_name = Lold
+  #   gamma_name = gamma_old
+  #   mu_name = muold
+  #   gb_energy = gbeold
+  #   output_properties = 'gamma_old Lold muold gbeold int_width_old' # t2tens' # inclination_mat t2tens'
+  #   outputs = 'exodus'
+  # []
   [hgb_a]
     type = ParsedMaterial
     property_name = hgb_a
@@ -226,7 +471,7 @@ i_tol = 0
                   4 * (1 - hb) * (1 - hb)'
     # hg:=4 * (1 - hb) * (1 - hb);
     # if(hg>1.0,1.0,hg)'
-    # outputs = 'exodus'
+    outputs = 'exodus'
     #  + gr11*gr11 + gr12*gr12 + gr13*gr13 + gr14*gr14 + gr15*gr15
   []
   [hgb_b]
@@ -235,7 +480,7 @@ i_tol = 0
     grain_ops = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     hgb_threshold = 0
     output_properties = 'hgb_b'
-    # outputs = 'exodus'
+    outputs = 'exodus'
   []
   [hgb]
     type = ParsedMaterial
@@ -248,7 +493,7 @@ i_tol = 0
     #               if(h3>1,1,if(h3<0,0.0,h3))'
     expression = 'h3:=(hgb_a + hgb_b)/2;
                   if(h3>1,1,if(h3<0,0.0,h3))'
-    # outputs = 'exodus' #h3:=h1+h2;
+    outputs = 'exodus' #h3:=h1+h2;
   []
   [sumgr]
     type = ParsedMaterial
@@ -256,7 +501,32 @@ i_tol = 0
     coupled_variables = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     expression = 'gr0 + gr1' # + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10'
     #  + gr11 + gr12 + gr13 + gr14 + gr15'
-    outputs = 'out h5out nemesis h5nemesis'
+    outputs = 'exodus'
+  []
+  [sum_inc]
+    type = ParsedMaterial
+    property_name = sum_inc
+    coupled_variables = 'gr0 gr1 inc_01'
+    expression = 'num:= inc_01 * gr0 * gr0 * gr1 * gr1;
+    den:= gr0 * gr0 * gr1 * gr1;
+    num/den'
+    outputs = 'exodus'
+  []
+  [sum_theta]
+    type = ParsedMaterial
+    property_name = sum_theta
+    coupled_variables = 'gr0 gr1 theta_01_v'
+    expression = 'num:= theta_01_v * gr0 * gr0 * gr1 * gr1;
+    den:= gr0 * gr0 * gr1 * gr1;
+    num/den'
+    outputs = 'exodus'
+  []
+  [Lmat]
+    type = ParsedMaterial
+    property_name = Lmat
+    material_property_names = 'L'
+    expression = 'L'
+    outputs = 'exodus'
   []
 []
 
@@ -287,11 +557,11 @@ i_tol = 0
     type = NumDOFs
     execute_on = 'initial timestep_end'
   []
-  [avg_grain_volumes]
-    type = AverageGrainVolume
-    feature_counter = grain_tracker
-    execute_on = 'initial timestep_end'
-  []
+  # [avg_grain_volumes]
+  #   type = AverageGrainVolume
+  #   feature_counter = grain_tracker
+  #   execute_on = 'initial timestep_end'
+  # []
   [tot_gr_op]
     type = ElementIntegralMaterialProperty
     mat_prop = sumgr
@@ -364,23 +634,23 @@ i_tol = 0
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  # end_time = 40
+  end_time = 20
   # dtmin = 0.1
   # end_time = 1000000.0
-  num_steps = 10
+  # num_steps = 2
   automatic_scaling = true
   compute_scaling_once = false
   # dt = 0.05
   # dtmax = 0.5
-  dt = 0.01
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   dt = 0.01
-  #   cutback_factor = 0.9
-  #   growth_factor = 1.1
-  #   optimal_iterations = 6
-  #   linear_iteration_ratio = 30 #1e5
-  # []
+  # dt = 2e-5
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    dt = 0.001
+    cutback_factor = 0.9
+    growth_factor = 1.1
+    optimal_iterations = 6
+    linear_iteration_ratio = 1e5
+  []
 
   # start_time = 0.0
   # dt = 0.1
@@ -405,24 +675,10 @@ i_tol = 0
 
 [Outputs]
   # file_base = MLPaperActualSimulations/Case3
-  # exodus = false # Exodus file will be outputted
-  [out]
-    type = Exodus
-  []
-  [h5out]
-    type = Exodus
-    write_hdf5 = true
-  []
-  [nemesis]
-    type = Nemesis
-  []
-  [h5nemesis]
-    type = Nemesis
-    write_hdf5 = true
-  []
+  exodus = true # Exodus file will be outputted
   #nemesis = true
   console = true
-  csv = false
+  csv = true
   checkpoint = false
   # [checkpoint]
   #   type = Checkpoint
@@ -432,13 +688,13 @@ i_tol = 0
   #   type = Console
   #   max_rows = 20 # Will print the 20 most recent postprocessor values to the screen
   # []
-  [pgraph]
-    type = PerfGraphOutput
-    execute_on = 'initial final' # Default is "final"
-    level = 2 # Default is 1
-    heaviest_branch = true # Default is false
-    heaviest_sections = 7 # Default is 0
-  []
+  # [pgraph]
+  #   type = PerfGraphOutput
+  #   execute_on = 'initial final' # Default is "final"
+  #   level = 2 # Default is 1
+  #   heaviest_branch = true # Default is false
+  #   heaviest_sections = 7 # Default is 0
+  # []
   # file_base = 12_halt_hypre_nopre_i${i_tol}_a${a_tol}
   # file_base = 17_bicr_large_withnewKernel
   # file_base = test
