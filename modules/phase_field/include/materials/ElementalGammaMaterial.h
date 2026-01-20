@@ -37,4 +37,6 @@ protected:
   const bool _well;
   const MaterialProperty<Real> & _int_width_in;
   MaterialProperty<Real> & _int_width_out;
+
+  const bool _skip;
 };

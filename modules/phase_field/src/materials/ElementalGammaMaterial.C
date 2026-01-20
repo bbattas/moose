@@ -31,6 +31,8 @@ ElementalGammaMaterial::validParams()
       "L_qp", "L_qp", "Name of L with some qps dropped to be averaged.");
   params.addParam<bool>("aniso_L", false, "Is AC mobility L an inclination dependent variable.");
   params.addParam<bool>("well", false, "Using well function for inclination?");
+  params.addParam<bool>(
+      "skip", false, "Skip all the averaging calculations (for testing purposes).");
   return params;
 }
 
@@ -50,7 +52,8 @@ ElementalGammaMaterial::ElementalGammaMaterial(const InputParameters & parameter
     _L_elem(_aniso_L ? &declareProperty<Real>("L") : nullptr),
     _well(getParam<bool>("well")),
     _int_width_in(getMaterialProperty<Real>("int_width_qp")),
-    _int_width_out(declareProperty<Real>("int_width"))
+    _int_width_out(declareProperty<Real>("int_width")),
+    _skip(getParam<bool>("skip"))
 {
   // if (_op_num == 0)
   //   mooseError("Model requires op_num > 0");
@@ -70,6 +73,25 @@ ElementalGammaMaterial::ElementalGammaMaterial(const InputParameters & parameter
 void
 ElementalGammaMaterial::computeProperties()
 {
+  // If skipping, just copy input gamma/int_width to outputs on all qps
+  if (_skip)
+  {
+    for (_qp = 0; _qp < _qrule->n_points(); ++_qp)
+    {
+      _gamma_out[_qp] = _gamma_in[_qp];
+      _int_width_out[_qp] = _int_width_in[_qp];
+
+      // Set flags to some value
+      _elem_no_ij[_qp] = false;
+      _int_noij[_qp] = 0;
+
+      if (_aniso_L)
+        (*_L_elem)[_qp] = (*_L_qp)[_qp];
+    }
+
+    return; // Skip all remaining computations
+  }
+
   // Hard-coded coefficients (for poly gamma)
   constexpr Real a1 = -3.0944; // coefficient for g2^4
   constexpr Real a2 = -1.8169; // coefficient for g2^3

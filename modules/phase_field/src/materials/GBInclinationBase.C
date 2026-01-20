@@ -55,7 +55,11 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
     _altol(getParam<Real>("altol")),
     _hgb(getMaterialProperty<Real>(getParam<MaterialPropertyName>("hgb"))),
     _no_ij_pairs(declareProperty<bool>("no_ij_pairs")),
-    _testout3(declareProperty<Real>("testout3"))
+    _testout3(declareProperty<Real>("testout3")),
+    _aval(declareProperty<RealGradient>("a_val")),
+    _ival(declareProperty<RealGradient>("i_val")),
+    _acut(declareProperty<RealGradient>("a_cut")),
+    _icut(declareProperty<RealGradient>("i_cut"))
 
 {
   if (_op_num < 2)
@@ -156,6 +160,12 @@ GBInclinationBase::computeQpProperties()
   }
 
   _testout3[_qp] = 0.0;
+  // _aval[_qp] = RealGradient(0.0);
+  // _ival[_qp] = RealGradient(0.0);
+  RealGradient aval(0.0);
+  RealGradient ival(0.0);
+  RealGradient acut(0.0);
+  RealGradient icut(0.0);
 
   _gtnum[_qp] = _gb_ij_list.size();
   std::sort(_gb_ij_list.begin(), _gb_ij_list.end());
@@ -192,7 +202,15 @@ GBInclinationBase::computeQpProperties()
             RealGradient uxyz(0.0, 0.0, 0.0);
             Real alpha = 0.0;
             uxyz = ngb;
+            // uxyz = ngb / ngb.norm();
             ngb /= ngb.norm(); // normalize ngb now that we have uxyz for the un-normalized
+            // DEBUG OUT
+            if (k < 3)
+            {
+              aval(k) = _hgb[_qp] / uxyz.norm();
+              ival(k) = 1 / uxyz.norm();
+              // values
+            }
             // alpha check
             const bool hov_enabled = (_altol != 0.0);
             const bool inv_enabled = (_intol != 0.0);
@@ -219,6 +237,21 @@ GBInclinationBase::computeQpProperties()
                 _testout3[_qp] = 1;
               else if (!hov_trigger && inv_trigger)
                 _testout3[_qp] = 2;
+            }
+            // DEBUG
+            if (k < 3)
+            {
+              acut(k) = aval(k);
+              icut(k) = ival(k);
+              if (hov_trigger && inv_trigger)
+              {
+                acut(k) = -1;
+                icut(k) = -1;
+              }
+              else if (hov_trigger && !inv_trigger)
+                acut(k) = -1;
+              else if (!hov_trigger && inv_trigger)
+                icut(k) = -1;
             }
 
             // bool alpha_skip = false;
@@ -336,4 +369,9 @@ GBInclinationBase::computeQpProperties()
   // true means skip all the vectored calcs at this qp
   _no_ij_pairs[_qp] =
       std::all_of(theta.begin(), theta.end(), [](const Real v) { return v == -1.0; });
+  // DEBUG
+  _aval[_qp] = aval;
+  _ival[_qp] = ival;
+  _acut[_qp] = acut;
+  _icut[_qp] = icut;
 }

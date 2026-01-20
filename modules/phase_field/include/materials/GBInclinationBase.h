@@ -61,4 +61,8 @@ protected:
   MaterialProperty<bool> & _no_ij_pairs;
 
   MaterialProperty<Real> & _testout3;
+  MaterialProperty<RealGradient> & _aval;
+  MaterialProperty<RealGradient> & _ival;
+  MaterialProperty<RealGradient> & _acut;
+  MaterialProperty<RealGradient> & _icut;
 };
