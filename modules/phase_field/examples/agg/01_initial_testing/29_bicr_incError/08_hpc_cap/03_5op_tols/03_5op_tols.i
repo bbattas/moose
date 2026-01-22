@@ -1,21 +1,21 @@
 ##############################################################################
-# File: 04_3gr_aicheck.i
-# File Location: /examples/agg/01_initial_testing/29_bicr_incError/04_3gr_aicheck
-# Created Date: Tuesday January 20th 2026
+# File: 03_5op_tols.i
+# File Location: /examples/agg/01_initial_testing/29_bicr_incError/08_hpc_cap/03_5op_tols
+# Created Date: Thursday January 22nd 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday January 22nd 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  using a small test input to actually look at the a and i tols with
-#   the necessary lower gt threshold to actually get inclination
+#  5 grain IC version to test tols on hpg
 #
 #
+#  5 or 6 cpus
 ##############################################################################
 
-amag = 0.3
-a_tol = 5
+amag = 0.1
+a_tol = 0
 i_tol = 0
 
 [Mesh]
@@ -23,12 +23,12 @@ i_tol = 0
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2 # Problem dimension
-    nx = 100 # Number of elements in the x-direction
-    ny = 100 # Number of elements in the y-direction
+    nx = 125 # Number of elements in the x-direction
+    ny = 80 # Number of elements in the y-direction
     xmin = 0 # minimum x-coordinate of the mesh
-    xmax = 100 # maximum x-coordinate of the mesh
+    xmax = 125 # maximum x-coordinate of the mesh
     ymin = 0 # minimum y-coordinate of the mesh
-    ymax = 100 # maximum y-coordinate of the mesh
+    ymax = 80 # maximum y-coordinate of the mesh
     # elem_type = QUAD4 # Type of elements used in the mesh
     # uniform_refine = 3 # Initial uniform refinement of the mesh
   []
@@ -38,7 +38,7 @@ i_tol = 0
 
 [GlobalParams]
   # Parameters used by several kernels that are defined globally to simplify input file
-  op_num = 3 #15 # Number of order parameters used
+  op_num = 5 #15 # Number of order parameters used
   var_name_base = gr # Base name of grains
   # T = 1400 # Constant temperature of the simulation (for mobility calculation)
 []
@@ -73,9 +73,9 @@ i_tol = 0
     outvalue = 0
     radius = 10
     variable = gr0
-    x1 = 25
-    y1 = 50
-    int_width = 12 #6
+    x1 = 50
+    y1 = 40
+    int_width = 6
   []
   [gr1_IC]
     type = SmoothCircleIC
@@ -83,20 +83,40 @@ i_tol = 0
     outvalue = 0
     radius = 25
     variable = gr1
-    x1 = 60
-    y1 = 50
-    int_width = 12 #6
+    x1 = 85
+    y1 = 40
+    int_width = 6
   []
   [gr2_IC]
+    type = SmoothCircleIC
+    invalue = 1
+    outvalue = 0
+    radius = 15
+    variable = gr2
+    x1 = 30
+    y1 = 25
+    int_width = 6
+  []
+  [gr3_IC]
+    type = SmoothCircleIC
+    invalue = 1
+    outvalue = 0
+    radius = 15
+    variable = gr3
+    x1 = 30
+    y1 = 55
+    int_width = 6
+  []
+  [gr4_IC]
     type = SpecifiedSmoothCircleIC
     invalue = 0
     outvalue = 1
-    variable = gr2
-    radii = '10 25'
-    x_positions = '25 60'
-    y_positions = '50 50'
-    z_positions = '0 0'
-    int_width = 12 #6
+    variable = gr4
+    radii = '10 25 15 15'
+    x_positions = '50 85 30 30'
+    y_positions = '40 40 25 55'
+    z_positions = '0  0  0  0'
+    int_width = 6
   []
 []
 
@@ -126,7 +146,7 @@ i_tol = 0
   [gr0_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr0
-    coupled_variables = 'gr1 gr2'
+    coupled_variables = 'gr1 gr2 gr3 gr4'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -135,7 +155,7 @@ i_tol = 0
   [gr1_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr1
-    coupled_variables = 'gr0 gr2'
+    coupled_variables = 'gr0 gr2 gr3 gr4'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -144,7 +164,25 @@ i_tol = 0
   [gr2_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr2
-    coupled_variables = 'gr0 gr1'
+    coupled_variables = 'gr0 gr1 gr3 gr4'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr3_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr3
+    coupled_variables = 'gr0 gr1 gr2 gr4'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr4_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr4
+    coupled_variables = 'gr0 gr1 gr2 gr3'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -214,9 +252,10 @@ i_tol = 0
     angular_func = ATAN_2D
     intol = ${i_tol} #100 #10 #100 #200 # cut if alpha > intol
     altol = ${a_tol} #100 #10 #1.5 # cut if h*alpha > altol
+    limit_umag = true
     # Inclination function
     inc_func = COS
-    ifunc_a = ${amag} #0.3
+    ifunc_a = ${amag}
     ifunc_b = 2
     ifunc_c = 0
     ifunc_d = 0
@@ -226,25 +265,24 @@ i_tol = 0
     gb_energy_iso_name = gbe_iso
     kappa = kappa_op
     free_energy_m = 5.521269e6
-    output_properties = 'gtnum a_val i_val a_cut i_cut testout3' # no_ij_pairs gamma_a'
+    output_properties = 'gtnum a_val i_val a_cut i_cut testout3'
     # # testout1 testout2 testoutgrad testouttens
-    outputs = 'out'
+    outputs = 'exodus'
   []
   [gamma_test]
     type = ElementalGammaMaterial
-    skip = false
     gb_energy_iso_name = gbe_iso
     kappa = kappa_op
     free_energy_m = 5.521269e6
     well = false
     output_properties = 'gamma_asymm int_noij int_width'
-    outputs = 'out' # h5out nemesis h5nemesis'
+    outputs = 'exodus' # h5out nemesis h5nemesis'
   []
   [hgb_a]
     type = ParsedMaterial
     property_name = hgb_a
-    coupled_variables = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
-    expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2;
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2 + gr3*gr3 + gr4*gr4;
                   4 * (1 - hb) * (1 - hb)'
     # hg:=4 * (1 - hb) * (1 - hb);
     # if(hg>1.0,1.0,hg)'
@@ -254,7 +292,7 @@ i_tol = 0
   [hgb_b]
     type = SwitchingFunctionGBMaterial
     h_name = hgb_b
-    grain_ops = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    grain_ops = 'gr0 gr1 gr2 gr3 gr4' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     hgb_threshold = 0
     output_properties = 'hgb_b'
     # outputs = 'exodus'
@@ -262,7 +300,7 @@ i_tol = 0
   [hgb]
     type = ParsedMaterial
     property_name = hgb
-    coupled_variables = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     material_property_names = 'hgb_a hgb_b'
     # expression = 'h1:=if(hgb_a>1,1,if(hgb_a<0,0.0,hgb_a));
     #               h2:=if(hgb_b>1,1,if(hgb_b<0,0.0,hgb_b));
@@ -270,15 +308,15 @@ i_tol = 0
     #               if(h3>1,1,if(h3<0,0.0,h3))'
     expression = 'h3:=(hgb_a + hgb_b)/2;
                   if(h3>1,1,if(h3<0,0.0,h3))'
-    # outputs = 'exodus' #h3:=h1+h2;
+    outputs = 'exodus' #h3:=h1+h2;
   []
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
-    coupled_variables = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
-    expression = 'gr0 + gr1 + gr2' # + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    expression = 'gr0 + gr1 + gr2 + gr3 + gr4' # + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10'
     #  + gr11 + gr12 + gr13 + gr14 + gr15'
-    outputs = 'out' # h5out nemesis h5nemesis'
+    outputs = 'exodus' # h5out nemesis h5nemesis'
   []
 []
 
@@ -382,6 +420,9 @@ i_tol = 0
   petsc_options_value = 'hypre boomeramg 101 ds'
   # petsc_options_iname = '-pc_type -sub_ksp_type -sub_pc_type -pc_asm_overlap'
   # petsc_options_value = 'asm        preonly       lu           2'
+  # ILU
+  # petsc_options_iname = '-pc_type -sub_pc_type -pc_factor_levels'
+  # petsc_options_value = 'asm ilu 2'
 
   l_max_its = 60 # Max number of linear iterations
   l_tol = 1e-4 # Relative tolerance for linear solves
@@ -390,14 +431,13 @@ i_tol = 0
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  end_time = 5
+  end_time = 10
   # dt = 0.1
   # dtmin = 0.1
   # end_time = 1000000.0
   # num_steps = 10
   automatic_scaling = true
   compute_scaling_once = false
-  # line_search = NONE
   # dt = 0.05
   # dtmax = 0.5
   # dt = 0.1
@@ -406,6 +446,7 @@ i_tol = 0
     dt = 0.01
     # cutback_factor = 0.9
     # growth_factor = 1.1
+    # cutback_factor_at_failure = 0.1
     optimal_iterations = 6
     linear_iteration_ratio = 1e5
   []
@@ -434,9 +475,9 @@ i_tol = 0
 [Outputs]
   # file_base = MLPaperActualSimulations/Case3
   # exodus = false # Exodus file will be outputted
-  [out]
-    type = Exodus
-  []
+  # [out]
+  #   type = Exodus
+  # []
   # [h5out]
   #   type = Exodus
   #   write_hdf5 = true
@@ -449,6 +490,7 @@ i_tol = 0
   #   write_hdf5 = true
   # []
   #nemesis = true
+  exodus = true
   console = true
   csv = true
   checkpoint = false
@@ -467,7 +509,7 @@ i_tol = 0
     heaviest_branch = true # Default is false
     heaviest_sections = 7 # Default is 0
   []
-  file_base = 04_3gr_aicheck_amag${amag}_i${i_tol}_a${a_tol}
+  file_base = 03_5op_tols_amag${amag}_i${i_tol}_a${a_tol}
   # file_base = 17_bicr_large_withnewKernel
   # file_base = test
 []

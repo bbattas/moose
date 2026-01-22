@@ -1,22 +1,22 @@
 ##############################################################################
-# File: 04_3gr_aicheck.i
-# File Location: /examples/agg/01_initial_testing/29_bicr_incError/04_3gr_aicheck
-# Created Date: Tuesday January 20th 2026
+# File: 07_3gr_aicheck_limit.i
+# File Location: /examples/agg/01_initial_testing/29_bicr_incError/07_3gr_aicheck_limit
+# Created Date: Wednesday January 21st 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday January 22nd 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  using a small test input to actually look at the a and i tols with
-#   the necessary lower gt threshold to actually get inclination
+#  Same as 04 but using the alternate option i just added to basically cap
+#   the u based on the tolerances instead of skipping those qps/elements
 #
 #
 ##############################################################################
 
-amag = 0.3
+amag = 0.1
 a_tol = 5
-i_tol = 0
+i_tol = 1000
 
 [Mesh]
   # Mesh block.  Meshes can be read in or automatically generated
@@ -214,6 +214,7 @@ i_tol = 0
     angular_func = ATAN_2D
     intol = ${i_tol} #100 #10 #100 #200 # cut if alpha > intol
     altol = ${a_tol} #100 #10 #1.5 # cut if h*alpha > altol
+    limit_umag = true
     # Inclination function
     inc_func = COS
     ifunc_a = ${amag} #0.3
@@ -467,7 +468,7 @@ i_tol = 0
     heaviest_branch = true # Default is false
     heaviest_sections = 7 # Default is 0
   []
-  file_base = 04_3gr_aicheck_amag${amag}_i${i_tol}_a${a_tol}
+  file_base = 07_3gr_aicheck_limit_amag${amag}_i${i_tol}_a${a_tol}
   # file_base = 17_bicr_large_withnewKernel
   # file_base = test
 []

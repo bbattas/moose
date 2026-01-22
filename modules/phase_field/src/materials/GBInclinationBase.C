@@ -29,6 +29,10 @@ GBInclinationBase::validParams()
   params.addParam<Real>("altol", 100, "alpha tolerance");
   params.addParam<Real>("gt_tol", 0.001, "alpha tolerance");
   params.addParam<MaterialPropertyName>("hgb", "hgb", "Name of gb switching function.");
+  params.addParam<bool>("limit_umag",
+                        false,
+                        "Limit the $u=\nabla\eta_i - \nabla\eta_j$ based on i and a tolerances, "
+                        "else skip the qp/element.");
   return params;
 }
 
@@ -59,7 +63,8 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
     _aval(declareProperty<RealGradient>("a_val")),
     _ival(declareProperty<RealGradient>("i_val")),
     _acut(declareProperty<RealGradient>("a_cut")),
-    _icut(declareProperty<RealGradient>("i_cut"))
+    _icut(declareProperty<RealGradient>("i_cut")),
+    _limit_umag(getParam<bool>("limit_umag"))
 
 {
   if (_op_num < 2)
@@ -220,11 +225,21 @@ GBInclinationBase::computeQpProperties()
             {
               const Real hovtol = _hgb[_qp] / _altol; // safe: _altol != 0 here
               hov_trigger = (uxyz.norm() < hovtol);
+              if (_limit_umag && hov_trigger)
+              {
+                uxyz *= hovtol / uxyz.norm();
+                hov_trigger = false;
+              }
             }
             if (inv_enabled)
             {
               const Real invtol = 1.0 / _intol; // safe: _intol != 0 here
               inv_trigger = (uxyz.norm() < invtol);
+              if (_limit_umag && inv_trigger)
+              {
+                uxyz *= invtol / uxyz.norm();
+                inv_trigger = false;
+              }
             }
             // Combine logic: if both enabled, trip if EITHER trips
             bool alpha_skip = (hov_trigger || inv_trigger);

@@ -1,20 +1,20 @@
 ##############################################################################
-# File: 04_3gr_aicheck.i
-# File Location: /examples/agg/01_initial_testing/29_bicr_incError/04_3gr_aicheck
-# Created Date: Tuesday January 20th 2026
+# File: 02_2op_tols.i
+# File Location: /examples/agg/01_initial_testing/29_bicr_incError/08_hpc_cap/02_2op_tols
+# Created Date: Thursday January 22nd 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday January 22nd 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  using a small test input to actually look at the a and i tols with
-#   the necessary lower gt threshold to actually get inclination
+#  bicrystal to visualize the inclination dependence with tols set to whatever
 #
 #
+#  5 or 6 cpus
 ##############################################################################
 
-amag = 0.3
+amag = 0.1
 a_tol = 5
 i_tol = 0
 
@@ -23,12 +23,12 @@ i_tol = 0
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2 # Problem dimension
-    nx = 100 # Number of elements in the x-direction
-    ny = 100 # Number of elements in the y-direction
+    nx = 160 # Number of elements in the x-direction
+    ny = 160 # Number of elements in the y-direction
     xmin = 0 # minimum x-coordinate of the mesh
-    xmax = 100 # maximum x-coordinate of the mesh
+    xmax = 160 # maximum x-coordinate of the mesh
     ymin = 0 # minimum y-coordinate of the mesh
-    ymax = 100 # maximum y-coordinate of the mesh
+    ymax = 160 # maximum y-coordinate of the mesh
     # elem_type = QUAD4 # Type of elements used in the mesh
     # uniform_refine = 3 # Initial uniform refinement of the mesh
   []
@@ -38,7 +38,7 @@ i_tol = 0
 
 [GlobalParams]
   # Parameters used by several kernels that are defined globally to simplify input file
-  op_num = 3 #15 # Number of order parameters used
+  op_num = 2 #15 # Number of order parameters used
   var_name_base = gr # Base name of grains
   # T = 1400 # Constant temperature of the simulation (for mobility calculation)
 []
@@ -71,31 +71,20 @@ i_tol = 0
     type = SmoothCircleIC
     invalue = 1
     outvalue = 0
-    radius = 10
+    radius = 50
     variable = gr0
-    x1 = 25
-    y1 = 50
+    x1 = 80
+    y1 = 80
     int_width = 12 #6
   []
   [gr1_IC]
     type = SmoothCircleIC
-    invalue = 1
-    outvalue = 0
-    radius = 25
-    variable = gr1
-    x1 = 60
-    y1 = 50
-    int_width = 12 #6
-  []
-  [gr2_IC]
-    type = SpecifiedSmoothCircleIC
     invalue = 0
     outvalue = 1
-    variable = gr2
-    radii = '10 25'
-    x_positions = '25 60'
-    y_positions = '50 50'
-    z_positions = '0 0'
+    radius = 50
+    variable = gr1
+    x1 = 80
+    y1 = 80
     int_width = 12 #6
   []
 []
@@ -126,7 +115,7 @@ i_tol = 0
   [gr0_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr0
-    coupled_variables = 'gr1 gr2'
+    coupled_variables = 'gr1'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -135,16 +124,7 @@ i_tol = 0
   [gr1_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr1
-    coupled_variables = 'gr0 gr2'
-    debug_kernel = false
-    skip_off = false
-    variable_L = false
-    mask_name = hgb
-  []
-  [gr2_ACInc]
-    type = ACInterfaceInclinationGamma
-    variable = gr2
-    coupled_variables = 'gr0 gr1'
+    coupled_variables = 'gr0'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -214,6 +194,7 @@ i_tol = 0
     angular_func = ATAN_2D
     intol = ${i_tol} #100 #10 #100 #200 # cut if alpha > intol
     altol = ${a_tol} #100 #10 #1.5 # cut if h*alpha > altol
+    limit_umag = true
     # Inclination function
     inc_func = COS
     ifunc_a = ${amag} #0.3
@@ -243,8 +224,8 @@ i_tol = 0
   [hgb_a]
     type = ParsedMaterial
     property_name = hgb_a
-    coupled_variables = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
-    expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2;
+    coupled_variables = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    expression = 'hb:=gr0*gr0 + gr1*gr1;
                   4 * (1 - hb) * (1 - hb)'
     # hg:=4 * (1 - hb) * (1 - hb);
     # if(hg>1.0,1.0,hg)'
@@ -254,7 +235,7 @@ i_tol = 0
   [hgb_b]
     type = SwitchingFunctionGBMaterial
     h_name = hgb_b
-    grain_ops = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    grain_ops = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     hgb_threshold = 0
     output_properties = 'hgb_b'
     # outputs = 'exodus'
@@ -262,7 +243,7 @@ i_tol = 0
   [hgb]
     type = ParsedMaterial
     property_name = hgb
-    coupled_variables = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    coupled_variables = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
     material_property_names = 'hgb_a hgb_b'
     # expression = 'h1:=if(hgb_a>1,1,if(hgb_a<0,0.0,hgb_a));
     #               h2:=if(hgb_b>1,1,if(hgb_b<0,0.0,hgb_b));
@@ -275,8 +256,8 @@ i_tol = 0
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
-    coupled_variables = 'gr0 gr1 gr2' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
-    expression = 'gr0 + gr1 + gr2' # + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10'
+    coupled_variables = 'gr0 gr1' # gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10' # gr11 gr12 gr13 gr14 gr15'
+    expression = 'gr0 + gr1' # + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10'
     #  + gr11 + gr12 + gr13 + gr14 + gr15'
     outputs = 'out' # h5out nemesis h5nemesis'
   []
@@ -341,10 +322,6 @@ i_tol = 0
     type = ElementIntegralVariablePostprocessor
     variable = gr1
   []
-  [gr2]
-    type = ElementIntegralVariablePostprocessor
-    variable = gr2
-  []
 []
 
 # [VectorPostprocessors]
@@ -390,7 +367,7 @@ i_tol = 0
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  end_time = 5
+  end_time = 30
   # dt = 0.1
   # dtmin = 0.1
   # end_time = 1000000.0
@@ -403,7 +380,7 @@ i_tol = 0
   # dt = 0.1
   [TimeStepper]
     type = IterationAdaptiveDT
-    dt = 0.01
+    dt = 0.1
     # cutback_factor = 0.9
     # growth_factor = 1.1
     optimal_iterations = 6
@@ -467,7 +444,7 @@ i_tol = 0
     heaviest_branch = true # Default is false
     heaviest_sections = 7 # Default is 0
   []
-  file_base = 04_3gr_aicheck_amag${amag}_i${i_tol}_a${a_tol}
+  file_base = 02_2op_tols_amag${amag}_i${i_tol}_a${a_tol}
   # file_base = 17_bicr_large_withnewKernel
   # file_base = test
 []

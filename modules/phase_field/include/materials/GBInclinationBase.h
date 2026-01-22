@@ -65,4 +65,7 @@ protected:
   MaterialProperty<RealGradient> & _ival;
   MaterialProperty<RealGradient> & _acut;
   MaterialProperty<RealGradient> & _icut;
+
+  // Use limit instead of zero
+  const bool _limit_umag;
 };
