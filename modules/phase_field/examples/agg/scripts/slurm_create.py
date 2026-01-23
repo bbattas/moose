@@ -43,6 +43,8 @@ parser.add_argument('--args','-c', type=str, help='Extra CL arguments at the end
 parser.add_argument('--recover', action='store_true', help='''Add the recovery flag to the executable, without a '''
                     '''specified checkpoint file.''')
 parser.add_argument('--rh8', action='store_true', help='Use RH8 versions of packages.')
+parser.add_argument('--mpi', action='store_true', help='''Include the "export OMPI_MCA_coll_hcoll_enable=0"
+                    to avoid current openmpi errors.''')
 cl_args = parser.parse_args()
 
 # Defaults for the variables
@@ -297,6 +299,10 @@ def slurmWrite(cwd,inputName):
         # Mamba Build
         # slurmList.append('source ~/.bashrc')
         # slurmList.append('mamba activate moose')
+        # OpenMPI Error workaround
+        if cl_args.mpi:
+            slurmList.append(' ')
+            slurmList.append('export OMPI_MCA_coll_hcoll_enable=0')
         # Actually go to the output and run the shit
         slurmList.append('')
         slurmList.append('cd $OUTPUT')
