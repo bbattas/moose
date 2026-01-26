@@ -11,7 +11,7 @@
 #  iso inclination only 256x256 domain with 255 grains
 #
 #
-#  all these 3x30 will run fine (assuming i dont need more ops later lol)
+#  4x30 should be enough for the 20 grains at least
 ##############################################################################
 
 i_tol = 0
@@ -39,7 +39,7 @@ amag = 0.0
 
 [GlobalParams]
   # Parameters used by several kernels that are defined globally to simplify input file
-  op_num = 12 #15 # Number of order parameters used
+  op_num = 20 #12 #15 # Number of order parameters used
   var_name_base = gr # Base name of grains
   # T = 1400 # Constant temperature of the simulation (for mobility calculation)
 []
@@ -63,7 +63,7 @@ amag = 0.0
     type = PolycrystalVoronoi
     coloring_algorithm = jp #bt
     file_name = '../00_sub/2D_256x256_255gr_ctrs.txt'
-    int_width = 4
+    int_width = 6
   []
   [grain_tracker]
     type = GrainTracker
@@ -321,15 +321,17 @@ amag = 0.0
   [hgb_a]
     type = ParsedMaterial
     property_name = hgb_a
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
-    expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2 + gr3*gr3 + gr4*gr4 + gr5*gr5 + gr6*gr6 + gr7*gr7 + gr8*gr8 + gr9*gr9 + gr10*gr10 + gr11*gr11;
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
+    expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2 + gr3*gr3 + gr4*gr4 + gr5*gr5 +
+    gr6*gr6 + gr7*gr7 + gr8*gr8 + gr9*gr9 + gr10*gr10 + gr11*gr11 +
+    gr12*gr12 + gr13*gr13 + gr14*gr14 + gr15*gr15 + gr16*gr16 + gr17*gr17 + gr18*gr18 + gr19*gr19;
                   4 * (1 - hb) * (1 - hb)'
     outputs = 'exodus'
   []
   [hgb_b]
     type = SwitchingFunctionGBMaterial
     h_name = hgb_b
-    grain_ops = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
+    grain_ops = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     hgb_threshold = 0
     output_properties = 'hgb_b'
     outputs = 'exodus'
@@ -337,7 +339,7 @@ amag = 0.0
   [hgb]
     type = ParsedMaterial
     property_name = hgb
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     material_property_names = 'hgb_a hgb_b'
     # expression = 'h1:=if(hgb_a>1,1,if(hgb_a<0,0.0,hgb_a));
     #               h2:=if(hgb_b>1,1,if(hgb_b<0,0.0,hgb_b));
@@ -350,8 +352,9 @@ amag = 0.0
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
-    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10 + gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
+    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10 +
+    gr11 + gr12 + gr13 + gr14 + gr15 + gr16 + gr17 + gr18 + gr19'
     #  + gr11 + gr12 + gr13 + gr14 + gr15'
     outputs = 'exodus'
   []

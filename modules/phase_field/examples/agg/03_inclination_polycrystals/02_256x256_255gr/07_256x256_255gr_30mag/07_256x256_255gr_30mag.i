@@ -39,7 +39,7 @@ amag = 0.25
 
 [GlobalParams]
   # Parameters used by several kernels that are defined globally to simplify input file
-  op_num = 12 #15 # Number of order parameters used
+  op_num = 20 #15 # Number of order parameters used
   var_name_base = gr # Base name of grains
   # T = 1400 # Constant temperature of the simulation (for mobility calculation)
 []
@@ -63,7 +63,7 @@ amag = 0.25
     type = PolycrystalVoronoi
     coloring_algorithm = jp #bt
     file_name = '../00_sub/2D_256x256_255gr_ctrs.txt'
-    int_width = 4
+    int_width = 6
   []
   [grain_tracker]
     type = GrainTracker
@@ -108,7 +108,7 @@ amag = 0.25
   [gr0_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr0
-    coupled_variables = 'gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
+    coupled_variables = 'gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -117,7 +117,7 @@ amag = 0.25
   [gr1_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr1
-    coupled_variables = 'gr0 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
+    coupled_variables = 'gr0 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -126,7 +126,7 @@ amag = 0.25
   [gr2_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr2
-    coupled_variables = 'gr0 gr1 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
+    coupled_variables = 'gr0 gr1 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -135,7 +135,7 @@ amag = 0.25
   [gr3_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr3
-    coupled_variables = 'gr0 gr1 gr2 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -144,7 +144,7 @@ amag = 0.25
   [gr4_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr4
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -153,7 +153,7 @@ amag = 0.25
   [gr5_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr5
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr6 gr7 gr8 gr9 gr10 gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -162,7 +162,7 @@ amag = 0.25
   [gr6_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr6
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr7 gr8 gr9 gr10 gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -171,7 +171,7 @@ amag = 0.25
   [gr7_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr7
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr8 gr9 gr10 gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -180,7 +180,7 @@ amag = 0.25
   [gr8_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr8
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr9 gr10 gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -189,7 +189,7 @@ amag = 0.25
   [gr9_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr9
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr10 gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -198,7 +198,7 @@ amag = 0.25
   [gr10_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr10
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -207,7 +207,79 @@ amag = 0.25
   [gr11_ACInc]
     type = ACInterfaceInclinationGamma
     variable = gr11
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr12_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr12
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr13_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr13
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr14 gr15 gr16 gr17 gr18 gr19'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr14_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr14
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr15 gr16 gr17 gr18 gr19'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr15_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr15
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr16 gr17 gr18 gr19'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr16_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr16
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr17 gr18 gr19'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr17_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr17
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr18 gr19'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr18_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr18
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr19'
+    debug_kernel = false
+    skip_off = false
+    variable_L = false
+    mask_name = hgb
+  []
+  [gr19_ACInc]
+    type = ACInterfaceInclinationGamma
+    variable = gr19
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18'
     debug_kernel = false
     skip_off = false
     variable_L = false
@@ -321,15 +393,17 @@ amag = 0.25
   [hgb_a]
     type = ParsedMaterial
     property_name = hgb_a
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
-    expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2 + gr3*gr3 + gr4*gr4 + gr5*gr5 + gr6*gr6 + gr7*gr7 + gr8*gr8 + gr9*gr9 + gr10*gr10 + gr11*gr11;
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
+    expression = 'hb:=gr0*gr0 + gr1*gr1 + gr2*gr2 + gr3*gr3 + gr4*gr4 + gr5*gr5 +
+    gr6*gr6 + gr7*gr7 + gr8*gr8 + gr9*gr9 + gr10*gr10 + gr11*gr11 +
+    gr12*gr12 + gr13*gr13 + gr14*gr14 + gr15*gr15 + gr16*gr16 + gr17*gr17 + gr18*gr18 + gr19*gr19;
                   4 * (1 - hb) * (1 - hb)'
     outputs = 'exodus'
   []
   [hgb_b]
     type = SwitchingFunctionGBMaterial
     h_name = hgb_b
-    grain_ops = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
+    grain_ops = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     hgb_threshold = 0
     output_properties = 'hgb_b'
     outputs = 'exodus'
@@ -337,7 +411,7 @@ amag = 0.25
   [hgb]
     type = ParsedMaterial
     property_name = hgb
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
     material_property_names = 'hgb_a hgb_b'
     # expression = 'h1:=if(hgb_a>1,1,if(hgb_a<0,0.0,hgb_a));
     #               h2:=if(hgb_b>1,1,if(hgb_b<0,0.0,hgb_b));
@@ -350,8 +424,9 @@ amag = 0.25
   [sumgr]
     type = ParsedMaterial
     property_name = sumgr
-    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
-    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10 + gr11'
+    coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
+    expression = 'gr0 + gr1 + gr2 + gr3 + gr4 + gr5 + gr6 + gr7 + gr8 + gr9 + gr10 +
+    gr11 + gr12 + gr13 + gr14 + gr15 + gr16 + gr17 + gr18 + gr19'
     #  + gr11 + gr12 + gr13 + gr14 + gr15'
     outputs = 'exodus'
   []
