@@ -4,8 +4,8 @@
 # Created Date: Monday February 2nd 2026
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday February 2nd 2026
-# Modified By: Battas,Brandon Scott
+# Last Modified: Tuesday February 3rd 2026
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  development testbed input dealing with initial discovery and building a
@@ -21,7 +21,9 @@
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    filename = ../00_sub/2D_80x80_misTest.txt
+    # filename = '../00_sub/2D_80x80_misTest.txt'
+    filename = '../00_sub/2D_80x80_misTest_fid0.txt'
+    # filename = '../00_sub/EBSD_ThreeGrains.txt'
   []
   # [gmg]
   #   type = DistributedRectilinearMeshGenerator
@@ -33,8 +35,8 @@
   #   ymin = 0
   #   ymax = 256
   # []
-  parallel_type = DISTRIBUTED # Periodic BCs
-  second_order = false
+  # parallel_type = DISTRIBUTED # Periodic BCs
+  # second_order = false
   # uniform_refine = 1
 []
 
@@ -86,6 +88,7 @@
   # []
 []
 
+
 [AuxVariables]
   [bnds]
   []
@@ -101,123 +104,31 @@
   #   order = CONSTANT
   #   family = MONOMIAL
   # []
+  [aphi1]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [bPhi]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [cphi2]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [ebsd_numbers]
+    order = CONSTANT
+    family = MONOMIAL
+  []
 []
 
 [Kernels]
   # Kernel block, where the kernels defining the residual equations are set up.
   [PolycrystalKernel]
     # Custom action creating all necessary kernels for grain growth.  All input parameters are up in GlobalParams
-    variable_mobility = false
+    # variable_mobility = false
     # order = SECOND
   []
-  # [gr0_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr0
-  #   coupled_variables = 'gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr1_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr1
-  #   coupled_variables = 'gr0 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr2_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr2
-  #   coupled_variables = 'gr0 gr1 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr3_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr3
-  #   coupled_variables = 'gr0 gr1 gr2 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr4_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr4
-  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr5 gr6 gr7 gr8 gr9 gr10 gr11'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr5_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr5
-  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr6 gr7 gr8 gr9 gr10 gr11'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr6_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr6
-  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr7 gr8 gr9 gr10 gr11'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr7_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr7
-  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr8 gr9 gr10 gr11'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr8_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr8
-  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr9 gr10 gr11'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr9_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr9
-  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr10 gr11'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr10_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr10
-  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr11'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
-  # [gr11_ACInc]
-  #   type = ACInterfaceInclinationGamma
-  #   variable = gr11
-  #   coupled_variables = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10'
-  #   debug_kernel = false
-  #   skip_off = false
-  #   variable_L = false
-  #   mask_name = hgb
-  # []
 []
 
 [AuxKernels]
@@ -247,33 +158,53 @@
   #   property = inclination
   #   variable = sum_inc
   # []
-[]
-
-[BCs]
-  [Periodic]
-    [All]
-      auto_direction = 'x y'
-    []
+  # The phi will output the Euler angle from EBSD data, and the data structure
+  # will change with the guide from grain_tracker
+  [aphi1]
+    type = OutputEulerAngles
+    variable = aphi1
+    euler_angle_provider = ebsd_reader
+    grain_tracker = grain_tracker
+    output_euler_angle = 'phi1'
+    execute_on = 'INITIAL TIMESTEP_END'
+  []
+  [bPhi]
+    type = OutputEulerAngles
+    variable = bPhi
+    euler_angle_provider = ebsd_reader
+    grain_tracker = grain_tracker
+    output_euler_angle = 'Phi'
+    execute_on = 'INITIAL TIMESTEP_END'
+  []
+  [cphi2]
+    type = OutputEulerAngles
+    variable = cphi2
+    euler_angle_provider = ebsd_reader
+    grain_tracker = grain_tracker
+    output_euler_angle = 'phi2'
+    execute_on = 'INITIAL TIMESTEP_END'
+  []
+  # Import the unique grain ID from ebsd data, and the data structure
+  # will change with the guide from grain_tracker
+  [ebsd_numbers]
+    type = EBSDReaderAvgDataAux
+    data_name = feature_id
+    ebsd_reader = ebsd_reader
+    grain_tracker = grain_tracker
+    variable = ebsd_numbers
+    execute_on = 'initial timestep_end'
   []
 []
+
+# [BCs]
+#   [Periodic]
+#     [All]
+#       auto_direction = 'x y'
+#     []
+#   []
+# []
 
 [Materials]
-  [incl_vec]
-    type = GGInclinationVector
-    # grain_tracker = grain_tracker
-    output_properties = 'inclination_vector ang_dist'
-    gb_id_method = SWITCH
-    # ffc = gr_flood_uo
-    grain_tracker = grain_tracker
-    hgb = hgb
-    hgb_threshold = 0.5
-    outputs = exodus
-  []
-  # [constants]
-  #   type = GenericConstantMaterial
-  #   prop_names = 'L0         gamma_iso kappa_op  iw_iso gbe_iso'
-  #   prop_values = '1.15382e-6   1.5    2.07337e7   6   4.60748e6'
-  # []
   [constants]
     type = GenericConstantMaterial
     prop_names = 'L         gamma_asymm kappa_op  int_width   sigma     mu'
@@ -287,6 +218,32 @@
     output_properties = 'hgb'
     outputs = 'exodus'
   []
+  #
+  [GBM]
+    type = GBMisorientation
+    ebsd_reader = ebsd_reader
+    grain_tracker = grain_tracker
+    output_properties = 'eul_a eul_b eul_c quat_a quat_b quat_c quat_d quat_mag
+    misorientation miso_axis_polar miso_axis_azimuth other_out miso_ang_energy miso_ax_energy
+    twist_energy tilt_energy'
+    outputs = exodus
+  []
+  [gbe]
+    type = ParsedMaterial
+    property_name = gbe
+    # coupled_variables = 'gr0 gr1 gr2'
+    material_property_names = 'twist_energy tilt_energy'
+    expression = '0.3 + twist_energy'
+    outputs = 'exodus'
+  []
+  # [GB_type]
+  #   # The new developed Miso Bnds Aux Kernel
+  #   type = ComputeGBMisorientationType
+  #   ebsd_reader = ebsd_reader
+  #   grain_tracker = grain_tracker
+  #   output_properties = 'gb_type'
+  #   outputs = exodus
+  # []
 []
 
 [Postprocessors]
@@ -360,20 +317,21 @@
   # end_time = 20
   # dtmin = 0.1
   # end_time = 1000000.0
-  # num_steps = 2
+  num_steps = 2
+  dt = 1
   automatic_scaling = true
   compute_scaling_once = false
   # dt = 0.05
   # dtmax = 0.5
   # dt = 2e-5
-  [TimeStepper]
-    type = IterationAdaptiveDT
-    dt = 1 #0.001
-    # cutback_factor = 0.9
-    # growth_factor = 1.1
-    optimal_iterations = 6
-    linear_iteration_ratio = 1e5
-  []
+  # [TimeStepper]
+  #   type = IterationAdaptiveDT
+  #   dt = 1 #0.001
+  #   # cutback_factor = 0.9
+  #   # growth_factor = 1.1
+  #   optimal_iterations = 6
+  #   linear_iteration_ratio = 1e5
+  # []
 
   # start_time = 0.0
   # dt = 0.1
