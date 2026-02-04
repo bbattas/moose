@@ -49,7 +49,8 @@ GBMisorientation::GBMisorientation(const InputParameters & parameters)
     _miso_ang_en(declareProperty<Real>("miso_ang_energy")),
     _miso_ax_en(declareProperty<Real>("miso_ax_energy")),
     _twist(declareProperty<Real>("twist_energy")),
-    _tilt(declareProperty<Real>("tilt_energy"))
+    _tilt(declareProperty<Real>("tilt_energy")),
+    _f_mis(declareProperty<Real>("f_miso"))
 {
   getMisorientationAngles();
 }
@@ -92,6 +93,7 @@ GBMisorientation::computeQpProperties()
   Real ang_cut = 62 * libMesh::pi / 180;
   _twist[_qp] = 0;
   _tilt[_qp] = 0;
+  _f_mis[_qp] = 1;
 
   // Compute GB type by the number of id
   switch (_gb_pairs.size())
@@ -135,6 +137,8 @@ GBMisorientation::computeQpProperties()
                          std::pow(std::abs(std::cos(_miso_phi[_qp] / 2)), 0.4);
       _twist[_qp] = 0.7 * _miso_ax_en[_qp] * _miso_ang_en[_qp] * _m_weight + (1 - _m_weight);
       _tilt[_qp] = 0.3 * _miso_ax_en[_qp] * _miso_ang_en[_qp] * _m_weight + (1 - _m_weight);
+      // Normalized GBE
+      _f_mis[_qp] = 0.3 + _twist[_qp];
       // OTHER
       auto quat = _qmin[idx];
       _quat_a[_qp] = quat.w();

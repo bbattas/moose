@@ -104,4 +104,6 @@ protected:
   //
   MaterialProperty<Real> & _twist;
   MaterialProperty<Real> & _tilt;
+  //
+  MaterialProperty<Real> & _f_mis;
 };

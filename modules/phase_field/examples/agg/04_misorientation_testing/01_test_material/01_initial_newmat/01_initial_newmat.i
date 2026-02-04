@@ -4,8 +4,8 @@
 # Created Date: Monday February 2nd 2026
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday February 3rd 2026
-# Modified By: Brandon Battas
+# Last Modified: Wednesday February 4th 2026
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  development testbed input dealing with initial discovery and building a
@@ -87,7 +87,6 @@
   #   expression = 'grain_tracker < 60'
   # []
 []
-
 
 [AuxVariables]
   [bnds]
@@ -207,8 +206,8 @@
 [Materials]
   [constants]
     type = GenericConstantMaterial
-    prop_names = 'L         gamma_asymm kappa_op  int_width   sigma     mu'
-    prop_values = '1.15382e-6   1.5    2.07337e7   6        4.60748e6  5.521269e6'
+    prop_names = 'L         gamma_asymm kappa_op  int_width   mu     ' #' sigma'
+    prop_values = '1.15382e-6   1.5    2.07337e7   6      5.521269e6 ' #' 4.60748e6'
   []
   [hgb]
     type = SwitchingFunctionGBMaterial
