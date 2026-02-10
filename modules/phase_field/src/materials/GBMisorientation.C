@@ -13,8 +13,13 @@ GBMisorientation::validParams()
   params.addRequiredParam<UserObjectName>("ebsd_reader", "The EBSDReader GeneralUserObject");
   params.addRequiredCoupledVarWithAutoBuild(
       "v", "var_name_base", "op_num", "Array of coupled variables");
-  params.addParam<Real>("angle_threshold", 15, "Max LAGB Misorientation angle");
   params.addParam<Real>("miso_weight", 1, "0-1 Weight for misorientation in calcs.");
+  params.addParam<MaterialPropertyName>(
+      "gb_energy_iso_name", "sigma", "Isotropic GB energy before inclination dependence.");
+  params.addParam<MaterialPropertyName>(
+      "kappa", "kappa", "Gradient energy constant kappa material name.");
+  params.addParam<MaterialPropertyName>(
+      "mu", "mu", "Free energy thermodynamic parameter mu (or m in some formulations).");
   return params;
 }
 
@@ -24,10 +29,13 @@ GBMisorientation::GBMisorientation(const InputParameters & parameters)
     _ebsd_reader(getUserObject<EBSDReader>("ebsd_reader")),
     _op_num(coupledComponents("v")),
     _vals(coupledValues("v")),
-    _angle_threshold(getParam<Real>("angle_threshold")),
-    // _gb_type(declareADProperty<Real>("gb_type")),
     // INPUTS
     _m_weight(getParam<Real>("miso_weight")),
+    _gbe_iso(getMaterialProperty<Real>("gb_energy_iso_name")),
+    _kappa(getMaterialProperty<Real>(getParam<MaterialPropertyName>("kappa"))),
+    _mu(getMaterialProperty<Real>(getParam<MaterialPropertyName>("mu"))),
+    _int_width(declareProperty<Real>("int_width")),
+    _gamma(declareProperty<Real>("gamma_asymm")),
     // TESTING
     _gtnum(declareProperty<Real>("gt_num")),
     _other_out(declareProperty<Real>("other_out")),
@@ -43,8 +51,8 @@ GBMisorientation::GBMisorientation(const InputParameters & parameters)
     _quat_mag(declareProperty<Real>("quat_mag")),
     // Misorientation out
     _miso(declareProperty<Real>("misorientation")),
-    _miso_theta(declareProperty<Real>("miso_axis_polar")),
-    _miso_phi(declareProperty<Real>("miso_axis_azimuth")),
+    _miso_polar(declareProperty<Real>("miso_axis_polar")),
+    _miso_azim(declareProperty<Real>("miso_axis_azimuth")),
     // Energies
     _miso_ang_en(declareProperty<Real>("miso_ang_energy")),
     _miso_ax_en(declareProperty<Real>("miso_ax_energy")),
@@ -101,8 +109,11 @@ GBMisorientation::computeQpProperties()
     case 0:
     {
       _miso[_qp] = 0;
-      _miso_theta[_qp] = 0;
-      _miso_phi[_qp] = 0;
+      _miso_polar[_qp] = 0;
+      _miso_azim[_qp] = 0;
+      _twist[_qp] = 0.7; // * _m_weight + (1 - _m_weight);
+      _tilt[_qp] = 0.3;  // * _m_weight + (1 - _m_weight);
+      _f_mis[_qp] = 1.0; // 0.3 + _twist[_qp];
       break;
     }
 
@@ -119,9 +130,13 @@ GBMisorientation::computeQpProperties()
       _quat_c[_qp] = quat.y();
       _quat_d[_qp] = quat.z();
       _quat_mag[_qp] = quat.norm();
+      //
       _miso[_qp] = 0;
-      _miso_theta[_qp] = 0;
-      _miso_phi[_qp] = 0;
+      _miso_polar[_qp] = 0;
+      _miso_azim[_qp] = 0;
+      _twist[_qp] = 0.7; // * _m_weight + (1 - _m_weight);
+      _tilt[_qp] = 0.3;  // * _m_weight + (1 - _m_weight);
+      _f_mis[_qp] = 1.0; // 0.3 + _twist[_qp];
       break;
     }
 
@@ -129,12 +144,16 @@ GBMisorientation::computeQpProperties()
     {
       auto idx = getLineNum(_gb_pairs[0], _gb_pairs[1]);
       _miso[_qp] = _misorientation_angles[idx];
-      _miso_theta[_qp] = _miso_ax_polar[idx];
-      _miso_phi[_qp] = _miso_ax_azimuth[idx];
+      _miso_polar[_qp] = _miso_ax_polar[idx];
+      _miso_azim[_qp] = _miso_ax_azimuth[idx];
       // Energies
       _miso_ang_en[_qp] = (_miso[_qp] / ang_cut) * (1 - std::log(_miso[_qp] / ang_cut));
-      _miso_ax_en[_qp] = std::pow(std::abs(std::cos(_miso_theta[_qp])), 0.4) +
-                         std::pow(std::abs(std::cos(_miso_phi[_qp] / 2)), 0.4);
+      _miso_ax_en[_qp] = std::pow(std::abs(std::cos(_miso_polar[_qp])), 0.4) +
+                         std::pow(std::abs(std::cos(_miso_azim[_qp] / 2)), 0.4);
+      if (_miso_ang_en[_qp] > 1.0)
+        _miso_ang_en[_qp] = 1.0;
+      if (_miso_ax_en[_qp] > 1.0)
+        _miso_ax_en[_qp] = 1.0;
       _twist[_qp] = 0.7 * _miso_ax_en[_qp] * _miso_ang_en[_qp] * _m_weight + (1 - _m_weight);
       _tilt[_qp] = 0.3 * _miso_ax_en[_qp] * _miso_ang_en[_qp] * _m_weight + (1 - _m_weight);
       // Normalized GBE
@@ -152,18 +171,55 @@ GBMisorientation::computeQpProperties()
 
     default:
     {
-      _miso[_qp] = 0;
-      _miso_theta[_qp] = 0;
-      _miso_phi[_qp] = 0;
-      // _gb_type[_qp] = getTripleJunctionType();
-      // _quat_a[_qp] = 2;
-      // _quat_b[_qp] = 0;
-      // _quat_c[_qp] = 0;
-      // _quat_d[_qp] = 0;
+      // _miso[_qp] = 0;
+      _miso_polar[_qp] = 0;
+      _miso_azim[_qp] = 0;
+      // All grain pairs- Using average approach as per Yang 2025
+      Real tj_miso = 0.0;
+      Real tj_cross = 0.0;
+      for (std::size_t idx1 = 0; idx1 < _gb_pairs.size(); ++idx1)
+        for (std::size_t idx2 = idx1 + 1; idx2 < _gb_pairs.size(); ++idx2)
+        {
+          auto idx = getLineNum(_gb_pairs[idx1], _gb_pairs[idx2]);
+          Real ang_en = (_misorientation_angles[idx] / ang_cut) *
+                        (1 - std::log(_misorientation_angles[idx] / ang_cut));
+          Real ax_en = std::pow(std::abs(std::cos(_miso_ax_polar[idx])), 0.4) +
+                       std::pow(std::abs(std::cos(_miso_ax_azimuth[idx] / 2)), 0.4);
+          if (ang_en > 1.0)
+            ang_en = 1.0;
+          if (ax_en > 1.0)
+            ax_en = 1.0;
+          Real cross = ax_en * ang_en; // * _m_weight + (1 - _m_weight);
+          // Outputs
+          tj_miso += _misorientation_angles[idx];
+          tj_cross += cross;
+        }
+      // Average
+      _miso[_qp] = tj_miso / _gb_pairs.size();
+      _twist[_qp] = 0.7 * (tj_cross / _gb_pairs.size()) * _m_weight + (1 - _m_weight);
+      _tilt[_qp] = 0.3 * (tj_cross / _gb_pairs.size()) * _m_weight + (1 - _m_weight);
+      _f_mis[_qp] = 0.3 + _twist[_qp];
     }
   }
-}
 
+  // Calculate outputs from misorientation using Moelans approach
+  // Hard-coded coefficients (for poly gamma)
+  constexpr Real a1 = -3.0944; // coefficient for g2^4
+  constexpr Real a2 = -1.8169; // coefficient for g2^3
+  constexpr Real a3 = 10.323;  // coefficient for g2^2
+  constexpr Real a4 = -8.1819; // coefficient for g2
+  constexpr Real a5 = 2.0033;  // constant term
+  // Gamma
+  Real g = _gbe_iso[_qp] * _f_mis[_qp] / (std::sqrt(_kappa[_qp] * _mu[_qp]));
+  Real g2 = g * g;
+  Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
+  _gamma[_qp] = 1 / pg; // 1.5;
+  // IW
+  Real f0_int =
+      (((((0.0788 * pg - 0.4955) * pg + 1.2244) * pg - 1.5281) * pg + 1.0686) * pg - 0.5563) * pg +
+      0.2907;
+  _int_width[_qp] = (std::sqrt(_kappa[_qp] / _mu[_qp])) * (std::sqrt(1 / f0_int));
+}
 // Function to output total line number of Misorientation angle file
 unsigned int
 GBMisorientation::getTotalLineNum() const
@@ -180,36 +236,6 @@ GBMisorientation::getLineNum(unsigned int grain_i, unsigned int grain_j)
   else
     return grain_i + (grain_j - 1) * grain_j / 2;
 }
-
-// // Function to calculate the GB type in Triple junction
-// Real
-// GBMisorientation::getTripleJunctionType()
-// {
-//   unsigned int lagb_num = 0;
-//   unsigned int hagb_num = 0;
-//   Real ratio_base = 0.0;
-//   Real ratio_lagb = 0.0;
-//   for (unsigned int i = 1; i < _gb_pairs.size(); ++i)
-//   {
-//     for (unsigned int j = 0; j < i; ++j)
-//     {
-//       ratio_base += (_gb_op_pairs[i] * _gb_op_pairs[i] * _gb_op_pairs[j] * _gb_op_pairs[j]);
-//       if (_misorientation_angles[getLineNum(_gb_pairs[j], _gb_pairs[i])] < _angle_threshold)
-//       {
-//         lagb_num += 1;
-//         ratio_lagb += (_gb_op_pairs[i] * _gb_op_pairs[i] * _gb_op_pairs[j] * _gb_op_pairs[j]);
-//       }
-//       else
-//         hagb_num += 1;
-//     }
-//   }
-//   if (lagb_num == 0)
-//     return 2;
-//   else if (hagb_num == 0)
-//     return 1;
-//   else
-//     return 2 - ratio_lagb / ratio_base;
-// }
 
 // Function to convert symmetry matrix to quaternion form
 void
@@ -277,79 +303,6 @@ GBMisorientation::defineSymmetryOperator()
     rotationSymmetryToQuaternion(sym_rotation[o], _sym_quat[o]);
 }
 
-// // Function to return the misorientation of two quaternions
-// GBMisorientation::MisorientationResult
-// GBMisorientation::getMisorientationFromQuaternion(const Eigen::Quaternion<Real> & qi,
-//                                                   const Eigen::Quaternion<Real> & qj)
-// {
-//   Real miso0, misom = 2.0 * libMesh::pi;
-//   Eigen::Quaternion<Real> q, qib, qjb, qmin;
-//   qmin.w() = 0;
-//   qmin.x() = 0;
-//   qmin.y() = 0;
-//   qmin.z() = 0;
-
-//   for (int o1 = 0; o1 < _o_sym; o1++)
-//   {
-//     for (int o2 = 0; o2 < _o_sym; o2++)
-//     {
-//       qib = _sym_quat[o1] * qi;
-//       qjb = _sym_quat[o2] * qj;
-
-//       // j-grain conjugate quaternion
-//       qjb.x() = -qjb.x();
-//       qjb.y() = -qjb.y();
-//       qjb.z() = -qjb.z();
-//       q = qib * qjb;
-//       miso0 = round(2 * std::acos(q.w()) * 1e5) / 1e5;
-
-//       if (miso0 > libMesh::pi)
-//         miso0 = miso0 - 2 * libMesh::pi;
-//       if (std::abs(miso0) < misom)
-//       {
-//         misom = std::abs(miso0);
-//         qmin = q;
-//       }
-//     }
-//   }
-
-//   miso0 = 2 * std::acos(qmin.w());
-//   if (miso0 > libMesh::pi)
-//     miso0 = miso0 - 2 * libMesh::pi;
-//   double theta = std::abs(miso0);
-
-//   // return std::abs(miso0);
-//   // Angles for polar/azimuth on q axis
-//   // Fix sign ambiguity so w >= 0 (optional but recommended)
-//   if (qmin.w() < 0.0)
-//     qmin.coeffs() *= -1.0; // coeffs() = (x,y,z,w) in Eigen
-//   RealGradient axis(qmin.x(), qmin.y(), qmin.z());
-//   double s = std::sin(theta / 2.0);
-//   double theta_ax = 0.0;
-//   double phi_ax = 0.0;
-//   if (s > 1e-12)
-//   {
-//     // remove sin(theta/2) from quat vector pieces
-//     axis /= s;
-//     axis /= axis.norm();
-//     // Spherical angles of the axis relative to +z
-//     theta_ax = std::acos(std::clamp(axis.z(), -1.0, 1.0)); // polar
-//     phi_ax = std::atan2(axis.y(), axis.x());               // azimuth
-//     if (phi_ax < 0.0)
-//       phi_ax += 2 * libMesh::pi;
-//   }
-
-//   // OUTPUT
-//   MisorientationResult m_out;
-//   m_out.theta = theta;
-//   m_out.theta_ax = theta_ax;
-//   m_out.phi_ax = phi_ax;
-//   m_out.q = qmin;
-//   m_out.qnorm = qmin.norm();
-
-//   return m_out;
-// }
-
 GBMisorientation::MisorientationResult
 GBMisorientation::getMisorientationFromQuaternion(const Eigen::Quaternion<Real> & qi_in,
                                                   const Eigen::Quaternion<Real> & qj_in)
@@ -358,8 +311,9 @@ GBMisorientation::getMisorientationFromQuaternion(const Eigen::Quaternion<Real> 
   Eigen::Quaternion<Real> qj = qj_in;
   qi.normalize();
   qj.normalize();
+  constexpr double eps = 1e-8;
 
-  Real best_theta = std::numeric_limits<Real>::max();
+  Real best_theta = 2 * libMesh::pi; // std::numeric_limits<Real>::max();
   Eigen::Quaternion<Real> qmin(1, 0, 0, 0);
 
   for (int o1 = 0; o1 < _o_sym; ++o1)
@@ -375,41 +329,55 @@ GBMisorientation::getMisorientationFromQuaternion(const Eigen::Quaternion<Real> 
       Eigen::Quaternion<Real> q = qib * qjb.conjugate();
       q.normalize();
 
-      Real w = std::clamp(std::abs(q.w()), Real(-1), Real(1));
-      Real theta = 2 * std::acos(w); // in [0, pi]
+      // Check if in functional zone
+      bool in_fz = (0.0 <= q.z()) && (q.z() <= q.y()) && (q.y() <= q.x()) && (q.x() <= 1.0);
+      bool inv_in_fz =
+          (0.0 <= -q.z()) && (-q.z() <= -q.y()) && (-q.y() <= -q.x()) && (-q.x() <= 1.0);
+      if (!(in_fz || inv_in_fz))
+        continue;
 
-      if (theta < best_theta)
+      Real w = std::clamp(std::abs(q.w()), Real(-1), Real(1));
+      Real theta = 2 * std::acos(w); // in [0, pi], pi/2 with the abs(q.w()) above
+
+      if ((in_fz || inv_in_fz) && (theta < (best_theta - eps)))
       {
         best_theta = theta;
-        qmin = q;
+        qmin = in_fz ? q : q.conjugate();
       }
     }
   }
 
-  // Fix sign to stabilize axis direction
-  if (qmin.w() < 0)
-    qmin.coeffs() *= -1;
+  // Shouldnt need this if forcing + and - test for in fz
+  // // Fix sign to stabilize axis direction
+  // if (qmin.w() < 0)
+  //   qmin.coeffs() *= -1;
 
   // Axis from vector part
   RealGradient axis(qmin.x(), qmin.y(), qmin.z());
-  Real theta_ax = 0.0;
-  Real phi_ax = 0.0;
+  Real polar_ax = 0.0;
+  Real azim_ax = 0.0;
 
   Real vnorm = axis.norm();
   if (vnorm > 1e-12)
   {
     axis /= vnorm;
-    // theta_ax = std::acos(std::clamp(axis(2), Real(-1), Real(1))); // full 0-pi
-    theta_ax = std::acos(std::clamp(std::abs(axis(2)), 0.0, 1.0)); // half 0-pi/2
-    phi_ax = std::atan2(axis(1), axis(0));
-    if (phi_ax < 0)
-      phi_ax += 2 * libMesh::pi;
+    // // theta_ax = std::acos(std::clamp(axis(2), Real(-1), Real(1))); // full 0-pi
+    // theta_ax = std::acos(std::clamp(std::abs(axis(2)), 0.0, 1.0)); // half 0-pi/2
+    // phi_ax = std::atan2(axis(1), axis(0));
+    // if (phi_ax < 0)
+    //   phi_ax += 2 * libMesh::pi;
+    // New Way from VECTOR
+    polar_ax = std::acos(axis(2)); // half 0-pi/2
+    // azim_ax = std::atan2(axis(1), axis(0)) + libMesh::pi; // Lins method in VECTOR?
+    azim_ax = std::atan2(axis(1), axis(0));
+    if (azim_ax < 0)
+      azim_ax += 2 * libMesh::pi;
   }
 
   MisorientationResult out;
   out.theta = best_theta;
-  out.theta_ax = theta_ax;
-  out.phi_ax = phi_ax;
+  out.polar_ax = polar_ax;
+  out.azim_ax = azim_ax;
   out.q = qmin;
   out.qnorm = vnorm; // will be ~1 because we normalized
   return out;
@@ -441,8 +409,8 @@ GBMisorientation::getMisorientationAngles()
     {
       auto miso = getMisorientationFromQuaternion(_quat_angle[i], _quat_angle[j]);
       _misorientation_angles.push_back(miso.theta); // / libMesh::pi * 180);
-      _miso_ax_polar.push_back(miso.theta_ax);
-      _miso_ax_azimuth.push_back(miso.phi_ax);
+      _miso_ax_polar.push_back(miso.polar_ax);
+      _miso_ax_azimuth.push_back(miso.azim_ax);
       _qmin.push_back(miso.q);
       _other.push_back(miso.qnorm);
     }

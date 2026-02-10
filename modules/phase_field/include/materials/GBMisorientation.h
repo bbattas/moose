@@ -18,8 +18,8 @@ public:
   struct MisorientationResult
   {
     double theta;    // |misorientation| in radians
-    double theta_ax; // polar
-    double phi_ax;   // azimuth
+    double polar_ax; // polar
+    double azim_ax;  // azimuth
     Eigen::Quaternion<Real> q;
     Real qnorm; // norm of minimizing quaternion (sanity check)
   };
@@ -66,20 +66,24 @@ protected:
   const unsigned int _op_num;
   const std::vector<const VariableValue *> _vals;
 
-  /// the max value of LAGB
-  const Real _angle_threshold;
-
   /// The parameters to calculate the misorientation
   std::vector<Eigen::Quaternion<Real>> _sym_quat;
   int _o_sym = 24;
   std::vector<EulerAngles> _euler_angle;
   std::vector<Eigen::Quaternion<Real>> _quat_angle;
 
-  /// precalculated element value
-  // ADMaterialProperty<Real> & _gb_type;
-
   // Misorientation function weight (mostly for later when vs inc)
   const Real _m_weight;
+
+  // Inputs
+  // Other Free Energy terms
+  const MaterialProperty<Real> & _gbe_iso;
+  const MaterialProperty<Real> & _kappa;
+  const MaterialProperty<Real> & _mu;
+
+  // Output Finals
+  MaterialProperty<Real> & _int_width;
+  MaterialProperty<Real> & _gamma;
 
   // TESTING
   MaterialProperty<Real> & _gtnum;
@@ -96,8 +100,8 @@ protected:
   MaterialProperty<Real> & _quat_mag;
   //
   MaterialProperty<Real> & _miso;
-  MaterialProperty<Real> & _miso_theta;
-  MaterialProperty<Real> & _miso_phi;
+  MaterialProperty<Real> & _miso_polar;
+  MaterialProperty<Real> & _miso_azim;
   //
   MaterialProperty<Real> & _miso_ang_en;
   MaterialProperty<Real> & _miso_ax_en;

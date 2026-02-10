@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 01_initial_newmat.i
-# File Location: /examples/agg/04_misorientation_testing/01_test_material/01_initial_newmat
-# Created Date: Monday February 2nd 2026
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 03_larger_refined.i
+# File Location: /examples/agg/04_misorientation_testing/01_test_material/03_larger_refined
+# Created Date: Tuesday February 10th 2026
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Tuesday February 10th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  development testbed input dealing with initial discovery and building a
-#  misorientation material in its own material just to keep it simple and separate
+#  using a case with elements at 0.5 instead of 1 to get more refinement
+#
 #
 #
 ##############################################################################
@@ -21,9 +21,7 @@
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    # filename = '../00_sub/2D_80x80_misTest.txt'
-    filename = '../00_sub/2D_80x80_misTest_fid0.txt'
-    # filename = '../00_sub/EBSD_ThreeGrains.txt'
+    filename = '../00_sub/2D_200x200_25gr_fid0.txt'
   []
   # [gmg]
   #   type = DistributedRectilinearMeshGenerator
@@ -42,7 +40,7 @@
 
 [GlobalParams]
   # Parameters used by several kernels that are defined globally to simplify input file
-  op_num = 3 #12 #15 # Number of order parameters used
+  op_num = 12 #15 # Number of order parameters used
   var_name_base = gr # Base name of grains
   # T = 1400 # Constant temperature of the simulation (for mobility calculation)
 []
@@ -67,7 +65,7 @@
   []
   [ebsd]
     type = PolycrystalEBSD
-    coloring_algorithm = jp
+    coloring_algorithm = bt #jp
     ebsd_reader = ebsd_reader
     enable_var_coloring = true
   []
@@ -79,6 +77,7 @@
     compute_var_to_feature_map = true
     compute_halo_maps = true # Only necessary for displaying HALOS
     execute_on = 'initial timestep_end'
+    halo_level = 2
     # use_less_than_threshold_comparison = true
     polycrystal_ic_uo = ebsd
   []
@@ -314,11 +313,11 @@
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  # end_time = 20
+  end_time = 20
   # dtmin = 0.1
   # end_time = 1000000.0
-  num_steps = 2
-  dt = 1
+  # num_steps = 5
+  dt = 0.4
   automatic_scaling = true
   compute_scaling_once = false
   # dt = 0.05

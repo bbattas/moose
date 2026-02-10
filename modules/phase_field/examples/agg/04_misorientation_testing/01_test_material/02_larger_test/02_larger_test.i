@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 01_initial_newmat.i
-# File Location: /examples/agg/04_misorientation_testing/01_test_material/01_initial_newmat
-# Created Date: Monday February 2nd 2026
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# File: 02_larger_test.i
+# File Location: /examples/agg/04_misorientation_testing/01_test_material/02_larger_test
+# Created Date: Tuesday February 10th 2026
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Tuesday February 10th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  development testbed input dealing with initial discovery and building a
-#  misorientation material in its own material just to keep it simple and separate
+#  initial test of misorientation stuff from larger file
+#  Exmple of initial microstructure being whack and remapping issues?
 #
 #
 ##############################################################################
@@ -21,9 +21,7 @@
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    # filename = '../00_sub/2D_80x80_misTest.txt'
-    filename = '../00_sub/2D_80x80_misTest_fid0.txt'
-    # filename = '../00_sub/EBSD_ThreeGrains.txt'
+    filename = '../00_sub/2D_60x60_25gr_fid0.txt'
   []
   # [gmg]
   #   type = DistributedRectilinearMeshGenerator
@@ -42,7 +40,7 @@
 
 [GlobalParams]
   # Parameters used by several kernels that are defined globally to simplify input file
-  op_num = 3 #12 #15 # Number of order parameters used
+  op_num = 12 #15 # Number of order parameters used
   var_name_base = gr # Base name of grains
   # T = 1400 # Constant temperature of the simulation (for mobility calculation)
 []
@@ -314,11 +312,11 @@
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  # end_time = 20
+  end_time = 20
   # dtmin = 0.1
   # end_time = 1000000.0
-  num_steps = 2
-  dt = 1
+  # num_steps = 5
+  dt = 0.4
   automatic_scaling = true
   compute_scaling_once = false
   # dt = 0.05
