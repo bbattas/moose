@@ -4,7 +4,7 @@
 # Created Date: Tuesday February 10th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday February 10th 2026
+# Last Modified: Wednesday February 11th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -77,7 +77,7 @@
     compute_var_to_feature_map = true
     compute_halo_maps = true # Only necessary for displaying HALOS
     execute_on = 'initial timestep_end'
-    halo_level = 2
+    halo_level = 6
     # use_less_than_threshold_comparison = true
     polycrystal_ic_uo = ebsd
   []

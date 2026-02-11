@@ -35,10 +35,15 @@ protected:
   /// Name of the function
   MaterialPropertyName _h_name;
 
-  /// Order parameters for phase alpha
-  const unsigned int _num_eta_gb;
-  const std::vector<const GenericVariableValue<is_ad> *> _eta_gb;
-  const std::vector<VariableName> _eta_gb_names;
+  // /// Order parameters for phase alpha
+  // const unsigned int _num_eta_gb;
+  // const std::vector<const GenericVariableValue<is_ad> *> _eta_gb;
+  // const std::vector<VariableName> _eta_gb_names;
+
+  /// order parameters
+  const unsigned int _op_num;
+  const std::vector<const VariableValue *> _vals;
+  const std::vector<VariableName> _vals_names;
 
   Real _hgb_threshold;
 
