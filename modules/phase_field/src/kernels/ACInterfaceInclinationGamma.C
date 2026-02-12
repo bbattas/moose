@@ -11,7 +11,7 @@ ACInterfaceInclinationGamma::validParams()
   // params.addParam<MaterialPropertyName>("kappa_name", "kappa_op", "The kappa used with the
   // kernel");
   params.addParam<bool>("variable_L",
-                        true,
+                        false,
                         "The mobility is a function of any MOOSE variable (if "
                         "this is set to false L must be constant over the "
                         "entire domain!)");
