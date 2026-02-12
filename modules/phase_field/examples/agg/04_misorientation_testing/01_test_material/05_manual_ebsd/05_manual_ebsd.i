@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 03_larger_refined.i
-# File Location: /examples/agg/04_misorientation_testing/01_test_material/03_larger_refined
-# Created Date: Tuesday February 10th 2026
+# File: 05_manual_ebsd.i
+# File Location: /examples/agg/04_misorientation_testing/01_test_material/05_manual_ebsd
+# Created Date: Thursday February 12th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Thursday February 12th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  using a case with elements at 0.5 instead of 1 to get more refinement
+#  my custom kinda bicrystal ebsd input
 #
 #
 #
@@ -21,7 +21,7 @@
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    filename = '../00_sub/2D_200x200_25gr_fid0.txt'
+    filename = '../00_sub/manual_ebsd.txt'
   []
   # [gmg]
   #   type = DistributedRectilinearMeshGenerator
@@ -40,7 +40,7 @@
 
 [GlobalParams]
   # Parameters used by several kernels that are defined globally to simplify input file
-  op_num = 12 #15 # Number of order parameters used
+  op_num = 3 #15 # Number of order parameters used
   var_name_base = gr # Base name of grains
   # T = 1400 # Constant temperature of the simulation (for mobility calculation)
 []
@@ -194,13 +194,13 @@
   []
 []
 
-# [BCs]
-#   [Periodic]
-#     [All]
-#       auto_direction = 'x y'
-#     []
-#   []
-# []
+[BCs]
+  [Periodic]
+    [All]
+      auto_direction = 'x y'
+    []
+  []
+[]
 
 [Materials]
   [constants]
@@ -313,7 +313,7 @@
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  end_time = 20
+  end_time = 30
   # dtmin = 0.1
   # end_time = 1000000.0
   # num_steps = 5

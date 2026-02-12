@@ -21,7 +21,7 @@
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    filename = '../00_sub/2D_200x200_25gr_fid0.txt'
+    filename = '../00_sub/2D_160x160_largegrain_fid0.txt'
   []
   # [gmg]
   #   type = DistributedRectilinearMeshGenerator
@@ -40,7 +40,7 @@
 
 [GlobalParams]
   # Parameters used by several kernels that are defined globally to simplify input file
-  op_num = 12 #15 # Number of order parameters used
+  op_num = 6 #15 # Number of order parameters used
   var_name_base = gr # Base name of grains
   # T = 1400 # Constant temperature of the simulation (for mobility calculation)
 []
