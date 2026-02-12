@@ -52,6 +52,8 @@ protected:
 
   MaterialProperty<Real> & _gamma_qp;
 
+  MaterialProperty<bool> * _elem_noij;
+
   // AC Mobility
   const bool _aniso_L;
   const MaterialProperty<Real> & _L0;

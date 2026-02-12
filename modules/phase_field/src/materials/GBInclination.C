@@ -79,8 +79,12 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _kappa(getMaterialProperty<Real>(getParam<MaterialPropertyName>("kappa"))),
     _const_m(getParam<Real>("free_energy_m")),
     _mu(declareProperty<Real>("mu")),
-    _int_width(declareProperty<Real>("int_width_qp")),
-    _gamma_qp(declareProperty<Real>("gamma_qp")),
+    // Elemental rounding needed or not here
+    _int_width(_limit_umag ? declareProperty<Real>("int_width")
+                           : declareProperty<Real>("int_width_qp")),
+    _gamma_qp(_limit_umag ? declareProperty<Real>("gamma_asymm")
+                          : declareProperty<Real>("gamma_qp")),
+    _elem_noij(_limit_umag ? &declareProperty<bool>("elem_no_ij") : nullptr),
     // Optional Anisotropic L
     _aniso_L(getParam<bool>("aniso_L")),
     _L0(getMaterialProperty<Real>("L0")),
@@ -474,6 +478,9 @@ GBInclination::computeQpProperties()
       }
     }
   }
+
+  if (_limit_umag)
+    (*_elem_noij)[_qp] = false;
 
   if (_no_ij_pairs[_qp])
     _testout1[_qp] = 0;
