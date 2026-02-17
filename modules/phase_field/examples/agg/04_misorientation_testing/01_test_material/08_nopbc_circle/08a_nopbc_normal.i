@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 05_manual_ebsd.i
-# File Location: /examples/agg/04_misorientation_testing/01_test_material/05_manual_ebsd
-# Created Date: Thursday February 12th 2026
+# File: 08a_nopbc_normal.i
+# File Location: /examples/agg/04_misorientation_testing/01_test_material/08_nopbc_circle
+# Created Date: Monday February 16th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday February 16th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  my custom kinda bicrystal ebsd input
+#
 #
 #
 #
@@ -21,7 +21,7 @@
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    filename = '../00_sub/manual_alt_r45.txt'
+    filename = '../00_sub/manual_ebsd_r45_nopbc.txt'
   []
   # [gmg]
   #   type = DistributedRectilinearMeshGenerator
@@ -194,13 +194,13 @@
   []
 []
 
-[BCs]
-  [Periodic]
-    [All]
-      auto_direction = 'x y'
-    []
-  []
-[]
+# [BCs]
+#   [Periodic]
+#     [All]
+#       auto_direction = 'x y'
+#     []
+#   []
+# []
 
 [Materials]
   [constants]
@@ -313,10 +313,10 @@
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  end_time = 30
+  end_time = 40
   # dtmin = 0.1
   # end_time = 1000000.0
-  num_steps = 1
+  # num_steps = 1
   dt = 0.4
   automatic_scaling = true
   compute_scaling_once = false
@@ -377,5 +377,5 @@
   # []
   # file_base = 20_15gr_aniso${amag}_a${a_tol}_i${i_tol}
   # file_base = 17_bicr_large_withnewKernel
-  # file_base = test
+  # file_base = 06_normal
 []

@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 05_manual_ebsd.i
-# File Location: /examples/agg/04_misorientation_testing/01_test_material/05_manual_ebsd
-# Created Date: Thursday February 12th 2026
+# File: 10a_bicr_low.i
+# File Location: /examples/agg/04_misorientation_testing/01_test_material/10_bicr
+# Created Date: Tuesday February 17th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday February 16th 2026
+# Last Modified: Tuesday February 17th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  my custom kinda bicrystal ebsd input
+#  bicrystal with low misorientation angle
 #
 #
 #
@@ -21,7 +21,7 @@
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    filename = '../00_sub/manual_alt_r45.txt'
+    filename = '../00_sub/manual_bicr_low_r45.txt'
   []
   # [gmg]
   #   type = DistributedRectilinearMeshGenerator
@@ -118,6 +118,8 @@
     order = CONSTANT
     family = MONOMIAL
   []
+  [contour]
+  []
 []
 
 [Kernels]
@@ -190,6 +192,13 @@
     ebsd_reader = ebsd_reader
     grain_tracker = grain_tracker
     variable = ebsd_numbers
+    execute_on = 'initial timestep_end'
+  []
+  [contour]
+    type = ParsedAux
+    variable = contour
+    coupled_variables = 'gr0 gr1'
+    expression = 'gr0 * gr0 / ((gr0 * gr0) + (gr1 * gr1))'
     execute_on = 'initial timestep_end'
   []
 []
@@ -313,10 +322,10 @@
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  end_time = 30
+  end_time = 40
   # dtmin = 0.1
   # end_time = 1000000.0
-  num_steps = 1
+  # num_steps = 1
   dt = 0.4
   automatic_scaling = true
   compute_scaling_once = false
@@ -377,5 +386,5 @@
   # []
   # file_base = 20_15gr_aniso${amag}_a${a_tol}_i${i_tol}
   # file_base = 17_bicr_large_withnewKernel
-  # file_base = test
+  # file_base = 06_normal
 []
