@@ -33,8 +33,16 @@ GBInclination::validParams()
       "free_energy_m", 1, "Free energy function constant m (or mu in PF kernels).");
   // OPTIONAL Anisotropic L
   params.addParam<bool>("aniso_L", false, "Is L anisotropic, else L=L0.");
+  params.addParam<bool>(
+      "noDeriv_L",
+      false,
+      "Use anisotropic L but without the derivatives (for kernel with variable_L=false)");
   params.addParam<MaterialPropertyName>(
       "L0", "L0", "AC mobility prefactor/reference value material.");
+  MooseEnum combine_form("weighted=0 avg=1", "weighted");
+  params.addParam<MooseEnum>("combine_gb_form",
+                             combine_form,
+                             "Which GB combination approach, weighted average or just average.");
   // params.addParam<UserObjectName>("grain_tracker",
   //                                 "The GrainTracker UserObject to get values from.");
   // params.addParam<UserObjectName>("ffc", "The FFC UserObject to get values from.");
@@ -87,6 +95,8 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _elem_noij(_limit_umag ? &declareProperty<bool>("elem_no_ij") : nullptr),
     // Optional Anisotropic L
     _aniso_L(getParam<bool>("aniso_L")),
+    _no_deriv_L(getParam<bool>("noDeriv_L")),
+    _gb_combo(getParam<MooseEnum>("combine_gb_form")),
     _L0(getMaterialProperty<Real>("L0")),
     _L_ij(declareProperty<std::vector<Real>>("L_ij")),
     // _dL_dgradeta(declareProperty<std::vector<RealGradient>>("dL_dgradeta")),
@@ -431,6 +441,14 @@ GBInclination::computeQpProperties()
         d2L_i[j] -= _L0[_qp] * d2finc_dgradeta2[k] * gb2; // (i,j)
         d2L_j[i] -= _L0[_qp] * d2finc_dgradeta2[k] * gb2; // (j,i)
       }
+      // Optionally anisotropic L without any derivatives
+      if (_no_deriv_L && !_aniso_L)
+      {
+        Real gb2 = (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+        // could do the Lij and derivativs in the kernel instead?
+        Lij[k] = _L0[_qp] * finc[k];
+        Lij_sum += Lij[k] * gb2;
+      }
     }
   // Summation and whole outputs
   // Check if no ij pairs at qp use finc = 1 for calculation of condensed output
@@ -457,8 +475,10 @@ GBInclination::computeQpProperties()
   // AC Mobility
   if (!_aniso_L)
   {
-    // Normal constant L formulation
-    _L[_qp] = _L0[_qp];
+    if (_no_deriv_L)
+      _L[_qp] = Lij_sum / hgb_tot;
+    else
+      _L[_qp] = _L0[_qp];
   }
   else if (_no_ij_pairs[_qp])
   {

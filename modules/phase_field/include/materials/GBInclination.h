@@ -56,6 +56,9 @@ protected:
 
   // AC Mobility
   const bool _aniso_L;
+  const bool _no_deriv_L;
+  /// Enum for which gb combination approach to  use
+  int _gb_combo;
   const MaterialProperty<Real> & _L0;
   MaterialProperty<std::vector<Real>> & _L_ij;
   // MaterialProperty<std::vector<RealGradient>> & _dL_dgradeta;
