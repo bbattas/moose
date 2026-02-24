@@ -101,7 +101,8 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _L_ij(declareProperty<std::vector<Real>>("L_ij")),
     // _dL_dgradeta(declareProperty<std::vector<RealGradient>>("dL_dgradeta")),
     // _d2L_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2L_dgradeta2")),
-    _L(_aniso_L ? declareProperty<Real>("L_qp") : declareProperty<Real>("L")),
+    _L(declareProperty<Real>("L")),
+    // _aniso_L ? declareProperty<Real>("L_qp") : declareProperty<Real>("L")),
     // Moelans L Derivatives
     _dL_deta(_op_num),
     _d2L_deta2(_op_num),
@@ -240,6 +241,7 @@ GBInclination::computeQpProperties()
   _testoutgrad[_qp] = RealGradient(0.0);
 
   if (!_no_ij_pairs[_qp])
+  {
     for (std::size_t k = 0; k < theta.size(); ++k) // theta.size()
     {
       if (theta[k] == -1.0)
@@ -415,12 +417,22 @@ GBInclination::computeQpProperties()
           0.2907;
       iw_ij[k] = (std::sqrt(_kappa[_qp] / _const_m)) * (std::sqrt(1 / f0_int));
 
-      // Save summation properties
-      hgb_tot += (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
-      iw_sum +=
-          iw_ij[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
-      gamma_sum +=
-          gamma[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+      if (_gb_combo == 0)
+      {
+        // Save summation properties
+        hgb_tot += (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+        iw_sum +=
+            iw_ij[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+        gamma_sum +=
+            gamma[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+      }
+      else
+      {
+        // average (not weighted)
+        hgb_tot += 1;
+        iw_sum += iw_ij[k];
+        gamma_sum += gamma[k];
+      }
 
       // Optionally anisotropic L
       if (_aniso_L)
@@ -447,9 +459,13 @@ GBInclination::computeQpProperties()
         Real gb2 = (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
         // could do the Lij and derivativs in the kernel instead?
         Lij[k] = _L0[_qp] * finc[k];
-        Lij_sum += Lij[k] * gb2;
+        if (_gb_combo == 0)
+          Lij_sum += Lij[k] * gb2;
+        else
+          Lij_sum += Lij[k];
       }
     }
+  }
   // Summation and whole outputs
   // Check if no ij pairs at qp use finc = 1 for calculation of condensed output
   if ((_no_ij_pairs[_qp]) || (hgb_tot < 1e-6))
@@ -476,11 +492,16 @@ GBInclination::computeQpProperties()
   if (!_aniso_L)
   {
     if (_no_deriv_L)
-      _L[_qp] = Lij_sum / hgb_tot;
+    {
+      if ((_no_ij_pairs[_qp]) || (hgb_tot < 1e-6))
+        _L[_qp] = _L0[_qp];
+      else
+        _L[_qp] = Lij_sum / hgb_tot;
+    }
     else
       _L[_qp] = _L0[_qp];
   }
-  else if (_no_ij_pairs[_qp])
+  else if (_no_ij_pairs[_qp] || (hgb_tot < 1e-6))
   {
     // aniso L but skipping this qp
     _L[_qp] = _L0[_qp];
