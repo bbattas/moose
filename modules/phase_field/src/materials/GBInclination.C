@@ -417,52 +417,38 @@ GBInclination::computeQpProperties()
           0.2907;
       iw_ij[k] = (std::sqrt(_kappa[_qp] / _const_m)) * (std::sqrt(1 / f0_int));
 
-      if (_gb_combo == 0)
-      {
-        // Save summation properties
-        hgb_tot += (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
-        iw_sum +=
-            iw_ij[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
-        gamma_sum +=
-            gamma[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
-      }
+      Real gb_ij_weight = 0.0;
+      if (_gb_combo == 0) // Weighted summation
+        gb_ij_weight = (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
       else
-      {
-        // average (not weighted)
-        hgb_tot += 1;
-        iw_sum += iw_ij[k];
-        gamma_sum += gamma[k];
-      }
+        gb_ij_weight = 1;
+
+      // sum based on weight/avg multiplier
+      hgb_tot += gb_ij_weight;
+      iw_sum += iw_ij[k] * gb_ij_weight;
+      gamma_sum += gamma[k] * gb_ij_weight;
 
       // Optionally anisotropic L
-      if (_aniso_L)
+      if (_aniso_L || _no_deriv_L)
       {
-        Real gb2 = (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+        // Real gb2 = (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
         // could do the Lij and derivativs in the kernel instead?
         Lij[k] = _L0[_qp] * finc[k];
-        Lij_sum += Lij[k] * gb2;
-        // dL[k] = _L0[_qp] * dfinc_dgradeta[k];
-        // d2L[k] = _L0[_qp] * d2finc_dgradeta2[k];
-        (*_dL_dgradeta[i])[_qp] += _L0[_qp] * dfinc_dgradeta[k] * gb2;
-        (*_dL_dgradeta[j])[_qp] -= _L0[_qp] * dfinc_dgradeta[k] * gb2;
-        auto & d2L_i = (*_d2L_dgradeta2[i])[_qp];
-        auto & d2L_j = (*_d2L_dgradeta2[j])[_qp];
+        Lij_sum += Lij[k] * gb_ij_weight;
+        if (_aniso_L)
+        {
+          // dL[k] = _L0[_qp] * dfinc_dgradeta[k];
+          // d2L[k] = _L0[_qp] * d2finc_dgradeta2[k];
+          (*_dL_dgradeta[i])[_qp] += _L0[_qp] * dfinc_dgradeta[k] * gb_ij_weight;
+          (*_dL_dgradeta[j])[_qp] -= _L0[_qp] * dfinc_dgradeta[k] * gb_ij_weight;
+          auto & d2L_i = (*_d2L_dgradeta2[i])[_qp];
+          auto & d2L_j = (*_d2L_dgradeta2[j])[_qp];
 
-        d2L_i[i] += _L0[_qp] * d2finc_dgradeta2[k] * gb2; // (i,i)
-        d2L_j[j] += _L0[_qp] * d2finc_dgradeta2[k] * gb2; // (j,j)
-        d2L_i[j] -= _L0[_qp] * d2finc_dgradeta2[k] * gb2; // (i,j)
-        d2L_j[i] -= _L0[_qp] * d2finc_dgradeta2[k] * gb2; // (j,i)
-      }
-      // Optionally anisotropic L without any derivatives
-      if (_no_deriv_L && !_aniso_L)
-      {
-        Real gb2 = (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
-        // could do the Lij and derivativs in the kernel instead?
-        Lij[k] = _L0[_qp] * finc[k];
-        if (_gb_combo == 0)
-          Lij_sum += Lij[k] * gb2;
-        else
-          Lij_sum += Lij[k];
+          d2L_i[i] += _L0[_qp] * d2finc_dgradeta2[k] * gb_ij_weight; // (i,i)
+          d2L_j[j] += _L0[_qp] * d2finc_dgradeta2[k] * gb_ij_weight; // (j,j)
+          d2L_i[j] -= _L0[_qp] * d2finc_dgradeta2[k] * gb_ij_weight; // (i,j)
+          d2L_j[i] -= _L0[_qp] * d2finc_dgradeta2[k] * gb_ij_weight; // (j,i)
+        }
       }
     }
   }
