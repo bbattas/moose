@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 01_inc_iso.i
-# File Location: /examples/agg/05_large_bicr_L/02_inc_circleic_aspect/01_inc_iso
-# Created Date: Friday February 27th 2026
+# File: 04_a10_isoL.i
+# File Location: /examples/agg/05_large_bicr_L/02_inc_circleic_aspect/04_a10_isoL
+# Created Date: Sunday March 1st 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Sunday March 1st 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  fully iso version of the inclination everything
+#  Iso L, aniso material and kernel at 10%
 #
 #
 #
@@ -16,7 +16,7 @@
 
 i_tol = 0
 a_tol = 5
-amag = 0.0
+amag = 0.1
 
 [Mesh]
   [ebsd_mesh]
@@ -341,20 +341,20 @@ amag = 0.0
   # dtmin = 0.1
   # end_time = 1000000.0
   # num_steps = 1
-  dt = 1
+  # dt = 1
   automatic_scaling = true
   compute_scaling_once = false
   # dt = 0.05
   # dtmax = 0.5
   # dt = 2e-5
-  # [TimeStepper]
-  #   type = IterationAdaptiveDT
-  #   dt = 1 #0.001
-  #   # cutback_factor = 0.9
-  #   # growth_factor = 1.1
-  #   optimal_iterations = 6
-  #   linear_iteration_ratio = 1e5
-  # []
+  [TimeStepper]
+    type = IterationAdaptiveDT
+    dt = 0.5 #0.001
+    # cutback_factor = 0.9
+    # growth_factor = 1.1
+    optimal_iterations = 6
+    linear_iteration_ratio = 1e5
+  []
 
   # start_time = 0.0
   # dt = 0.1

@@ -1,40 +1,40 @@
 ##############################################################################
-# File: 02_a05_isoL.i
-# File Location: /examples/agg/05_large_bicr_L/02_inc_circleic_aspect/02_a05_isoL
-# Created Date: Friday February 27th 2026
+# File: 14_a10_anisoL.i
+# File Location: /examples/agg/05_large_bicr_L/02_inc_circleic_aspect/14_a10_anisoL
+# Created Date: Sunday March 1st 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday February 27th 2026
+# Last Modified: Sunday March 1st 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Iso L, aniso material and kernel at 5%
-#
+#  Fully aniso L with derivatives and second order mesh/variables,
+#  aniso material and kernel at 10%
 #
 #
 ##############################################################################
 
 i_tol = 0
 a_tol = 5
-amag = 0.5
+amag = 0.1
 
 [Mesh]
-  [ebsd_mesh]
-    type = EBSDMeshGenerator
-    filename = '../../00_sub/bicr_200_r80.txt'
-  []
-  # [gmg]
-  #   type = DistributedRectilinearMeshGenerator
-  #   dim = 2
-  #   nx = 256
-  #   ny = 256
-  #   xmin = 0
-  #   xmax = 256
-  #   ymin = 0
-  #   ymax = 256
+  # [ebsd_mesh]
+  #   type = EBSDMeshGenerator
+  #   filename = '../../00_sub/bicr_200_r80.txt'
   # []
-  # parallel_type = DISTRIBUTED # Periodic BCs
-  # second_order = false
+  [gmg]
+    type = DistributedRectilinearMeshGenerator
+    dim = 2
+    nx = 200
+    ny = 200
+    xmin = 0
+    xmax = 200
+    ymin = 0
+    ymax = 200
+  []
+  parallel_type = DISTRIBUTED
+  second_order = true
   # uniform_refine = 1
 []
 
@@ -45,27 +45,48 @@ amag = 0.5
 
 [Variables]
   [PolycrystalVariables]
+    order = SECOND
   []
 []
 
 [ICs]
-  [PolycrystalICs]
-    [PolycrystalColoringIC]
-      polycrystal_ic_uo = ebsd
-    []
+  # [PolycrystalICs]
+  #   [PolycrystalColoringIC]
+  #     polycrystal_ic_uo = ebsd
+  #   []
+  # []
+  [gr0_IC]
+    type = SmoothCircleIC
+    invalue = 1
+    outvalue = 0
+    radius = 80
+    variable = gr0
+    x1 = 100
+    y1 = 100
+    # int_width = 0
+  []
+  [gr1_IC]
+    type = SmoothCircleIC
+    invalue = 0
+    outvalue = 1
+    radius = 80
+    variable = gr1
+    x1 = 100
+    y1 = 100
+    # int_width = 0
   []
 []
 
 [UserObjects]
-  [ebsd_reader]
-    type = EBSDReader
-  []
-  [ebsd]
-    type = PolycrystalEBSD
-    coloring_algorithm = bt #jp
-    ebsd_reader = ebsd_reader
-    enable_var_coloring = true
-  []
+  # [ebsd_reader]
+  #   type = EBSDReader
+  # []
+  # [ebsd]
+  #   type = PolycrystalEBSD
+  #   coloring_algorithm = bt #jp
+  #   ebsd_reader = ebsd_reader
+  #   enable_var_coloring = true
+  # []
   [grain_tracker]
     type = GrainTracker
     # variable = 'gr0 gr1 gr2 gr3 gr4'
@@ -76,7 +97,7 @@ amag = 0.5
     execute_on = 'initial timestep_end'
     halo_level = 6
     # use_less_than_threshold_comparison = true
-    polycrystal_ic_uo = ebsd
+    # polycrystal_ic_uo = ebsd
   []
   [term]
     type = Terminator
@@ -104,7 +125,7 @@ amag = 0.5
     variable_mobility = false
   []
   [PolycrystalInclinationKernel]
-    variable_mobility = false
+    variable_mobility = true
   []
 []
 
@@ -123,14 +144,14 @@ amag = 0.5
   []
   # Import the unique grain ID from ebsd data, and the data structure
   # will change with the guide from grain_tracker
-  [ebsd_numbers]
-    type = EBSDReaderAvgDataAux
-    data_name = feature_id
-    ebsd_reader = ebsd_reader
-    grain_tracker = grain_tracker
-    variable = ebsd_numbers
-    execute_on = 'initial timestep_end'
-  []
+  # [ebsd_numbers]
+  #   type = EBSDReaderAvgDataAux
+  #   data_name = feature_id
+  #   ebsd_reader = ebsd_reader
+  #   grain_tracker = grain_tracker
+  #   variable = ebsd_numbers
+  #   execute_on = 'initial timestep_end'
+  # []
   [contour]
     type = ParsedAux
     variable = contour
@@ -183,7 +204,7 @@ amag = 0.5
     ifunc_d = 0
     # L
     combine_gb_form = avg
-    aniso_L = false
+    aniso_L = true
     noDeriv_L = false
     # Other Properties
     gb_energy_iso_name = sigma0
