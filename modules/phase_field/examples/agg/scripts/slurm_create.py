@@ -7,6 +7,8 @@ import logging
 import subprocess
 import json
 import copy
+from pathlib import Path
+
 
 
 pt = logging.warning
@@ -39,6 +41,8 @@ parser.add_argument('--burst','-b', action='store_true', help='SLURM run as a bu
 parser.add_argument('--time','-t', type=int, help='''SLURM number of hours to run, on the default partitions
                     of [hpg-default, hpg2-compute, bigmem] burst limit is 96, while regular limit is 744 (31 days).
                     Default=72 hours''')
+parser.add_argument('--array', type=str,default=None,
+                    help='Relative path to txt file for array submission. Default=NONE. Does not work with --force.')
 parser.add_argument('--args','-c', type=str, help='Extra CL arguments at the end. Default=NONE')
 parser.add_argument('--recover', action='store_true', help='''Add the recovery flag to the executable, without a '''
                     '''specified checkpoint file.''')
@@ -156,6 +160,36 @@ def checkForInput():
         verb('  No Input File')
         return False, False
 
+# Check for txt file for array submission
+def checkForArray():
+    if cl_args.array is not None:
+        dirlead = "../" if cl_args.subdirs else ""
+        p = Path(dirlead+cl_args.array).expanduser()
+
+        if p.suffix.lower() == ".txt":
+            matches = [p] if p.is_file() else []
+        else:
+            parent = p.parent if str(p.parent) != "" else Path(".")
+            pattern = p.name + "*.txt"
+            matches = list(parent.glob(pattern))
+
+        if len(matches) == 1:
+            full_path = os.path.abspath(matches[0])
+            with open(full_path, "r") as f:
+                nrows = sum(1 for _ in f)
+            verb(f"  Array file is: {full_path}")
+            verb(f"  Number of rows: {nrows}")
+            return nrows, full_path
+        elif len(matches) == 0:
+            raise ValueError("  No .txt file found matching: "+str(p))
+            # raise ValueError()
+            # return False, False
+        else:
+            verb(f"  More than one .txt file found matching: {p}")
+            for f in matches:
+                verb(f"    {f}")
+            # return False, False
+            raise ValueError(f"More than one .txt file found matching: "+str(p))
 
 # Optional manual input mode for the first one
 def manualInput():
@@ -220,6 +254,9 @@ def manualInput():
 def slurmWrite(cwd,inputName):
     slurmList = []
     if cl_args.inl == False:
+        # For array submission zero these
+        arrayNum = 1
+        arrayPath = None
         # Slurm style
         # Building the header
         slurmList.append('#!/bin/bash')
@@ -241,6 +278,11 @@ def slurmWrite(cwd,inputName):
         slurmList.append('#SBATCH --mem-per-cpu='+cl_args.mem_per_cpu)
         # Distribution line
         slurmList.append('#SBATCH --distribution=cyclic:cyclic')
+        # If an array submission:
+        if cl_args.array is not None:
+            arrayNum, arrayPath = checkForArray()
+            slurmList.append('#SBATCH --array=1-'+str(arrayNum))
+
         # A nice empty line for cleanliness
         slurmList.append('')
         # Partition if specified
@@ -251,10 +293,14 @@ def slurmWrite(cwd,inputName):
         # Time to run in hours
         slurmList.append('#SBATCH --time='+str(cl_args.time)+':00:00')
         # Terminal save name
-        slurmList.append('#SBATCH --output=moose_console_%j.out')
+        if cl_args.array is not None:
+            slurmList.append('#SBATCH --output=moose_console_%A_%a.out')
+        else:
+            slurmList.append('#SBATCH --output=moose_console_%j.out')
         # Email
         slurmList.append('#SBATCH --mail-user=bbattas@ufl.edu')
-        slurmList.append('#SBATCH --mail-type=BEGIN,END,FAIL')
+        if cl_args.array is None:
+            slurmList.append('#SBATCH --mail-type=BEGIN,END,FAIL')
         # Account to run on and burst or not
         slurmList.append('#SBATCH --account=michael.tonks')
         if cl_args.burst:
@@ -278,6 +324,8 @@ def slurmWrite(cwd,inputName):
         slurmList.append('')
         slurmList.append('MOOSE='+pf_opt)
         slurmList.append('OUTPUT='+cwd)
+        if cl_args.array is not None:
+            slurmList.append('OV_FILE='+arrayPath)
         # Module loading
         mpiflag = None
         # RH8
@@ -303,19 +351,39 @@ def slurmWrite(cwd,inputName):
         if cl_args.mpi:
             slurmList.append(' ')
             slurmList.append('export OMPI_MCA_coll_hcoll_enable=0')
+        # Big block of array job things
+        if cl_args.array is not None:
+            slurmList.extend([
+                '',
+                'LINE="$(awk \'NF>0 && $1 !~ /^#/\' "${OV_FILE}" | sed -n "${SLURM_ARRAY_TASK_ID}p")"',
+                '',
+                'if [[ -z "${LINE}" ]]; then',
+                '  echo "No overrides for task ${SLURM_ARRAY_TASK_ID}. Check the array size or ${OVERRIDES_FILE}."',
+                '  exit 1',
+                'fi',
+                '',
+                'echo "[$(date)] Task ${SLURM_ARRAY_TASK_ID} overrides: ${LINE}"',
+                'echo "[$(date)] Running: srun ${MOOSE} -i INPUT.i ${LINE}"',
+            ])
         # Actually go to the output and run the shit
         slurmList.append('')
         slurmList.append('cd $OUTPUT')
-        if cl_args.force:
+        if cl_args.array is not None:
             if cl_args.args == None:
-                slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i' + (' --recover' if cl_args.recover else ''))
+                slurmList.append('srun '+mpiflag+' $MOOSE -i $OUTPUT/'+inputName+'.i' + (' --recover ${LINE}' if cl_args.recover else ' ${LINE}'))
             else:
-                slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i ' + ('--recover ' if cl_args.recover else '') +str(cl_args.args))
+                slurmList.append('srun '+mpiflag+' $MOOSE -i $OUTPUT/'+inputName+'.i' + (' --recover ${LINE} ' if cl_args.recover else ' ${LINE} ')+str(cl_args.args))
         else:
-            if cl_args.args == None:
-                slurmList.append('srun '+mpiflag+' $MOOSE -i $OUTPUT/'+inputName+'.i' + (' --recover' if cl_args.recover else ''))
+            if cl_args.force:
+                if cl_args.args == None:
+                    slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i' + (' --recover' if cl_args.recover else ''))
+                else:
+                    slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i ' + ('--recover ' if cl_args.recover else '') +str(cl_args.args))
             else:
-                slurmList.append('srun '+mpiflag+' $MOOSE -i $OUTPUT/'+inputName+'.i ' + ('--recover ' if cl_args.recover else '')+str(cl_args.args))
+                if cl_args.args == None:
+                    slurmList.append('srun '+mpiflag+' $MOOSE -i $OUTPUT/'+inputName+'.i' + (' --recover' if cl_args.recover else ''))
+                else:
+                    slurmList.append('srun '+mpiflag+' $MOOSE -i $OUTPUT/'+inputName+'.i ' + ('--recover ' if cl_args.recover else '')+str(cl_args.args))
 
         # Output the slurm script
         # verb(slurmList)
@@ -392,6 +460,10 @@ def slurmHeaderPreview(interactive):
     slurmList.append('#SBATCH --mem-per-cpu='+cl_args.mem_per_cpu)
     # Distribution line
     slurmList.append('#SBATCH --distribution=cyclic:cyclic')
+    # If an array submission:
+    if cl_args.array is not None:
+        # arrayNum, arrayPath = checkForArray()
+        slurmList.append('#SBATCH --array=1-##')#+str(arrayNum))
     # A nice empty line for cleanliness
     slurmList.append('')
     # Partition if specified
@@ -402,14 +474,18 @@ def slurmHeaderPreview(interactive):
     # Time to run in hours
     slurmList.append('#SBATCH --time='+str(cl_args.time)+':00:00')
     # Terminal save name
-    slurmList.append('#SBATCH --output=moose_console_%j.out')
+    if cl_args.array is not None:
+        slurmList.append('#SBATCH --output=moose_console_%A_%a.out')
+    else:
+        slurmList.append('#SBATCH --output=moose_console_%j.out')
     # Email
     slurmList.append('#SBATCH --mail-user=bbattas@ufl.edu')
-    slurmList.append('#SBATCH --mail-type=BEGIN,END,FAIL')
+    if cl_args.array is None:
+        slurmList.append('#SBATCH --mail-type=BEGIN,END,FAIL')
     # Account to run on and burst or not
     slurmList.append('#SBATCH --account=michael.tonks')
     if cl_args.burst:
-        # verb('    Specifying burst allocation')
+        verb('    Specifying burst allocation')
         slurmList.append('#SBATCH --qos=michael.tonks-b')
     # # Current Exclude List (2/1/24)
     # slurmList.append('#SBATCH --exclude=c0702a-s28,c0702a-s29,c0703a-s18,c0706a-s7,c0709a-s21,c0710a-s28,c0713a-s18,c0713a-s19')
