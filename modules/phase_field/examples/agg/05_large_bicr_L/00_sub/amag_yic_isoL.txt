@@ -1,0 +1,5 @@
+amag=0.025 yic=75.5
+amag=0.05 yic=70.5
+amag=0.10 yic=60.7
+amag=0.15 yic=54.2
+amag=0.20 yic=43.8
