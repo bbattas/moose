@@ -37,6 +37,8 @@ GBInclination::validParams()
       "noDeriv_L",
       false,
       "Use anisotropic L but without the derivatives (for kernel with variable_L=false)");
+  params.addParam<bool>(
+      "aniso_gbmob", false, "Apply gbe anisotropy also to the gb mobility (inferred).");
   params.addParam<MaterialPropertyName>(
       "L0", "L0", "AC mobility prefactor/reference value material.");
   MooseEnum combine_form("weighted=0 avg=1", "weighted");
@@ -96,6 +98,7 @@ GBInclination::GBInclination(const InputParameters & parameters)
     // Optional Anisotropic L
     _aniso_L(getParam<bool>("aniso_L")),
     _no_deriv_L(getParam<bool>("noDeriv_L")),
+    _aniso_mob(getParam<bool>("aniso_gbmob")),
     _gb_combo(getParam<MooseEnum>("combine_gb_form")),
     _L0(getMaterialProperty<Real>("L0")),
     _L_ij(declareProperty<std::vector<Real>>("L_ij")),
@@ -433,21 +436,42 @@ GBInclination::computeQpProperties()
       {
         // Real gb2 = (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
         // could do the Lij and derivativs in the kernel instead?
-        Lij[k] = _L0[_qp] * finc[k];
+        Real dLdf = 0.0;
+        Real d2Ldf2 = 0.0;
+        if (_aniso_mob) // if gbmob is aniso same as gbe then L has the aniso f applied twice
+        {
+          Lij[k] = _L0[_qp] * finc[k] * finc[k];
+          dLdf = _L0[_qp] * finc[k];
+          d2Ldf2 = _L0[_qp];
+        }
+        else
+        {
+          Lij[k] = _L0[_qp] * finc[k];
+          dLdf = _L0[_qp];
+          d2Ldf2 = 0.0;
+        }
         Lij_sum += Lij[k] * gb_ij_weight;
         if (_aniso_L)
         {
           // dL[k] = _L0[_qp] * dfinc_dgradeta[k];
           // d2L[k] = _L0[_qp] * d2finc_dgradeta2[k];
-          (*_dL_dgradeta[i])[_qp] += _L0[_qp] * dfinc_dgradeta[k] * gb_ij_weight;
-          (*_dL_dgradeta[j])[_qp] -= _L0[_qp] * dfinc_dgradeta[k] * gb_ij_weight;
+          (*_dL_dgradeta[i])[_qp] += dLdf * dfinc_dgradeta[k] * gb_ij_weight;
+          (*_dL_dgradeta[j])[_qp] -= dLdf * dfinc_dgradeta[k] * gb_ij_weight;
           auto & d2L_i = (*_d2L_dgradeta2[i])[_qp];
           auto & d2L_j = (*_d2L_dgradeta2[j])[_qp];
 
-          d2L_i[i] += _L0[_qp] * d2finc_dgradeta2[k] * gb_ij_weight; // (i,i)
-          d2L_j[j] += _L0[_qp] * d2finc_dgradeta2[k] * gb_ij_weight; // (j,j)
-          d2L_i[j] -= _L0[_qp] * d2finc_dgradeta2[k] * gb_ij_weight; // (i,j)
-          d2L_j[i] -= _L0[_qp] * d2finc_dgradeta2[k] * gb_ij_weight; // (j,i)
+          d2L_i[i] += (d2Ldf2 * libMesh::outer_product(dfinc_dgradeta[k], dfinc_dgradeta[k]) +
+                       dLdf * d2finc_dgradeta2[k]) *
+                      gb_ij_weight; // (i,i)
+          d2L_j[j] += (d2Ldf2 * libMesh::outer_product(dfinc_dgradeta[k], dfinc_dgradeta[k]) +
+                       dLdf * d2finc_dgradeta2[k]) *
+                      gb_ij_weight; // (j,j)
+          d2L_i[j] -= (d2Ldf2 * libMesh::outer_product(dfinc_dgradeta[k], dfinc_dgradeta[k]) +
+                       dLdf * d2finc_dgradeta2[k]) *
+                      gb_ij_weight; // (i,j)
+          d2L_j[i] -= (d2Ldf2 * libMesh::outer_product(dfinc_dgradeta[k], dfinc_dgradeta[k]) +
+                       dLdf * d2finc_dgradeta2[k]) *
+                      gb_ij_weight; // (j,i)
         }
       }
     }
