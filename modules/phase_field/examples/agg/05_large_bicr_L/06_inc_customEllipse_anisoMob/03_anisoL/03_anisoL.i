@@ -5,7 +5,7 @@
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Wednesday March 4th 2026
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Double aniso on L from gbmob too
@@ -427,5 +427,5 @@ yic = 80
   #   heaviest_branch = true # Default is false
   #   heaviest_sections = 7 # Default is 0
   # []
-  file_base = 04_a${amag}_isoL/04_a${amag}_isoL_out
+  file_base = 03_a${amag}_anisoL/03_a${amag}_anisoL_out
 []
