@@ -288,16 +288,16 @@
   []
 []
 
-[VectorPostprocessors]
-  [radial]
-    type = LineValueSampler
-    end_point = '200 100 0'
-    num_points = 100
-    sort_by = X
-    start_point = '100 100 0'
-    variable = 'gr0 gr1 contour'
-  []
-[]
+# [VectorPostprocessors]
+#   [radial]
+#     type = LineValueSampler
+#     end_point = '200 100 0'
+#     num_points = 100
+#     sort_by = X
+#     start_point = '100 100 0'
+#     variable = 'gr0 gr1 contour'
+#   []
+# []
 
 [Preconditioning]
   [SMP]
