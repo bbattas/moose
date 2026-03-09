@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 05_iso_low.i
-# File Location: /examples/agg/05_large_bicr_L/11_miso_aniso/05_iso_low
+# File: 01_iso_iso.i
+# File Location: /examples/agg/05_large_bicr_L/10_miso_iso/01_iso_iso
 # Created Date: Monday March 9th 2026
-# Author: Battas,Brandon Scott (bbattas@ufl.edu)
+# Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday March 9th 2026
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
-#  Low angle misorientation using the actually isotropic model version
+#  Isotropic reference for the iso material version of the aniso low/high miso
 #
 #
 #
@@ -134,8 +134,13 @@
 [Materials]
   [constants]
     type = GenericConstantMaterial
-    prop_names = 'L0             kappa_op  int_width_iso   const_m      sigma0' #'gamma_asymm'
-    prop_values = '1.15382e-6  2.07337e7        6      5.521269e6  4.60748e6' #'1.5    '
+    prop_names = 'L0             kappa_input  int_width_iso   const_m    sigma0 sigma_low  sigma_high'
+    prop_values = '1.15382e-6  2.07337e7        6          5.521269e6  4.60748e6  2.6293e6   4.5612e6'
+  []
+  [gbe_backconvert]
+    type = GenericConstantMaterial
+    prop_names = 'gbej_iso      gbej_low     gbej_high'
+    prop_values = '7.38200e-13  4.21260e-13  7.30785e-13'
   []
   # [constants2]
   #   type = GenericConstantMaterial
@@ -144,13 +149,14 @@
   # []
   [GBMat]
     type = GBEvolution
-    T = 1400 # Constant temperature of the simulation (for mobility calculation)
-    wGB = 6 # Width of the diffuse GB
-    GBMobility = 3.2407e-11 #m^4(Js) for copper from Schoenfelder1997
-    Q = 3.01 #eV for copper from Schoenfelder1997
-    GBenergy = 0.7382 #0.708 #J/m^2 from Schoenfelder1997
-    length_scale = 1e-06
+    T = 1300 # shouldnt actually be used
+    wGB = 6
+    GBMobility = 3.2407e+13
+    length_scale = 1
     time_scale = 1
+    GBenergy = 7.38200e-13
+    output_properties = 'L l_GB gamma_asymm sigma M_GB kappa_op'
+    outputs = 'exodus'
   []
   [hgb]
     type = SwitchingFunctionGBMaterial
@@ -236,12 +242,12 @@
   []
   [iw_min]
     type = ElementExtremeMaterialProperty
-    mat_prop = int_width
+    mat_prop = l_GB #int_width
     value_type = MIN
   []
   [iw_max]
     type = ElementExtremeMaterialProperty
-    mat_prop = int_width
+    mat_prop = l_GB #int_width
     value_type = MAX
   []
 []
