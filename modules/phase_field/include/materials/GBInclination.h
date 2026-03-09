@@ -58,6 +58,7 @@ protected:
   const bool _aniso_L;
   const bool _no_deriv_L;
   const bool _aniso_mob;
+  const bool _stiffness;
   /// Enum for which gb combination approach to  use
   int _gb_combo;
   const MaterialProperty<Real> & _L0;

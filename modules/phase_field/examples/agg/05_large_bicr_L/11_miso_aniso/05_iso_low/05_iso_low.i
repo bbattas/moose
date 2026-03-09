@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 01_manual_low.i
-# File Location: /examples/agg/05_large_bicr_L/11_miso_aniso/01_manual_low
-# Created Date: Friday March 6th 2026
-# Author: Brandon Battas (bbattas@ufl.edu)
+# File: 05_iso_low.i
+# File Location: /examples/agg/05_large_bicr_L/11_miso_aniso/05_iso_low
+# Created Date: Monday March 9th 2026
+# Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday March 9th 2026
 # Modified By: Battas,Brandon Scott
 # -----
 # Description:
-#  Manually setting the right properties to get the low angle misorientaiton
-#   on the bicrystal
+#  Low angle misorientation using the actually isotropic model version
+#
 #
 #
 ##############################################################################
@@ -134,13 +134,23 @@
 [Materials]
   [constants]
     type = GenericConstantMaterial
-    prop_names = 'L0             kappa_op  int_width_iso   mu     ' #'  sigma' #'gamma_asymm'
-    prop_values = '1.15382e-6  2.07337e7        6      5.521269e6 ' #' 4.60748e6' #'1.5    '
+    prop_names = 'L0             kappa_op  int_width_iso   const_m      sigma0' #'gamma_asymm'
+    prop_values = '1.15382e-6  2.07337e7        6      5.521269e6  4.60748e6' #'1.5    '
   []
-  [constants2]
-    type = GenericConstantMaterial
-    prop_names = 'int_width          gamma_asymm     sigma      L'
-    prop_values = '10.740284831071 0.64666592158764 2.6293e6 6.584442e-07 ' #1.15382e-6'
+  # [constants2]
+  #   type = GenericConstantMaterial
+  #   prop_names = 'int_width          gamma_asymm     sigma      L'
+  #   prop_values = '10.740284831071 0.64666592158764 2.6293e6 6.584442e-07 ' #1.15382e-6'
+  # []
+  [GBMat]
+    type = GBEvolution
+    T = 1400 # Constant temperature of the simulation (for mobility calculation)
+    wGB = 6 # Width of the diffuse GB
+    GBMobility = 3.2407e-11 #m^4(Js) for copper from Schoenfelder1997
+    Q = 3.01 #eV for copper from Schoenfelder1997
+    GBenergy = 0.7382 #0.708 #J/m^2 from Schoenfelder1997
+    length_scale = 1e-06
+    time_scale = 1
   []
   [hgb]
     type = SwitchingFunctionGBMaterial

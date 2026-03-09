@@ -4,8 +4,8 @@
 # Created Date: Friday March 6th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday March 6th 2026
-# Modified By: Brandon Battas
+# Last Modified: Monday March 9th 2026
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  manually setting parameters for the high angle misorientation bicrystal
@@ -29,7 +29,7 @@
   #   ymin = 0
   #   ymax = 256
   # []
-  # parallel_type = DISTRIBUTED # Periodic BCs
+  parallel_type = DISTRIBUTED # Periodic BCs
   # second_order = false
   # uniform_refine = 1
 []

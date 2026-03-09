@@ -4,8 +4,8 @@
 # Created Date: Friday March 6th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday March 6th 2026
-# Modified By: Brandon Battas
+# Last Modified: Monday March 9th 2026
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Low misoriantation angle using the material to generate everything
@@ -54,15 +54,15 @@
 []
 
 [UserObjects]
-  # [ebsd_reader]
-  #   type = EBSDReader
-  # []
-  # [ebsd]
-  #   type = PolycrystalEBSD
-  #   coloring_algorithm = bt #jp
-  #   ebsd_reader = ebsd_reader
-  #   enable_var_coloring = true
-  # []
+  [ebsd_reader]
+    type = EBSDReader
+  []
+  [ebsd]
+    type = PolycrystalEBSD
+    coloring_algorithm = bt #jp
+    ebsd_reader = ebsd_reader
+    enable_var_coloring = true
+  []
   [grain_tracker]
     type = GrainTracker
     # variable = 'gr0 gr1 gr2 gr3 gr4'
@@ -100,9 +100,9 @@
   [PolycrystalKernel]
     variable_mobility = false
   []
-  [PolycrystalInclinationKernel]
-    variable_mobility = false
-  []
+  # [PolycrystalInclinationKernel]
+  #   variable_mobility = false
+  # []
 []
 
 [AuxKernels]
@@ -164,43 +164,43 @@
     output_properties = 'hgb'
     outputs = 'exodus'
   []
-  [inc_mat]
-    type = GBInclination
-    gb_id_method = GRAINTRACKER
-    grain_tracker = grain_tracker
-    angular_func = ATAN_2D
-    intol = ${i_tol}
-    altol = ${a_tol}
-    limit_umag = true
-    # Inclination function
-    inc_func = COS
-    ifunc_a = ${amag}
-    ifunc_b = 2
-    ifunc_c = 0
-    ifunc_d = 0
-    # L
-    combine_gb_form = avg
-    aniso_L = false
-    noDeriv_L = true
-    aniso_gbmob = true
-    # Other Properties
-    gb_energy_iso_name = sigma0
-    kappa = kappa_op
-    free_energy_m = 5.521269e6
-    output_properties = 'int_width gamma_asymm L'
-    outputs = 'exodus'
-  []
-  #
-  # [GBM]
-  #   type = GBMisorientation
-  #   ebsd_reader = ebsd_reader
+  # [inc_mat]
+  #   type = GBInclination
+  #   gb_id_method = GRAINTRACKER
   #   grain_tracker = grain_tracker
+  #   angular_func = ATAN_2D
+  #   intol = ${i_tol}
+  #   altol = ${a_tol}
+  #   limit_umag = true
+  #   # Inclination function
+  #   inc_func = COS
+  #   ifunc_a = ${amag}
+  #   ifunc_b = 2
+  #   ifunc_c = 0
+  #   ifunc_d = 0
+  #   # L
+  #   combine_gb_form = avg
+  #   aniso_L = false
+  #   noDeriv_L = true
+  #   aniso_gbmob = true
+  #   # Other Properties
+  #   gb_energy_iso_name = sigma0
   #   kappa = kappa_op
-  #   output_properties = 'eul_a eul_b eul_c quat_a quat_b quat_c quat_d quat_mag
-  #   misorientation miso_axis_polar miso_axis_azimuth other_out miso_ang_energy miso_ax_energy
-  #   twist_energy tilt_energy f_miso gamma_asymm int_width'
-  #   outputs = exodus
+  #   free_energy_m = 5.521269e6
+  #   output_properties = 'int_width gamma_asymm L'
+  #   outputs = 'exodus'
   # []
+  #
+  [GBM]
+    type = GBMisorientation
+    ebsd_reader = ebsd_reader
+    grain_tracker = grain_tracker
+    kappa = kappa_op
+    L0 = L0
+    output_properties = 'misorientation miso_axis_polar miso_axis_azimuth
+    twist_energy tilt_energy f_miso gamma_asymm int_width L'
+    outputs = exodus
+  []
 []
 
 [Postprocessors]

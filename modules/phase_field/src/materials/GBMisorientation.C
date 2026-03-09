@@ -20,6 +20,9 @@ GBMisorientation::validParams()
       "kappa", "kappa", "Gradient energy constant kappa material name.");
   params.addParam<MaterialPropertyName>(
       "mu", "mu", "Free energy thermodynamic parameter mu (or m in some formulations).");
+  params.addParam<MaterialPropertyName>(
+      "L0", "L0", "AC mobility prefactor/reference value material.");
+  params.addParam<MaterialPropertyName>("L_name", "L", "AC mobility name.");
   return params;
 }
 
@@ -58,7 +61,10 @@ GBMisorientation::GBMisorientation(const InputParameters & parameters)
     _miso_ax_en(declareProperty<Real>("miso_ax_energy")),
     _twist(declareProperty<Real>("twist_energy")),
     _tilt(declareProperty<Real>("tilt_energy")),
-    _f_mis(declareProperty<Real>("f_miso"))
+    _f_mis(declareProperty<Real>("f_miso")),
+    // AC Mobility
+    _L0(getMaterialProperty<Real>("L0")),
+    _L(declareProperty<Real>(getParam<MaterialPropertyName>("L_name")))
 {
   getMisorientationAngles();
 }
@@ -219,6 +225,9 @@ GBMisorientation::computeQpProperties()
       (((((0.0788 * pg - 0.4955) * pg + 1.2244) * pg - 1.5281) * pg + 1.0686) * pg - 0.5563) * pg +
       0.2907;
   _int_width[_qp] = (std::sqrt(_kappa[_qp] / _mu[_qp])) * (std::sqrt(1 / f0_int));
+
+  // AC Mobility
+  _L[_qp] = _L0[_qp] * _f_mis[_qp];
 }
 // Function to output total line number of Misorientation angle file
 unsigned int

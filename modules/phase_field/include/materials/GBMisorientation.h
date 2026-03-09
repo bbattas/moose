@@ -110,4 +110,8 @@ protected:
   MaterialProperty<Real> & _tilt;
   //
   MaterialProperty<Real> & _f_mis;
+
+  // L
+  const MaterialProperty<Real> & _L0;
+  MaterialProperty<Real> & _L;
 };

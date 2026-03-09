@@ -1,15 +1,15 @@
 ##############################################################################
-# File: 01_manual_low.i
-# File Location: /examples/agg/05_large_bicr_L/11_miso_aniso/01_manual_low
-# Created Date: Friday March 6th 2026
-# Author: Brandon Battas (bbattas@ufl.edu)
+# File: 04_material_high.i
+# File Location: /examples/agg/05_large_bicr_L/11_miso_aniso/04_material_high
+# Created Date: Monday March 9th 2026
+# Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday March 9th 2026
 # Modified By: Battas,Brandon Scott
 # -----
 # Description:
-#  Manually setting the right properties to get the low angle misorientaiton
-#   on the bicrystal
+#  High misorientation angle bicrystal using ebsd and material to generate
+#
 #
 #
 ##############################################################################
@@ -17,33 +17,31 @@
 [Mesh]
   [ebsd_mesh]
     type = EBSDMeshGenerator
-    filename = '../../00_sub/bicr_200_r80.txt'
+    filename = '../../00_sub/bicr_200_r80_high.txt'
   []
   # [gmg]
   #   type = DistributedRectilinearMeshGenerator
   #   dim = 2
-  #   nx = 256
-  #   ny = 256
+  #   nx = 200
+  #   ny = 200
   #   xmin = 0
-  #   xmax = 256
+  #   xmax = 200
   #   ymin = 0
-  #   ymax = 256
+  #   ymax = 200
   # []
-  parallel_type = DISTRIBUTED # Periodic BCs
-  # second_order = false
+  parallel_type = DISTRIBUTED
+  # second_order = true
   # uniform_refine = 1
 []
 
 [GlobalParams]
-  # Parameters used by several kernels that are defined globally to simplify input file
-  op_num = 2 #15 # Number of order parameters used
-  var_name_base = gr # Base name of grains
-  # T = 1400 # Constant temperature of the simulation (for mobility calculation)
+  op_num = 2
+  var_name_base = gr
 []
 
 [Variables]
-  # Variable block, where all variables in the simulation are declared
   [PolycrystalVariables]
+    # order = SECOND
   []
 []
 
@@ -90,19 +88,25 @@
     order = CONSTANT
     family = MONOMIAL
   []
+  [ebsd_numbers]
+    order = CONSTANT
+    family = MONOMIAL
+  []
   [contour]
   []
 []
 
 [Kernels]
   [PolycrystalKernel]
+    variable_mobility = false
   []
+  # [PolycrystalInclinationKernel]
+  #   variable_mobility = false
+  # []
 []
 
 [AuxKernels]
-  # AuxKernel block, defining the equations used to calculate the auxvars
   [bnds_aux]
-    # AuxKernel that calculates the GB term
     type = BndsCalcAux
     variable = bnds
     execute_on = 'initial timestep_end'
@@ -114,6 +118,16 @@
     field_display = UNIQUE_REGION
     execute_on = 'initial timestep_end'
   []
+  # Import the unique grain ID from ebsd data, and the data structure
+  # will change with the guide from grain_tracker
+  # [ebsd_numbers]
+  #   type = EBSDReaderAvgDataAux
+  #   data_name = feature_id
+  #   ebsd_reader = ebsd_reader
+  #   grain_tracker = grain_tracker
+  #   variable = ebsd_numbers
+  #   execute_on = 'initial timestep_end'
+  # []
   [contour]
     type = ParsedAux
     variable = contour
@@ -134,14 +148,14 @@
 [Materials]
   [constants]
     type = GenericConstantMaterial
-    prop_names = 'L0             kappa_op  int_width_iso   mu     ' #'  sigma' #'gamma_asymm'
-    prop_values = '1.15382e-6  2.07337e7        6      5.521269e6 ' #' 4.60748e6' #'1.5    '
+    prop_names = 'L0             kappa_op  int_width_iso   const_m      sigma0' #'gamma_asymm'
+    prop_values = '1.15382e-6  2.07337e7        6      5.521269e6  4.60748e6' #'1.5    '
   []
-  [constants2]
-    type = GenericConstantMaterial
-    prop_names = 'int_width          gamma_asymm     sigma      L'
-    prop_values = '10.740284831071 0.64666592158764 2.6293e6 6.584442e-07 ' #1.15382e-6'
-  []
+  # [constants2]
+  #   type = GenericConstantMaterial
+  #   prop_names = 'int_width  gamma_asymm  sigma      L'
+  #   prop_values = '6.0208     1.2110    4.6075e6 1.153820e-6' #1.15382e-6'
+  # []
   [hgb]
     type = SwitchingFunctionGBMaterial
     h_name = hgb
@@ -149,6 +163,43 @@
     hgb_threshold = 0
     output_properties = 'hgb'
     outputs = 'exodus'
+  []
+  # [inc_mat]
+  #   type = GBInclination
+  #   gb_id_method = GRAINTRACKER
+  #   grain_tracker = grain_tracker
+  #   angular_func = ATAN_2D
+  #   intol = ${i_tol}
+  #   altol = ${a_tol}
+  #   limit_umag = true
+  #   # Inclination function
+  #   inc_func = COS
+  #   ifunc_a = ${amag}
+  #   ifunc_b = 2
+  #   ifunc_c = 0
+  #   ifunc_d = 0
+  #   # L
+  #   combine_gb_form = avg
+  #   aniso_L = false
+  #   noDeriv_L = true
+  #   aniso_gbmob = true
+  #   # Other Properties
+  #   gb_energy_iso_name = sigma0
+  #   kappa = kappa_op
+  #   free_energy_m = 5.521269e6
+  #   output_properties = 'int_width gamma_asymm L'
+  #   outputs = 'exodus'
+  # []
+  #
+  [GBM]
+    type = GBMisorientation
+    ebsd_reader = ebsd_reader
+    grain_tracker = grain_tracker
+    kappa = kappa_op
+    L0 = L0
+    output_properties = 'misorientation miso_axis_polar miso_axis_azimuth
+    twist_energy tilt_energy f_miso gamma_asymm int_width L'
+    outputs = exodus
   []
 []
 
@@ -274,7 +325,7 @@
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  end_time = 120
+  end_time = 120 #5
 
   automatic_scaling = true
   compute_scaling_once = false
@@ -295,23 +346,8 @@
   #nemesis = true
   console = true
   csv = true
-  checkpoint = true
-  # [checkpoint]
-  #   type = Checkpoint
-  #   num_files = 5
+  checkpoint = false
+  # [vpp]
+  #   type = CSV
   # []
-  # [console]
-  #   type = Console
-  #   max_rows = 20 # Will print the 20 most recent postprocessor values to the screen
-  # []
-  # [pgraph]
-  #   type = PerfGraphOutput
-  #   execute_on = 'initial final' # Default is "final"
-  #   level = 2 # Default is 1
-  #   heaviest_branch = true # Default is false
-  #   heaviest_sections = 7 # Default is 0
-  # []
-  # file_base = 20_15gr_aniso${amag}_a${a_tol}_i${i_tol}
-  # file_base = 17_bicr_large_withnewKernel
-  # file_base = 06_normal
 []

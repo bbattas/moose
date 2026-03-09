@@ -39,6 +39,7 @@ GBInclination::validParams()
       "Use anisotropic L but without the derivatives (for kernel with variable_L=false)");
   params.addParam<bool>(
       "aniso_gbmob", false, "Apply gbe anisotropy also to the gb mobility (inferred).");
+  params.addParam<bool>("stiffness", true, "Include the stiffness (d2gamma/dgradeta2), esle = 0.");
   params.addParam<MaterialPropertyName>(
       "L0", "L0", "AC mobility prefactor/reference value material.");
   MooseEnum combine_form("weighted=0 avg=1", "weighted");
@@ -99,6 +100,7 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _aniso_L(getParam<bool>("aniso_L")),
     _no_deriv_L(getParam<bool>("noDeriv_L")),
     _aniso_mob(getParam<bool>("aniso_gbmob")),
+    _stiffness(getParam<bool>("stiffness")),
     _gb_combo(getParam<MooseEnum>("combine_gb_form")),
     _L0(getMaterialProperty<Real>("L0")),
     _L_ij(declareProperty<std::vector<Real>>("L_ij")),
@@ -407,11 +409,14 @@ GBInclination::computeQpProperties()
       Real d2pg = 12 * a1 * g2 * g2 + 6 * a2 * g2 + 2 * a3;
       // Save gamma_ij
       gamma[k] = 1 / pg;
-      dgamma[k] = -2 * g * gamma[k] * dpg * dg_df * dfinc_dgradeta[k];
-      d2gamma[k] = 2 * gamma[k] * gamma[k] * dg_df * dg_df *
-                       (4 * g2 * gamma[k] * dpg * dpg - 2 * g2 * d2pg - dpg) *
-                       libMesh::outer_product(dfinc_dgradeta[k], dfinc_dgradeta[k]) -
-                   2 * g * gamma[k] * dpg * dg_df * d2finc_dgradeta2[k];
+      if (_stiffness)
+      {
+        dgamma[k] = -2 * g * gamma[k] * dpg * dg_df * dfinc_dgradeta[k];
+        d2gamma[k] = 2 * gamma[k] * gamma[k] * dg_df * dg_df *
+                         (4 * g2 * gamma[k] * dpg * dpg - 2 * g2 * d2pg - dpg) *
+                         libMesh::outer_product(dfinc_dgradeta[k], dfinc_dgradeta[k]) -
+                     2 * g * gamma[k] * dpg * dg_df * d2finc_dgradeta2[k];
+      }
 
       // Calculate IW
       Real f0_int =
@@ -451,7 +456,7 @@ GBInclination::computeQpProperties()
           d2Ldf2 = 0.0;
         }
         Lij_sum += Lij[k] * gb_ij_weight;
-        if (_aniso_L)
+        if (_aniso_L && _stiffness)
         {
           // dL[k] = _L0[_qp] * dfinc_dgradeta[k];
           // d2L[k] = _L0[_qp] * d2finc_dgradeta2[k];
@@ -520,12 +525,15 @@ GBInclination::computeQpProperties()
   {
     // eta summation of moelans L_ij
     _L[_qp] = Lij_sum / hgb_tot;
-    for (unsigned int i = 0; i < _op_num; ++i)
+    if (_stiffness)
     {
-      (*_dL_dgradeta[i])[_qp] /= hgb_tot;
-      for (unsigned int j = 0; j < _op_num; ++j)
+      for (unsigned int i = 0; i < _op_num; ++i)
       {
-        (*_d2L_dgradeta2[i])[_qp][j] /= hgb_tot;
+        (*_dL_dgradeta[i])[_qp] /= hgb_tot;
+        for (unsigned int j = 0; j < _op_num; ++j)
+        {
+          (*_d2L_dgradeta2[i])[_qp][j] /= hgb_tot;
+        }
       }
     }
   }
