@@ -242,12 +242,12 @@
   []
   [iw_min]
     type = ElementExtremeMaterialProperty
-    mat_prop = int_width
+    mat_prop = l_GB
     value_type = MIN
   []
   [iw_max]
     type = ElementExtremeMaterialProperty
-    mat_prop = int_width
+    mat_prop = l_GB
     value_type = MAX
   []
 []

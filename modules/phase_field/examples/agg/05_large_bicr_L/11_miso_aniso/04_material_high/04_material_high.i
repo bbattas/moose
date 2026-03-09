@@ -5,7 +5,7 @@
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday March 9th 2026
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  High misorientation angle bicrystal using ebsd and material to generate
@@ -148,7 +148,7 @@
 [Materials]
   [constants]
     type = GenericConstantMaterial
-    prop_names = 'L0             kappa_op  int_width_iso   const_m      sigma0' #'gamma_asymm'
+    prop_names = 'L0             kappa_op  int_width_iso   mu      sigma0' #'gamma_asymm'
     prop_values = '1.15382e-6  2.07337e7        6      5.521269e6  4.60748e6' #'1.5    '
   []
   # [constants2]
@@ -197,6 +197,7 @@
     grain_tracker = grain_tracker
     kappa = kappa_op
     L0 = L0
+    gb_energy_iso_name = sigma0
     output_properties = 'misorientation miso_axis_polar miso_axis_azimuth
     twist_energy tilt_energy f_miso gamma_asymm int_width L'
     outputs = exodus
