@@ -183,6 +183,7 @@ GBMisorientation::computeQpProperties()
       // All grain pairs- Using average approach as per Yang 2025
       Real tj_miso = 0.0;
       Real tj_cross = 0.0;
+      std::size_t count = 0;
       for (std::size_t idx1 = 0; idx1 < _gb_pairs.size(); ++idx1)
         for (std::size_t idx2 = idx1 + 1; idx2 < _gb_pairs.size(); ++idx2)
         {
@@ -199,11 +200,13 @@ GBMisorientation::computeQpProperties()
           // Outputs
           tj_miso += _misorientation_angles[idx];
           tj_cross += cross;
+          ++count;
         }
       // Average
-      _miso[_qp] = tj_miso / _gb_pairs.size();
-      _twist[_qp] = 0.7 * (tj_cross / _gb_pairs.size()) * _m_weight + (1 - _m_weight);
-      _tilt[_qp] = 0.3 * (tj_cross / _gb_pairs.size()) * _m_weight + (1 - _m_weight);
+      _miso[_qp] = (count > 0) ? tj_miso / static_cast<Real>(count) : 0.0;
+      const Real avg_cross = (count > 0) ? tj_cross / static_cast<Real>(count) : 0.0;
+      _twist[_qp] = 0.7 * avg_cross * _m_weight + (1 - _m_weight);
+      _tilt[_qp] = 0.3 * avg_cross * _m_weight + (1 - _m_weight);
       _f_mis[_qp] = 0.3 + _twist[_qp];
     }
   }
