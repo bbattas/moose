@@ -49,6 +49,7 @@ parser.add_argument('--recover', action='store_true', help='''Add the recovery f
 parser.add_argument('--rh8', action='store_true', help='Use RH8 versions of packages.')
 parser.add_argument('--mpi', action='store_true', help='''Include the "export OMPI_MCA_coll_hcoll_enable=0"
                     to avoid current openmpi errors.''')
+parser.add_argument('--no-email', action='store_true', help='Disable emails on start/stop/fail.')
 cl_args = parser.parse_args()
 
 # Defaults for the variables
@@ -299,7 +300,7 @@ def slurmWrite(cwd,inputName):
             slurmList.append('#SBATCH --output=moose_console_%j.out')
         # Email
         slurmList.append('#SBATCH --mail-user=bbattas@ufl.edu')
-        if cl_args.array is None:
+        if not cl_args.no_email:
             slurmList.append('#SBATCH --mail-type=BEGIN,END,FAIL')
         # Account to run on and burst or not
         slurmList.append('#SBATCH --account=michael.tonks')
@@ -480,7 +481,7 @@ def slurmHeaderPreview(interactive):
         slurmList.append('#SBATCH --output=moose_console_%j.out')
     # Email
     slurmList.append('#SBATCH --mail-user=bbattas@ufl.edu')
-    if cl_args.array is None:
+    if not cl_args.no_email:
         slurmList.append('#SBATCH --mail-type=BEGIN,END,FAIL')
     # Account to run on and burst or not
     slurmList.append('#SBATCH --account=michael.tonks')
