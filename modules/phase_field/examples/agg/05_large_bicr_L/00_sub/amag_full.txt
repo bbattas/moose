@@ -1,0 +1,8 @@
+amag=0.025
+amag=0.05
+amag=0.10
+amag=0.15
+amag=0.20
+amag=0.30
+amag=0.40
+amag=0.50
