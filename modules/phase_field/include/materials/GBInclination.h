@@ -22,6 +22,13 @@ protected:
   MaterialProperty<RealGradient> & _testoutgrad;
   MaterialProperty<RealTensorValue> & _testouttens;
 
+  // BOOLS
+  const bool _aniso_L;
+  const bool _no_deriv_L;
+  const bool _aniso_mob;
+  const bool _stiffness;
+  const bool _well_props;
+
   // Enum for which inclination function to use
   int _inc_func;
 
@@ -55,10 +62,6 @@ protected:
   MaterialProperty<bool> * _elem_noij;
 
   // AC Mobility
-  const bool _aniso_L;
-  const bool _no_deriv_L;
-  const bool _aniso_mob;
-  const bool _stiffness;
   /// Enum for which gb combination approach to  use
   int _gb_combo;
   const MaterialProperty<Real> & _L0;

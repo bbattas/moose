@@ -40,6 +40,10 @@ GBInclination::validParams()
   params.addParam<bool>(
       "aniso_gbmob", false, "Apply gbe anisotropy also to the gb mobility (inferred).");
   params.addParam<bool>("stiffness", true, "Include the stiffness (d2gamma/dgradeta2), esle = 0.");
+  params.addParam<bool>(
+      "well_props",
+      false,
+      "Output intermediary properties for the well function, to use in ElementalGammaMaterial.");
   params.addParam<MaterialPropertyName>(
       "L0", "L0", "AC mobility prefactor/reference value material.");
   MooseEnum combine_form("weighted=0 avg=1", "weighted");
@@ -71,6 +75,12 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _testout2(declareProperty<Real>("testout2")),
     _testoutgrad(declareProperty<RealGradient>("testoutgrad")),
     _testouttens(declareProperty<RealTensorValue>("testouttens")),
+    // BOOLs
+    _aniso_L(getParam<bool>("aniso_L")),
+    _no_deriv_L(getParam<bool>("noDeriv_L")),
+    _aniso_mob(getParam<bool>("aniso_gbmob")),
+    _stiffness(getParam<bool>("stiffness")),
+    _well_props(getParam<bool>("well_props")),
     // Which inclination function to use
     _inc_func(getParam<MooseEnum>("inc_func")),
     _if_a(getParam<Real>("ifunc_a")),
@@ -91,22 +101,27 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _const_m(getParam<Real>("free_energy_m")),
     _mu(declareProperty<Real>("mu")),
     // Elemental rounding needed or not here
-    _int_width(_limit_umag ? declareProperty<Real>("int_width")
-                           : declareProperty<Real>("int_width_qp")),
-    _gamma_qp(_limit_umag ? declareProperty<Real>("gamma_asymm")
-                          : declareProperty<Real>("gamma_qp")),
-    _elem_noij(_limit_umag ? &declareProperty<bool>("elem_no_ij") : nullptr),
+    // _int_width(_limit_umag ? declareProperty<Real>("int_width")
+    //                        : declareProperty<Real>("int_width_qp")),
+    // _gamma_qp(_limit_umag ? declareProperty<Real>("gamma_asymm")
+    //                       : declareProperty<Real>("gamma_qp")),
+    // _elem_noij(_limit_umag ? &declareProperty<bool>("elem_no_ij") : nullptr),
+    _int_width(_well_props ? declareProperty<Real>("int_width_qp")
+                           : declareProperty<Real>("int_width")),
+    _gamma_qp(_well_props ? declareProperty<Real>("gamma_qp")
+                          : declareProperty<Real>("gamma_asymm")),
+    _elem_noij(_well_props ? nullptr : &declareProperty<bool>("elem_no_ij")),
     // Optional Anisotropic L
-    _aniso_L(getParam<bool>("aniso_L")),
-    _no_deriv_L(getParam<bool>("noDeriv_L")),
-    _aniso_mob(getParam<bool>("aniso_gbmob")),
-    _stiffness(getParam<bool>("stiffness")),
+    // _aniso_L(getParam<bool>("aniso_L")),
+    // _no_deriv_L(getParam<bool>("noDeriv_L")),
+    // _aniso_mob(getParam<bool>("aniso_gbmob")),
+    // _stiffness(getParam<bool>("stiffness")),
     _gb_combo(getParam<MooseEnum>("combine_gb_form")),
     _L0(getMaterialProperty<Real>("L0")),
     _L_ij(declareProperty<std::vector<Real>>("L_ij")),
     // _dL_dgradeta(declareProperty<std::vector<RealGradient>>("dL_dgradeta")),
     // _d2L_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2L_dgradeta2")),
-    _L(declareProperty<Real>("L")),
+    _L(_well_props ? declareProperty<Real>("L_qp") : declareProperty<Real>("L")),
     // _aniso_L ? declareProperty<Real>("L_qp") : declareProperty<Real>("L")),
     // Moelans L Derivatives
     _dL_deta(_op_num),
@@ -538,7 +553,8 @@ GBInclination::computeQpProperties()
     }
   }
 
-  if (_limit_umag)
+  // if (_limit_umag)
+  if (!_well_props)
     (*_elem_noij)[_qp] = false;
 
   if (_no_ij_pairs[_qp])
