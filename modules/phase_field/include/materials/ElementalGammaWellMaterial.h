@@ -28,4 +28,5 @@ protected:
   MaterialProperty<Real> & _L_out;
 
   const bool _skip;
+  const bool _round_down;
 };

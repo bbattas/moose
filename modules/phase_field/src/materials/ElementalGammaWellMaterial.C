@@ -22,6 +22,7 @@ ElementalGammaWellMaterial::validParams()
       "v", "var_name_base", "op_num", "Array of coupled variables");
   params.addParam<bool>(
       "skip", false, "Skip all the averaging calculations (for testing purposes).");
+  params.addParam<bool>("round_down", false, "Use low inc function values over high.");
   return params;
 }
 
@@ -33,7 +34,8 @@ ElementalGammaWellMaterial::ElementalGammaWellMaterial(const InputParameters & p
     _int_width_out(declareProperty<Real>("int_width")),
     _L_in(getMaterialProperty<Real>("L_qp")),
     _L_out(declareProperty<Real>("L")),
-    _skip(getParam<bool>("skip"))
+    _skip(getParam<bool>("skip")),
+    _round_down(getParam<bool>("round_down"))
 {
 }
 
@@ -100,9 +102,18 @@ ElementalGammaWellMaterial::computeProperties()
     {
       if (gamma_change)
       {
-        _gamma_out[_qp] = max_gamma;
-        _int_width_out[_qp] = min_iw;
-        _L_out[_qp] = max_L;
+        if (_round_down)
+        {
+          _gamma_out[_qp] = min_gamma;
+          _int_width_out[_qp] = max_iw;
+          _L_out[_qp] = min_L;
+        }
+        else
+        {
+          _gamma_out[_qp] = max_gamma;
+          _int_width_out[_qp] = min_iw;
+          _L_out[_qp] = max_L;
+        }
       }
       else
       {
