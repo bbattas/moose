@@ -3,6 +3,6 @@ amag=0.05 xic=76.9
 amag=0.10 xic=71.6
 amag=0.15 xic=71.6
 amag=0.20 xic=69.9
-amag=0.30 xic=59.1
+amag=0.30 xic=69.1
 amag=0.40 xic=70.6
 amag=0.50 xic=71.1
