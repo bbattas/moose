@@ -5,13 +5,13 @@
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday March 23rd 2026
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  Testing time and whatnot for training using a 10% in the cos function 2 pole
 #
 #
-#
+#  4-5 nodes of 30 for fast
 ##############################################################################
 
 file = 'PFTrainingDataset_A10TEST'
@@ -99,10 +99,10 @@ amag = 0.1
     variable_mobility = false
     # order = SECOND
   []
-  # [PolycrystalInclinationKernel]
-  #   variable_mobility = false
-  #   hgb_mask = hgb
-  # []
+  [PolycrystalInclinationKernel]
+    variable_mobility = false
+    hgb_mask = hgb
+  []
 []
 
 [AuxKernels]
