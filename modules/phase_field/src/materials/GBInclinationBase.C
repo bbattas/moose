@@ -17,14 +17,14 @@ GBInclinationBase::validParams()
                                   "The GrainTracker UserObject to get values from.");
   params.addParam<UserObjectName>("ffc", "The FFC UserObject to get values from.");
   MooseEnum angular_func("atan_2D=0 atan_3D=1 acos=2 atan_half=3", "atan_2D");
-  params.addParam<MooseEnum>(
-      "angular_func",
-      angular_func,
-      "Which angular distance function to use. "
-      "atan_2D: oriented angle atan2(y,x) in [0,2pi); "
-      "atan_3D: oriented azimuth around +x (atan2(z,y)) in [0,2pi) *UNTESTED*;"
-      "acos: acos(x) in [0,pi]; "
-      "atan_half: atan2(sqrt(y^2+z^2), x) in [0,pi].");
+  params.addParam<MooseEnum>("angular_func",
+                             angular_func,
+                             "Which angular distance function to use. "
+                             "atan_2D: oriented angle atan2(y,x) in [0,2pi); "
+                             "atan_3D: oriented azimuth around +x in xy plane (atan2(y,x)) in "
+                             "[0,2pi) and polar from +/-z (acos(z)) in [0,pi/2];"
+                             "acos: acos(x) in [0,pi]; "
+                             "atan_half: atan2(sqrt(y^2+z^2), x) in [0,pi].");
   params.addParam<Real>("intol", 100, "hgbalpha tolerance");
   params.addParam<Real>("altol", 100, "alpha tolerance");
   params.addParam<Real>("gt_tol", 0.001, "alpha tolerance");
@@ -45,6 +45,10 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
     _theta_ij(declareProperty<std::vector<Real>>("theta_ij")),
     _dtheta_dgradeta(declareProperty<std::vector<RealGradient>>("dtheta_dgradeta")),
     _d2theta_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2theta_dgradeta2")),
+    // Polar angle (from z axis)
+    _polar_ij(declareProperty<std::vector<Real>>("polar_ij")),
+    _dpolar_dgradeta(declareProperty<std::vector<RealGradient>>("dpolar_dgradeta")),
+    _d2polar_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2polar_dgradeta2")),
     _ij_i(declareProperty<std::vector<unsigned int>>("ij_i")),
     _ij_j(declareProperty<std::vector<unsigned int>>("ij_j")),
     // Grain Tracker/FFC for GB identification
@@ -99,6 +103,13 @@ GBInclinationBase::computeQpProperties()
   std::fill(theta.begin(), theta.end(), -1.0);
   std::fill(dtheta.begin(), dtheta.end(), RealGradient(0.0));
   std::fill(d2theta.begin(), d2theta.end(), RealTensorValue(0.0));
+  // POLAR ANGLE- resize and zero on this qp
+  _polar_ij[_qp].resize(num_pairs);
+  _dpolar_dgradeta[_qp].resize(num_pairs);
+  _d2polar_dgradeta2[_qp].resize(num_pairs);
+  std::fill(_polar_ij[_qp].begin(), _polar_ij[_qp].end(), 0.0);
+  std::fill(_dpolar_dgradeta[_qp].begin(), _dpolar_dgradeta[_qp].end(), RealGradient(0.0));
+  std::fill(_d2polar_dgradeta2[_qp].begin(), _d2polar_dgradeta2[_qp].end(), RealTensorValue(0.0));
 
   auto & k2i = _ij_i[_qp];
   auto & k2j = _ij_j[_qp];
@@ -107,8 +118,8 @@ GBInclinationBase::computeQpProperties()
   if (k2j.size() != num_pairs)
     k2j.resize(num_pairs);
   // optional: initialize to a sentinel (here UINT_MAX)
-  std::fill(k2i.begin(), k2i.end(), 4);
-  std::fill(k2j.begin(), k2j.end(), 4);
+  std::fill(k2i.begin(), k2i.end(), 0);
+  std::fill(k2j.begin(), k2j.end(), 0);
 
   // Find out the number of boundary unique_id and save them
   _gb_ij_list.clear();
@@ -294,7 +305,7 @@ GBInclinationBase::computeQpProperties()
                 case 0: // atan_2D
                 {
                   // ATAN returning full 360 degrees instead of just 0-180 for +/-180
-                  // --- Oriented azimuth around +x, referenced from +y, increasing toward +z ---
+                  // xy plane componenet only
                   const Real x = ngb(0);
                   const Real y = ngb(1);
 
@@ -303,6 +314,9 @@ GBInclinationBase::computeQpProperties()
                   if (angle < 0.0)
                     angle += 2.0 * libMesh::pi;
                   a_dist = angle;
+
+                  // POLAR angle- in 2D hardcoded to 90 degrees from z axis
+                  Real pang = libMesh::pi / 2;
 
                   // --- First derivatives wrt phi (= components of normalized ngb) ---
                   // angle = atan2(z, y)
@@ -368,10 +382,15 @@ GBInclinationBase::computeQpProperties()
                   d2theta[k] = d2theta_dgetai2; // this is d2/d \nabla \eta_i^2 = d2/djj = -d2/dij
                   k2i[k] = i;
                   k2j[k] = j;
+                  // Polar angle- hardcoded 90 degrees and no derivatives
+                  _polar_ij[_qp][k] = pang;
+                  _dpolar_dgradeta[_qp][k] = RealGradient(0.0);
+                  _d2polar_dgradeta2[_qp][k] = RealTensorValue(0.0);
 
                   // _inclination[_qp] = 1.0;
                   break;
                 }
+
                 default:
                   mooseError("Unknown angular_func = ", _angular_func);
                   break;

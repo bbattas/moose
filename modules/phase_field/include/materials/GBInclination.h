@@ -38,6 +38,9 @@ protected:
   const Real _if_c;
   const Real _if_d;
 
+  const Real _bulk_scale;
+  // const Real _nongb_scale;
+
   // Inclination output (1+cos)
   MaterialProperty<std::vector<Real>> & _inclination;
 

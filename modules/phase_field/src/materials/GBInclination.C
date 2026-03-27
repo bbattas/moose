@@ -10,17 +10,27 @@ GBInclination::validParams()
       "Child material to determine inclination dependent properties for AGG.");
   // params.addRequiredCoupledVarWithAutoBuild(
   //     "v", "var_name_base", "op_num", "Array of coupled variables");
-  MooseEnum inc_func("cos=0 well=1 man_well=2 smooth_well=3 smooth_half=4", "cos");
+  MooseEnum inc_func("cos=0 well=1 man_well=2 smooth_well=3 smooth_half=4 lin=5", "cos");
   params.addParam<MooseEnum>(
       "inc_func",
       inc_func,
       "Which inclination function to use.  "
       "cos: 1 + a * cos(b(theta + c)); "
-      "well: b wells starting from angle c of (1 - a) within angle d of any well, else (1 + a).");
+      "well: b wells starting from angle c of (1 - a) within angle d of any well, else (1 + a); "
+      "lin: inclination only part of Lins combined form (0.3 + inc + mis).");
   params.addParam<Real>("ifunc_a", 0.05, "Inclination function constant a.");
   params.addParam<Real>("ifunc_b", 2, "Inclination function constant b.");
   params.addParam<Real>("ifunc_c", 0.0, "Inclination function constant c.");
   params.addParam<Real>("ifunc_d", 10.0, "Inclination function constant d.");
+  params.addParam<Real>("bulk_scale",
+                        1.0,
+                        "Bulk scale for properties. Was 1 in all 1+cos functions, but the combined "
+                        "lin function might need 0.3 as thats the reference value for no inc?");
+  // params.addParam<Real>(
+  //     "nongb_scale",
+  //     1.0,
+  //     "Scale for properties away from GB. Was 1 in all 1+cos functions, but the combined "
+  //     "lin function might need 0.45 as thats the center of the inc range?");
   // GB ENERGY
   params.addParam<MaterialPropertyName>(
       "gb_energy_iso_name", "sigma_iso", "Isotropic GB energy before inclination dependence.");
@@ -87,6 +97,9 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _if_b(getParam<Real>("ifunc_b")),
     _if_c(getParam<Real>("ifunc_c")),
     _if_d(getParam<Real>("ifunc_d")),
+    // Bulk value setting- was 1 but with lins combined might need 0.3?
+    _bulk_scale(getParam<Real>("bulk_scale")),
+    // _nongb_scale(getParam<Real>("nongb_scale")),
     // Inclination (1 + cos) output
     _inclination(declareProperty<std::vector<Real>>("inclination")),
     // gamma_ij
@@ -173,7 +186,7 @@ GBInclination::computeQpProperties()
   auto & finc = _inclination[_qp];
   if (finc.size() != num_pairs)
     finc.resize(num_pairs);
-  std::fill(finc.begin(), finc.end(), 1.0);
+  std::fill(finc.begin(), finc.end(), _bulk_scale);
 
   // Declare derivative pieces we need for inclination function
   std::vector<RealGradient> dfinc_dgradeta;
@@ -410,6 +423,36 @@ GBInclination::computeQpProperties()
           break;
         }
 
+        case 5: // Lins combined function with only inclination
+        {
+          // lin: 0.3 + abs(cos(theta) * (0.7 + polar/(pi/2) * (0.3-0.7)))
+          const Real eps = 1e-8;
+          const Real sgn =
+              (std::cos(theta[k]) > eps) ? 1.0 : ((std::cos(theta[k]) < -eps) ? -1.0 : 0.0);
+          const Real B = 0.7 + (0.3 - 0.7) * _polar_ij[_qp][k] / (libMesh::pi / 2);
+          const Real flin = 0.3 + std::abs(std::cos(theta[k])) * B;
+          // df/dtheta
+          const Real dfdtheta = -std::sin(theta[k]) * sgn * B;
+          const Real d2fdtheta2 = -std::abs(std::cos(theta[k])) * B;
+          // df/dpolar
+          const Real dB_dpolar = (0.3 - 0.7) / (libMesh::pi / 2);
+          const Real dfdpolar = std::abs(std::cos(theta[k])) * dB_dpolar;
+          const Real d2fdpolar2 = 0.0;
+          // cross
+          const Real d2f_dthetadpolar = -std::sin(theta[k]) * sgn * dB_dpolar;
+          // combine to df/d\nabla\eta
+          finc[k] = flin;
+          dfinc_dgradeta[k] = dfdtheta * dtheta[k] + dfdpolar * _dpolar_dgradeta[_qp][k];
+          d2finc_dgradeta2[k] =
+              d2fdtheta2 * libMesh::outer_product(dtheta[k], dtheta[k]) + dfdtheta * d2theta[k] +
+              dfdpolar * _d2polar_dgradeta2[_qp][k] +
+              d2f_dthetadpolar * (libMesh::outer_product(dtheta[k], _dpolar_dgradeta[_qp][k]) +
+                                  libMesh::outer_product(_dpolar_dgradeta[_qp][k], dtheta[k]));
+          // + d2fdpolar2 * libMesh::outer_product(_dpolar_dgradeta[_qp][k],
+          // _dpolar_dgradeta[_qp][k]) //=0
+          break;
+        }
+
         default:
           mooseError("Unknown inc_func = ", _inc_func);
           break;
@@ -500,7 +543,7 @@ GBInclination::computeQpProperties()
   // Check if no ij pairs at qp use finc = 1 for calculation of condensed output
   if ((_no_ij_pairs[_qp]) || (hgb_tot < 1e-6))
   {
-    Real g = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _const_m));
+    Real g = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _const_m)); //* _nongb_scale
     Real g2 = g * g;
     Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
     _gamma_qp[_qp] = 1 / pg; // 1.5;

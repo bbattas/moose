@@ -26,9 +26,14 @@ protected:
   std::vector<const VariableGradient *> _grad_vals;
 
   // Inclination angular distance and derivatives flatpacked to a vector with GBPairPacking
+  // Azimuth angle [0,2pi)
   MaterialProperty<std::vector<Real>> & _theta_ij;
   MaterialProperty<std::vector<RealGradient>> & _dtheta_dgradeta;
   MaterialProperty<std::vector<RealTensorValue>> & _d2theta_dgradeta2;
+  // POLAR angle (from z axis [0,pi/2))
+  MaterialProperty<std::vector<Real>> & _polar_ij;
+  MaterialProperty<std::vector<RealGradient>> & _dpolar_dgradeta;
+  MaterialProperty<std::vector<RealTensorValue>> & _d2polar_dgradeta2;
 
   // Save the ij thats associated with each one so we can skip a sqrt calc later to unpack
   MaterialProperty<std::vector<unsigned int>> & _ij_i; // use unsigned int if dont need -1
