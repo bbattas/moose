@@ -4,7 +4,7 @@
 # Created Date: Friday March 27th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday March 27th 2026
+# Last Modified: Sunday March 29th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -35,7 +35,7 @@ randseed = 10
 []
 
 [GlobalParams]
-  op_num = 30 #20
+  op_num = 40 #20
   var_name_base = gr
 []
 
@@ -55,7 +55,7 @@ randseed = 10
 [UserObjects]
   [euler_file]
     type = EulerAngleTxtFileReader
-    file_name = '../00_sub/euler_256.txt'
+    file_name = '../00_sub/euler_487.txt'
   []
   [voronoi]
     type = PolycrystalVoronoi
