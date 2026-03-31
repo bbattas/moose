@@ -10,7 +10,8 @@ GBInclination::validParams()
       "Child material to determine inclination dependent properties for AGG.");
   // params.addRequiredCoupledVarWithAutoBuild(
   //     "v", "var_name_base", "op_num", "Array of coupled variables");
-  MooseEnum inc_func("cos=0 well=1 man_well=2 smooth_well=3 smooth_half=4 lin=5", "cos");
+  MooseEnum inc_func("cos=0 well=1 man_well=2 smooth_well=3 smooth_half=4 lin=5 smooth_lin=6",
+                     "cos");
   params.addParam<MooseEnum>(
       "inc_func",
       inc_func,
@@ -450,6 +451,44 @@ GBInclination::computeQpProperties()
                                   libMesh::outer_product(_dpolar_dgradeta[_qp][k], dtheta[k]));
           // + d2fdpolar2 * libMesh::outer_product(_dpolar_dgradeta[_qp][k],
           // _dpolar_dgradeta[_qp][k]) //=0
+          break;
+        }
+
+        case 6: // Smoothed continuous version of lins cos inc only function
+        {
+          // smooth_lin: 0.3 + 0.5 * (1 + cos(2*theta)) * B
+          const Real t = theta[k];
+          const Real c2 = std::cos(2.0 * t);
+          const Real s2 = std::sin(2.0 * t);
+
+          const Real polar = _polar_ij[_qp][k];
+          const Real B = 0.7 + (0.3 - 0.7) * polar / (libMesh::pi / 2);
+
+          const Real flin = 0.3 + 0.5 * (1.0 + c2) * B;
+
+          // df/dtheta, d2f/dtheta2
+          const Real dfdtheta = -s2 * B;
+          const Real d2fdtheta2 = -2.0 * c2 * B;
+
+          // df/dpolar, d2f/dpolar2
+          const Real dB_dpolar = (0.3 - 0.7) / (libMesh::pi / 2);
+          const Real dfdpolar = 0.5 * (1.0 + c2) * dB_dpolar;
+          const Real d2fdpolar2 = 0.0;
+
+          // cross term
+          const Real d2f_dthetadpolar = -s2 * dB_dpolar;
+
+          // combine to df/d∇eta
+          finc[k] = flin;
+          dfinc_dgradeta[k] = dfdtheta * dtheta[k] + dfdpolar * _dpolar_dgradeta[_qp][k];
+
+          d2finc_dgradeta2[k] =
+              d2fdtheta2 * libMesh::outer_product(dtheta[k], dtheta[k]) + dfdtheta * d2theta[k] +
+              dfdpolar * _d2polar_dgradeta2[_qp][k] +
+              d2f_dthetadpolar * (libMesh::outer_product(dtheta[k], _dpolar_dgradeta[_qp][k]) +
+                                  libMesh::outer_product(_dpolar_dgradeta[_qp][k], dtheta[k]));
+          // + d2fdpolar2 * libMesh::outer_product(_dpolar_dgradeta[_qp][k],
+          //                                       _dpolar_dgradeta[_qp][k]) // = 0
           break;
         }
 
