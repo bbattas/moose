@@ -226,8 +226,8 @@ yic = 60
     gb_energy_iso_name = gbe_iso
     kappa = kappa_op
     free_energy_m = 1.282828e7 #5.521269e6
-    # output_properties = 'gtnum int_width gamma_asymm L'
-    # outputs = 'exodus'
+    output_properties = 'gtnum int_width gamma_asymm L'
+    outputs = 'exodus'
   []
   #
   # [GBM]
