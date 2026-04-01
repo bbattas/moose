@@ -4,8 +4,8 @@
 # Created Date: Tuesday March 31st 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday March 31st 2026
-# Modified By: Brandon Battas
+# Last Modified: Wednesday April 1st 2026
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  bicr circle using the new params and the combined version of inc only
@@ -14,9 +14,9 @@
 #
 ##############################################################################
 
-i_tol = 0
-a_tol = 5
-amag = 0.0
+# i_tol = 0
+# a_tol = 5
+# amag = 0.0
 yic = 80
 
 [Mesh]
@@ -213,7 +213,7 @@ yic = 80
     limit_umag = true
     # Inclination function
     inc_func = SMOOTH_LIN
-    ifunc_a = 0#${amag}
+    ifunc_a = 0 #${amag}
     ifunc_b = 2
     ifunc_c = 0
     ifunc_d = 0
