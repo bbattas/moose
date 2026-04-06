@@ -27,11 +27,11 @@ GBInclination::validParams()
                         1.0,
                         "Bulk scale for properties. Was 1 in all 1+cos functions, but the combined "
                         "lin function might need 0.3 as thats the reference value for no inc?");
-  // params.addParam<Real>(
-  //     "nongb_scale",
-  //     1.0,
-  //     "Scale for properties away from GB. Was 1 in all 1+cos functions, but the combined "
-  //     "lin function might need 0.45 as thats the center of the inc range?");
+  params.addParam<Real>(
+      "nongb_scale",
+      1.0,
+      "Scale for properties away from GB. Was 1 in all 1+cos functions, but the combined "
+      "lin function might need 0.45 as thats the center of the inc range?");
   // GB ENERGY
   params.addParam<MaterialPropertyName>(
       "gb_energy_iso_name", "sigma_iso", "Isotropic GB energy before inclination dependence.");
@@ -100,7 +100,7 @@ GBInclination::GBInclination(const InputParameters & parameters)
     _if_d(getParam<Real>("ifunc_d")),
     // Bulk value setting- was 1 but with lins combined might need 0.3?
     _bulk_scale(getParam<Real>("bulk_scale")),
-    // _nongb_scale(getParam<Real>("nongb_scale")),
+    _nongb_scale(getParam<Real>("nongb_scale")),
     // Inclination (1 + cos) output
     _inclination(declareProperty<std::vector<Real>>("inclination")),
     // gamma_ij
@@ -582,7 +582,7 @@ GBInclination::computeQpProperties()
   // Check if no ij pairs at qp use finc = 1 for calculation of condensed output
   if ((_no_ij_pairs[_qp]) || (hgb_tot < 1e-6))
   {
-    Real g = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _const_m)); //* _nongb_scale
+    Real g = _gbe_iso[_qp] * _nongb_scale / (std::sqrt(_kappa[_qp] * _const_m)); //* _nongb_scale
     Real g2 = g * g;
     Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
     _gamma_qp[_qp] = 1 / pg; // 1.5;

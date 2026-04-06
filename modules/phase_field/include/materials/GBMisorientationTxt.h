@@ -87,6 +87,9 @@ protected:
   MaterialProperty<Real> & _int_width;
   MaterialProperty<Real> & _gamma;
 
+  // Bulk value
+  const Real _bulk_scale;
+
   // TESTING
   MaterialProperty<Real> & _gtnum;
   MaterialProperty<Real> & _other_out;

@@ -25,6 +25,10 @@ GBMisorientationTxt::validParams()
   params.addParam<MaterialPropertyName>(
       "L0", "L0", "AC mobility prefactor/reference value material.");
   params.addParam<MaterialPropertyName>("L_name", "L", "AC mobility name.");
+  params.addParam<Real>(
+      "bulk_scale",
+      1.0,
+      "Bulk scale for properties. Defaults to 1 but 0.3 might be the value we need?");
   return params;
 }
 
@@ -42,6 +46,7 @@ GBMisorientationTxt::GBMisorientationTxt(const InputParameters & parameters)
     _mu(getMaterialProperty<Real>(getParam<MaterialPropertyName>("mu"))),
     _int_width(declareProperty<Real>("int_width")),
     _gamma(declareProperty<Real>("gamma_asymm")),
+    _bulk_scale(getParam<Real>("bulk_scale")),
     // TESTING
     _gtnum(declareProperty<Real>("gt_num")),
     _other_out(declareProperty<Real>("other_out")),
@@ -111,7 +116,7 @@ GBMisorientationTxt::computeQpProperties()
   Real ang_cut = 62 * libMesh::pi / 180;
   _twist[_qp] = 0;
   _tilt[_qp] = 0;
-  _f_mis[_qp] = 1;
+  _f_mis[_qp] = _bulk_scale; // 1;
 
   // Compute GB type by the number of id
   switch (_gb_pairs.size())
@@ -121,9 +126,9 @@ GBMisorientationTxt::computeQpProperties()
       _miso[_qp] = 0;
       _miso_polar[_qp] = 0;
       _miso_azim[_qp] = 0;
-      _twist[_qp] = 0.7; // * _m_weight + (1 - _m_weight);
-      _tilt[_qp] = 0.3;  // * _m_weight + (1 - _m_weight);
-      _f_mis[_qp] = 1.0; // 0.3 + _twist[_qp];
+      _twist[_qp] = 0.7;         // * _m_weight + (1 - _m_weight);
+      _tilt[_qp] = 0.3;          // * _m_weight + (1 - _m_weight);
+      _f_mis[_qp] = _bulk_scale; // 1.0; // 0.3 + _twist[_qp];
       break;
     }
 
@@ -144,9 +149,9 @@ GBMisorientationTxt::computeQpProperties()
       _miso[_qp] = 0;
       _miso_polar[_qp] = 0;
       _miso_azim[_qp] = 0;
-      _twist[_qp] = 0.7; // * _m_weight + (1 - _m_weight);
-      _tilt[_qp] = 0.3;  // * _m_weight + (1 - _m_weight);
-      _f_mis[_qp] = 1.0; // 0.3 + _twist[_qp];
+      _twist[_qp] = 0.7;         // * _m_weight + (1 - _m_weight);
+      _tilt[_qp] = 0.3;          // * _m_weight + (1 - _m_weight);
+      _f_mis[_qp] = _bulk_scale; // 1.0; // 0.3 + _twist[_qp];
       break;
     }
 
