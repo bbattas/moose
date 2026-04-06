@@ -62,7 +62,7 @@ randseed = 10
     coloring_algorithm = bt #jp #bt
     grain_num = 256
     rand_seed = ${randseed}
-    int_width = 6
+    int_width = 3 #6
   []
   [grain_tracker]
     type = GrainTracker
