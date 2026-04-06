@@ -93,6 +93,9 @@ protected:
   // TESTING
   MaterialProperty<Real> & _gtnum;
   MaterialProperty<Real> & _other_out;
+  MaterialProperty<Real> & _test1_out;
+  MaterialProperty<Real> & _test2_out;
+  MaterialProperty<Real> & _test3_out;
   //
   MaterialProperty<Real> & _eul_a;
   MaterialProperty<Real> & _eul_b;

@@ -50,6 +50,9 @@ GBMisorientationTxt::GBMisorientationTxt(const InputParameters & parameters)
     // TESTING
     _gtnum(declareProperty<Real>("gt_num")),
     _other_out(declareProperty<Real>("other_out")),
+    _test1_out(declareProperty<Real>("test1_out")),
+    _test2_out(declareProperty<Real>("test2_out")),
+    _test3_out(declareProperty<Real>("test3_out")),
     // EULER ANGLES
     _eul_a(declareProperty<Real>("eul_a")),
     _eul_b(declareProperty<Real>("eul_b")),
@@ -110,6 +113,9 @@ GBMisorientationTxt::computeQpProperties()
 
   _gtnum[_qp] = _gb_pairs.size();
   _other_out[_qp] = 0;
+  _test1_out[_qp] = 0;
+  _test2_out[_qp] = 0;
+  _test3_out[_qp] = 0;
 
   _miso_ang_en[_qp] = 0;
   _miso_ax_en[_qp] = 0;
@@ -139,7 +145,12 @@ GBMisorientationTxt::computeQpProperties()
       _eul_a[_qp] = e_angle.phi1;
       _eul_b[_qp] = e_angle.Phi;
       _eul_c[_qp] = e_angle.phi2;
-      auto quat = e_angle.toQuaternion();
+      // auto quat = e_angle.toQuaternion();
+      EulerAngles e_deg;
+      e_deg.phi1 = e_angle.phi1 * 180.0 / libMesh::pi;
+      e_deg.Phi = e_angle.Phi * 180.0 / libMesh::pi;
+      e_deg.phi2 = e_angle.phi2 * 180.0 / libMesh::pi;
+      auto quat = e_deg.toQuaternion();
       _quat_a[_qp] = quat.w();
       _quat_b[_qp] = quat.x();
       _quat_c[_qp] = quat.y();
@@ -182,6 +193,10 @@ GBMisorientationTxt::computeQpProperties()
       _quat_d[_qp] = quat.z();
       _quat_mag[_qp] = quat.norm();
       _other_out[_qp] = _other[idx];
+      // Checking pairs
+      _test1_out[_qp] = idx;
+      _test2_out[_qp] = _gb_pairs[0];
+      _test3_out[_qp] = _gb_pairs[1];
       break;
     }
 
@@ -422,7 +437,13 @@ GBMisorientationTxt::getMisorientationAngles()
     // auto grain_id = _ebsd_reader.getFeatureID(i);
     // mooseAssert(i < grain_num, "Feature ids cannot exceed max grain number");
     _euler_angle[i] = _euler.getEulerAngles(i);
-    _quat_angle[i] = _euler_angle[i].toQuaternion();
+    // _quat_angle[i] = _euler_angle[i].toQuaternion();
+    // Convert radians to degrees before toQuaternion(), which expects degrees
+    EulerAngles e_deg;
+    e_deg.phi1 = _euler_angle[i].phi1 * 180.0 / libMesh::pi;
+    e_deg.Phi = _euler_angle[i].Phi * 180.0 / libMesh::pi;
+    e_deg.phi2 = _euler_angle[i].phi2 * 180.0 / libMesh::pi;
+    _quat_angle[i] = e_deg.toQuaternion();
   }
 
   for (const auto j : make_range(std::make_unsigned_t<int>(1), grain_num))
