@@ -176,8 +176,8 @@ i_tol = 0
     intol = 0
     altol = 5
     limit_umag = true
-    bulk_scale = 0.3
-    nongb_scale = 0.3
+    bulk_scale = 0.65
+    nongb_scale = 0.65
     # Inclination function
     inc_func = SMOOTH_LIN
     ifunc_a = 0 #${amag}
