@@ -606,17 +606,17 @@ GBInclination::computeQpProperties()
     if (_no_deriv_L)
     {
       if ((_no_ij_pairs[_qp]) || (hgb_tot < 1e-6))
-        _L[_qp] = _L0[_qp];
+        _L[_qp] = _L0[_qp] * _nongb_scale; // match finc = nongb_scale
       else
         _L[_qp] = Lij_sum / hgb_tot;
     }
     else
-      _L[_qp] = _L0[_qp];
+      _L[_qp] = _L0[_qp] * _bulk_scale; // match bulk value for wrong case when L constant
   }
   else if (_no_ij_pairs[_qp] || (hgb_tot < 1e-6))
   {
     // aniso L but skipping this qp
-    _L[_qp] = _L0[_qp];
+    _L[_qp] = _L0[_qp] * _nongb_scale; // match finc = nongb_scale
   }
   else
   {

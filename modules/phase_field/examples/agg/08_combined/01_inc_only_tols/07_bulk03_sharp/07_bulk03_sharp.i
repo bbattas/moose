@@ -4,8 +4,8 @@
 # Created Date: Monday April 20th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday April 20th 2026
-# Modified By: Brandon Battas
+# Last Modified: Tuesday April 21st 2026
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  array test for bulk/gb scale of 0.3 and normal sharp version of lins combo func
@@ -58,7 +58,7 @@ i_tol = 0
     coloring_algorithm = bt #jp #bt
     grain_num = 8
     rand_seed = ${randseed}
-    int_width = 4
+    int_width = 3
   []
   [grain_tracker]
     type = GrainTracker
@@ -157,10 +157,15 @@ i_tol = 0
   #   prop_names = 'L0         gamma_iso kappa_op  iw_iso gbe_iso'
   #   prop_values = '1.15382e-6   1.5    2.07337e7   6   4.60748e6'
   # []
+  # [constants]
+  #   type = GenericConstantMaterial
+  #   prop_names = 'L0             kappa_op  int_width_iso   const_m      gbe_iso   '
+  #   prop_values = '2.7823e-6    2.590909e7        6      1.282828e7  1.388384e7   '
+  # []
   [constants]
     type = GenericConstantMaterial
-    prop_names = 'L0             kappa_op  int_width_iso   const_m      gbe_iso   '
-    prop_values = '2.7823e-6    2.590909e7        6      1.282828e7  1.388384e7   '
+    prop_names = 'L0             kappa_op   const_m      gbe_iso   '
+    prop_values = '2.7815e-6    2.100e07    1.305e7    1.125e7   '
   []
   # [constants_2]
   #   type = GenericConstantMaterial
@@ -192,7 +197,7 @@ i_tol = 0
     # Other Properties
     gb_energy_iso_name = gbe_iso
     kappa = kappa_op
-    free_energy_m = 1.282828e7 #5.521269e6
+    free_energy_m = 1.305e7 #1.282828e7 #5.521269e6
     output_properties = 'gtnum int_width gamma_asymm L'
     outputs = 'exodus'
   []
