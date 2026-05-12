@@ -74,6 +74,21 @@ pack_upper(std::size_t i, std::size_t j) noexcept
   return j * (j - 1) / 2 + i;
 }
 
+/**
+ * Pack an unordered pair by sorting the two ids before calling pack_upper().
+ */
+static inline constexpr std::size_t
+pack_unordered(std::size_t i, std::size_t j)
+{
+  if (i == j)
+    mooseError("GBPairPacking::pack_unordered: identical ids i=", i, " j=", j);
+
+  if (j < i)
+    std::swap(i, j);
+
+  return pack_upper(i, j);
+}
+
 // Optional: fully-checked versions (use in non-hot code)
 inline std::size_t
 pack_upper_checked(std::size_t i, std::size_t j, std::size_t N)

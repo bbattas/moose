@@ -1,13 +1,13 @@
 #pragma once
 
-#include "GBInclinationBase.h"
+#include "GBInclinationDevBase.h"
 
 // Forward Declarations
 
 /**
  * Inclination definition for
  */
-class GBInclination : public GBInclinationBase
+class GBInclination : public GBInclinationDevBase
 {
 public:
   static InputParameters validParams();

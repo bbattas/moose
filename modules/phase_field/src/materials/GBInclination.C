@@ -5,7 +5,7 @@ registerMooseObject("PhaseFieldApp", GBInclination);
 InputParameters
 GBInclination::validParams()
 {
-  InputParameters params = GBInclinationBase::validParams();
+  InputParameters params = GBInclinationDevBase::validParams();
   params.addClassDescription(
       "Child material to determine inclination dependent properties for AGG.");
   // params.addRequiredCoupledVarWithAutoBuild(
@@ -81,7 +81,7 @@ GBInclination::validParams()
 }
 
 GBInclination::GBInclination(const InputParameters & parameters)
-  : GBInclinationBase(parameters),
+  : GBInclinationDevBase(parameters),
     _testout1(declareProperty<Real>("testout1")),
     _testout2(declareProperty<Real>("testout2")),
     _testoutgrad(declareProperty<RealGradient>("testoutgrad")),
@@ -175,7 +175,7 @@ GBInclination::GBInclination(const InputParameters & parameters)
 void
 GBInclination::computeQpProperties()
 {
-  GBInclinationBase::computeQpProperties(); // force it to actually execute the parent
+  GBInclinationDevBase::computeQpProperties(); // force it to actually execute the parent
 
   // Flatpack vector matrices definitions
   const unsigned num_pairs = GBPairPacking::count_upper(_op_num);

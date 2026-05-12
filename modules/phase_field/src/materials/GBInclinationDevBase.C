@@ -1,37 +1,42 @@
-#include "GBInclinationBase.h"
+#include "GBInclinationDevBase.h"
+
+registerMooseObject("PhaseFieldApp", GBInclinationDevBase);
 
 InputParameters
-GBInclinationBase::validParams()
+GBInclinationDevBase::validParams()
 {
   InputParameters params = Material::validParams();
   params.addClassDescription("Base material to determine inclination dependent properties for AGG. "
                              "Builds up to the inclination and its derivatives wrt $\nabla\eta$.");
   params.addRequiredCoupledVarWithAutoBuild(
       "v", "var_name_base", "op_num", "Array of coupled variables");
-  MooseEnum gb_id_method("graintracker=0 ffc=1", "graintracker");
+  MooseEnum gb_id_method("graintracker=0 ffc=1 all=2", "graintracker");
   params.addParam<MooseEnum>(
       "gb_id_method", gb_id_method, "Which GB OP identification/selection option.");
   params.addParam<UserObjectName>("grain_tracker",
                                   "The GrainTracker UserObject to get values from.");
   params.addParam<UserObjectName>("ffc", "The FFC UserObject to get values from.");
-  MooseEnum angular_func("atan_2D=0 atan_3D=1", "atan_2D");
+  MooseEnum angular_func("atan_2D=0 atan_3D=1 acos=2 atan_half=3", "atan_2D");
   params.addParam<MooseEnum>("angular_func",
                              angular_func,
                              "Which angular distance function to use. "
                              "atan_2D: oriented angle atan2(y,x) in [0,2pi); "
                              "atan_3D: oriented azimuth around +x in xy plane (atan2(y,x)) in "
-                             "[0,2pi) and polar from +/-z (acos(z)) in [0,pi/2]- NOT BUILT YET.");
-  params.addParam<Real>("alpha_tol", 0, "alpha tolerance");
-  params.addParam<Real>("hgbalpha_tol", 0, "hgb*alpha tolerance");
+                             "[0,2pi) and polar from +/-z (acos(z)) in [0,pi/2];"
+                             "acos: acos(x) in [0,pi]; "
+                             "atan_half: atan2(sqrt(y^2+z^2), x) in [0,pi].");
+  params.addParam<Real>("intol", 100, "hgbalpha tolerance");
+  params.addParam<Real>("altol", 100, "alpha tolerance");
+  params.addParam<Real>("gt_tol", 0.001, "alpha tolerance");
   params.addParam<MaterialPropertyName>("hgb", "hgb", "Name of gb switching function.");
   params.addParam<bool>("limit_umag",
-                        true,
+                        false,
                         "Limit the $u=\nabla\eta_i - \nabla\eta_j$ based on i and a tolerances, "
                         "else skip the qp/element.");
   return params;
 }
 
-GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
+GBInclinationDevBase::GBInclinationDevBase(const InputParameters & parameters)
   : DerivativeMaterialInterface<Material>(parameters),
     _op_num(coupledComponents("v")),
     _vals(coupledValues("v")),
@@ -40,7 +45,7 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
     _theta_ij(declareProperty<std::vector<Real>>("theta_ij")),
     _dtheta_dgradeta(declareProperty<std::vector<RealGradient>>("dtheta_dgradeta")),
     _d2theta_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2theta_dgradeta2")),
-    // Polar angle (from z axis)- 0 in 2D with global reference
+    // Polar angle (from z axis)
     _polar_ij(declareProperty<std::vector<Real>>("polar_ij")),
     _dpolar_dgradeta(declareProperty<std::vector<RealGradient>>("dpolar_dgradeta")),
     _d2polar_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2polar_dgradeta2")),
@@ -51,13 +56,19 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
     _grain_tracker(isParamValid("grain_tracker") ? &getUserObject<GrainTracker>("grain_tracker")
                                                  : nullptr),
     _ffc_tracker(isParamValid("ffc") ? &getUserObject<FeatureFloodCount>("ffc") : nullptr),
-    // Thresholds and settings
+    _gt_tol(getParam<Real>("gt_tol")),
+    _gtnum(declareProperty<Real>("gtnum")),
     _angular_func(getParam<MooseEnum>("angular_func")),
-    _alphatol(getParam<Real>("alpha_tol")),
-    _hgbatol(getParam<Real>("hgbalpha_tol")),
+    _intol(getParam<Real>("intol")),
+    _altol(getParam<Real>("altol")),
     _hgb(getMaterialProperty<Real>(getParam<MaterialPropertyName>("hgb"))),
     _no_ij_pairs(declareProperty<bool>("no_ij_pairs")),
-    _limit_umag(declareProperty<bool>("limit_umag"))
+    _testout3(declareProperty<Real>("testout3")),
+    _aval(declareProperty<RealGradient>("a_val")),
+    _ival(declareProperty<RealGradient>("i_val")),
+    _acut(declareProperty<RealGradient>("a_cut")),
+    _icut(declareProperty<RealGradient>("i_cut")),
+    _limit_umag(getParam<bool>("limit_umag"))
 
 {
   if (_op_num < 2)
@@ -75,34 +86,40 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
 }
 
 void
-GBInclinationBase::computeQpProperties()
+GBInclinationDevBase::computeQpProperties()
 {
   // Flatpack vector matrices definitions
-  const unsigned int num_pairs = GBPairPacking::count_upper(_op_num);
-
+  const unsigned num_pairs = GBPairPacking::count_upper(_op_num);
   auto & theta = _theta_ij[_qp];
   auto & dtheta = _dtheta_dgradeta[_qp];
   auto & d2theta = _d2theta_dgradeta2[_qp];
-
-  auto & polar = _polar_ij[_qp];
-  auto & dpolar = _dpolar_dgradeta[_qp];
-  auto & d2polar = _d2polar_dgradeta2[_qp];
+  // Size once per QP (no-op if already correct); then initialize values
+  if (theta.size() != num_pairs)
+    theta.resize(num_pairs);
+  if (dtheta.size() != num_pairs)
+    dtheta.resize(num_pairs);
+  if (d2theta.size() != num_pairs)
+    d2theta.resize(num_pairs);
+  std::fill(theta.begin(), theta.end(), -1.0);
+  std::fill(dtheta.begin(), dtheta.end(), RealGradient(0.0));
+  std::fill(d2theta.begin(), d2theta.end(), RealTensorValue(0.0));
+  // POLAR ANGLE- resize and zero on this qp
+  _polar_ij[_qp].resize(num_pairs);
+  _dpolar_dgradeta[_qp].resize(num_pairs);
+  _d2polar_dgradeta2[_qp].resize(num_pairs);
+  std::fill(_polar_ij[_qp].begin(), _polar_ij[_qp].end(), 0.0);
+  std::fill(_dpolar_dgradeta[_qp].begin(), _dpolar_dgradeta[_qp].end(), RealGradient(0.0));
+  std::fill(_d2polar_dgradeta2[_qp].begin(), _d2polar_dgradeta2[_qp].end(), RealTensorValue(0.0));
 
   auto & k2i = _ij_i[_qp];
   auto & k2j = _ij_j[_qp];
-
-  theta.assign(num_pairs, -1.0);
-  dtheta.assign(num_pairs, RealGradient(0.0));
-  d2theta.assign(num_pairs, RealTensorValue(0.0));
-
-  polar.assign(num_pairs, 0.0);
-  dpolar.assign(num_pairs, RealGradient(0.0));
-  d2polar.assign(num_pairs, RealTensorValue(0.0));
-
-  const unsigned int invalid_pair_index = std::numeric_limits<unsigned int>::max();
-
-  k2i.assign(num_pairs, invalid_pair_index);
-  k2j.assign(num_pairs, invalid_pair_index);
+  if (k2i.size() != num_pairs)
+    k2i.resize(num_pairs);
+  if (k2j.size() != num_pairs)
+    k2j.resize(num_pairs);
+  // optional: initialize to a sentinel (here UINT_MAX)
+  std::fill(k2i.begin(), k2i.end(), 0);
+  std::fill(k2j.begin(), k2j.end(), 0);
 
   // Find out the number of boundary unique_id and save them
   _gb_ij_list.clear();
@@ -140,20 +157,44 @@ GBInclinationBase::computeQpProperties()
       break;
     }
 
+    case 2:
+    {
+      // Variable threshold cutoffs- BROKEN/FAILS
+      for (unsigned int i = 0; i < _op_num; ++i)
+      {
+        if ((*_vals[i])[_qp] >= _gt_tol)
+        {
+          _gb_ij_list.push_back(i);
+        }
+      }
+      break;
+    }
+
     default:
-      mooseError("Unknown gb_id_method = ", _gb_case);
+      mooseError("Unknown gb_case = ", _gb_case);
       break;
   }
 
+  _testout3[_qp] = 0.0;
+  // _aval[_qp] = RealGradient(0.0);
+  // _ival[_qp] = RealGradient(0.0);
+  RealGradient aval(0.0);
+  RealGradient ival(0.0);
+  RealGradient acut(0.0);
+  RealGradient icut(0.0);
+
+  _gtnum[_qp] = _gb_ij_list.size();
   std::sort(_gb_ij_list.begin(), _gb_ij_list.end());
 
   switch (_gb_ij_list.size())
   {
     case 0:
-      // Zero OP - Skip
+      // _inclination_distance[_qp] = -1.0; // angular distance out of 0-2pi range (not counted)
+      // _inclination[_qp] = 1.0; // f = 1 + cos() = 1
       break;
     case 1:
-      // One OP - Skip
+      // _inclination_distance[_qp] = -1.0; // angular distance out of 0-2pi range (not counted)
+      // _inclination[_qp] = 1.0; // f = 1 + cos() = 1
       break;
 
     default:
@@ -179,14 +220,21 @@ GBInclinationBase::computeQpProperties()
             uxyz = ngb;
             // uxyz = ngb / ngb.norm();
             ngb /= ngb.norm(); // normalize ngb now that we have uxyz for the un-normalized
+            // DEBUG OUT
+            if (k < 3)
+            {
+              aval(k) = _hgb[_qp] / uxyz.norm();
+              ival(k) = 1 / uxyz.norm();
+              // values
+            }
             // alpha check
-            const bool hov_enabled = (_hgbatol != 0.0);
-            const bool inv_enabled = (_alphatol != 0.0);
+            const bool hov_enabled = (_altol != 0.0);
+            const bool inv_enabled = (_intol != 0.0);
             bool hov_trigger = false;
             bool inv_trigger = false;
             if (hov_enabled)
             {
-              const Real hovtol = _hgb[_qp] / _hgbatol; // safe: _hgbatol != 0 here
+              const Real hovtol = _hgb[_qp] / _altol; // safe: _altol != 0 here
               hov_trigger = (uxyz.norm() < hovtol);
               if (_limit_umag && hov_trigger)
               {
@@ -196,7 +244,7 @@ GBInclinationBase::computeQpProperties()
             }
             if (inv_enabled)
             {
-              const Real invtol = 1.0 / _alphatol; // safe: _alphatol != 0 here
+              const Real invtol = 1.0 / _intol; // safe: _intol != 0 here
               inv_trigger = (uxyz.norm() < invtol);
               if (_limit_umag && inv_trigger)
               {
@@ -206,13 +254,52 @@ GBInclinationBase::computeQpProperties()
             }
             // Combine logic: if both enabled, trip if EITHER trips
             bool alpha_skip = (hov_trigger || inv_trigger);
+            // Check whats triggering where
+            if (idx1 == 0 && idx2 == 1)
+            {
+              if (hov_trigger && inv_trigger)
+                _testout3[_qp] = 3;
+              else if (hov_trigger && !inv_trigger)
+                _testout3[_qp] = 1;
+              else if (!hov_trigger && inv_trigger)
+                _testout3[_qp] = 2;
+            }
+            // DEBUG
+            if (k < 3)
+            {
+              acut(k) = aval(k);
+              icut(k) = ival(k);
+              if (hov_trigger && inv_trigger)
+              {
+                acut(k) = -1;
+                icut(k) = -1;
+              }
+              else if (hov_trigger && !inv_trigger)
+                acut(k) = -1;
+              else if (!hov_trigger && inv_trigger)
+                icut(k) = -1;
+            }
+
+            // bool alpha_skip = false;
+            // if (((uxyz.norm() < hovtol) && (_altol != 0.0)) ||
+            //     ((uxyz.norm() < invtol) && (_intol != 0.0))) // hgb (altol)
+            // {
+            //   alpha = 0.0;
+            //   alpha_skip = true;
+            //   if (k == 1)
+            //     _testout3[_qp] = 1;
+            // }
+            // else
+            // {
+            //   alpha = 1 / uxyz.norm();
+            // }
 
             // Now calculate the inclination using arc-trig functions
             if (!alpha_skip)
             {
               // moved here for checking if we arent skipping alpha
               alpha = 1 / uxyz.norm();
-              // "atan_2D=0 atan_3D=1"
+              // "atan_2D=0 atan_3D=1 acos=2 atan_half=3"
               switch (_angular_func)
               {
                 case 0: // atan_2D
@@ -232,7 +319,7 @@ GBInclinationBase::computeQpProperties()
                   Real pang = libMesh::pi / 2;
 
                   // --- First derivatives wrt phi (= components of normalized ngb) ---
-                  // angle = atan2(y,x)
+                  // angle = atan2(z, y)
                   // dθ/dx = -y/(x^2+y^2), dθ/dy = x/(x^2+y^2), dθ/dz = 0
                   const Real r2 = x * x + y * y;
                   const Real r2_eps = 1e-20; // robust near axis
@@ -259,6 +346,7 @@ GBInclinationBase::computeQpProperties()
                   // z-rows/cols remain zero
 
                   // --- Chain rule to grad(eta_i) and its second derivatives ---
+                  // COPIED FROM PREVIOUS PARTS
                   RealTensorValue dij(1, 0, 0, 0, 1, 0, 0, 0, 1);
                   RankTwoTensor dphi_dgradetai;
                   RankThreeTensor d2phi_dgradetai2;
@@ -299,6 +387,7 @@ GBInclinationBase::computeQpProperties()
                   _dpolar_dgradeta[_qp][k] = RealGradient(0.0);
                   _d2polar_dgradeta2[_qp][k] = RealTensorValue(0.0);
 
+                  // _inclination[_qp] = 1.0;
                   break;
                 }
 
@@ -314,4 +403,9 @@ GBInclinationBase::computeQpProperties()
   // true means skip all the vectored calcs at this qp
   _no_ij_pairs[_qp] =
       std::all_of(theta.begin(), theta.end(), [](const Real v) { return v == -1.0; });
+  // DEBUG
+  _aval[_qp] = aval;
+  _ival[_qp] = ival;
+  _acut[_qp] = acut;
+  _icut[_qp] = icut;
 }
