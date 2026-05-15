@@ -91,6 +91,7 @@ protected:
   // const Real _if_c;
 
   // TEMPORARY
+  MaterialProperty<bool> & _elem_noij;
   MaterialProperty<Real> & _testout1;
   MaterialProperty<Real> & _thetaout;
   MaterialProperty<Real> & _noij_out;

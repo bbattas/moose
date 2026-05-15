@@ -1,6 +1,6 @@
 ##############################################################################
-# File: 06_both.i
-# File Location: /examples/agg/08_combined/02_combined_devel/06_both
+# File: 05_bicr_bulk75.i
+# File Location: /examples/agg/08_combined/03_new_inc_tols/05_bicr_bulk75
 # Created Date: Friday May 15th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
@@ -8,11 +8,14 @@
 # Modified By: Brandon Battas
 # -----
 # Description:
-#
+#  bicrystal check for shape change on ah tolerance testing for bulk scalar 0.75
 #
 #
 #
 ##############################################################################
+
+a_tol = 0
+h_tol = 0
 
 [Mesh]
   [gmg]
@@ -21,9 +24,9 @@
     nx = 80
     ny = 80
     xmin = 0
-    xmax = 80
+    xmax = 40
     ymin = 0
-    ymax = 80
+    ymax = 40
   []
   parallel_type = DISTRIBUTED
   second_order = false
@@ -31,7 +34,7 @@
 []
 
 [GlobalParams]
-  op_num = 3 #20
+  op_num = 2
   var_name_base = gr
 []
 
@@ -41,44 +44,47 @@
 []
 
 [ICs]
+  # [PolycrystalICs]
+  #   [PolycrystalColoringIC]
+  #     polycrystal_ic_uo = voronoi
+  #   []
+  # []
+    [gr0_IC]
+    type = SmoothCircleIC
+    variable = gr0
+    x1 = 20
+    y1 = 20
+    z1 = 0
+    radius = 10
+    invalue = 1
+    outvalue = 0
+    int_width = 3
+  []
   [gr1_IC]
     type = SmoothCircleIC
-    invalue = 1
-    outvalue = 0
-    radius = 12
     variable = gr1
-    x1 = 24
-    y1 = 40
-    int_width = 2
-  []
-  [gr2_IC]
-    type = SmoothCircleIC
-    invalue = 1
-    outvalue = 0
-    radius = 16
-    variable = gr2
-    x1 = 52
-    y1 = 40
-    int_width = 2
-  []
-  [gr0_IC]
-    type = SpecifiedSmoothCircleIC
-    variable = gr0
-    radii = '12 16'
-    x_positions = '24 52'
-    y_positions = '40 40'
-    z_positions = '0 0'
+    x1 = 20
+    y1 = 20
+    z1 = 0
+    radius = 10
     invalue = 0
     outvalue = 1
-    int_width = 2
+    int_width = 3
   []
 []
 
 [UserObjects]
-  [euler_file]
-    type = EulerAngleTxtFileReader
-    file_name = '../../00_sub/euler_25.txt'
-  []
+  # [euler_file]
+  #   type = EulerAngleTxtFileReader
+  #   file_name = '../../00_sub/euler_25.txt'
+  # []
+  # [voronoi]
+  #   type = PolycrystalVoronoi
+  #   coloring_algorithm = bt #jp #bt
+  #   grain_num = 8
+  #   rand_seed = ${randseed}
+  #   int_width = 3
+  # []
   [grain_tracker]
     type = GrainTracker
     # variable = 'gr0 gr1 gr2 gr3 gr4'
@@ -92,7 +98,7 @@
   []
   [term]
     type = Terminator
-    expression = 'grain_tracker < 3'
+    expression = 'grain_tracker < 2'
   []
 []
 
@@ -204,15 +210,18 @@
     type = GBCombinedAnisotropyMaterial
     gb_id_method = graintracker
     grain_tracker = grain_tracker
-    gb_mode = FULL
+    gb_mode = INC
+    alpha_tol = ${a_tol}
+    hgbalpha_tol = ${h_tol}
+    bulk_scalar = 0.75
     # ifunc_a = 0.1
     kappa_name = kappa_op
     gbe_iso_name = gbe_iso
-    enable_misorientation = true
-    euler_angle_provider = euler_file
-    w_inc = 1
-    w_miso = 1
-    output_properties = 'gt_num testout_1 theta_out noij_out L gamma_asymm int_width fgbe gbe_norm'
+    enable_misorientation = false
+    # euler_angle_provider = euler_file
+    # w_inc = 1
+    # w_miso = 1
+    output_properties = 'gt_num testout_1 theta_out noij_out L gamma_asymm int_width gbe_norm'
     outputs = 'exodus'
   []
 []
@@ -244,23 +253,37 @@
     type = NumDOFs
     execute_on = 'initial timestep_end'
   []
+  # IW and Gamma_asymm
+  [avg_iw]
+    type = ElementAverageMaterialProperty
+    mat_prop = int_width
+  []
+  [avg_gamma]
+    type = ElementAverageMaterialProperty
+    mat_prop = gamma_asymm
+  []
+  [gamma_min]
+    type = ElementExtremeMaterialProperty
+    mat_prop = gamma_asymm
+    value_type = MIN
+  []
+  [gamma_max]
+    type = ElementExtremeMaterialProperty
+    mat_prop = gamma_asymm
+    value_type = MAX
+  []
+  [iw_min]
+    type = ElementExtremeMaterialProperty
+    mat_prop = int_width
+    value_type = MIN
+  []
+  [iw_max]
+    type = ElementExtremeMaterialProperty
+    mat_prop = int_width
+    value_type = MAX
+  []
 []
 
-# [VectorPostprocessors]
-#   [grain_volumes]
-#     type = FeatureVolumeVectorPostprocessor
-#     flood_counter = grain_tracker
-#     execute_on = 'initial timestep_end'
-#     # output_centroids = true
-#   []
-#   # [./mem]
-#   #   type = VectorMemoryUsage
-#   #   execute_on = 'INITIAL TIMESTEP_END NONLINEAR LINEAR'
-#   #   report_peak_value = true
-#   #   #mem_units = kilobytes # or bytes, megabytes, gigabytes
-#   #   mem_units = gigabytes
-#   # [../]
-# []
 
 [Preconditioning]
   [SMP]
@@ -289,7 +312,7 @@
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
-  num_steps = 3
+  # num_steps = 3
   # end_time = 30
   # dt = 0.1
   [TimeStepper]
@@ -326,5 +349,5 @@
   #   heaviest_branch = true # Default is false
   #   heaviest_sections = 7 # Default is 0
   # []
-  # file_base = 01_base_a${a_tol}_i${i_tol}_out
+  file_base = 05_bicr_bulk75_a${a_tol}_h${h_tol}_out
 []

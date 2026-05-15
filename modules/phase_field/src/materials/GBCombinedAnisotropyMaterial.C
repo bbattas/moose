@@ -72,12 +72,12 @@ GBCombinedAnisotropyMaterial::GBCombinedAnisotropyMaterial(const InputParameters
     _fgbe(declareProperty<std::vector<Real>>("fgbe")),
     _gbe_norm(declareProperty<Real>("gbe_norm")),
     // _L_ij(declareProperty<std::vector<Real>>("L_ij")),
-    _L(declareProperty<Real>("L_a")),
-    _gamma_ij(declareProperty<std::vector<Real>>("gamma_ij_a")),
-    _dgamma_dgradeta(declareProperty<std::vector<RealGradient>>("dgamma_dgradeta_a")),
-    _d2gamma_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2gamma_dgradeta2_a")),
-    _gamma_asymm(declareProperty<Real>("gamma_asymm_a")),
-    _int_width(declareProperty<Real>("int_width_a")),
+    _L(declareProperty<Real>("L")),
+    _gamma_ij(declareProperty<std::vector<Real>>("gamma_ij")),
+    _dgamma_dgradeta(declareProperty<std::vector<RealGradient>>("dgamma_dgradeta")),
+    _d2gamma_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2gamma_dgradeta2")),
+    _gamma_asymm(declareProperty<Real>("gamma_asymm")),
+    _int_width(declareProperty<Real>("int_width")),
     // CONSTANTS
     _bulk_mult(getParam<Real>("bulk_scalar")),
     _w_inc(getParam<Real>("w_inc")),
@@ -86,6 +86,8 @@ GBCombinedAnisotropyMaterial::GBCombinedAnisotropyMaterial(const InputParameters
     _if_a(getParam<Real>("ifunc_a")),
     // _if_b(getParam<Real>("ifunc_b")),
     // _if_c(getParam<Real>("ifunc_c")),
+    // HARDCODED skip param needed in kernel but should change that later
+    _elem_noij(declareProperty<bool>("elem_no_ij")),
     _testout1(declareProperty<Real>("testout_1")),
     _thetaout(declareProperty<Real>("theta_out")),
     _noij_out(declareProperty<Real>("noij_out")),
@@ -190,6 +192,7 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
   constexpr Real a5 = 2.0033;  // constant term
 
   // TEMPORARY
+  _elem_noij[_qp] = false;
   _noij_out[_qp] = 0;
   _testout1[_qp] = -2;
   _thetaout[_qp] = -2;
@@ -230,9 +233,6 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
 
     const std::size_t i = ij_i[k];
     const std::size_t j = ij_j[k];
-
-    const Real theta_inc = theta[k];
-    const Real polar_inc = polar[k];
 
     switch (_gb_mode)
     {
