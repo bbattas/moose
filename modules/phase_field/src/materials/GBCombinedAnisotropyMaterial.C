@@ -10,7 +10,7 @@ GBCombinedAnisotropyMaterial::validParams()
   params += GBMisorientationHelper::validParams();
 
   // Settings/Modes
-  MooseEnum gb_mode("cos=0 inc=1 miso=2 full=3", "full");
+  MooseEnum gb_mode("cos=0 inc=1 miso=2 full=3 iso=4", "full");
   params.addParam<MooseEnum>("gb_mode",
                              gb_mode,
                              "Which grain-boundary property model to use. "
@@ -282,6 +282,14 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
                     out.d2f_dthetadpolar * (libMesh::outer_product(dtheta[k], dpolar[k]) +
                                             libMesh::outer_product(dpolar[k], dtheta[k]));
         // + d2fdpolar2 * libMesh::outer_product(dpolar[k],dpolar[k]) // = 0
+        break;
+      }
+
+      case ISO:
+      {
+        finc[k] = _bulk_mult;
+        dfinc[k] = RealGradient(0.0);
+        d2finc[k] = RealTensorValue(0.0);
         break;
       }
 

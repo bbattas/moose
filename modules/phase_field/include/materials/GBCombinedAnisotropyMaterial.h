@@ -28,7 +28,8 @@ protected:
     COS = 0,
     INC = 1,
     MISO = 2,
-    FULL = 3
+    FULL = 3,
+    ISO = 4
   };
 
   enum AvgType
