@@ -62,6 +62,9 @@ protected:
   // Check if there are no actual ij pairs at this qp
   MaterialProperty<bool> & _no_ij_pairs;
 
+  // GT Count Checker
+  MaterialProperty<Real> & _gtnum;
+
   // Use limit instead of zero
   const bool _limit_umag;
 };

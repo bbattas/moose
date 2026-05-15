@@ -9,6 +9,10 @@ MatVectorijSum::validParams()
   params.addRequiredCoupledVarWithAutoBuild(
       "v", "var_name_base", "op_num", "Array of coupled variables");
   params.addRequiredParam<MaterialPropertyName>("property", "Vector material property name");
+  params.addParam<MooseEnum>("average_type",
+                             MooseEnum("weighted simple", "weighted"),
+                             "Type of average to compute: 'weighted' (phase-field weighted) or "
+                             "'simple' (unweighted mean)");
   return params;
 }
 
@@ -19,7 +23,8 @@ MatVectorijSum::MatVectorijSum(const InputParameters & params)
     // _j(getParam<unsigned int>("j")),
     _op_num(coupledComponents("v")),
     _vals(coupledValues("v")),
-    _vec_prop(getMaterialProperty<std::vector<Real>>(getParam<MaterialPropertyName>("property")))
+    _vec_prop(getMaterialProperty<std::vector<Real>>(getParam<MaterialPropertyName>("property"))),
+    _average_type(getParam<MooseEnum>("average_type"))
 {
 }
 
@@ -30,11 +35,23 @@ MatVectorijSum::computeValue()
   // const unsigned k = GBPairPacking::pack_upper(_i, _j);
   Real num = 0.0;
   Real den = 0.0;
-  for (std::size_t k = 0; k < v.size(); ++k)
+  if (_average_type == "weighted")
   {
-    auto [i, j] = GBPairPacking::unpack_upper(k);
-    num += v[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
-    den += (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+    for (std::size_t k = 0; k < v.size(); ++k)
+    {
+      auto [i, j] = GBPairPacking::unpack_upper(k);
+      num += v[k] * (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+      den += (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
+    }
+    return (den > 1e-6) ? num / den : std::numeric_limits<Real>::quiet_NaN();
   }
-  return (den > 1e-6) ? num / den : std::numeric_limits<Real>::quiet_NaN();
+  else // simple
+  {
+    for (std::size_t k = 0; k < v.size(); ++k)
+    {
+      num += v[k];
+      ++den;
+    }
+    return (den > 0) ? num / den : std::numeric_limits<Real>::quiet_NaN();
+  }
 }

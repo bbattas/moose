@@ -57,7 +57,8 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
     _hgbatol(getParam<Real>("hgbalpha_tol")),
     _hgb(getMaterialProperty<Real>(getParam<MaterialPropertyName>("hgb"))),
     _no_ij_pairs(declareProperty<bool>("no_ij_pairs")),
-    _limit_umag(declareProperty<bool>("limit_umag"))
+    _gtnum(declareProperty<Real>("gt_num")),
+    _limit_umag(getParam<bool>("limit_umag"))
 
 {
   if (_op_num < 2)
@@ -146,6 +147,9 @@ GBInclinationBase::computeQpProperties()
   }
 
   std::sort(_gb_ij_list.begin(), _gb_ij_list.end());
+
+  // Grain Tracker check for number of grains
+  _gtnum[_qp] = _gb_ij_list.size();
 
   switch (_gb_ij_list.size())
   {

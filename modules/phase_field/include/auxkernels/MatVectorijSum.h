@@ -15,4 +15,5 @@ protected:
   const std::vector<const VariableValue *> _vals;
 
   const MaterialProperty<std::vector<Real>> & _vec_prop;
+  MooseEnum _average_type;
 };

@@ -15,17 +15,17 @@ GBMisorientationHelper::validParams()
   return params;
 }
 
-GBMisorientationHelper::GBMisorientationHelper(const InputParameters & parameters)
+GBMisorientationHelper::GBMisorientationHelper(const InputParameters & parameters,
+                                               const EulerAngleProvider * euler_provider)
   : _enable_misorientation(parameters.get<bool>("enable_misorientation"))
 {
   if (!_enable_misorientation)
     return;
 
-  if (!parameters.isParamValid("euler_angle_provider"))
+  if (!euler_provider)
     mooseError("enable_misorientation=true requires euler_angle_provider.");
 
-  _euler = &parameters.getUserObject<EulerAngleProvider>("euler_angle_provider");
-
+  _euler = euler_provider;
   buildMisorientationTable();
 }
 
@@ -109,7 +109,7 @@ GBMisorientationHelper::buildMisorientationTable()
 
   for (std::size_t i = 0; i < n_grains; ++i)
   {
-    _euler_angle[i] = _euler.getEulerAngles(i);
+    _euler_angle[i] = _euler->getEulerAngles(i);
 
     // In the current EulerAngleTxtFileReader workflow, getEulerAngles() supplies radians,
     // while EulerAngles::toQuaternion() expects degrees.

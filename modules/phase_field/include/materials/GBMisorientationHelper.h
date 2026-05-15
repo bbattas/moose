@@ -24,7 +24,8 @@ protected:
     Real qnorm = 0.0;
   };
 
-  GBMisorientationHelper(const InputParameters & parameters);
+  GBMisorientationHelper(const InputParameters & parameters,
+                         const EulerAngleProvider * euler_provider);
 
   bool misorientationEnabled() const { return _enable_misorientation; }
 
