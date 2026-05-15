@@ -55,7 +55,7 @@ h_tol = 0
     x1 = 20
     y1 = 20
     z1 = 0
-    radius = 10
+    radius = 12
     invalue = 1
     outvalue = 0
     int_width = 3
@@ -66,7 +66,7 @@ h_tol = 0
     x1 = 20
     y1 = 20
     z1 = 0
-    radius = 10
+    radius = 12
     invalue = 0
     outvalue = 1
     int_width = 3
@@ -117,6 +117,8 @@ h_tol = 0
     order = CONSTANT
     family = MONOMIAL
   []
+  [contour]
+  []
 []
 
 [Kernels]
@@ -155,6 +157,13 @@ h_tol = 0
     property = fgbe
     variable = sum_f
     average_type = simple
+  []
+  [contour]
+    type = ParsedAux
+    variable = contour
+    coupled_variables = 'gr0 gr1'
+    expression = 'gr0 * gr0 / ((gr0 * gr0) + (gr1 * gr1))'
+    execute_on = 'initial timestep_end'
   []
 []
 
@@ -312,6 +321,7 @@ h_tol = 0
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
+  dtmax = 0.05
   # num_steps = 3
   # end_time = 30
   # dt = 0.1
