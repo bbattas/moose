@@ -343,7 +343,7 @@ def slurmWrite(cwd,inputName):
             # slurmList.append('export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/slurm/lib64/libpmi.so')
             slurmList.append('export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77')
             slurmList.append('module purge')
-            slurmList.append('module load ufrc mkl/2025.1.0 gcc/14.2.0 openmpi/5.0.7 python/3.12 cmake/3.30.5')
+            slurmList.append('module load ufrc mkl/2025.1.0 gcc/14.2.0 openmpi/5.0.10 python/3.12 cmake/3.30.5')
         # slurmList.append('module load conda')
         # Mamba Build
         # slurmList.append('source ~/.bashrc')
