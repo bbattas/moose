@@ -4,7 +4,7 @@
 # Created Date: Friday May 15th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday May 15th 2026
+# Last Modified: Monday May 18th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -152,9 +152,9 @@ randseed = 20
     gb_id_method = graintracker
     grain_tracker = grain_tracker
     gb_mode = ISO
-    alpha_tol = 0
-    hgbalpha_tol = 0
-    bulk_scalar = 1
+    bulk_scalar = 0.75
+    alpha_tol = 10
+    hgbalpha_tol = 5
     # ifunc_a = 0.1
     kappa_name = kappa_op
     gbe_iso_name = gbe_iso
