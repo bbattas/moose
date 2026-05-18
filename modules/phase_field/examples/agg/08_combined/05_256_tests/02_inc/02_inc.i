@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 01_iso.i
-# File Location: /examples/agg/08_combined/05_256_tests/01_iso
-# Created Date: Friday May 15th 2026
+# File: 02_inc.i
+# File Location: /examples/agg/08_combined/05_256_tests/02_inc
+# Created Date: Monday May 18th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday May 18th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Isotropic reference for the new set of different tests
+#  Inlcination version using lins but in the 0.5-1 range
 #
 #
 #
@@ -97,10 +97,10 @@ randseed = 20
     variable_mobility = false
     # order = SECOND
   []
-  # [PolycrystalInclinationKernel]
-  #   variable_mobility = false
-  #   hgb_mask = hgb
-  # []
+  [PolycrystalInclinationKernel]
+    variable_mobility = false
+    hgb_mask = hgb
+  []
 []
 
 [AuxKernels]
@@ -151,7 +151,7 @@ randseed = 20
     type = GBCombinedAnisotropyMaterial
     gb_id_method = graintracker
     grain_tracker = grain_tracker
-    gb_mode = ISO
+    gb_mode = INC
     bulk_scalar = 0.75
     alpha_tol = 10
     hgbalpha_tol = 5

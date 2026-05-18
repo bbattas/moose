@@ -1,14 +1,14 @@
 ##############################################################################
-# File: 01_iso.i
-# File Location: /examples/agg/08_combined/05_256_tests/01_iso
-# Created Date: Friday May 15th 2026
+# File: 03_miso_mack.i
+# File Location: /examples/agg/08_combined/05_256_tests/03_miso_mack
+# Created Date: Monday May 18th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
 # Last Modified: Monday May 18th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
-#  Isotropic reference for the new set of different tests
+#  Mackenzie distribution on misorientation only 0.5-1 with 0.75 bulk
 #
 #
 #
@@ -51,10 +51,10 @@ randseed = 20
 []
 
 [UserObjects]
-  # [euler_file]
-  #   type = EulerAngleTxtFileReader
-  #   file_name = '../../00_sub/euler_256_mackenzie.txt'
-  # []
+  [euler_file]
+    type = EulerAngleTxtFileReader
+    file_name = '../../00_sub/euler_256_mackenzie.txt'
+  []
   [voronoi]
     type = PolycrystalVoronoi
     coloring_algorithm = bt #jp #bt
@@ -151,15 +151,15 @@ randseed = 20
     type = GBCombinedAnisotropyMaterial
     gb_id_method = graintracker
     grain_tracker = grain_tracker
-    gb_mode = ISO
+    gb_mode = MISO
     bulk_scalar = 0.75
     alpha_tol = 10
     hgbalpha_tol = 5
     # ifunc_a = 0.1
     kappa_name = kappa_op
     gbe_iso_name = gbe_iso
-    enable_misorientation = false
-    # euler_angle_provider = euler_file
+    enable_misorientation = true
+    euler_angle_provider = euler_file
     w_inc = 1
     w_miso = 1
     output_properties = 'gt_num L gamma_asymm int_width gbe_norm'
