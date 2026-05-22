@@ -35,9 +35,17 @@ protected:
   MaterialProperty<std::vector<RealGradient>> & _dpolar_dgradeta;
   MaterialProperty<std::vector<RealTensorValue>> & _d2polar_dgradeta2;
 
-  // Save the ij thats associated with each one so we can skip a sqrt calc later to unpack
+  // compact active pair OP indices
   MaterialProperty<std::vector<unsigned int>> & _ij_i;
   MaterialProperty<std::vector<unsigned int>> & _ij_j;
+  // OP activity flags at this qp
+  // op_is_present[op] = 1 if GrainTracker/FFC says this OP has a valid feature on this elem
+  // op_has_active_pair[op] = 1 if this OP appears in at least one saved ij pair
+  MaterialProperty<std::vector<unsigned char>> & _op_is_present;
+  MaterialProperty<std::vector<unsigned char>> & _op_has_active_pair;
+  // GT feature id for misorientation
+  MaterialProperty<std::vector<unsigned int>> & _ug_i;
+  MaterialProperty<std::vector<unsigned int>> & _ug_j;
 
   /// Enum for grain op identification
   int _gb_case;
@@ -47,7 +55,7 @@ protected:
   const FeatureFloodCount * _ffc_tracker;
 
   // Vector of opi/opj pairs for iteration
-  std::vector<unsigned int> _gb_ij_list;
+  std::vector<std::pair<unsigned int, unsigned int>> _gb_pairs;
 
   // Which trig approach to use for angular distance calculation
   int _angular_func;

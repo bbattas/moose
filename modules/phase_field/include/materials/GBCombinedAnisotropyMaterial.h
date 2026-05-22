@@ -38,6 +38,8 @@ protected:
     WEIGHTED = 1,
   };
 
+  AngleFunctionResult computeIsoGBE(Real bulk_multiplier) const;
+
   AngleFunctionResult
   computeCosineOnlyGBE(Real theta_inc, Real polar_inc, Real a, Real b, Real c) const;
 
@@ -92,7 +94,7 @@ protected:
   // const Real _if_c;
 
   // TEMPORARY
-  MaterialProperty<bool> & _elem_noij;
+  // MaterialProperty<bool> & _elem_noij;
   MaterialProperty<Real> & _testout1;
   MaterialProperty<Real> & _thetaout;
   MaterialProperty<Real> & _noij_out;

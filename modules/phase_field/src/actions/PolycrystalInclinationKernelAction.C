@@ -26,6 +26,7 @@ PolycrystalInclinationKernelAction::validParams()
                         "The mobility is a function of any MOOSE variable (if "
                         "this is set to false, L must be constant over the "
                         "entire domain!)");
+  params.addParam<bool>("skip_offdiag", false, "Skip jacobian offdiagonal- for debuging.");
   // params.addCoupledVar("args", "Vector of nonlinear variable arguments that L depends on");
   // params.deprecateCoupledVar("args", "coupled_variables", "02/27/2024");
 
@@ -44,6 +45,7 @@ void
 PolycrystalInclinationKernelAction::act()
 {
   auto variable_L = getParam<bool>("variable_mobility");
+  auto skip_off = getParam<bool>("skip_offdiag");
   //
   for (unsigned int op = 0; op < _op_num; ++op)
   {
@@ -64,6 +66,7 @@ PolycrystalInclinationKernelAction::act()
       params.set<NonlinearVariableName>("variable") = var_name;
       params.set<std::vector<VariableName>>("coupled_variables") = cv;
       params.set<bool>("variable_L") = variable_L;
+      params.set<bool>("skip_off") = skip_off;
       if (isParamValid("hgb_mask"))
         params.set<MaterialPropertyName>("mask_name") = getParam<MaterialPropertyName>("hgb_mask");
       params.applyParameters(parameters());

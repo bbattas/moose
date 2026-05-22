@@ -64,8 +64,8 @@ GBCombinedAnisotropyMaterial::GBCombinedAnisotropyMaterial(const InputParameters
     _stiffness(getParam<bool>("stiffness")),
     _aniso_mob(getParam<bool>("aniso_gbmob")),
     // Isotropic Inputs
-    _kappa(getMaterialProperty<Real>("kappa_name")),
-    _gbe_iso(getMaterialProperty<Real>("gbe_iso_name")),
+    _kappa(getMaterialProperty<Real>(getParam<MaterialPropertyName>("kappa_name"))),
+    _gbe_iso(getMaterialProperty<Real>(getParam<MaterialPropertyName>("gbe_iso_name"))),
     _mu(getMaterialProperty<Real>("mu")),
     _L0(getMaterialProperty<Real>("L0")),
     // Anisotropic Outputs
@@ -87,7 +87,7 @@ GBCombinedAnisotropyMaterial::GBCombinedAnisotropyMaterial(const InputParameters
     // _if_b(getParam<Real>("ifunc_b")),
     // _if_c(getParam<Real>("ifunc_c")),
     // HARDCODED skip param needed in kernel but should change that later
-    _elem_noij(declareProperty<bool>("elem_no_ij")),
+    // _elem_noij(declareProperty<bool>("elem_no_ij")),
     _testout1(declareProperty<Real>("testout_1")),
     _thetaout(declareProperty<Real>("theta_out")),
     _noij_out(declareProperty<Real>("noij_out")),
@@ -147,22 +147,44 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
 
   const auto & ij_i = _ij_i[_qp];
   const auto & ij_j = _ij_j[_qp];
+  const auto & ug_i = _ug_i[_qp];
+  const auto & ug_j = _ug_j[_qp];
+
+  // CHECK THAT SIZES MATCH
+  mooseAssert(ij_i.size() == theta.size(), "ij_i/theta size mismatch");
+  mooseAssert(ij_j.size() == theta.size(), "ij_j/theta size mismatch");
+  mooseAssert(ug_i.size() == theta.size(), "ug_i/theta size mismatch");
+  mooseAssert(ug_j.size() == theta.size(), "ug_j/theta size mismatch");
+
+  mooseAssert(dtheta.size() == theta.size(), "dtheta/theta size mismatch");
+  mooseAssert(d2theta.size() == theta.size(), "d2theta/theta size mismatch");
+  mooseAssert(polar.size() == theta.size(), "polar/theta size mismatch");
+  mooseAssert(dpolar.size() == theta.size(), "dpolar/theta size mismatch");
+  mooseAssert(d2polar.size() == theta.size(), "d2polar/theta size mismatch");
 
   // New Parameters
   // f(angle) and derivs wrt gradeta
   auto & finc = _fgbe[_qp];
   std::vector<RealGradient> dfinc;
   std::vector<RealTensorValue> d2finc;
-  finc.assign(theta.size(), 0.0);
-  dfinc.assign(theta.size(), RealGradient(0.0));
-  d2finc.assign(theta.size(), RealTensorValue(0.0));
   // gamma_ij and derivs wrt gradeta
   auto & gamma = _gamma_ij[_qp];
   auto & dgamma = _dgamma_dgradeta[_qp];
   auto & d2gamma = _d2gamma_dgradeta2[_qp];
-  gamma.assign(theta.size(), 0.0);
-  dgamma.assign(theta.size(), RealGradient(0.0));
-  d2gamma.assign(theta.size(), RealTensorValue(0.0));
+
+  // Clear and reserve new vector properties
+  finc.clear();
+  dfinc.clear();
+  d2finc.clear();
+  gamma.clear();
+  dgamma.clear();
+  d2gamma.clear();
+  finc.reserve(theta.size());
+  dfinc.reserve(theta.size());
+  d2finc.reserve(theta.size());
+  gamma.reserve(theta.size());
+  dgamma.reserve(theta.size());
+  d2gamma.reserve(theta.size());
 
   // If using full derivative dependence on L, zero all derivatives
   if (_aniso_L)
@@ -192,7 +214,7 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
   constexpr Real a5 = 2.0033;  // constant term
 
   // TEMPORARY
-  _elem_noij[_qp] = false;
+  // _elem_noij[_qp] = false;
   _noij_out[_qp] = 0;
   _testout1[_qp] = -2;
   _thetaout[_qp] = -2;
@@ -227,69 +249,44 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
 
   for (std::size_t k = 0; k < theta.size(); ++k)
   {
-    // Possibly unnecessary extra check- noij comes from this
-    if (theta[k] == -1.0)
-      continue;
-
     const std::size_t i = ij_i[k];
     const std::size_t j = ij_j[k];
+    const std::size_t gti = ug_i[k];
+    const std::size_t gtj = ug_j[k];
+
+    AngleFunctionResult out;
 
     switch (_gb_mode)
     {
       case COS:
       {
-        const auto out = computeCosineOnlyGBE(theta[k], polar[k], _if_a, 2, 0);
-        finc[k] = out.f;
-        dfinc[k] = out.df_dtheta * dtheta[k];
-        d2finc[k] = out.d2f_dtheta2 * libMesh::outer_product(dtheta[k], dtheta[k]) +
-                    out.df_dtheta * d2theta[k];
+        out = computeCosineOnlyGBE(theta[k], polar[k], _if_a, 2, 0);
         break;
       }
 
       case INC:
       {
-        const auto out = computeInclinationGBE(theta[k], polar[k]);
-        finc[k] = out.f;
-        dfinc[k] = out.df_dtheta * dtheta[k] + out.df_dpolar * dpolar[k];
-        d2finc[k] = out.d2f_dtheta2 * libMesh::outer_product(dtheta[k], dtheta[k]) +
-                    out.df_dtheta * d2theta[k] + out.df_dpolar * d2polar[k] +
-                    out.d2f_dthetadpolar * (libMesh::outer_product(dtheta[k], dpolar[k]) +
-                                            libMesh::outer_product(dpolar[k], dtheta[k]));
-        // + d2fdpolar2 * libMesh::outer_product(dpolar[k],dpolar[k]) // = 0
+        out = computeInclinationGBE(theta[k], polar[k]);
         break;
       }
 
       case MISO:
       {
-        const auto & miso = getMisorientationData(i, j);
-        const auto out = computeMisorientationGBE(miso);
-        finc[k] = out.f;
-        dfinc[k] = RealGradient(0.0); // out.df_dtheta * dtheta[k];
-        d2finc[k] = RealTensorValue(0.0);
-        // out.d2f_dtheta2 * libMesh::outer_product(dtheta[k], dtheta[k]) +
-        // out.df_dtheta * d2theta[k];
+        const auto & miso = getMisorientationData(gti, gtj);
+        out = computeMisorientationGBE(miso);
         break;
       }
 
       case FULL:
       {
-        const auto & miso = getMisorientationData(i, j);
-        const auto out = computeFullGBE(theta[k], polar[k], miso, _w_inc, _w_miso);
-        finc[k] = out.f;
-        dfinc[k] = out.df_dtheta * dtheta[k] + out.df_dpolar * dpolar[k];
-        d2finc[k] = out.d2f_dtheta2 * libMesh::outer_product(dtheta[k], dtheta[k]) +
-                    out.df_dtheta * d2theta[k] + out.df_dpolar * d2polar[k] +
-                    out.d2f_dthetadpolar * (libMesh::outer_product(dtheta[k], dpolar[k]) +
-                                            libMesh::outer_product(dpolar[k], dtheta[k]));
-        // + d2fdpolar2 * libMesh::outer_product(dpolar[k],dpolar[k]) // = 0
+        const auto & miso = getMisorientationData(gti, gtj);
+        out = computeFullGBE(theta[k], polar[k], miso, _w_inc, _w_miso);
         break;
       }
 
       case ISO:
       {
-        finc[k] = _bulk_mult;
-        dfinc[k] = RealGradient(0.0);
-        d2finc[k] = RealTensorValue(0.0);
+        out = computeIsoGBE(_bulk_mult);
         break;
       }
 
@@ -297,42 +294,69 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
         mooseError(name(), ": unknown gb_mode = ", _gb_mode);
     }
 
-    // #########################################################
-    // Condense this k
-    // Calculate gamma
-    Real g = _gbe_iso[_qp] * finc[k] / (std::sqrt(_kappa[_qp] * _mu[_qp]));
-    Real dg_df = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _mu[_qp]));
-    Real g2 = g * g;
+    // ------------------------------------------------------------
+    // Condense f and derivatives
+    // ------------------------------------------------------------
+    finc.push_back(out.f);
+
+    dfinc.push_back(out.df_dtheta * dtheta[k] + out.df_dpolar * dpolar[k]);
+
+    d2finc.push_back(out.d2f_dtheta2 * libMesh::outer_product(dtheta[k], dtheta[k]) +
+                     out.d2f_dthetadpolar * (libMesh::outer_product(dtheta[k], dpolar[k]) +
+                                             libMesh::outer_product(dpolar[k], dtheta[k])) +
+                     out.df_dtheta * d2theta[k] + out.df_dpolar * d2polar[k]);
+    // + out.d2f_dpolar2 * libMesh::outer_product(dpolar[k], dpolar[k]) = 0
+
+    // ------------------------------------------------------------
+    // Gamma and interface width for compact pair k
+    // ------------------------------------------------------------
+    const Real g = _gbe_iso[_qp] * finc[k] / (std::sqrt(_kappa[_qp] * _mu[_qp]));
+    const Real dg_df = _gbe_iso[_qp] / (std::sqrt(_kappa[_qp] * _mu[_qp]));
+    const Real g2 = g * g;
     // Polynomial (inverse gamma for 0.5 < gamma < 40)
-    Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
-    Real dpg = 4 * a1 * g2 * g2 * g2 + 3 * a2 * g2 * g2 + 2 * a3 * g2 + a4;
-    Real d2pg = 12 * a1 * g2 * g2 + 6 * a2 * g2 + 2 * a3;
-    gamma[k] = 1 / pg;
+    const Real pg = (((a1 * g2 + a2) * g2 + a3) * g2 + a4) * g2 + a5;
+    const Real dpg = 4 * a1 * g2 * g2 * g2 + 3 * a2 * g2 * g2 + 2 * a3 * g2 + a4;
+    const Real d2pg = 12 * a1 * g2 * g2 + 6 * a2 * g2 + 2 * a3;
+    // gamma[k] = 1 / pg;
+    const Real gamma_ij = 1.0 / pg;
+    RealGradient dgamma_ij(0.0);
+    RealTensorValue d2gamma_ij(0.0);
+
     if (_stiffness)
     {
-      dgamma[k] = -2 * g * gamma[k] * dpg * dg_df * dfinc[k];
-      d2gamma[k] = 2 * gamma[k] * gamma[k] * dg_df * dg_df *
-                       (4 * g2 * gamma[k] * dpg * dpg - 2 * g2 * d2pg - dpg) *
+      dgamma_ij = -2 * g * gamma_ij * dpg * dg_df * dfinc[k];
+      d2gamma_ij = 2 * gamma_ij * gamma_ij * dg_df * dg_df *
+                       (4 * g2 * gamma_ij * dpg * dpg - 2 * g2 * d2pg - dpg) *
                        libMesh::outer_product(dfinc[k], dfinc[k]) -
-                   2 * g * gamma[k] * dpg * dg_df * d2finc[k];
+                   2 * g * gamma_ij * dpg * dg_df * d2finc[k];
     }
-    // Calculate IW
-    Real f0_int =
+    gamma.push_back(gamma_ij);
+    dgamma.push_back(dgamma_ij);
+    d2gamma.push_back(d2gamma_ij);
+
+    // ------------------------------------------------------------
+    // Interface width
+    // ------------------------------------------------------------
+    const Real f0_int =
         (((((0.0788 * pg - 0.4955) * pg + 1.2244) * pg - 1.5281) * pg + 1.0686) * pg - 0.5563) *
             pg +
         0.2907;
-    Real iw_ij = (std::sqrt(_kappa[_qp] / _mu[_qp])) * (std::sqrt(1 / f0_int));
+    const Real iw_ij = (std::sqrt(_kappa[_qp] / _mu[_qp])) * (std::sqrt(1 / f0_int));
 
-    // Summation
+    // ------------------------------------------------------------
+    // Weighted or unweighted summation
+    // ------------------------------------------------------------
     Real gb_ij_weight = 1;
     if (_tj_mode == WEIGHTED) // Weighted summation
       gb_ij_weight = (*_vals[i])[_qp] * (*_vals[i])[_qp] * (*_vals[j])[_qp] * (*_vals[j])[_qp];
     hgb_tot += gb_ij_weight;
     iw_sum += iw_ij * gb_ij_weight;
-    gamma_sum += gamma[k] * gb_ij_weight;
-    gbe_sum += finc[k];
+    gamma_sum += gamma_ij * gb_ij_weight;
+    gbe_sum += finc[k] * gb_ij_weight;
 
-    // L
+    // ------------------------------------------------------------
+    // Mobility contribution
+    // ------------------------------------------------------------
     // Lij not used in kernel, so dont need to store full vector
     Real Lij = 0.0;
     Real dLdf = 0.0;
@@ -350,6 +374,7 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
       d2Ldf2 = 0.0;
     }
     Lij_sum += Lij * gb_ij_weight;
+
     if (_aniso_L && _stiffness)
     {
       (*_dL_dgradeta[i])[_qp] += dLdf * dfinc[k] * gb_ij_weight;
@@ -390,6 +415,21 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
       }
     }
   }
+}
+
+GBCombinedAnisotropyMaterial::AngleFunctionResult
+GBCombinedAnisotropyMaterial::computeIsoGBE(const Real bulk_multiplier) const
+{
+  AngleFunctionResult out;
+
+  out.f = bulk_multiplier;
+  out.df_dtheta = 0.0;
+  out.d2f_dtheta2 = 0.0;
+  out.df_dpolar = 0.0;
+  out.d2f_dpolar2 = 0.0;
+  out.d2f_dthetadpolar = 0.0;
+
+  return out;
 }
 
 GBCombinedAnisotropyMaterial::AngleFunctionResult

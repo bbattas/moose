@@ -30,13 +30,15 @@ ACInterfaceInclinationGamma::validParams()
 ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters & parameters)
   : DerivativeMaterialInterface<JvarMapKernelInterface<Kernel>>(parameters),
     // Include the second order parts for if _variable_L
-    _second_u(second()),
-    _second_test(secondTest()),
-    _second_phi(secondPhi()),
+    _variable_L(getParam<bool>("variable_L")),
+    _second_u(_variable_L ? &second() : nullptr),
+    _second_test(_variable_L ? &secondTest() : nullptr),
+    _second_phi(_variable_L ? &secondPhi() : nullptr),
     _op_num(getParam<unsigned int>("op_num")),
     // IJ pair information
     _var_name_base(getParam<std::string>("var_name_base")),
-    _no_ij_pairs(getMaterialProperty<bool>("elem_no_ij")), // no_ij_pairs
+    _no_ij_pairs(getMaterialProperty<bool>("no_ij_pairs")), // elem_no_ij
+    _op_has_active_pair(getMaterialProperty<std::vector<unsigned char>>("op_has_active_pair")),
     _ij_i(getMaterialProperty<std::vector<unsigned int>>("ij_i")),
     _ij_j(getMaterialProperty<std::vector<unsigned int>>("ij_j")),
     // mu or const_m
@@ -46,7 +48,6 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
     _d2gammaij_dgradeta2(getMaterialProperty<std::vector<RealTensorValue>>("d2gamma_dgradeta2")),
     // AC Mobility
     _L(getMaterialProperty<Real>("mob_name")),
-    _variable_L(getParam<bool>("variable_L")),
     _skip_off(getParam<bool>("skip_off")),
     _debug_kernel(getParam<bool>("debug_kernel")),
     _mask(isParamValid("mask_name") ? &getMaterialProperty<Real>("mask_name") : nullptr),
@@ -173,6 +174,14 @@ ACInterfaceInclinationGamma::ACInterfaceInclinationGamma(const InputParameters &
     }
   }
 
+  for (unsigned k = 0; k < _op_num; ++k)
+    if (!_eta_by_op[k])
+      mooseError("ACInterfaceInclinationGamma for variable ",
+                 _var.name(),
+                 " is missing coupled value for OP index ",
+                 k,
+                 ". All grain OPs must be coupled so compact active pairs can be evaluated.");
+
   // debugging dump
   if (_debug_kernel && this->processor_id() == 0)
   {
@@ -221,18 +230,22 @@ ACInterfaceInclinationGamma::initialSetup()
 }
 
 RealGradient
-ACInterfaceInclinationGamma::gradL() // Includes grad op dependence
+ACInterfaceInclinationGamma::gradL()
 {
+  mooseAssert(_variable_L, "gradL() should only be called when variable_L = true.");
+  mooseAssert(_second_u, "second_u pointer is null in gradL().");
+
   RealGradient g = _grad_u[_qp] * (*_dLdu)[_qp];
-  g += _second_u[_qp] * (*_dL_dgradu)[_qp];
+  g += (*_second_u)[_qp] * (*_dL_dgradu)[_qp];
+
   for (unsigned int i = 0; i < _n_args; ++i)
   {
-    // if (i == _my_op)
-    //   continue;
     g += (*_gradarg[i])[_qp] * (*_dLdarg[i])[_qp];
+
     if (_grain_slots[i])
       g += (*_second_arg[i])[_qp] * (*_dL_dgradeta[i])[_qp];
   }
+
   return g;
 }
 
@@ -251,7 +264,16 @@ ACInterfaceInclinationGamma::nablaLPsi() // RH $L \nabla \psi$
 Real
 ACInterfaceInclinationGamma::computeQpResidual()
 {
+  // Exit shortcuts
   if (_no_ij_pairs[_qp])
+    return 0.0;
+
+  const auto & op_has_active_pair = _op_has_active_pair[_qp];
+
+  mooseAssert(_my_op < op_has_active_pair.size(),
+              "my_op index is out of range for op_has_active_pair.");
+
+  if (!op_has_active_pair[_my_op])
     return 0.0;
 
   // const RealGradient nabla_Lpsi = nablaLPsi(); // L * grad(test) for now
@@ -264,6 +286,8 @@ ACInterfaceInclinationGamma::computeQpResidual()
               "ij_i/ij_j/dgamma length mismatch at qp");
 
   Real sum = 0.0;
+  // Added to try to speed up
+  const RealGradient nabla_Lpsi = _variable_L ? nablaLPsi() : _L[_qp] * _grad_test[_i][_qp];
 
   for (std::size_t k = 0; k < ii.size(); ++k)
   {
@@ -284,7 +308,7 @@ ACInterfaceInclinationGamma::computeQpResidual()
     const Real sgn = (_my_op == i) ? 1.0 : -1.0;
 
     // dot with ∇(L ψ)
-    sum += sgn * (dgamma[k] * nablaLPsi()) * _u[_qp] * _u[_qp] * (eta_other * eta_other);
+    sum += sgn * (dgamma[k] * nabla_Lpsi) * _u[_qp] * _u[_qp] * (eta_other * eta_other);
   }
 
   if (_mask_tf)
@@ -296,7 +320,16 @@ ACInterfaceInclinationGamma::computeQpResidual()
 Real
 ACInterfaceInclinationGamma::computeQpJacobian()
 {
+  // Exit shortcuts
   if (_no_ij_pairs[_qp])
+    return 0.0;
+
+  const auto & op_has_active_pair = _op_has_active_pair[_qp];
+
+  mooseAssert(_my_op < op_has_active_pair.size(),
+              "my_op index is out of range for op_has_active_pair.");
+
+  if (!op_has_active_pair[_my_op])
     return 0.0;
 
   const auto & ii = _ij_i[_qp];
@@ -304,24 +337,38 @@ ACInterfaceInclinationGamma::computeQpJacobian()
   const auto & dgamma = _dgammaij_dgradeta[_qp];
   const auto & d2gamma = _d2gammaij_dgradeta2[_qp];
 
+  mooseAssert(ii.size() == jj.size(), "ij_i/ij_j length mismatch at qp");
+  mooseAssert(ii.size() == dgamma.size(), "ij_i/dgamma length mismatch at qp");
+  mooseAssert(ii.size() == d2gamma.size(), "ij_i/d2gamma length mismatch at qp");
+
   Real ddir = 0.0; // derivative wrt u
   Real dind = 0.0; // derivative wrt grad_u
+
+  // Added to try to speed up
+  const RealGradient nabla_Lpsi = _variable_L ? nablaLPsi() : _L[_qp] * _grad_test[_i][_qp];
 
   for (std::size_t k = 0; k < ii.size(); ++k)
   {
     const unsigned i = ii[k], j = jj[k];
-    if (_my_op != i && _my_op != j)
+    // if (_my_op != i && _my_op != j)
+    //   continue;
+
+    // // Determine which is the "other" OP in the pair and get its value
+    // const Real sgn = (_my_op == i) ? 1.0 : -1.0;
+    // const unsigned other_op = (_my_op == i) ? j : i;
+    // Alternate faster?:
+    const bool my_is_i = (_my_op == i);
+    if (!my_is_i && _my_op != j)
       continue;
 
-    // Determine which is the "other" OP in the pair and get its value
-    const Real sgn = (_my_op == i) ? 1.0 : -1.0;
-    const unsigned other_op = (_my_op == i) ? j : i;
+    const Real sgn = my_is_i ? 1.0 : -1.0;
+    const unsigned other_op = my_is_i ? j : i;
     const Real eta_other = eta_at(other_op);
     // const Real eta_other = get_val_by_k(other_op);
 
-    ddir += 2 * _u[_qp] * sgn * dgamma[k] * eta_other * eta_other * _phi[_j][_qp] * nablaLPsi();
+    ddir += 2 * _u[_qp] * sgn * dgamma[k] * eta_other * eta_other * _phi[_j][_qp] * nabla_Lpsi;
     dind +=
-        _u[_qp] * _u[_qp] * d2gamma[k] * eta_other * eta_other * _grad_phi[_j][_qp] * nablaLPsi();
+        _u[_qp] * _u[_qp] * d2gamma[k] * eta_other * eta_other * _grad_phi[_j][_qp] * nabla_Lpsi;
     // d2gamma is ii or jj here so both +
 
     // Variable L Moelans
@@ -331,10 +378,10 @@ ACInterfaceInclinationGamma::computeQpJacobian()
       static const RealTensorValue I(1, 0, 0, 0, 1, 0, 0, 0, 1);
       // The direct u pieces
       RealGradient dgradLdu =
-          (*_d2Ldu2)[_qp] * _grad_u[_qp] + (*_d2L_dgradudu)[_qp] * _second_u[_qp];
+          (*_d2Ldu2)[_qp] * _grad_u[_qp] + (*_d2L_dgradudu)[_qp] * (*_second_u)[_qp];
       RealTensorValue dgradLdgradu = libMesh::outer_product((*_d2L_dgradudu)[_qp], _grad_u[_qp]) +
                                      I * (*_dLdu)[_qp] +
-                                     (*_d2L_dgradudgradeta)[_qp][_my_op] * _second_u[_qp];
+                                     (*_d2L_dgradudgradeta)[_qp][_my_op] * (*_second_u)[_qp];
       // The cross terms with eta/gradeta dependence in grad L
       for (unsigned int i = 0; i < _n_args; ++i)
       {
@@ -369,110 +416,252 @@ ACInterfaceInclinationGamma::computeQpJacobian()
 Real
 ACInterfaceInclinationGamma::computeQpOffDiagJacobian(unsigned int jvar)
 {
-  if ((_skip_off) || (_no_ij_pairs[_qp]))
-  {
+  if (_skip_off || _no_ij_pairs[_qp])
     return 0.0;
-  }
-  else
-  {
-    // Which OP index does this jvar correspond to?
-    // If not a known OP, bail out early.
-    int v = -1;
-    for (unsigned op = 0; op < _op_to_jvar.size(); ++op)
-      if (_op_to_jvar[op] == static_cast<int>(jvar))
-      {
-        v = static_cast<int>(op);
-        break;
-      }
-    if (v < 0)
-      return 0.0;
 
-    // get the arg index jvar is referring to
-    const unsigned int cvar = mapJvarToCvar(jvar);
-
-    // shorthand
-    const auto & ii = _ij_i[_qp];
-    const auto & jj = _ij_j[_qp];
-    const auto & dgamma = _dgammaij_dgradeta[_qp];
-    const auto & d2gamma = _d2gammaij_dgradeta2[_qp];
-
-    // Real J = 0.0;
-    Real ddir = 0.0; // derivative wrt u
-    Real dind = 0.0; // derivative wrt grad_u
-
-    for (std::size_t k = 0; k < ii.size(); ++k)
+  int v_int = -1;
+  for (unsigned op = 0; op < _op_to_jvar.size(); ++op)
+    if (_op_to_jvar[op] == static_cast<int>(jvar))
     {
-      const unsigned i = ii[k], j = jj[k];
-
-      // We need pairs that include both u and v
-      const bool contains_u = (_my_op == i) || (_my_op == j);
-      const bool contains_v = (static_cast<unsigned>(v) == i) || (static_cast<unsigned>(v) == j);
-      if (!(contains_u && contains_v))
-        continue;
-
-      const Real sgn = (_my_op == i) ? 1.0 : -1.0;
-      const unsigned other_op = (_my_op == i) ? j : i;
-      const Real eta_other = eta_at(other_op);
-
-      // Direct dependence on arg
-      ddir += 2 * eta_other * _u[_qp] * _u[_qp] * sgn * dgamma[k] * _phi[_j][_qp] * nablaLPsi();
-      // Indirect dependence on grad_arg
-      dind += _u[_qp] * _u[_qp] * (-d2gamma[k] * _grad_phi[_j][_qp]) * eta_other * eta_other *
-              nablaLPsi();
-
-      if (_variable_L)
-      {
-        // Grad L partials
-        static const RealTensorValue I(1, 0, 0, 0, 1, 0, 0, 0, 1);
-        // The direct u piece (da)
-        RealGradient dgradLdarg = (*_d2Ldargdu[cvar])[_qp] * _grad_u[_qp] +
-                                  (*_d2L_dgradudarg[cvar])[_qp] * _second_u[_qp];
-        // The indirect gradu piece (dgrada)
-        RealTensorValue dgradLdgradarg(0.0);
-        if (_grain_slots[cvar])
-        {
-          dgradLdgradarg += libMesh::outer_product((*_d2L_dgradetadu[cvar])[_qp], _grad_u[_qp]) +
-                            (*_d2L_dgradudgradeta)[_qp][other_op] * _second_u[_qp] +
-                            I * (*_dLdarg[cvar])[_qp];
-          // - (*_d2Ldgradarg2[cvar])[_qp] * (*_second_arg[cvar])[_qp];
-        }
-
-        // do a if (_grain_slots[cvar]) on the dgradL_dgradarg?
-        // Could have more of the dgradLdgradarg into cross terms if those were defined that way
-        // The cross terms with eta/gradeta dependence in grad L
-        for (unsigned int i = 0; i < _n_args; ++i)
-        {
-          dgradLdarg += (*_d2Ldarg2[cvar][i])[_qp] * (*_gradarg[i])[_qp];
-          if (_grain_slots[i])
-            dgradLdarg += (*_d2L_dgradetadarg[i][cvar])[_qp] * (*_second_arg[i])[_qp];
-          if (_grain_slots[cvar])
-          {
-            dgradLdgradarg +=
-                libMesh::outer_product((*_d2L_dgradetadarg[cvar][i])[_qp], (*_gradarg[i])[_qp]);
-            // + (*_d2L_dgradudgradeta[cvar])[_qp] * (*_second_arg[cvar])[_qp];
-            // if we had dgradargdgradcvar we would use that, but we only care for gradu-gradarg
-          }
-        }
-        // Now combine the offdiag grad L pieces
-        // Direct L dependence
-        ddir += (*_dLdarg[cvar])[_qp] * _u[_qp] * _u[_qp] * sgn * dgamma[k] * eta_other *
-                eta_other * _phi[_j][_qp] * _grad_test[_i][_qp];
-        // Direct grad L dependence
-        ddir += dgradLdarg * _u[_qp] * _u[_qp] * sgn * dgamma[k] * eta_other * eta_other *
-                _phi[_j][_qp] * _test[_i][_qp];
-        // Indirect L dependence (of grad arg)
-        if (_grain_slots[cvar])
-          dind += (*_dL_dgradeta[cvar])[_qp] * _u[_qp] * _u[_qp] * sgn * dgamma[k] * eta_other *
-                  eta_other * _grad_phi[_j][_qp] * _grad_test[_i][_qp];
-        // Indirect grad L dependence (of grad arg)
-        dind += dgradLdgradarg * _u[_qp] * _u[_qp] * sgn * dgamma[k] * eta_other * eta_other *
-                _grad_phi[_j][_qp] * _test[_i][_qp];
-      }
+      v_int = static_cast<int>(op);
+      break;
     }
 
-    if (_mask_tf)
-      return (*_mask)[_qp] * _mu[_qp] * (ddir + dind);
-    else
-      return _mu[_qp] * (ddir + dind);
+  if (v_int < 0)
+    return 0.0;
+
+  const unsigned int v = static_cast<unsigned int>(v_int);
+
+  if (v == _my_op)
+    return 0.0;
+
+  const auto & op_has_active_pair = _op_has_active_pair[_qp];
+
+  if (_my_op >= op_has_active_pair.size() || !op_has_active_pair[_my_op])
+    return 0.0;
+
+  if (v >= op_has_active_pair.size() || !op_has_active_pair[v])
+    return 0.0;
+
+  const auto & ii = _ij_i[_qp];
+  const auto & jj = _ij_j[_qp];
+  const auto & dgamma = _dgammaij_dgradeta[_qp];
+  const auto & d2gamma = _d2gammaij_dgradeta2[_qp];
+
+  mooseAssert(ii.size() == jj.size(), "ij_i/ij_j length mismatch at qp");
+  mooseAssert(ii.size() == dgamma.size(), "ij_i/dgamma length mismatch at qp");
+  mooseAssert(ii.size() == d2gamma.size(), "ij_i/d2gamma length mismatch at qp");
+
+  const Real u = _u[_qp];
+  const Real u2 = u * u;
+  const Real phi = _phi[_j][_qp];
+
+  const RealGradient & grad_phi = _grad_phi[_j][_qp];
+  const RealGradient & grad_test = _grad_test[_i][_qp];
+
+  const RealGradient nabla_Lpsi = _variable_L ? nablaLPsi() : _L[_qp] * grad_test;
+
+  Real ddir = 0.0;
+  Real dind = 0.0;
+
+  for (std::size_t k = 0; k < ii.size(); ++k)
+  {
+    const unsigned int i = ii[k];
+    const unsigned int j = jj[k];
+
+    const bool my_is_i = (_my_op == i);
+    const bool my_is_j = (_my_op == j);
+
+    if (!my_is_i && !my_is_j)
+      continue;
+
+    const unsigned int other_op = my_is_i ? j : i;
+
+    if (other_op != v)
+      continue;
+
+    const Real sgn = my_is_i ? 1.0 : -1.0;
+    const Real eta_other = eta_at(other_op);
+    const Real eta_other2 = eta_other * eta_other;
+
+    ddir += 2.0 * eta_other * u2 * sgn * phi * (dgamma[k] * nabla_Lpsi);
+
+    dind += u2 * eta_other2 * ((-d2gamma[k] * grad_phi) * nabla_Lpsi);
+
+    if (_variable_L)
+    {
+      const unsigned int cvar = mapJvarToCvar(jvar);
+
+      static const RealTensorValue I(1, 0, 0, 0, 1, 0, 0, 0, 1);
+
+      RealGradient dgradLdarg = (*_d2Ldargdu[cvar])[_qp] * _grad_u[_qp] +
+                                (*_d2L_dgradudarg[cvar])[_qp] * (*_second_u)[_qp];
+
+      RealTensorValue dgradLdgradarg(0.0);
+
+      if (_grain_slots[cvar])
+      {
+        dgradLdgradarg += libMesh::outer_product((*_d2L_dgradetadu[cvar])[_qp], _grad_u[_qp]) +
+                          (*_d2L_dgradudgradeta)[_qp][other_op] * (*_second_u)[_qp] +
+                          I * (*_dLdarg[cvar])[_qp];
+      }
+
+      for (unsigned int a = 0; a < _n_args; ++a)
+      {
+        dgradLdarg += (*_d2Ldarg2[cvar][a])[_qp] * (*_gradarg[a])[_qp];
+
+        if (_grain_slots[a])
+          dgradLdarg += (*_d2L_dgradetadarg[a][cvar])[_qp] * (*_second_arg[a])[_qp];
+
+        if (_grain_slots[cvar])
+          dgradLdgradarg +=
+              libMesh::outer_product((*_d2L_dgradetadarg[cvar][a])[_qp], (*_gradarg[a])[_qp]);
+      }
+
+      const Real eta_factor = eta_other2;
+      const Real common = u2 * sgn * eta_factor;
+
+      ddir += (*_dLdarg[cvar])[_qp] * common * (dgamma[k] * grad_test) * phi;
+
+      ddir += (dgradLdarg * dgamma[k]) * common * phi * _test[_i][_qp];
+
+      if (_grain_slots[cvar])
+        dind += ((*_dL_dgradeta[cvar])[_qp] * dgamma[k]) * common * (grad_phi * grad_test);
+
+      dind += ((dgradLdgradarg * dgamma[k]) * grad_phi) * common * _test[_i][_qp];
+    }
+
+    // only one possible matching compact pair
+    break;
   }
+
+  const Real prefactor = (_mask_tf ? (*_mask)[_qp] : 1.0) * _mu[_qp];
+
+  return prefactor * (ddir + dind);
 }
+
+// Real
+// ACInterfaceInclinationGamma::computeQpOffDiagJacobian(unsigned int jvar)
+// {
+//   if ((_skip_off) || (_no_ij_pairs[_qp]))
+//     return 0.0;
+
+//   // Which OP index does this jvar correspond to?
+//   // If not a known OP, bail out early.
+//   int v = -1;
+//   for (unsigned op = 0; op < _op_to_jvar.size(); ++op)
+//     if (_op_to_jvar[op] == static_cast<int>(jvar))
+//     {
+//       v = static_cast<int>(op);
+//       break;
+//     }
+//   if (v < 0)
+//     return 0.0;
+
+//   const auto & op_has_active_pair = _op_has_active_pair[_qp];
+
+//   if (_my_op >= op_has_active_pair.size() || !op_has_active_pair[_my_op])
+//     return 0.0;
+
+//   if (static_cast<unsigned int>(v) >= op_has_active_pair.size() ||
+//       !op_has_active_pair[static_cast<unsigned int>(v)])
+//     return 0.0;
+
+//   // get the arg index jvar is referring to
+//   const unsigned int cvar = mapJvarToCvar(jvar);
+
+//   // shorthand
+//   const auto & ii = _ij_i[_qp];
+//   const auto & jj = _ij_j[_qp];
+//   const auto & dgamma = _dgammaij_dgradeta[_qp];
+//   const auto & d2gamma = _d2gammaij_dgradeta2[_qp];
+
+//   mooseAssert(ii.size() == jj.size(), "ij_i/ij_j length mismatch at qp");
+//   mooseAssert(ii.size() == dgamma.size(), "ij_i/dgamma length mismatch at qp");
+//   mooseAssert(ii.size() == d2gamma.size(), "ij_i/d2gamma length mismatch at qp");
+
+//   // Real J = 0.0;
+//   Real ddir = 0.0; // derivative wrt u
+//   Real dind = 0.0; // derivative wrt grad_u
+
+//   // Added to try to speed up
+//   const RealGradient nabla_Lpsi = _variable_L ? nablaLPsi() : _L[_qp] * _grad_test[_i][_qp];
+
+//   for (std::size_t k = 0; k < ii.size(); ++k)
+//   {
+//     const unsigned i = ii[k], j = jj[k];
+
+//     // We need pairs that include both u and v
+//     const bool contains_u = (_my_op == i) || (_my_op == j);
+//     const bool contains_v = (static_cast<unsigned>(v) == i) || (static_cast<unsigned>(v) == j);
+//     if (!(contains_u && contains_v))
+//       continue;
+
+//     const Real sgn = (_my_op == i) ? 1.0 : -1.0;
+//     const unsigned other_op = (_my_op == i) ? j : i;
+//     const Real eta_other = eta_at(other_op);
+
+//     // Direct dependence on arg
+//     ddir += 2 * eta_other * _u[_qp] * _u[_qp] * sgn * dgamma[k] * _phi[_j][_qp] * nabla_Lpsi;
+//     // Indirect dependence on grad_arg
+//     dind +=
+//         _u[_qp] * _u[_qp] * (-d2gamma[k] * _grad_phi[_j][_qp]) * eta_other * eta_other *
+//         nabla_Lpsi;
+
+//     if (_variable_L)
+//     {
+//       // Grad L partials
+//       static const RealTensorValue I(1, 0, 0, 0, 1, 0, 0, 0, 1);
+//       // The direct u piece (da)
+//       RealGradient dgradLdarg =
+//           (*_d2Ldargdu[cvar])[_qp] * _grad_u[_qp] + (*_d2L_dgradudarg[cvar])[_qp] *
+//           _second_u[_qp];
+//       // The indirect gradu piece (dgrada)
+//       RealTensorValue dgradLdgradarg(0.0);
+//       if (_grain_slots[cvar])
+//       {
+//         dgradLdgradarg += libMesh::outer_product((*_d2L_dgradetadu[cvar])[_qp], _grad_u[_qp]) +
+//                           (*_d2L_dgradudgradeta)[_qp][other_op] * _second_u[_qp] +
+//                           I * (*_dLdarg[cvar])[_qp];
+//         // - (*_d2Ldgradarg2[cvar])[_qp] * (*_second_arg[cvar])[_qp];
+//       }
+
+//       // do a if (_grain_slots[cvar]) on the dgradL_dgradarg?
+//       // Could have more of the dgradLdgradarg into cross terms if those were defined that way
+//       // The cross terms with eta/gradeta dependence in grad L
+//       for (unsigned int i = 0; i < _n_args; ++i)
+//       {
+//         dgradLdarg += (*_d2Ldarg2[cvar][i])[_qp] * (*_gradarg[i])[_qp];
+//         if (_grain_slots[i])
+//           dgradLdarg += (*_d2L_dgradetadarg[i][cvar])[_qp] * (*_second_arg[i])[_qp];
+//         if (_grain_slots[cvar])
+//         {
+//           dgradLdgradarg +=
+//               libMesh::outer_product((*_d2L_dgradetadarg[cvar][i])[_qp], (*_gradarg[i])[_qp]);
+//           // + (*_d2L_dgradudgradeta[cvar])[_qp] * (*_second_arg[cvar])[_qp];
+//           // if we had dgradargdgradcvar we would use that, but we only care for gradu-gradarg
+//         }
+//       }
+//       // Now combine the offdiag grad L pieces
+//       // Direct L dependence
+//       ddir += (*_dLdarg[cvar])[_qp] * _u[_qp] * _u[_qp] * sgn * dgamma[k] * eta_other * eta_other
+//       *
+//               _phi[_j][_qp] * _grad_test[_i][_qp];
+//       // Direct grad L dependence
+//       ddir += dgradLdarg * _u[_qp] * _u[_qp] * sgn * dgamma[k] * eta_other * eta_other *
+//               _phi[_j][_qp] * _test[_i][_qp];
+//       // Indirect L dependence (of grad arg)
+//       if (_grain_slots[cvar])
+//         dind += (*_dL_dgradeta[cvar])[_qp] * _u[_qp] * _u[_qp] * sgn * dgamma[k] * eta_other *
+//                 eta_other * _grad_phi[_j][_qp] * _grad_test[_i][_qp];
+//       // Indirect grad L dependence (of grad arg)
+//       dind += dgradLdgradarg * _u[_qp] * _u[_qp] * sgn * dgamma[k] * eta_other * eta_other *
+//               _grad_phi[_j][_qp] * _test[_i][_qp];
+//     }
+//   }
+
+//   if (_mask_tf)
+//     return (*_mask)[_qp] * _mu[_qp] * (ddir + dind);
+//   else
+//     return _mu[_qp] * (ddir + dind);
+// }

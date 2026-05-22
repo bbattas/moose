@@ -46,6 +46,10 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
     _d2polar_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2polar_dgradeta2")),
     _ij_i(declareProperty<std::vector<unsigned int>>("ij_i")),
     _ij_j(declareProperty<std::vector<unsigned int>>("ij_j")),
+    _op_is_present(declareProperty<std::vector<unsigned char>>("op_is_present")),
+    _op_has_active_pair(declareProperty<std::vector<unsigned char>>("op_has_active_pair")),
+    _ug_i(declareProperty<std::vector<unsigned int>>("ug_i")),
+    _ug_j(declareProperty<std::vector<unsigned int>>("ug_j")),
     // Grain Tracker/FFC for GB identification
     _gb_case(getParam<MooseEnum>("gb_id_method")),
     _grain_tracker(isParamValid("grain_tracker") ? &getUserObject<GrainTracker>("grain_tracker")
@@ -78,9 +82,6 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
 void
 GBInclinationBase::computeQpProperties()
 {
-  // Flatpack vector matrices definitions
-  const unsigned int num_pairs = GBPairPacking::count_upper(_op_num);
-
   auto & theta = _theta_ij[_qp];
   auto & dtheta = _dtheta_dgradeta[_qp];
   auto & d2theta = _d2theta_dgradeta2[_qp];
@@ -89,24 +90,34 @@ GBInclinationBase::computeQpProperties()
   auto & dpolar = _dpolar_dgradeta[_qp];
   auto & d2polar = _d2polar_dgradeta2[_qp];
 
-  auto & k2i = _ij_i[_qp];
-  auto & k2j = _ij_j[_qp];
+  auto & ij_i = _ij_i[_qp];
+  auto & ij_j = _ij_j[_qp];
+  auto & ug_i = _ug_i[_qp];
+  auto & ug_j = _ug_j[_qp];
 
-  theta.assign(num_pairs, -1.0);
-  dtheta.assign(num_pairs, RealGradient(0.0));
-  d2theta.assign(num_pairs, RealTensorValue(0.0));
+  auto & op_is_present = _op_is_present[_qp];
+  auto & op_has_active_pair = _op_has_active_pair[_qp];
 
-  polar.assign(num_pairs, 0.0);
-  dpolar.assign(num_pairs, RealGradient(0.0));
-  d2polar.assign(num_pairs, RealTensorValue(0.0));
+  theta.clear();
+  dtheta.clear();
+  d2theta.clear();
+  polar.clear();
+  dpolar.clear();
+  d2polar.clear();
+  ij_i.clear();
+  ij_j.clear();
+  ug_i.clear();
+  ug_j.clear();
 
-  const unsigned int invalid_pair_index = std::numeric_limits<unsigned int>::max();
+  op_is_present.assign(_op_num, 0);
+  op_has_active_pair.assign(_op_num, 0);
 
-  k2i.assign(num_pairs, invalid_pair_index);
-  k2j.assign(num_pairs, invalid_pair_index);
+  _gb_pairs.clear();
+
+  _no_ij_pairs[_qp] = true;
 
   // Find out the number of boundary unique_id and save them
-  _gb_ij_list.clear();
+
   switch (_gb_case)
   {
     case 0:
@@ -120,7 +131,9 @@ GBInclinationBase::computeQpProperties()
         if (op_to_grains[i] == FeatureFloodCount::invalid_id)
           continue;
 
-        _gb_ij_list.push_back(i);
+        // _gb_ij_list.push_back(i);
+        _gb_pairs.push_back({i, op_to_grains[i]});
+        op_is_present[i] = 1;
       }
       break;
     }
@@ -136,7 +149,9 @@ GBInclinationBase::computeQpProperties()
         if (op_to_grains[i] == FeatureFloodCount::invalid_id)
           continue;
 
-        _gb_ij_list.push_back(i);
+        // _gb_ij_list.push_back(i);
+        _gb_pairs.push_back({i, op_to_grains[i]});
+        op_is_present[i] = 1;
       }
       break;
     }
@@ -146,12 +161,26 @@ GBInclinationBase::computeQpProperties()
       break;
   }
 
-  std::sort(_gb_ij_list.begin(), _gb_ij_list.end());
+  // Sort by first value:
+  std::sort(_gb_pairs.begin(), _gb_pairs.end()); // sorts by .first by default
+  const auto n_active_ops = _gb_pairs.size();
+  const auto n_active_pairs = n_active_ops * (n_active_ops - 1) / 2;
+
+  theta.reserve(n_active_pairs);
+  dtheta.reserve(n_active_pairs);
+  d2theta.reserve(n_active_pairs);
+  polar.reserve(n_active_pairs);
+  dpolar.reserve(n_active_pairs);
+  d2polar.reserve(n_active_pairs);
+  ij_i.reserve(n_active_pairs);
+  ij_j.reserve(n_active_pairs);
+  ug_i.reserve(n_active_pairs);
+  ug_j.reserve(n_active_pairs);
 
   // Grain Tracker check for number of grains
-  _gtnum[_qp] = _gb_ij_list.size();
+  _gtnum[_qp] = _gb_pairs.size();
 
-  switch (_gb_ij_list.size())
+  switch (_gb_pairs.size())
   {
     case 0:
       // Zero OP - Skip
@@ -162,12 +191,14 @@ GBInclinationBase::computeQpProperties()
 
     default:
       // do all ij pairs (i>j) if more than 2 vars/features
-      for (std::size_t idx1 = 0; idx1 < _gb_ij_list.size(); ++idx1)
-        for (std::size_t idx2 = idx1 + 1; idx2 < _gb_ij_list.size(); ++idx2)
+      for (std::size_t idx1 = 0; idx1 < _gb_pairs.size(); ++idx1)
+        for (std::size_t idx2 = idx1 + 1; idx2 < _gb_pairs.size(); ++idx2)
         {
-          unsigned int i = _gb_ij_list[idx1];
-          unsigned int j = _gb_ij_list[idx2];
-          const unsigned k = GBPairPacking::pack_upper(i, j);
+          unsigned int i = _gb_pairs[idx1].first;
+          unsigned int j = _gb_pairs[idx2].first;
+          unsigned int ugi = _gb_pairs[idx1].second;
+          unsigned int ugj = _gb_pairs[idx2].second;
+          // const unsigned k = GBPairPacking::pack_upper(i, j);
           // if j-i points outward from lower grain number
           // if i-j like in paper points inward on lower grain number
           // Can also invert it by doing ngb = -ngb
@@ -292,17 +323,22 @@ GBInclinationBase::computeQpProperties()
                         }
                     }
                   }
-                  // Finally, after all the checks and calcs we save this pair to ij -> k
-                  theta[k] = a_dist;
-                  dtheta[k] = dtheta_dgetai;    // this is d/d \nabla \eta_i = -d/dj
-                  d2theta[k] = d2theta_dgetai2; // this is d2/d \nabla \eta_i^2 = d2/djj = -d2/dij
-                  k2i[k] = i;
-                  k2j[k] = j;
+                  // // Finally, after all the checks and calcs we save this pair to ij -> k
+                  ij_i.push_back(i);
+                  ij_j.push_back(j);
+                  ug_i.push_back(ugi);
+                  ug_j.push_back(ugj);
+                  // Kernel reduction precompute
+                  op_has_active_pair[i] = 1;
+                  op_has_active_pair[j] = 1;
+                  // In plane angle
+                  theta.push_back(a_dist);
+                  dtheta.push_back(dtheta_dgetai);    // this is d/d \nabla \eta_i = -d/dj
+                  d2theta.push_back(d2theta_dgetai2); // d2/d \nabla \eta_i^2 = d2/djj = -d2/dij
                   // Polar angle- hardcoded 90 degrees and no derivatives
-                  _polar_ij[_qp][k] = pang;
-                  _dpolar_dgradeta[_qp][k] = RealGradient(0.0);
-                  _d2polar_dgradeta2[_qp][k] = RealTensorValue(0.0);
-
+                  polar.push_back(pang);
+                  dpolar.push_back(RealGradient(0.0));
+                  d2polar.push_back(RealTensorValue(0.0));
                   break;
                 }
 
@@ -316,6 +352,5 @@ GBInclinationBase::computeQpProperties()
   }
   // Save a bool for if we need to treat this qp as isotropic in children materials
   // true means skip all the vectored calcs at this qp
-  _no_ij_pairs[_qp] =
-      std::all_of(theta.begin(), theta.end(), [](const Real v) { return v == -1.0; });
+  _no_ij_pairs[_qp] = _theta_ij[_qp].empty();
 }
