@@ -37,11 +37,13 @@ GBCombinedAnisotropyMaterial::validParams()
       "bulk_scalar",
       1.0,
       "Normalized GBE multiplier to use in non-gb regions for the interconnected calculations.");
+  params.addParam<Real>("iso_gbe", 0.5, "Value/multiplier for iso mode GBE.");
   params.addParam<Real>("w_inc", 1, "Weight for inclination contribution in combined form [0-1].");
   params.addParam<Real>(
       "w_miso", 1, "Weight for misorientation contribution in combined form [0-1].");
   // Constants for COS inc function
-  params.addParam<Real>("ifunc_a", 0.05, "Inclination function constant a.");
+  params.addParam<Real>("ifunc_a", 0.05, "Cos inclination function constant a.");
+  params.addParam<Real>("ifunc_rot", 0, "Cos inclination function rotation offset (rad).");
   // params.addParam<Real>("ifunc_b", 2, "Inclination function constant b.");
   // params.addParam<Real>("ifunc_c", 0.0, "Inclination function constant c.");
 
@@ -79,11 +81,13 @@ GBCombinedAnisotropyMaterial::GBCombinedAnisotropyMaterial(const InputParameters
     _gamma_asymm(declareProperty<Real>("gamma_asymm")),
     _int_width(declareProperty<Real>("int_width")),
     // CONSTANTS
+    _iso_gbe(getParam<Real>("iso_gbe")),
     _bulk_mult(getParam<Real>("bulk_scalar")),
     _w_inc(getParam<Real>("w_inc")),
     _w_miso(getParam<Real>("w_miso")),
     // COS FUNCTION CONSTANTS
     _if_a(getParam<Real>("ifunc_a")),
+    _if_rot(getParam<Real>("ifunc_rot")),
     // _if_b(getParam<Real>("ifunc_b")),
     // _if_c(getParam<Real>("ifunc_c")),
     // HARDCODED skip param needed in kernel but should change that later
@@ -260,7 +264,7 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
     {
       case COS:
       {
-        out = computeCosineOnlyGBE(theta[k], polar[k], _if_a, 2, 0);
+        out = computeCosineOnlyGBE(theta[k], polar[k], _if_a, 2, _if_rot);
         break;
       }
 
@@ -286,7 +290,7 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
 
       case ISO:
       {
-        out = computeIsoGBE(_bulk_mult);
+        out = computeIsoGBE(_iso_gbe);
         break;
       }
 
@@ -418,11 +422,11 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
 }
 
 GBCombinedAnisotropyMaterial::AngleFunctionResult
-GBCombinedAnisotropyMaterial::computeIsoGBE(const Real bulk_multiplier) const
+GBCombinedAnisotropyMaterial::computeIsoGBE(const Real iso_gbe) const
 {
   AngleFunctionResult out;
 
-  out.f = bulk_multiplier;
+  out.f = iso_gbe;
   out.df_dtheta = 0.0;
   out.d2f_dtheta2 = 0.0;
   out.df_dpolar = 0.0;

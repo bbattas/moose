@@ -83,13 +83,14 @@ protected:
 
   // MaterialProperty<std::vector<Real>> & _gamma_ij;
 
-  // Bulk normalized gbe value to use on non-gbs
-  const Real _bulk_mult;
+  const Real _iso_gbe;   // normalized iso gbe
+  const Real _bulk_mult; // Bulk normalized gbe value to use on non-gbs
   const Real _w_inc;
   const Real _w_miso;
 
   // COS Inclination function constants
   const Real _if_a;
+  const Real _if_rot;
   // const Real _if_b;
   // const Real _if_c;
 
