@@ -53,7 +53,7 @@ randseed = 20
 [UserObjects]
   [euler_file]
     type = EulerAngleTxtFileReader
-    file_name = '../../00_sub/euler_256_textured.txt'
+    file_name = '../../00_sub/euler_1k_textured.txt'
   []
   [voronoi]
     type = PolycrystalVoronoi
