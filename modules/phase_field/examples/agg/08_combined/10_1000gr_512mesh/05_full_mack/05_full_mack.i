@@ -4,8 +4,8 @@
 # Created Date: Wednesday June 10th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday June 10th 2026
-# Modified By: Brandon Battas
+# Last Modified: Monday June 15th 2026
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #
@@ -153,7 +153,7 @@ randseed = 20
     grain_tracker = grain_tracker
     gb_mode = FULL
     bulk_scalar = 0.75
-    alpha_tol = 10
+    alpha_tol = 8 #10
     hgbalpha_tol = 5
     # ifunc_a = 0.1
     kappa_name = kappa_op
