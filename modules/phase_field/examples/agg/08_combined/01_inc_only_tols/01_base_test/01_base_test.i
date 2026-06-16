@@ -4,8 +4,8 @@
 # Created Date: Monday April 20th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday April 21st 2026
-# Modified By: Battas,Brandon Scott
+# Last Modified: Tuesday June 16th 2026
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  my testing input to get setting how i want them
@@ -330,6 +330,7 @@ i_tol = 0
 
   automatic_scaling = true
   compute_scaling_once = false
+  line_search = none
 []
 
 [Outputs]
