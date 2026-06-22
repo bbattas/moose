@@ -223,7 +223,7 @@
     type = 'RunException'
     input = 2d-rc-error-action.i
     requirement = 'The system shall throw an error if the user defines an inappropriate number of passive scalar Schmidt numbers'
-    cli_args = "Modules/NavierStokesFV/passive_scalar_schmidt_number='0.5 0.6' "
+    cli_args = "Modules/NavierStokesFV/Sc_t='0.5 0.6' "
                "Modules/NavierStokesFV/turbulence_handling='mixing-length' "
                "Modules/NavierStokesFV/scalar_transport_physics='NavierStokesFV' "
                "Modules/NavierStokesFV/verbose=true"
@@ -280,13 +280,6 @@
                  "exist!|Variable \(T_fuid\) supplied to the WCNSFVFluidHeatTransferPhysics does not "
                  "exist!)"
   []
-  [porous_scalar_error]
-    type = 'RunException'
-    input = 2d-rc-error-action.i
-    requirement = 'The system shall throw an error if the user requests the currently unimplemented porous flow scalar quantity advection'
-    cli_args = 'Modules/NavierStokesFV/porous_medium_treatment=true Modules/NavierStokesFV/add_scalar_equation=true'
-    expect_err = "Porous media scalar advection is currently unimplemented"
-  []
   [thermal-conductivity-type-error]
     type = 'RunException'
     input = 2d-rc-error-action-no-scalar.i
@@ -334,7 +327,8 @@
       input = 2d-rc-error-action.i
       detail = 'an initial condition is provided for velocities when they are defined outside of the action'
       cli_args = "Variables/inactive='scalar' Modules/NavierStokesFV/velocity_variable='vel_x vel_y' "
-                 "Modules/NavierStokesFV/define_variables=false"
+                 "Modules/NavierStokesFV/define_variables=false "
+                 "Modules/NavierStokesFV/initial_velocity='1 1 0'"
       expect_err = "(Velocity is defined externally of NavierStokesFV, so should the inital "
                    "conditions|Velocity is defined externally of WCNSFVFlowPhysics(Base|), so should the "
                    "inital conditions)"
@@ -344,6 +338,7 @@
       input = 2d-rc-error-action.i
       detail = 'an initial condition is provided for pressure when it is defined outside of the action'
       cli_args = "Variables/inactive='scalar' Modules/NavierStokesFV/pressure_variable='pressure' "
+                 "Modules/NavierStokesFV/initial_pressure=0.0 "
                  "Modules/NavierStokesFV/define_variables=false Modules/velocity_variable='vel_x "
                  "vel_y'"
       expect_err = "(Pressure is defined externally of NavierStokesFV, so should the inital "
@@ -356,6 +351,7 @@
       detail = 'an initial condition is provided for temperature when it is defined outside of the action'
       cli_args = "Variables/inactive='scalar' Variables/T_f/type=INSFVEnergyVariable "
                  "Modules/NavierStokesFV/fluid_temperature_variable='T_f' "
+                 "Modules/NavierStokesFV/initial_temperature=0.0 "
                  "Modules/NavierStokesFV/define_variables=false Modules/velocity_variable='vel_x "
                  "vel_y' Modules/pressure_variable='pressure'"
       expect_err = "(T_fluid is defined externally of NavierStokesFV, so should the inital "

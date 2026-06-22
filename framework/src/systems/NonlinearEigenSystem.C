@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -31,6 +31,7 @@
 #include "libmesh/diagonal_matrix.h"
 #include "libmesh/petsc_shell_matrix.h"
 #include "libmesh/petsc_solver_exception.h"
+#include "libmesh/slepc_eigen_solver.h"
 
 using namespace libMesh;
 
@@ -44,11 +45,12 @@ assemble_matrix(EquationSystems & es, const std::string & system_name)
 {
   EigenProblem * p = es.parameters.get<EigenProblem *>("_eigen_problem");
   CondensedEigenSystem & eigen_system = es.get_system<CondensedEigenSystem>(system_name);
-  NonlinearEigenSystem & eigen_nl = p->getNonlinearEigenSystem(/*nl_sys_num=*/0);
+  NonlinearEigenSystem & eigen_nl =
+      p->getNonlinearEigenSystem(/*nl_sys_num=*/eigen_system.number());
 
   // If this is a nonlinear eigenvalue problem,
   // we do not need to assemble anything
-  if (p->isNonlinearEigenvalueSolver())
+  if (p->isNonlinearEigenvalueSolver(eigen_nl.number()))
   {
     // If you want an efficient eigensolver,
     // please use PETSc 3.13 or newer.
@@ -123,7 +125,8 @@ NonlinearEigenSystem::NonlinearEigenSystem(EigenProblem & eigen_problem, const s
     mooseError("A slepc eigen solver is required");
 
   // setup of our class @SlepcSolverConfiguration
-  _solver_configuration = std::make_unique<SlepcEigenSolverConfiguration>(eigen_problem, *solver);
+  _solver_configuration =
+      std::make_unique<SlepcEigenSolverConfiguration>(eigen_problem, *solver, *this);
 
   solver->set_solver_configuration(*_solver_configuration);
 
@@ -243,7 +246,7 @@ NonlinearEigenSystem::solve()
   std::unique_ptr<NumericVector<Number>> subvec;
 
   // We apply initial guess for only nonlinear solver
-  if (_eigen_problem.isNonlinearEigenvalueSolver())
+  if (_eigen_problem.isNonlinearEigenvalueSolver(number()))
   {
     if (_num_constrained_dofs)
     {
@@ -273,6 +276,27 @@ NonlinearEigenSystem::solve()
     ti->postSolve();
   }
 
+  // store solve information
+  if (_eigen_problem.isNonlinearEigenvalueSolver(number()))
+  {
+    auto snes = getSNES();
+
+    // nonlinear iterations
+    PetscInt nl_its;
+    LibmeshPetscCallA(_eigen_problem.comm().get(), SNESGetIterationNumber(snes, &nl_its));
+    _n_iters = nl_its;
+
+    // linear iterations
+    PetscInt l_its;
+    LibmeshPetscCallA(_eigen_problem.comm().get(), SNESGetLinearSolveIterations(snes, &l_its));
+    _n_linear_iters = l_its;
+
+    // final residual
+    PetscReal norm;
+    LibmeshPetscCall(SNESGetFunctionNorm(snes, &norm));
+    _final_residual = norm;
+  }
+
   // store eigenvalues
   unsigned int n_converged_eigenvalues = getNumConvergedEigenvalues();
 
@@ -289,8 +313,39 @@ NonlinearEigenSystem::solve()
   if (n_converged_eigenvalues)
     getConvergedEigenpair(_eigen_problem.activeEigenvalueIndex());
 
-  if (_eigen_problem.isNonlinearEigenvalueSolver() && _num_constrained_dofs)
+  if (_eigen_problem.isNonlinearEigenvalueSolver(number()) && _num_constrained_dofs)
     solution().restore_subvector(std::move(subvec), _eigen_sys.local_non_condensed_dofs_vector);
+}
+
+unsigned int
+NonlinearEigenSystem::nNonlinearIterations() const
+{
+  if (!_time_integrators.empty())
+    mooseError("Not implemented for time integrators.");
+  if (!_eigen_problem.isNonlinearEigenvalueSolver(number()))
+    mooseError("Only implemented for nonlinear eigenvalue solvers.");
+
+  return _n_iters;
+}
+
+unsigned int
+NonlinearEigenSystem::nLinearIterations() const
+{
+  if (!_time_integrators.empty())
+    mooseError("Not implemented for time integrators.");
+  if (!_eigen_problem.isNonlinearEigenvalueSolver(number()))
+    mooseError("Only implemented for nonlinear eigenvalue solvers.");
+
+  return _n_linear_iters;
+}
+
+Real
+NonlinearEigenSystem::finalNonlinearResidual() const
+{
+  if (!_eigen_problem.isNonlinearEigenvalueSolver(number()))
+    mooseError("Only implemented for nonlinear eigenvalue solvers.");
+
+  return _final_residual;
 }
 
 void
@@ -439,7 +494,7 @@ NonlinearEigenSystem::getSNES()
 {
   EPS eps = getEPS();
 
-  if (_eigen_problem.isNonlinearEigenvalueSolver())
+  if (_eigen_problem.isNonlinearEigenvalueSolver(number()))
   {
     SNES snes = nullptr;
     LibmeshPetscCall(Moose::SlepcSupport::mooseSlepcEPSGetSNES(eps, &snes));
@@ -530,8 +585,8 @@ NonlinearEigenSystem::attachPreconditioner(Preconditioner<Number> * precondition
   {
     LibmeshPetscCall(Moose::SlepcSupport::registerPCToPETSc());
     // Mark this, and then we can setup correct petsc options
-    _eigen_problem.solverParams()._customized_pc_for_eigen = true;
-    _eigen_problem.solverParams()._type = Moose::ST_JFNK;
+    _eigen_problem.solverParams(number())._customized_pc_for_eigen = true;
+    _eigen_problem.solverParams(number())._type = Moose::ST_JFNK;
   }
 }
 

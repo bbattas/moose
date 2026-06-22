@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -157,7 +157,7 @@ MortarGapHeatTransferAction::act()
 void
 MortarGapHeatTransferAction::coreMortarMesh()
 {
-  if (!(_app.isRecovering() && _app.isUltimateMaster()) && !_app.masterMesh())
+  if (!(_app.isRecovering() && _app.isUltimateMaster()) && !_app.useMasterMesh())
   {
     std::string action_name = MooseUtils::shortName(name());
 

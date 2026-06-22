@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -22,12 +22,14 @@ class WCNSFVTwoPhaseMixturePhysics final : public WCNSFVScalarTransportPhysics
 {
 public:
   static InputParameters validParams();
+  static InputParameters commonMixtureParams();
+  static void renamePassiveScalarToMixtureParams(InputParameters & params);
 
   WCNSFVTwoPhaseMixturePhysics(const InputParameters & parameters);
 
 private:
   virtual void addFVKernels() override;
-  virtual void addMaterials() override;
+  virtual void addFunctorMaterials() override;
 
   /// Adds the slip velocity parameters
   virtual void setSlipVelocityParams(InputParameters & params) const override;

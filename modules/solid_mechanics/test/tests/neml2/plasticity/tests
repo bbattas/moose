@@ -1,0 +1,50 @@
+[Tests]
+  issues = '#27493'
+  design = 'NEML2/index.md NEML2Action.md'
+  [plasticity]
+    requirement = 'The system shall be capable of interfacing with the NEML2 library to perform constitutive update for plastic materials with'
+    [perfect]
+      detail = 'perfect plasticity, '
+      type = Exodiff
+      input = 'perfect.i'
+      exodiff = 'perfect_out.e'
+      capabilities = 'libtorch & neml2'
+      valgrind = heavy
+      recover = false # TODO: Not sure why this is needed -- investigate later
+    []
+    [isoharden]
+      detail = 'isotropic hardening, '
+      type = Exodiff
+      input = 'isoharden.i'
+      exodiff = 'isoharden_out.e'
+      capabilities = 'libtorch & neml2'
+      valgrind = heavy
+    []
+    [kinharden]
+      detail = 'kinematic hardening, '
+      type = Exodiff
+      input = 'kinharden.i'
+      exodiff = 'kinharden_out.e'
+      capabilities = 'libtorch & neml2'
+      valgrind = heavy
+    []
+    [isokinharden]
+      detail = 'and both isotropic and kinematic hardening.'
+      type = Exodiff
+      input = 'isokinharden.i'
+      exodiff = 'isokinharden_out.e'
+      capabilities = 'libtorch & neml2'
+      valgrind = heavy
+    []
+  []
+  [manage_state_advance]
+    requirement = 'The system shall be capable of managing the state advance for the NEML2 constitutive update on device.'
+    type = Exodiff
+    input = 'perfect.i'
+    cli_args = "NEML2/all/manage_state_advance=true"
+    exodiff = 'perfect_out.e'
+    issues = '#27493'
+    capabilities = 'libtorch & neml2'
+    valgrind = heavy
+  []
+[]

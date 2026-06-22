@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -54,7 +54,7 @@ PolycrystalHex::precomputeGrainStructure()
   for (unsigned int j = 0; j < d; ++j)
   {
     for (unsigned int i = 0; i < _vars.size(); ++i)
-      if (!_mesh.isTranslatedPeriodic(_vars[i]->number(), j))
+      if (!_mesh.isTranslatedPeriodic(*_vars[i], j))
         mooseError("PolycrystalHex works only with periodic BCs");
   }
 

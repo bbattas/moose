@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -126,7 +126,8 @@ TEST(MooseFunctorTest, testArgs)
 
   ElemInfo ei(elem.get());
   ElemInfo ni(neighbor.get());
-  FaceInfo fi(&ei, 1, 0);
+  libMesh::ElemSideBuilder side_builder;
+  FaceInfo fi(&ei, 1, 0, side_builder);
   fi.computeInternalCoefficients(&ni);
 
   QGauss qrule(1, CONSTANT);
@@ -136,7 +137,8 @@ TEST(MooseFunctorTest, testArgs)
   auto elem_qp = ElemQpArg({elem.get(), 0, &qrule, Point(0)});
   auto elem_side_qp = ElemSideQpArg({elem.get(), 0, 0, &qrule, Point(0)});
   auto elem_point = ElemPointArg({elem.get(), Point(0), false});
-  auto node_arg = NodeArg({&node0, 0});
+  const std::set<SubdomainID> sub = {0};
+  auto node_arg = NodeArg({&node0, &sub});
   const auto current_time = Moose::currentState();
 
   // Test not-implemented errors

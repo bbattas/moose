@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -22,8 +22,9 @@ NonlinearTimeIntegratorInterface::NonlinearTimeIntegratorInterface(FEProblemBase
                                    : nullptr),
     _Re_time(_nl ? &_nl->getResidualTimeVector() : nullptr),
     _Re_non_time(_nl ? &_nl->getResidualNonTimeVector() : nullptr),
-    _u_dot_factor_tag(problem.addVectorTag("u_dot_factor", Moose::VECTOR_TAG_SOLUTION)),
-    _u_dotdot_factor_tag(problem.addVectorTag("u_dotdot_factor", Moose::VECTOR_TAG_SOLUTION))
+    _u_dot_factor_tag(problem.addVectorTag(Moose::SOLUTION_DOT_TAG, Moose::VECTOR_TAG_SOLUTION)),
+    _u_dotdot_factor_tag(
+        problem.addVectorTag(Moose::SOLUTION_DOTDOT_TAG, Moose::VECTOR_TAG_SOLUTION))
 {
 }
 

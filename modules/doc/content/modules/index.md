@@ -22,10 +22,10 @@ application.
 - [Ray Tracing](modules/ray_tracing/index.md)
 - [Reactor](modules/reactor/index.md)
 - [Reconstructed Discontinuous Galerkin](modules/rdg/index.md)
-- [Richards](modules/richards/index.md)
 - [Solid Mechanics](modules/solid_mechanics/index.md)
 - [Solid Properties](modules/solid_properties/index.md)
 - [Stochastic Tools](modules/stochastic_tools/index.md)
+- [SubChannel](modules/subchannel/index.md)
 - [Thermal Hydraulics](modules/thermal_hydraulics/index.md)
 - [XFEM](modules/xfem/index.md)
 

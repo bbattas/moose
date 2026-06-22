@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -36,15 +36,15 @@ protected:
   /**
    * Evaluates the orthonormal form of the basis functions
    */
-  virtual void evaluateOrthonormal();
+  void evaluateOrthonormal();
   /**
    * Evaluates the standard form of the basis functions
    */
-  virtual void evaluateStandard();
+  void evaluateStandard();
   /**
    * Evaluates the 1/sqrt(mu) normalized form of the basis functions
    */
-  virtual void evaluateSqrtMu();
+  void evaluateSqrtMu();
 
   // Overrides from SingleSeriesBasisInterface
   virtual void checkPhysicalBounds(const std::vector<Real> & bounds) const override;

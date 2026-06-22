@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -75,6 +75,8 @@ CoarsenBlockGenerator::generate()
   const std::set<SubdomainID> block_ids_set(block_ids.begin(), block_ids.end());
 
   // Check that the block ids/names exist in the mesh
+  if (!_input->preparation().has_cached_elem_data)
+    _input->cache_elem_data();
   std::set<SubdomainID> mesh_blocks;
   _input->subdomain_ids(mesh_blocks);
 
@@ -125,7 +127,7 @@ CoarsenBlockGenerator::generate()
 
   // element neighbors are not valid
   if (max_c > 0)
-    mesh_ptr->set_isnt_prepared();
+    mesh_ptr->unset_is_prepared();
 
   // flip elements as we were not careful to build them with a positive volume
   MeshTools::Modification::orient_elements(*mesh_ptr);
@@ -284,7 +286,7 @@ CoarsenBlockGenerator::recursiveCoarsen(const std::vector<subdomain_id_type> & b
       // Set the nodes to the coarse element
       // They were sorted previously in getFineElementFromInteriorNode
       for (auto i : index_range(tentative_coarse_nodes))
-        parent_ptr->set_node(i) = mesh_copy->node_ptr(tentative_coarse_nodes[i]->id());
+        parent_ptr->set_node(i, mesh_copy->node_ptr(tentative_coarse_nodes[i]->id()));
 
       // Gather targets / next candidates for the next element coarsening
       // Find the face neighbors, then look for the center node

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -143,6 +143,12 @@ public:
 
   const std::set<Real> & getSyncTimes() { return _sync_times; }
 
+  /**
+   * A virtual function that stores whether output type supports material output. Defaults to false,
+   * if a particular output type supports material output it can be overridden in the child class.
+   */
+  virtual bool supportsMaterialPropertyOutput() const { return false; }
+
 protected:
   /**
    * Overload this function with the desired output activities
@@ -230,9 +236,6 @@ protected:
 
   /// Minimum simulation time between outputs
   const Real _min_simulation_time_interval;
-
-  /// Target simulation time between outputs
-  const Real _simulation_time_interval;
 
   /// Target wall time between outputs in seconds
   Real _wall_time_interval;

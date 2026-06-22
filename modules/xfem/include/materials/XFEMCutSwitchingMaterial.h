@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -41,7 +41,7 @@ private:
   /// The geometric cut userobject that provides the cut subdomain IDs
   const GeometricCutUserObject * _cut;
 
-  ///{@ map keys and values
+  ///@{ map keys and values
   const std::vector<CutSubdomainID> _keys;
   const std::vector<std::string> _vals;
   ///@}

@@ -1,3 +1,7 @@
+# Nucleate cracks in the bulk and then on the edges
+# checking that the domain integral fracture integrals
+# are being computed at every crack tip (6 crack tips)
+
 [GlobalParams]
   displacements = 'disp_x disp_y'
   volumetric_locking_correction = true
@@ -56,7 +60,7 @@
     bottom_left = '-2.21 0.89 0'
     top_right = '-1.79 1.01 0'
     boundary_new = top_mid_left_ss
-    boundaries_old = top
+    included_boundaries = top
   []
   [top_mid_ss]
     type = SideSetsFromBoundingBoxGenerator
@@ -64,7 +68,7 @@
     bottom_left = '-0.21 0.89 0'
     top_right = '0.21 1.01 0'
     boundary_new = top_mid_ss
-    boundaries_old = top
+    included_boundaries = top
   []
   [top_mid_right_ss]
     type = SideSetsFromBoundingBoxGenerator
@@ -72,7 +76,7 @@
     bottom_left = '1.79 0.89 0'
     top_right = '2.21 1.01 0'
     boundary_new = top_mid_right_ss
-    boundaries_old = top
+    included_boundaries = top
   []
 
   [nucleation_strip]
@@ -89,7 +93,6 @@
   displacements = 'disp_x disp_y'
   crack_front_points_provider = cut_mesh2
   2d = true
-  number_points_from_provider = 0
   crack_direction_method = CurvedCrackFront
   radius_inner = '0.15'
   radius_outer = '0.45'
@@ -97,7 +100,6 @@
   youngs_modulus = 207000
   block = 0
   incremental = false
-  used_by_xfem_to_grow_crack = true
 []
 
 [UserObjects]
@@ -181,12 +183,6 @@
     variable = disp_y
     function = bc_pull_mid
   []
-  # [top_middle]
-  #   type = NeumannBC
-  #   boundary = 'top_mid_left_ss top_mid_ss top_mid_right_ss'
-  #   variable = disp_y
-  #   value = -2000
-  # []
   [top_middle]
     type = DirichletBC
     boundary = 'top_mid_left_ss top_mid_ss top_mid_right_ss'
@@ -220,31 +216,10 @@
 
 [Executioner]
   type = Transient
-
   solve_type = 'NEWTON'
-  petsc_options_iname = '-ksp_type -pc_type -pc_factor_mat_solver_package'
-  petsc_options_value = 'gmres lu superlu_dist'
-
+  petsc_options_iname = '-pc_type -pc_factor_mat_solver_package'
+  petsc_options_value = 'lu superlu_dist'
   line_search = 'none'
-
-  [Predictor]
-    type = SimplePredictor
-    scale = 1.0
-  []
-
-  reuse_preconditioner = true
-  reuse_preconditioner_max_linear_its = 25
-
-  # controls for linear iterations
-  l_max_its = 100
-  l_tol = 1e-2
-
-  # controls for nonlinear iterations
-  nl_max_its = 15
-  nl_rel_tol = 1e-8
-  nl_abs_tol = 1e-9
-
-  # time control
   start_time = 0.0
   dt = 1.0
   end_time = 10
@@ -254,11 +229,6 @@
 [Outputs]
   csv = true
   execute_on = FINAL
-  # exodus = true
-  # [xfemcutter]
-  #   type = XFEMCutMeshOutput
-  #   xfem_cutter_uo = cut_mesh2
-  # []
   [console]
     type = Console
     output_linear = false

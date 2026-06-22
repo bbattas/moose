@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -23,9 +23,7 @@ public:
 
 protected:
   virtual void check() const override;
-
-  /// True to allow the flow to reverse, otherwise false
-  bool _reversible;
+  virtual bool supportsPassiveTransport() const override { return true; }
 
 public:
   static InputParameters validParams();

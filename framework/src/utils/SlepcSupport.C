@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,7 +13,6 @@
 
 #include "SlepcSupport.h"
 // MOOSE includes
-#include "MultiMooseEnum.h"
 #include "InputParameters.h"
 #include "Conversion.h"
 #include "EigenProblem.h"
@@ -22,7 +21,6 @@
 #include "libmesh/petsc_vector.h"
 #include "libmesh/petsc_matrix.h"
 #include "libmesh/slepc_macro.h"
-#include "libmesh/auto_ptr.h"
 #include "petscsnes.h"
 #include "slepceps.h"
 
@@ -127,115 +125,153 @@ getSlepcEigenProblemValidParams()
 }
 
 void
-setSlepcEigenSolverTolerances(EigenProblem & eigen_problem, const InputParameters & params)
+setSlepcEigenSolverTolerances(EigenProblem & eigen_problem,
+                              const SolverParams & solver_params,
+                              const InputParameters & params)
 {
-  Moose::PetscSupport::setSinglePetscOption("-eps_tol", stringify(params.get<Real>("eigen_tol")));
+  const auto & dont_add_these_options = eigen_problem.getPetscOptions().dont_add_these_options;
+  const auto prefix_with_dash = '-' + solver_params._prefix;
 
-  Moose::PetscSupport::setSinglePetscOption("-eps_max_it",
-                                            stringify(params.get<unsigned int>("eigen_max_its")));
+  mooseAssert(solver_params._solver_sys_num != libMesh::invalid_uint,
+              "The solver system number must be initialized");
+
+  Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                         prefix_with_dash + "eps_tol",
+                                                         stringify(params.get<Real>("eigen_tol")));
+
+  Moose::PetscSupport::setSinglePetscOptionIfAppropriate(
+      dont_add_these_options,
+      prefix_with_dash + "eps_max_it",
+      stringify(params.get<unsigned int>("eigen_max_its")));
 
   // if it is a nonlinear eigenvalue solver, we need to set tolerances for nonlinear solver and
   // linear solver
-  if (eigen_problem.isNonlinearEigenvalueSolver())
+  if (eigen_problem.isNonlinearEigenvalueSolver(solver_params._solver_sys_num))
   {
     // nonlinear solver tolerances
-    Moose::PetscSupport::setSinglePetscOption("-snes_max_it",
-                                              stringify(params.get<unsigned int>("nl_max_its")));
+    Moose::PetscSupport::setSinglePetscOptionIfAppropriate(
+        dont_add_these_options,
+        prefix_with_dash + "snes_max_it",
+        stringify(params.get<unsigned int>("nl_max_its")));
 
-    Moose::PetscSupport::setSinglePetscOption("-snes_max_funcs",
-                                              stringify(params.get<unsigned int>("nl_max_funcs")));
+    Moose::PetscSupport::setSinglePetscOptionIfAppropriate(
+        dont_add_these_options,
+        prefix_with_dash + "snes_max_funcs",
+        stringify(params.get<unsigned int>("nl_max_funcs")));
 
-    Moose::PetscSupport::setSinglePetscOption("-snes_atol",
-                                              stringify(params.get<Real>("nl_abs_tol")));
+    Moose::PetscSupport::setSinglePetscOptionIfAppropriate(
+        dont_add_these_options,
+        prefix_with_dash + "snes_atol",
+        stringify(params.get<Real>("nl_abs_tol")));
 
-    Moose::PetscSupport::setSinglePetscOption("-snes_rtol",
-                                              stringify(params.get<Real>("nl_rel_tol")));
+    Moose::PetscSupport::setSinglePetscOptionIfAppropriate(
+        dont_add_these_options,
+        prefix_with_dash + "snes_rtol",
+        stringify(params.get<Real>("nl_rel_tol")));
 
-    Moose::PetscSupport::setSinglePetscOption("-snes_stol",
-                                              stringify(params.get<Real>("nl_rel_step_tol")));
+    Moose::PetscSupport::setSinglePetscOptionIfAppropriate(
+        dont_add_these_options,
+        prefix_with_dash + "snes_stol",
+        stringify(params.get<Real>("nl_rel_step_tol")));
 
     // linear solver
-    Moose::PetscSupport::setSinglePetscOption("-ksp_max_it",
-                                              stringify(params.get<unsigned int>("l_max_its")));
+    Moose::PetscSupport::setSinglePetscOptionIfAppropriate(
+        dont_add_these_options,
+        prefix_with_dash + "ksp_max_it",
+        stringify(params.get<unsigned int>("l_max_its")));
 
-    Moose::PetscSupport::setSinglePetscOption("-ksp_rtol", stringify(params.get<Real>("l_tol")));
+    Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                           prefix_with_dash + "ksp_rtol",
+                                                           stringify(params.get<Real>("l_tol")));
 
-    Moose::PetscSupport::setSinglePetscOption("-ksp_atol",
-                                              stringify(params.get<Real>("l_abs_tol")));
+    Moose::PetscSupport::setSinglePetscOptionIfAppropriate(
+        dont_add_these_options,
+        prefix_with_dash + "ksp_atol",
+        stringify(params.get<Real>("l_abs_tol")));
   }
   else
   { // linear eigenvalue problem
     // linear solver
-    Moose::PetscSupport::setSinglePetscOption("-st_ksp_max_it",
-                                              stringify(params.get<unsigned int>("l_max_its")));
+    Moose::PetscSupport::setSinglePetscOptionIfAppropriate(
+        dont_add_these_options,
+        prefix_with_dash + "st_ksp_max_it",
+        stringify(params.get<unsigned int>("l_max_its")));
 
-    Moose::PetscSupport::setSinglePetscOption("-st_ksp_rtol", stringify(params.get<Real>("l_tol")));
+    Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                           prefix_with_dash + "st_ksp_rtol",
+                                                           stringify(params.get<Real>("l_tol")));
 
-    Moose::PetscSupport::setSinglePetscOption("-st_ksp_atol",
-                                              stringify(params.get<Real>("l_abs_tol")));
+    Moose::PetscSupport::setSinglePetscOptionIfAppropriate(
+        dont_add_these_options,
+        prefix_with_dash + "st_ksp_atol",
+        stringify(params.get<Real>("l_abs_tol")));
   }
 }
 
 void
 setEigenProblemSolverParams(EigenProblem & eigen_problem, const InputParameters & params)
 {
-  const std::string & eigen_problem_type = params.get<MooseEnum>("eigen_problem_type");
-  if (!eigen_problem_type.empty())
-    eigen_problem.solverParams()._eigen_problem_type =
-        Moose::stringToEnum<Moose::EigenProblemType>(eigen_problem_type);
-  else
-    mooseError("Have to specify a valid eigen problem type");
-
-  const std::string & which_eigen_pairs = params.get<MooseEnum>("which_eigen_pairs");
-  if (!which_eigen_pairs.empty())
-    eigen_problem.solverParams()._which_eigen_pairs =
-        Moose::stringToEnum<Moose::WhichEigenPairs>(which_eigen_pairs);
-
-  // Set necessary parametrs used in EigenSystem::solve(),
-  // i.e. the number of requested eigenpairs nev and the number
-  // of basis vectors ncv used in the solution algorithm. Note that
-  // ncv >= nev must hold and ncv >= 2*nev is recommended
-  unsigned int n_eigen_pairs = params.get<unsigned int>("n_eigen_pairs");
-  unsigned int n_basis_vectors = params.get<unsigned int>("n_basis_vectors");
-
-  eigen_problem.setNEigenPairsRequired(n_eigen_pairs);
-
-  eigen_problem.es().parameters.set<unsigned int>("eigenpairs") = n_eigen_pairs;
-
-  // If the subspace dimension is too small, we increase it automatically
-  if (subspace_factor * n_eigen_pairs > n_basis_vectors)
+  for (const auto i : make_range(eigen_problem.numNonlinearSystems()))
   {
-    n_basis_vectors = subspace_factor * n_eigen_pairs;
-    mooseWarning("Number of subspaces in Eigensolver is changed by moose because the value you set "
-                 "is too small");
-  }
+    const std::string & eigen_problem_type = params.get<MooseEnum>("eigen_problem_type");
+    if (!eigen_problem_type.empty())
+      eigen_problem.solverParams(i)._eigen_problem_type =
+          Moose::stringToEnum<Moose::EigenProblemType>(eigen_problem_type);
+    else
+      mooseError("Have to specify a valid eigen problem type");
 
-  eigen_problem.es().parameters.set<unsigned int>("basis vectors") = n_basis_vectors;
+    const std::string & which_eigen_pairs = params.get<MooseEnum>("which_eigen_pairs");
+    if (!which_eigen_pairs.empty())
+      eigen_problem.solverParams(i)._which_eigen_pairs =
+          Moose::stringToEnum<Moose::WhichEigenPairs>(which_eigen_pairs);
 
-  // Operators A and B are formed as shell matrices
-  eigen_problem.solverParams()._eigen_matrix_free = params.get<bool>("matrix_free");
+    // Set necessary parameters used in EigenSystem::solve(),
+    // i.e. the number of requested eigenpairs nev and the number
+    // of basis vectors ncv used in the solution algorithm. Note that
+    // ncv >= nev must hold and ncv >= 2*nev is recommended
+    unsigned int n_eigen_pairs = params.get<unsigned int>("n_eigen_pairs");
+    unsigned int n_basis_vectors = params.get<unsigned int>("n_basis_vectors");
 
-  // Preconditioning is formed as a shell matrix
-  eigen_problem.solverParams()._precond_matrix_free = params.get<bool>("precond_matrix_free");
+    eigen_problem.setNEigenPairsRequired(n_eigen_pairs);
 
-  if (params.get<MooseEnum>("solve_type") == "PJFNK")
-  {
-    eigen_problem.solverParams()._eigen_matrix_free = true;
-  }
-  if (params.get<MooseEnum>("solve_type") == "JFNK")
-  {
-    eigen_problem.solverParams()._eigen_matrix_free = true;
-    eigen_problem.solverParams()._precond_matrix_free = true;
-  }
-  // We need matrices so that we can implement residual evaluations
-  if (params.get<MooseEnum>("solve_type") == "PJFNKMO")
-  {
-    eigen_problem.solverParams()._eigen_matrix_free = true;
-    eigen_problem.solverParams()._precond_matrix_free = false;
-    eigen_problem.solverParams()._eigen_matrix_vector_mult = true;
-    // By default, we need to form full matrices, otherwise residual
-    // evaluations will not be accurate
-    eigen_problem.setCoupling(Moose::COUPLING_FULL);
+    eigen_problem.es().parameters.set<unsigned int>("eigenpairs") = n_eigen_pairs;
+
+    // If the subspace dimension is too small, we increase it automatically
+    if (subspace_factor * n_eigen_pairs > n_basis_vectors)
+    {
+      n_basis_vectors = subspace_factor * n_eigen_pairs;
+      mooseWarning(
+          "Number of subspaces in Eigensolver is changed by moose because the value you set "
+          "is too small");
+    }
+
+    eigen_problem.es().parameters.set<unsigned int>("basis vectors") = n_basis_vectors;
+
+    // Operators A and B are formed as shell matrices
+    eigen_problem.solverParams(i)._eigen_matrix_free = params.get<bool>("matrix_free");
+
+    // Preconditioning is formed as a shell matrix
+    eigen_problem.solverParams(i)._precond_matrix_free = params.get<bool>("precond_matrix_free");
+
+    if (params.get<MooseEnum>("solve_type") == "PJFNK")
+    {
+      eigen_problem.solverParams(i)._eigen_matrix_free = true;
+    }
+    if (params.get<MooseEnum>("solve_type") == "JFNK")
+    {
+      eigen_problem.solverParams(i)._eigen_matrix_free = true;
+      eigen_problem.solverParams(i)._precond_matrix_free = true;
+    }
+    // We need matrices so that we can implement residual evaluations
+    if (params.get<MooseEnum>("solve_type") == "PJFNKMO")
+    {
+      eigen_problem.solverParams(i)._eigen_matrix_free = true;
+      eigen_problem.solverParams(i)._precond_matrix_free = false;
+      eigen_problem.solverParams(i)._eigen_matrix_vector_mult = true;
+      // By default, we need to form full matrices, otherwise residual
+      // evaluations will not be accurate
+      eigen_problem.setCoupling(Moose::COUPLING_FULL);
+    }
   }
 
   eigen_problem.constantMatrices(params.get<bool>("constant_matrices"));
@@ -253,39 +289,44 @@ storeSolveType(FEProblemBase & fe_problem, const InputParameters & params)
     return;
 
   if (params.isParamValid("solve_type"))
-  {
-    fe_problem.solverParams()._eigen_solve_type =
-        Moose::stringToEnum<Moose::EigenSolveType>(params.get<MooseEnum>("solve_type"));
-  }
+    for (const auto i : make_range(fe_problem.numNonlinearSystems()))
+      fe_problem.solverParams(i)._eigen_solve_type =
+          Moose::stringToEnum<Moose::EigenSolveType>(params.get<MooseEnum>("solve_type"));
 }
 
 void
-setEigenProblemOptions(SolverParams & solver_params)
+setEigenProblemOptions(SolverParams & solver_params, const MultiMooseEnum & dont_add_these_options)
 {
   switch (solver_params._eigen_problem_type)
   {
     case Moose::EPT_HERMITIAN:
-      Moose::PetscSupport::setSinglePetscOption("-eps_hermitian");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_hermitian");
       break;
 
     case Moose::EPT_NON_HERMITIAN:
-      Moose::PetscSupport::setSinglePetscOption("-eps_non_hermitian");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_non_hermitian");
       break;
 
     case Moose::EPT_GEN_HERMITIAN:
-      Moose::PetscSupport::setSinglePetscOption("-eps_gen_hermitian");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_gen_hermitian");
       break;
 
     case Moose::EPT_GEN_INDEFINITE:
-      Moose::PetscSupport::setSinglePetscOption("-eps_gen_indefinite");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_gen_indefinite");
       break;
 
     case Moose::EPT_GEN_NON_HERMITIAN:
-      Moose::PetscSupport::setSinglePetscOption("-eps_gen_non_hermitian");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_gen_non_hermitian");
       break;
 
     case Moose::EPT_POS_GEN_NON_HERMITIAN:
-      Moose::PetscSupport::setSinglePetscOption("-eps_pos_gen_non_hermitian");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_pos_gen_non_hermitian");
       break;
 
     case Moose::EPT_SLEPC_DEFAULT:
@@ -297,48 +338,58 @@ setEigenProblemOptions(SolverParams & solver_params)
 }
 
 void
-setWhichEigenPairsOptions(SolverParams & solver_params)
+setWhichEigenPairsOptions(SolverParams & solver_params,
+                          const MultiMooseEnum & dont_add_these_options)
 {
   switch (solver_params._which_eigen_pairs)
   {
     case Moose::WEP_LARGEST_MAGNITUDE:
-      Moose::PetscSupport::setSinglePetscOption("-eps_largest_magnitude");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_largest_magnitude");
       break;
 
     case Moose::WEP_SMALLEST_MAGNITUDE:
-      Moose::PetscSupport::setSinglePetscOption("-eps_smallest_magnitude");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_smallest_magnitude");
       break;
 
     case Moose::WEP_LARGEST_REAL:
-      Moose::PetscSupport::setSinglePetscOption("-eps_largest_real");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_largest_real");
       break;
 
     case Moose::WEP_SMALLEST_REAL:
-      Moose::PetscSupport::setSinglePetscOption("-eps_smallest_real");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_smallest_real");
       break;
 
     case Moose::WEP_LARGEST_IMAGINARY:
-      Moose::PetscSupport::setSinglePetscOption("-eps_largest_imaginary");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_largest_imaginary");
       break;
 
     case Moose::WEP_SMALLEST_IMAGINARY:
-      Moose::PetscSupport::setSinglePetscOption("-eps_smallest_imaginary");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_smallest_imaginary");
       break;
 
     case Moose::WEP_TARGET_MAGNITUDE:
-      Moose::PetscSupport::setSinglePetscOption("-eps_target_magnitude");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_target_magnitude");
       break;
 
     case Moose::WEP_TARGET_REAL:
-      Moose::PetscSupport::setSinglePetscOption("-eps_target_real");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_target_real");
       break;
 
     case Moose::WEP_TARGET_IMAGINARY:
-      Moose::PetscSupport::setSinglePetscOption("-eps_target_imaginary");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options,
+                                                             "-eps_target_imaginary");
       break;
 
     case Moose::WEP_ALL_EIGENVALUES:
-      Moose::PetscSupport::setSinglePetscOption("-eps_all");
+      Moose::PetscSupport::setSinglePetscOptionIfAppropriate(dont_add_these_options, "-eps_all");
       break;
 
     case Moose::WEP_SLEPC_DEFAULT:
@@ -496,19 +547,24 @@ setEigenSolverOptions(SolverParams & solver_params, const InputParameters & para
 }
 
 void
-slepcSetOptions(EigenProblem & eigen_problem, const InputParameters & params)
+slepcSetOptions(EigenProblem & eigen_problem,
+                SolverParams & solver_params,
+                const InputParameters & params)
 {
+  const auto & dont_add_these_options = eigen_problem.getPetscOptions().dont_add_these_options;
+
   Moose::PetscSupport::petscSetOptions(
-      eigen_problem.getPetscOptions(), eigen_problem.solverParams(), &eigen_problem);
+      eigen_problem.getPetscOptions(), solver_params, &eigen_problem);
   // Call "SolverTolerances" first, so some solver specific tolerance such as "eps_max_it"
   // can be overriden
-  setSlepcEigenSolverTolerances(eigen_problem, params);
-  setEigenSolverOptions(eigen_problem.solverParams(), params);
+  setSlepcEigenSolverTolerances(eigen_problem, solver_params, params);
+  setEigenSolverOptions(solver_params, params);
   // when Bx norm postprocessor is provided, we switch off the sign normalization
   if (eigen_problem.bxNormProvided())
-    Moose::PetscSupport::setSinglePetscOption("-eps_power_sign_normalization", "0", &eigen_problem);
-  setEigenProblemOptions(eigen_problem.solverParams());
-  setWhichEigenPairsOptions(eigen_problem.solverParams());
+    Moose::PetscSupport::setSinglePetscOptionIfAppropriate(
+        dont_add_these_options, "-eps_power_sign_normalization", "0", &eigen_problem);
+  setEigenProblemOptions(solver_params, eigen_problem.getPetscOptions().dont_add_these_options);
+  setWhichEigenPairsOptions(solver_params, eigen_problem.getPetscOptions().dont_add_these_options);
   Moose::PetscSupport::addPetscOptionsFromCommandline();
 }
 
@@ -732,7 +788,7 @@ mooseSlepcEigenFormJacobianA(SNES snes, Vec x, Mat jac, Mat pc, void * ctx)
   LibmeshPetscCallQ(PetscObjectTypeCompare((PetscObject)jac, MATSHELL, &jisshell));
   LibmeshPetscCallQ(PetscObjectTypeCompare((PetscObject)jac, MATMFFD, &jismffd));
 
-  if (jismffd && eigen_problem->solverParams()._eigen_matrix_vector_mult)
+  if (jismffd && eigen_problem->solverParams(eigen_nl.number())._eigen_matrix_vector_mult)
   {
     LibmeshPetscCallQ(
         MatMFFDSetFunction(jac, Moose::SlepcSupport::mooseSlepcEigenFormFunctionMFFD, ctx));
@@ -859,7 +915,7 @@ mooseSlepcEigenFormFunctionA(SNES snes, Vec x, Vec r, void * ctx)
   EigenProblem * eigen_problem = static_cast<EigenProblem *>(ctx);
   NonlinearEigenSystem & eigen_nl = eigen_problem->getCurrentNonlinearEigenSystem();
 
-  if (eigen_problem->solverParams()._eigen_matrix_vector_mult &&
+  if (eigen_problem->solverParams(eigen_nl.number())._eigen_matrix_vector_mult &&
       (eigen_problem->onLinearSolver() || eigen_problem->constantMatrices()))
   {
     EPS eps = eigen_nl.getEPS();
@@ -891,7 +947,7 @@ mooseSlepcEigenFormFunctionB(SNES snes, Vec x, Vec r, void * ctx)
   EigenProblem * eigen_problem = static_cast<EigenProblem *>(ctx);
   NonlinearEigenSystem & eigen_nl = eigen_problem->getCurrentNonlinearEigenSystem();
 
-  if (eigen_problem->solverParams()._eigen_matrix_vector_mult &&
+  if (eigen_problem->solverParams(eigen_nl.number())._eigen_matrix_vector_mult &&
       (eigen_problem->onLinearSolver() || eigen_problem->constantMatrices()))
   {
     EPS eps = eigen_nl.getEPS();
@@ -935,7 +991,7 @@ mooseSlepcEigenFormFunctionAB(SNES /*snes*/, Vec x, Vec Ax, Vec Bx, void * ctx)
   auto & sys = eigen_nl.sys();
   auto & dof_map = sys.get_dof_map();
 
-  if (eigen_problem->solverParams()._eigen_matrix_vector_mult &&
+  if (eigen_problem->solverParams(eigen_nl.number())._eigen_matrix_vector_mult &&
       (eigen_problem->onLinearSolver() || eigen_problem->constantMatrices()))
   {
     EPS eps = eigen_nl.getEPS();

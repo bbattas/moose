@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,7 +26,7 @@ SpatialUserObjectAux::validParams()
 }
 
 SpatialUserObjectAux::SpatialUserObjectAux(const InputParameters & parameters)
-  : AuxKernel(parameters), _user_object(getUserObjectBase("user_object"))
+  : AuxKernel(parameters), _user_object(getUserObject<UserObject>("user_object"))
 {
 }
 

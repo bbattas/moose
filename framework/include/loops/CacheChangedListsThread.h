@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -24,6 +24,9 @@ public:
 
   void join(const CacheChangedListsThread & y);
 
+  bool shouldComputeInternalSide(const Elem & elem, const Elem & neighbor) const override;
+
+protected:
   /// The elements that were just refined.
   std::vector<const Elem *> _refined_elements;
 
@@ -32,4 +35,6 @@ public:
 
   /// Map of Parent elements to children elements for elements that were just coarsened.
   std::map<const Elem *, std::vector<const Elem *>> _coarsened_element_children;
+
+  friend class MooseMesh;
 };

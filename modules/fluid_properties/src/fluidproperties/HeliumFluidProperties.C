@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -100,8 +100,9 @@ HeliumFluidProperties::p_from_v_e(Real v, Real e) const
 ADReal
 HeliumFluidProperties::p_from_v_e(const ADReal & v, const ADReal & e) const
 {
+  using std::pow;
   const ADReal T = T_from_v_e(v, e);
-  return T / (48.14 * v - 0.4446 / std::pow(T, 0.2)) * 1.0e5;
+  return T / (48.14 * v - 0.4446 / pow(T, 0.2)) * 1.0e5;
 }
 
 void
@@ -123,13 +124,14 @@ void
 HeliumFluidProperties::p_from_v_e(
     const ADReal & v, const ADReal & e, ADReal & p, ADReal & dp_dv, ADReal & dp_de) const
 {
+  using std::pow;
   p = p_from_v_e(v, e);
 
   ADReal T, dT_dv, dT_de;
   T_from_v_e(v, e, T, dT_dv, dT_de);
 
-  auto val = 48.14 * v - 0.4446 / std::pow(T, 0.2);
-  auto dp_dT = 1.0e5 / val - 0.4446 * 0.2e5 * std::pow(T, -0.2) / (val * val);
+  auto val = 48.14 * v - 0.4446 / pow(T, 0.2);
+  auto dp_dT = 1.0e5 / val - 0.4446 * 0.2e5 * pow(T, -0.2) / (val * val);
 
   dp_dv = -48.14e5 * T / (val * val); // taking advantage of dT_dv = 0.0;
   dp_de = dp_dT * dT_de;
@@ -145,8 +147,9 @@ HeliumFluidProperties::p_from_T_v(const Real T, const Real v) const
 ADReal
 HeliumFluidProperties::p_from_T_v(const ADReal & T, const ADReal & v) const
 {
+  using std::pow;
   // Formula taken from p_from_v_e method
-  return T / (48.14 * v - 0.4446 / std::pow(T, 0.2)) * 1.0e5;
+  return T / (48.14 * v - 0.4446 / pow(T, 0.2)) * 1.0e5;
 }
 
 Real
@@ -216,6 +219,12 @@ HeliumFluidProperties::T_from_p_h(Real /* p */, Real h) const
   return h / _cp;
 }
 
+ADReal
+HeliumFluidProperties::T_from_p_h(const ADReal & /* p */, const ADReal & h) const
+{
+  return h / _cp;
+}
+
 Real
 HeliumFluidProperties::c_from_v_e(Real v, Real e) const
 {
@@ -232,6 +241,8 @@ HeliumFluidProperties::c_from_v_e(Real v, Real e) const
 void
 HeliumFluidProperties::c_from_v_e(Real v, Real e, Real & c, Real & dc_dv, Real & dc_de) const
 {
+  using std::sqrt;
+
   ADReal myv = v;
   Moose::derivInsert(myv.derivatives(), 0, 1);
   Moose::derivInsert(myv.derivatives(), 1, 0);
@@ -245,13 +256,17 @@ HeliumFluidProperties::c_from_v_e(Real v, Real e, Real & c, Real & dc_dv, Real &
   ADReal rho, drho_dp, drho_dT;
   rho_from_p_T(p, T, rho, drho_dp, drho_dT);
 
-  auto cc = std::sqrt(-(p / rho / rho - _cv / drho_dT) / (_cv * drho_dp / drho_dT));
+  auto cc = sqrt(-(p / rho / rho - _cv / drho_dT) / (_cv * drho_dp / drho_dT));
   c = cc.value();
   dc_dv = cc.derivatives()[0];
   dc_de = cc.derivatives()[1];
 }
 
-Real HeliumFluidProperties::cp_from_v_e(Real /*v*/, Real /*e*/) const { return _cp; }
+Real
+HeliumFluidProperties::cp_from_v_e(Real /*v*/, Real /*e*/) const
+{
+  return _cp;
+}
 
 void
 HeliumFluidProperties::cp_from_v_e(Real v, Real e, Real & cp, Real & dcp_dv, Real & dcp_de) const
@@ -261,7 +276,11 @@ HeliumFluidProperties::cp_from_v_e(Real v, Real e, Real & cp, Real & dcp_dv, Rea
   dcp_de = 0.0;
 }
 
-Real HeliumFluidProperties::cv_from_v_e(Real /*v*/, Real /*e*/) const { return _cv; }
+Real
+HeliumFluidProperties::cv_from_v_e(Real /*v*/, Real /*e*/) const
+{
+  return _cv;
+}
 
 void
 HeliumFluidProperties::cv_from_v_e(Real v, Real e, Real & cv, Real & dcv_dv, Real & dcv_de) const
@@ -277,12 +296,42 @@ HeliumFluidProperties::mu_from_v_e(Real v, Real e) const
   return 3.674e-7 * std::pow(T_from_v_e(v, e), 0.7);
 }
 
+void
+HeliumFluidProperties::mu_from_v_e(Real v, Real e, Real & mu, Real & dmu_dv, Real & dmu_de) const
+{
+  mu = mu_from_v_e(v, e);
+  const Real dmu_dT = 0.7 * 3.674e-7 * std::pow(T_from_v_e(v, e), -0.3);
+  dmu_dv = 0.0;          // dmu_dp = 0, dT_dv is zero
+  dmu_de = dmu_dT / _cv; // dmu_dp = 0
+}
+
 Real
 HeliumFluidProperties::k_from_v_e(Real v, Real e) const
 {
   Real p_in_bar = p_from_v_e(v, e) * 1.0e-5;
   Real T = T_from_v_e(v, e);
   return 2.682e-3 * (1.0 + 1.123e-3 * p_in_bar) * std::pow(T, 0.71 * (1.0 - 2.0e-4 * p_in_bar));
+}
+
+void
+HeliumFluidProperties::k_from_v_e(Real v, Real e, Real & k, Real & dk_dv, Real & dk_de) const
+{
+  Real T = 0., p = 0., dT_dv = 0., dT_de = 0., dp_dv = 0., dp_de = 0.;
+  T_from_v_e(v, e, T, dT_dv, dT_de);
+  p_from_v_e(v, e, p, dp_dv, dp_de);
+
+  // b and d scaled by 1e-5 to account for conversion to bar
+  constexpr Real a = 2.682e-3;
+  constexpr Real b = 1.123e-8;
+  constexpr Real c = 0.71;
+  constexpr Real d = 2.0e-9;
+
+  k = a * (1.0 + b * p) * std::pow(T, c * (1.0 - d * p));
+  Real dk_dT = a * c * (1.0 + b * p) * (1.0 - d * p) * std::pow(T, c * (1.0 - d * p) - 1.0);
+  Real dk_dp = a * std::pow(T, c * (1.0 - d * p)) * (b - c * d * (1 + b * p) * std::log(T));
+
+  dk_dv = dk_dp * dp_dv; // dT_dv is zero
+  dk_de = dk_dT * dT_de + dk_dp * dp_de;
 }
 
 Real
@@ -321,11 +370,12 @@ HeliumFluidProperties::rho_from_p_T(const ADReal & pressure,
                                     ADReal & drho_dp,
                                     ADReal & drho_dT) const
 {
+  using std::pow;
   rho = SinglePhaseFluidProperties::rho_from_p_T(pressure, temperature);
-  auto val = 1.0 / (temperature + 0.4446e-5 * pressure / std::pow(temperature, 0.2));
-  drho_dp = 48.14e-5 * (val - 0.4446e-5 * pressure * val * val / std::pow(temperature, 0.2));
+  auto val = 1.0 / (temperature + 0.4446e-5 * pressure / pow(temperature, 0.2));
+  drho_dp = 48.14e-5 * (val - 0.4446e-5 * pressure * val * val / pow(temperature, 0.2));
   drho_dT =
-      -48.14e-5 * pressure * val * val * (1.0 - 0.08892e-5 * pressure / std::pow(temperature, 1.2));
+      -48.14e-5 * pressure * val * val * (1.0 - 0.08892e-5 * pressure / pow(temperature, 1.2));
 }
 
 Real
@@ -344,6 +394,20 @@ HeliumFluidProperties::e_from_p_T(
 }
 
 Real
+HeliumFluidProperties::e_from_v_h(Real /*v*/, Real h) const
+{
+  return _cv * (h / _cp);
+}
+
+void
+HeliumFluidProperties::e_from_v_h(Real v, Real h, Real & e, Real & de_dv, Real & de_dh) const
+{
+  e = e_from_v_h(v, h);
+  de_dv = 0.;
+  de_dh = _cv / _cp;
+}
+
+Real
 HeliumFluidProperties::h_from_p_T(Real /*pressure*/, Real temperature) const
 {
   return _cp * temperature;
@@ -358,13 +422,26 @@ HeliumFluidProperties::h_from_p_T(
   dh_dT = _cp;
 }
 
+void
+HeliumFluidProperties::h_from_p_T(const ADReal & /*pressure*/,
+                                  const ADReal & temperature,
+                                  ADReal & h,
+                                  ADReal & dh_dp,
+                                  ADReal & dh_dT) const
+{
+  h = _cp * temperature;
+  dh_dp = 0.0;
+  dh_dT = _cp;
+}
+
 Real
 HeliumFluidProperties::molarMass() const
 {
   return 4.002602e-3;
 }
 
-Real HeliumFluidProperties::cp_from_p_T(Real /*pressure*/, Real /*temperature*/) const
+Real
+HeliumFluidProperties::cp_from_p_T(Real /*pressure*/, Real /*temperature*/) const
 {
   return _cp;
 }
@@ -378,7 +455,8 @@ HeliumFluidProperties::cp_from_p_T(
   dcp_dT = 0.0;
 }
 
-Real HeliumFluidProperties::cv_from_p_T(Real /*pressure*/, Real /*temperature*/) const
+Real
+HeliumFluidProperties::cv_from_p_T(Real /*pressure*/, Real /*temperature*/) const
 {
   return _cv;
 }

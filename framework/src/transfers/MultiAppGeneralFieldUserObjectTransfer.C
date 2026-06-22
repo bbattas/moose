@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -37,6 +37,8 @@ MultiAppGeneralFieldUserObjectTransfer::validParams()
                                           "The UserObject you want to transfer values from. "
                                           "It must implement the SpatialValue() class routine");
 
+  MultiAppTransfer::addUserObjectExecutionCheckParam(params);
+
   // Blanket ban on origin boundary restriction. User objects tend to extend beyond boundaries,
   // and be able to be evaluated within a volume rather than only on a boundary
   // This could be re-enabled for spatial user objects that are only defined on boundaries
@@ -67,6 +69,27 @@ MultiAppGeneralFieldUserObjectTransfer::MultiAppGeneralFieldUserObjectTransfer(
 }
 
 void
+MultiAppGeneralFieldUserObjectTransfer::execute()
+{
+  // Execute the user object if it was specified to execute on TRANSFER
+  switch (_current_direction)
+  {
+    case TO_MULTIAPP:
+    {
+      checkParentAppUserObjectExecuteOn(_user_object_name);
+      _fe_problem.computeUserObjectByName(EXEC_TRANSFER, Moose::PRE_AUX, _user_object_name);
+      _fe_problem.computeUserObjectByName(EXEC_TRANSFER, Moose::POST_AUX, _user_object_name);
+      break;
+    }
+    case FROM_MULTIAPP:
+      errorIfObjectExecutesOnTransferInSourceApp(_user_object_name);
+  }
+
+  // Perfom the actual transfer
+  MultiAppGeneralFieldTransfer::execute();
+}
+
+void
 MultiAppGeneralFieldUserObjectTransfer::prepareEvaluationOfInterpValues(
     const unsigned int /* var_index */)
 {
@@ -77,6 +100,7 @@ MultiAppGeneralFieldUserObjectTransfer::prepareEvaluationOfInterpValues(
 
 void
 MultiAppGeneralFieldUserObjectTransfer::evaluateInterpValues(
+    const unsigned int /*var_index*/,
     const std::vector<std::pair<Point, unsigned int>> & incoming_points,
     std::vector<std::pair<Real, Real>> & outgoing_vals)
 {
@@ -93,7 +117,7 @@ MultiAppGeneralFieldUserObjectTransfer::evaluateInterpValuesWithUserObjects(
   for (auto & [pt, mesh_div] : incoming_points)
   {
     bool point_found = false;
-    outgoing_vals[i_pt].second = GeneralFieldTransfer::BetterOutOfMeshValue;
+    outgoing_vals[i_pt].second = GeneralFieldTransfer::OutOfMeshValue;
 
     // Loop on all local origin problems until:
     // - we've found the point in an app and the value at that point is valid
@@ -110,14 +134,13 @@ MultiAppGeneralFieldUserObjectTransfer::evaluateInterpValuesWithUserObjects(
         continue;
       else
       {
-        const auto from_global_num = getGlobalSourceAppIndex(i_from);
-
         // Get user object from the local problem
         const UserObject & user_object =
             _from_problems[i_from]->getUserObjectBase(_user_object_name);
 
         // Use spatial value routine to compute the origin value to transfer
-        const auto local_pt = _from_transforms[from_global_num]->mapBack(pt);
+        const auto local_pt =
+            getPointInSourceAppFrame(pt, i_from, "User object spatial value evaluation");
         auto val = user_object.spatialValue(local_pt);
 
         // Look for overlaps. The check is not active outside of overlap search because in that
@@ -133,7 +156,7 @@ MultiAppGeneralFieldUserObjectTransfer::evaluateInterpValuesWithUserObjects(
         }
 
         // No need to consider decision factors if value is invalid
-        if (val == GeneralFieldTransfer::BetterOutOfMeshValue)
+        if (val == GeneralFieldTransfer::OutOfMeshValue)
           continue;
         else
           point_found = true;
@@ -148,10 +171,16 @@ MultiAppGeneralFieldUserObjectTransfer::evaluateInterpValuesWithUserObjects(
     }
 
     if (!point_found)
-      outgoing_vals[i_pt] = {GeneralFieldTransfer::BetterOutOfMeshValue,
-                             GeneralFieldTransfer::BetterOutOfMeshValue};
+      outgoing_vals[i_pt] = {GeneralFieldTransfer::OutOfMeshValue,
+                             GeneralFieldTransfer::OutOfMeshValue};
 
     // Move to next point
     i_pt++;
   }
+}
+
+std::string
+MultiAppGeneralFieldUserObjectTransfer::getDataSourceName(unsigned int /*var_index*/) const
+{
+  return "user object '" + _user_object_name + "'";
 }

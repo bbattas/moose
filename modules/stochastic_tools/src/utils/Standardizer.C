@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -98,6 +98,13 @@ Standardizer::getDescaled(RealEigenMatrix & input) const
 {
   Eigen::Map<const RealEigenVector> stdev(_stdev.data(), _stdev.size());
   input = input.array().rowwise() * stdev.transpose().array();
+}
+
+void
+Standardizer::getScaled(RealEigenMatrix & input) const
+{
+  Eigen::Map<const RealEigenVector> stdev(_stdev.data(), _stdev.size());
+  input = input.array().rowwise() / stdev.transpose().array();
 }
 
 /// Helper for dataStore

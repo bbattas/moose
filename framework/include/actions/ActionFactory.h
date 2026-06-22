@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -20,8 +20,6 @@
 /**
  * Macros
  */
-#define stringifyName(name) #name
-
 #define registerSyntax(action, action_syntax)                                                      \
   syntax.registerActionSyntax(action, action_syntax, "", __FILE__, __LINE__)
 #define registerSyntaxTask(action, action_syntax, task)                                            \

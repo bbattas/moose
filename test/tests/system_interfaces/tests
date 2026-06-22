@@ -20,11 +20,10 @@
       type = RunApp
       input = input.i
       expect_out = "Num Processors:\s+1\s+Num Threads:\s+2"
-      min_parallel = 1
       max_parallel = 1
       min_threads = 2
       max_threads = 2
-      threading = PTHREADS
+      capabilities = '!openmp & !tbb'
 
       detail = "'pthreads' or"
     []
@@ -32,11 +31,10 @@
       type = RunApp
       input = input.i
       expect_out = "Num Processors:\s+1\s+Num Threads:\s+2"
-      min_parallel = 1
       max_parallel = 1
       min_threads = 2
       max_threads = 2
-      threading = OPENMP
+      capabilities = 'openmp'
 
       detail = "OpenMP."
     []
@@ -49,7 +47,7 @@
        input = input.i
        min_parallel = 2
        max_parallel = 2
-       chaco = true
+       capabilities = 'chaco'
 
        detail = "Chaco,"
     []
@@ -58,7 +56,7 @@
        input = input.i
        min_parallel = 2
        max_parallel = 2
-       parmetis = true
+       capabilities = 'parmetis'
 
        detail = "ParMETIS,"
     []
@@ -67,7 +65,7 @@
        input = input.i
        min_parallel = 2
        max_parallel = 2
-       party = true
+       capabilities = 'party'
 
        detail = "Party, and"
     []
@@ -76,7 +74,7 @@
        input = input.i
        min_parallel = 2
        max_parallel = 2
-       ptscotch = true
+       capabilities = 'ptscotch'
 
        detail = "PTScotch."
     []
@@ -89,7 +87,7 @@
        input = input.i
        min_parallel = 2
        max_parallel = 2
-       superlu = true
+       capabilities = 'superlu'
 
        detail = "SuperLU,"
     []
@@ -98,7 +96,7 @@
        input = input.i
        min_parallel = 2
        max_parallel = 2
-       mumps = true
+       capabilities = 'mumps'
 
        detail = "MUMPS, and"
     []
@@ -107,7 +105,7 @@
        input = input.i
        min_parallel = 2
        max_parallel = 2
-       slepc = true
+       capabilities = 'slepc'
 
        detail = "SLEPc."
     []
@@ -120,7 +118,7 @@
        input = input.i
        min_parallel = 2
        max_parallel = 2
-       vtk = true
+       capabilities = 'vtk'
 
        detail = "Visualization ToolKit (VTK) and"
     []
@@ -129,7 +127,7 @@
        input = input.i
        min_parallel = 2
        max_parallel = 2
-       boost = true
+       capabilities = 'boost'
 
        detail = "BOOST."
     []
@@ -142,7 +140,7 @@
        input = input.i
        min_parallel = 2
        max_parallel = 2
-       compiler = CLANG
+       capabilities = 'compiler=clang'
 
        detail = "Clang and"
     []
@@ -151,7 +149,7 @@
        input = input.i
        min_parallel = 2
        max_parallel = 2
-       compiler = GCC
+       capabilities = 'compiler=gcc'
 
        detail = "GCC."
     []

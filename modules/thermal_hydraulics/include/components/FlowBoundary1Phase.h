@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,12 +9,12 @@
 
 #pragma once
 
-#include "FlowBoundary.h"
+#include "FlowBoundary1PhaseBase.h"
 
 /**
- * Base class for boundary components connected to 1-phase flow channels
+ * Base class for boundary components connected to FlowChannel1Phase components
  */
-class FlowBoundary1Phase : public FlowBoundary
+class FlowBoundary1Phase : public FlowBoundary1PhaseBase
 {
 public:
   FlowBoundary1Phase(const InputParameters & params);
@@ -26,12 +26,13 @@ protected:
   /**
    * Creates the boundary condition objects for 1-phase flow
    */
-  void addWeakBC3Eqn();
+  virtual void addWeakBCs();
 
-  /// Numerical flux user object name
-  UserObjectName _numerical_flux_name;
-  /// Name of boundary user object name
-  const UserObjectName _boundary_uo_name;
+  /// True if the component supports passive transport variables
+  virtual bool supportsPassiveTransport() const { return false; }
+
+  /// Passive transport variables on the connected flow channel
+  std::vector<VariableName> _passives_times_area;
 
 public:
   static InputParameters validParams();

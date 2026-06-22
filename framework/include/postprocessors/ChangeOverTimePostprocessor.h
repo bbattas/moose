@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -36,6 +36,9 @@ protected:
 
   /// option to take the absolute value of the change
   const bool _take_absolute_value;
+
+  /// option to divide by the time step size
+  const bool _divide_by_dt;
 
   /// current post-processor value
   const PostprocessorValue & _pps_value;

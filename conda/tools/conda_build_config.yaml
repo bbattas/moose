@@ -1,7 +1,24 @@
-clang_format:
-  - clang-format 16
+#
+# NOTE: These should mirror ./requirements.txt as much as possible.
+#
+# ./requirements.txt is used to setup the python environment
+# within apptainer distributions.
+#
 
-moose_python:
-  - python 3.11
-  - python 3.10
-  - python 3.9
+black:
+  - 26.5.1
+
+clang_format:
+  - 19.1.7
+
+clang_tools:
+  - 19.1.7
+
+coverage:
+  - 7.13.2
+
+ruff:
+  - 0.15.15
+
+xmltodict:
+  - <0.14

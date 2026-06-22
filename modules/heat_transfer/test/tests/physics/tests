@@ -9,6 +9,15 @@
       exodiff = 'test_cg_out.e'
       detail = 'with Dirichlet and Neumann boundary conditions and a heat source defined using a variable,'
     []
+    [base_no_ad]
+      type = Exodiff
+      input = 'test_cg.i'
+      cli_args = "Materials/mat_k/type=GenericConstantMaterial
+                  Physics/HeatConduction/FiniteElement/h1/use_automatic_differentiation=false
+                  Outputs/file_base=test_cg_no_ad_out"
+      exodiff = 'test_cg_no_ad_out.e'
+      detail = 'with Dirichlet and Neumann boundary conditions and a heat source defined using a variable but without using automatic differentiation,'
+    []
     [functor_heat]
       type = Exodiff
       input = 'test_cg.i'
@@ -44,6 +53,13 @@
                   Physics/HeatConduction/FiniteVolume/h1/heat_source_functor='100'
                   Outputs/file_base=test_fv_functor_hs_out"
       detail = 'with a heat source defined using a functor,'
+    []
+    [functors_props]
+      type = Exodiff
+      input = 'test_fv_functor.i'
+      exodiff = 'test_fv_functor_all_out.e'
+      cli_args = "Outputs/file_base=test_fv_functor_all_out"
+      detail = 'with all properties defined using functors,'
     []
     [convective_bc]
       type = Exodiff

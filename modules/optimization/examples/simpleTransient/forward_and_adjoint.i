@@ -61,7 +61,7 @@
 [Functions]
   [exact]
     type = ParsedFunction
-    value = '2*exp(-2.0*(x - sin(2*pi*t))^2)*exp(-2.0*(y - cos(2*pi*t))^2)*cos((1/2)*x*pi)*cos((1/2)*y*pi)/pi'
+    expression = '2*exp(-2.0*(x - sin(2*pi*t))^2)*exp(-2.0*(y - cos(2*pi*t))^2)*cos((1/2)*x*pi)*cos((1/2)*y*pi)/pi'
   []
   [source]
     type = NearestReporterCoordinatesFunction
@@ -69,6 +69,21 @@
     y_coord_name = src_values/coordy
     time_name = src_values/time
     value_name = src_values/values
+  []
+[]
+
+[Preconditioning]
+  [nl0]
+    type = SMP
+    nl_sys = 'nl0'
+    petsc_options_iname = '-pc_type'
+    petsc_options_value = 'lu'
+  []
+  [adjoint]
+    type = SMP
+    nl_sys = 'adjoint'
+    petsc_options_iname = '-pc_type'
+    petsc_options_value = 'lu'
   []
 []
 
@@ -82,8 +97,6 @@
 
   nl_rel_tol = 1e-12
   l_tol = 1e-12
-  petsc_options_iname = '-pc_type'
-  petsc_options_value = 'lu'
 []
 
 [Reporters]

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,6 +12,7 @@
 #include "InputParameters.h"
 #include "MooseMesh.h"
 #include "MooseMeshUtils.h"
+#include "MeshTraversingUtils.h"
 
 #include "libmesh/mesh_generation.h"
 #include "libmesh/mesh.h"
@@ -70,8 +71,6 @@ SideSetsGeneratorBase::validParams()
                                     "only added if face_normal.normal_hat >= "
                                     "1 - normal_tol, where normal_hat = "
                                     "normal/|normal|");
-  params.addParam<Real>("variance", "The variance allowed when comparing normals");
-  params.deprecateParam("variance", "normal_tol", "4/01/2025");
 
   // Sideset restriction param group
   params.addParamNamesToGroup(
@@ -236,7 +235,8 @@ SideSetsGeneratorBase::flood(const Elem * elem,
     return;
 
   // Skip if element is not in specified subdomains
-  if (_check_subdomains && !elementSubdomainIdInList(elem, _included_subdomain_ids))
+  if (_check_subdomains &&
+      !MeshTraversingUtils::elementSubdomainIdInList(elem, _included_subdomain_ids))
     return;
 
   _visited[side_id].insert(elem);
@@ -267,23 +267,6 @@ SideSetsGeneratorBase::flood(const Elem * elem,
       flood(elem->neighbor_ptr(neighbor), _fixed_normal ? normal : face_normal, side_id, mesh);
     }
   }
-}
-
-bool
-SideSetsGeneratorBase::normalsWithinTol(const Point & normal_1,
-                                        const Point & normal_2,
-                                        const Real & tol) const
-{
-  return (1.0 - normal_1 * normal_2) <= tol;
-}
-
-bool
-SideSetsGeneratorBase::elementSubdomainIdInList(
-    const Elem * const elem, const std::vector<subdomain_id_type> & subdomain_id_list) const
-{
-  subdomain_id_type curr_subdomain = elem->subdomain_id();
-  return std::find(subdomain_id_list.begin(), subdomain_id_list.end(), curr_subdomain) !=
-         subdomain_id_list.end();
 }
 
 bool
@@ -332,11 +315,13 @@ SideSetsGeneratorBase::elemSideSatisfiesRequirements(const Elem * const elem,
     const Elem * const neighbor = elem->neighbor_ptr(side);
     // if the neighbor does not exist, then skip this face; we only add sidesets
     // between existing elems if _check_neighbor_subdomains is true
-    if (!(neighbor && elementSubdomainIdInList(neighbor, _included_neighbor_subdomain_ids)))
+    if (!(neighbor && MeshTraversingUtils::elementSubdomainIdInList(
+                          neighbor, _included_neighbor_subdomain_ids)))
       return false;
   }
 
-  if (_using_normal && !normalsWithinTol(desired_normal, face_normal, _normal_tol))
+  if (_using_normal &&
+      !MeshTraversingUtils::normalsWithinTol(desired_normal, face_normal, _normal_tol))
     return false;
 
   return true;

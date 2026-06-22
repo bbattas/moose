@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,6 +13,7 @@
 
 #include "RestartableData.h"
 #include "InputStream.h"
+#include "MoosePassKey.h"
 
 #include <sstream>
 #include <utility>
@@ -23,8 +24,10 @@
 class RestartableDataReader : public RestartableDataIO
 {
 public:
-  RestartableDataReader(MooseApp & app, RestartableDataMap & data);
-  RestartableDataReader(MooseApp & app, std::vector<RestartableDataMap> & data);
+  RestartableDataReader(MooseApp & app, RestartableDataMap & data, const bool force = false);
+  RestartableDataReader(MooseApp & app,
+                        std::vector<RestartableDataMap> & data,
+                        const bool force = false);
 
   /**
    * Structure that contains the input streams for the reader.
@@ -51,6 +54,19 @@ public:
    * @return Whether or not this reader is currently restoring
    */
   bool isRestoring() const { return _streams.data != nullptr; }
+
+  /**
+   * Restores \p value in place from the open reader if it is present in the checkpoint and
+   * has not yet been loaded. Used to recover data (e.g. reporter values) that is declared
+   * after the bulk restore pass while the reader window is still open.
+   *
+   * Requires that restore() has been called.
+   *
+   * @return Whether or not the value was restored
+   */
+  bool restoreDataIfAvailable(RestartableDataValue & value,
+                              const THREAD_ID tid,
+                              Moose::PassKey<MooseApp>);
 
   /**
    * Clears the contents of the reader (header stream, data stream, header)
@@ -208,6 +224,9 @@ private:
 
   /// Whether or not to error with a different number of processors
   bool _error_on_different_number_of_processors;
+
+  /// Whether or not to forcefully attempt to read despite incompatibilities
+  const bool _force;
 };
 
 template <typename T, typename... Args>

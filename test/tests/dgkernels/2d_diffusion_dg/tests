@@ -11,7 +11,7 @@
   [p_refinement_test]
     type = 'Exodiff'
     input = '2d_diffusion_dg_test.i'
-    cli_args = 'Outputs/file_base=p_refinement Executioner/Adaptivity/switch_h_to_p_refinement=true'
+    cli_args = 'Outputs/file_base=p_refinement Executioner/Adaptivity/adaptivity_type=p'
     exodiff = 'p_refinement.e-s003'
     requirement = "The system shall support solving 2D diffusion using the discontinuous Galerkin "
                   "method with p-refinement."
@@ -41,7 +41,6 @@
     requirement = 'The system shall not perform memory allocation automatic scaling when computing values using discontinuous finite element methods.'
     issues = '#12601'
     design = 'FEProblemSolve.md'
-    petsc_version = '>=3.9.0'
     max_parallel = 4 # Can't have zero dofs on any process for MatResetPreallocation
   []
   [proper_ghosting_with_action_serial]

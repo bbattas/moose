@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -45,7 +45,8 @@ AddElementalFieldAction::init()
 
   // Need static_cast to resolve overloads
   _problem_add_var_method = static_cast<void (FEProblemBase::*)(
-      const std::string &, const std::string &, InputParameters &)>(&FEProblemBase::addAuxVariable);
+      const std::string &, const std::string &, InputParameters &)>(
+      &FEProblemBase::addElementalFieldVariable);
 }
 
 void

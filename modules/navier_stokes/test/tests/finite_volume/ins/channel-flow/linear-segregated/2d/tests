@@ -29,6 +29,15 @@
     abs_zero = 5e-6
     rel_err = 5e-6
   []
+  [energy_boussinesq_pimple-physics]
+    type = 'Exodiff'
+    input = 2d-boussinesq-transient-physics.i
+    exodiff = 2d-boussinesq-transient-physics_out.e
+    requirement = "The system shall be able to solve the transient Navier-Stokes equations with coupled fluid energy equations in a 2D channel using the Boussinesq approximation for buoyancy with the PIMPLE algorithm using the linear finite volume system and the shorthand Physics syntax."
+    max_threads = 1 # see libmesh issue #3808
+    abs_zero = 5e-6
+    rel_err = 5e-6
+  []
   [energy_boussinesq_piso]
     type = 'Exodiff'
     input = 2d-boussinesq-transient.i
@@ -37,6 +46,13 @@
     max_threads = 1 # see libmesh issue #3808
     cli_args = "Executioner/num_piso_iterations=100 Executioner/num_iterations=1 Executioner/momentum_equation_relaxation=1.0 Executioner/energy_equation_relaxation=1.0 Executioner/pressure_variable_relaxation=1.0 Outputs/file_base=2d-boussinesq-transient-piso_out"
     abs_zero = 5e-6
-    rel_err = 5e-6
+    rel_err = 1e-5
+  []
+  [normal_velocity]
+    type = 'Exodiff'
+    input = rotated-channel.i
+    exodiff = rotated-channel_out.e
+    requirement = 'The system shall support supplying a single normal velocity scalar at an inlet and computing the corresponding velocity vector via the boundary face geometry.'
+    max_threads = 1 # see libmesh issue #3808
   []
 []

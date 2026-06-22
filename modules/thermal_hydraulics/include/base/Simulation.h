@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -114,7 +114,7 @@ public:
   /**
    * Return list of components available in the simulation
    */
-  const std::vector<std::shared_ptr<Component>> & getComponents() { return _components; }
+  const std::vector<std::shared_ptr<Component>> & getComponents() const { return _components; }
 
   /**
    * Add a closures object into this simulation

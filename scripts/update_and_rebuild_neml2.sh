@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+#* This file is part of the MOOSE framework
+#* https://www.mooseframework.org
+#*
+#* All rights reserved, see COPYRIGHT for full restrictions
+#* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+#*
+#* Licensed under LGPL 2.1, please see LICENSE for details
+#* https://www.gnu.org/licenses/lgpl-2.1.html
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+MOOSE_DIR="$( cd "$( dirname "${SCRIPT_DIR}" )" && pwd )"
+
+# Display the help message if requested
+if [[ "$#" -eq 1 ]] && [[ "$1" == "--help" ]]; then
+  SCRIPT_NAME=$(basename "$0")
+  echo "Usage: ${SCRIPT_NAME} --help"
+  echo "Usage: ${SCRIPT_NAME} [--fast|--skip-submodule-update] [ADDITIONAL_CONFIGURE_ARG ...]"
+  echo
+  echo "This script makes NEML2 available to the MOOSE framework. The script "
+  echo "performs the following steps:"
+  echo "  1. Update the NEML2 submodule"
+  echo "  2. Clean and recreate the build directory"
+  echo "  3. Configure NEML2"
+  echo "  4. Build NEML2"
+  echo "  5. Install NEML2"
+  echo
+  echo "NEML2 depends on libtorch as a dependency. It can be obtained using the following script:"
+  echo "  scripts/update_and_rebuild_libtorch.sh"
+  echo
+  echo "Influential environment variables:"
+  echo "  MOOSE_DIR       The path to the MOOSE directory. Default to the parent directory of this script."
+  echo "  LIBTORCH_DIR    The path to the libtorch directory. Default to <MOOSE_DIR>/framework/contrib/pytorch/installed."
+  echo "  NEML2_DIR       The path where to install NEML2. Default to <NEML2_SRC_DIR>/installed/moose."
+  echo "  NEML2_SRC_DIR   The path to the NEML2 source directory if a custom NEML2 should be used. If set, "
+  echo "                  --skip-submodule-update will be assumed."
+  echo "  NEML2_JOBS      The number of jobs to use when building NEML2. Default to <MOOSE_JOBS>. "
+  echo "                  If unset, default to 1."
+  echo "  METHODS         A list of (comma-separated) methods to use for configuring NEML2. Default to opt,dbg."
+  echo "  METHOD          The method to use for configuring NEML2. Setting this variable overrides METHODS."
+  echo
+  echo "General environment variables supported by CMake are also respected."
+  echo
+  echo "Command-line arguments:"
+  echo "  --help                   Display this message and exit"
+  echo "  --fast                   Skip the update, clean, and configure steps (steps 1-3)"
+  echo "  --skip-submodule-update  Skip the update step (step 1)"
+  echo "  ADDITIONAL_CONFIGURE_ARG Additional argument(s) to pass to the NEML2 cmake configure command"
+  exit 0
+fi
+
+# Handle cliargs
+FAST=false
+SKIP_SUBMODULE_UPDATE=false
+for ARG in "$@" ; do
+  if [[ "${ARG}" == "--fast" ]]; then
+    FAST=true
+  elif [[ "${ARG}" == "--skip-submodule-update" ]]; then
+    SKIP_SUBMODULE_UPDATE=true
+  else
+    EXTRA_ARGS+=("$ARG")
+  fi
+done
+
+# Dependency: libtorch
+export LIBTORCH_DIR=${LIBTORCH_DIR:-${MOOSE_DIR}/framework/contrib/pytorch/installed}
+
+# Handle environment variables
+if [[ -n "$NEML2_SRC_DIR" ]]; then
+  SKIP_SUBMODULE_UPDATE=true
+else
+  NEML2_SRC_DIR=${MOOSE_DIR}/framework/contrib/neml2
+fi
+NEML2_DIR=${NEML2_DIR:-${NEML2_SRC_DIR}/installed/moose}
+
+if [[ -z "$NEML2_JOBS" ]]; then
+  if [[ -n "$MOOSE_JOBS" ]]; then
+    NEML2_JOBS=$MOOSE_JOBS
+  else
+    NEML2_JOBS=1
+  fi
+fi
+
+# Build methods
+#
+# Note that the build directory is created under the NEML2 source directory,
+# and several sub-directories are created each corresponding to a different build
+# METHOD. See below for the mapping between METHODS and cmake build types.
+#
+# opt   <--> Release
+# devel <--> RelWithDebInfo
+# dbg   <--> Debug
+# oprof <--> Profiling
+METHODS=${METHODS:-opt,dbg}
+if [[ -n "$METHOD" ]]; then
+  METHODS=$METHOD
+fi
+
+# Print out the configuration summary if requested
+SCRIPT_NAME=$(basename "$0")
+echo "****************************************************************************************************"
+echo "${SCRIPT_NAME} summary:"
+echo "  LIBTORCH_DIR:              ${LIBTORCH_DIR}"
+echo "  NEML2_DIR:                 ${NEML2_DIR}"
+echo "  NEML2_SRC_DIR:             ${NEML2_SRC_DIR}"
+echo "  NEML2_JOBS:                ${NEML2_JOBS}"
+echo "  METHODS:                   ${METHODS}"
+echo "  FAST:                      ${FAST}"
+echo "  SKIP_SUBMODULE_UPDATE:     ${SKIP_SUBMODULE_UPDATE}"
+echo "  ADDITIONAL_CONFIGURE_ARGS: ${EXTRA_ARGS[*]}"
+echo "****************************************************************************************************"
+
+# Check that dependencies are available
+if [[ ! -d "${LIBTORCH_DIR}" ]]; then
+  echo "Error: The libtorch directory (${LIBTORCH_DIR}) does not exist. Please see --help for more information."
+  # Let's try to be nice and offer more help
+  # First see if python is in the environment
+  if command -v python >/dev/null 2>&1; then
+    if TORCH_PY_DIR=$(python -c 'import torch; print(torch.__path__[0])' 2>/dev/null); then
+      TORCH_PY_DIR=${TORCH_PY_DIR%/}
+      if [[ -n "${TORCH_PY_DIR}" ]] && [[ -d "${TORCH_PY_DIR}" ]]; then
+        echo "Found python torch package directory: ${TORCH_PY_DIR}"
+        echo "Hint: If you want to use this installation, set LIBTORCH_DIR before running this script, i.e."
+        echo "  export LIBTORCH_DIR=${TORCH_PY_DIR}"
+      fi
+    fi
+  fi
+  exit 1
+fi
+
+# Step 1: Update the NEML2 submodule
+if [[ "$SKIP_SUBMODULE_UPDATE" != true ]] && [[ "$FAST" != true ]]; then
+  cd "$MOOSE_DIR" || exit
+  git submodule update --init --checkout --recursive "${NEML2_SRC_DIR}"
+  if [[ $? -ne 0 ]] ; then
+    echo "Error: Failed to update the NEML2 submodule with command"
+    echo "  git submodule update --init --checkout --recursive ${NEML2_SRC_DIR}"
+    exit 1
+  fi
+fi
+
+# Loop over the methods to configure, build, and install NEML2
+for METHOD in $(echo "$METHODS" | tr ',' ' '); do
+  # Build and install directories
+  NEML2_BUILD_DIR=${NEML2_SRC_DIR}/build/${METHOD}
+
+  # If we are going fast, the build directory must already exist
+  if [[ "${FAST}" == true ]] && [[ ! -d "${NEML2_BUILD_DIR}" ]] ; then
+    echo "Error: A build directory (${NEML2_BUILD_DIR}) must exist to use the --fast option"
+    exit 1
+  fi
+
+  # CMake build type
+  if [[ ${METHOD} == "opt" ]]; then
+    CMAKE_BUILD_TYPE="Release"
+  elif [[ ${METHOD} == "devel" ]]; then
+    CMAKE_BUILD_TYPE="RelWithDebInfo"
+  elif [[ ${METHOD} == "dbg" ]]; then
+    CMAKE_BUILD_TYPE="Debug"
+  elif [[ ${METHOD} == "oprof" ]]; then
+    CMAKE_BUILD_TYPE="Profiling"
+  else
+    echo "Error: Unknown build method ${METHOD}"
+    exit 1
+  fi
+
+  # Step 2: Clean and recreate the build directory
+  if [[ "${FAST}" != true  ]] ; then
+    rm -rf "${NEML2_BUILD_DIR}"
+    mkdir -p "${NEML2_BUILD_DIR}"
+  fi
+
+  # Step 3: Configure NEML2
+  # shellcheck disable=SC1091
+  source "$SCRIPT_DIR/configure_neml2.sh"
+  if [[ "${FAST}" != true  ]] ; then
+    echo
+    echo "****************************************************************************************************"
+    echo "Configuring NEML2 for METHOD=${METHOD}"
+    echo "****************************************************************************************************"
+    echo
+    configure_neml2 "${NEML2_SRC_DIR}" \
+                    "${NEML2_BUILD_DIR}" \
+                    "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}" \
+                    "-DNEML2_CONTRIB_PARALLEL=${NEML2_JOBS}" \
+                    "${EXTRA_ARGS[@]}"
+    # shellcheck disable=SC2181
+    if [[ $? -ne 0 ]] ; then
+      echo "Error: Failed to configure NEML2"
+      exit 1
+    fi
+  fi
+
+  # Step 4: Build NEML2
+  echo
+  echo "****************************************************************************************************"
+  echo "Compiling NEML2 for METHOD=${METHOD}"
+  echo "****************************************************************************************************"
+  echo
+  build_neml2 "${NEML2_BUILD_DIR}" "${NEML2_JOBS}"
+  # shellcheck disable=SC2181
+  if [[ $? -ne 0 ]] ; then
+    echo "Error: Failed to build NEML2"
+    exit 1
+  fi
+
+  # Step 5: Install NEML2
+  echo
+  echo "****************************************************************************************************"
+  echo "Installing NEML2 for METHOD=${METHOD}"
+  echo "****************************************************************************************************"
+  echo
+  install_neml2 "${NEML2_BUILD_DIR}" "${NEML2_DIR}"
+  # shellcheck disable=SC2181
+  if [[ $? -ne 0 ]] ; then
+    echo "Error: Failed to install NEML2"
+    exit 1
+  fi
+done
+
+# shellcheck disable=SC2181
+if [[ $? -eq 0 ]]; then
+  echo
+  echo "****************************************************************************************************"
+  echo "NEML2 has been successfully installed. "
+  echo
+  echo "To configure MOOSE with NEML2, run the following commands:"
+  echo
+  echo "  cd ${MOOSE_DIR}"
+  echo "  ./configure --with-neml2=${NEML2_DIR} --with-libtorch=${LIBTORCH_DIR}"
+  echo
+  echo "Append other configure options as needed. See configure --help for more information."
+  echo "****************************************************************************************************"
+fi

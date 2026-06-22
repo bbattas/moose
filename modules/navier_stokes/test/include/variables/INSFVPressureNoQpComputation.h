@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -29,15 +29,15 @@ public:
   {
     mooseError("Qp-calculations should not be requested");
   }
-  const DoFValue & dofValues() const override
+  const DofValues & dofValues() const override
   {
     mooseError("Qp-calculations should not be requested");
   }
-  const DoFValue & dofValuesOld() const override
+  const DofValues & dofValuesOld() const override
   {
     mooseError("Qp-calculations should not be requested");
   }
-  const DoFValue & dofValuesDot() const override
+  const DofValues & dofValuesDot() const override
   {
     mooseError("Qp-calculations should not be requested");
   }

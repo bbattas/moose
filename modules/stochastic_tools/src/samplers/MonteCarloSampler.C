@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -41,7 +41,7 @@ MonteCarloSampler::MonteCarloSampler(const InputParameters & parameters)
 }
 
 Real
-MonteCarloSampler::computeSample(dof_id_type /*row_index*/, dof_id_type col_index)
+MonteCarloSampler::computeSample(dof_id_type row_index, dof_id_type col_index)
 {
-  return _distributions[col_index]->quantile(getRand());
+  return _distributions[col_index]->quantile(getRand(row_index * getNumberOfCols() + col_index));
 }

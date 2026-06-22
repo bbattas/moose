@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,29 +13,16 @@
 #include "MooseTypes.h"
 #include "MooseEnum.h"
 
-enum class ContactModel
-{
-  FRICTIONLESS,
-  GLUED,
-  COULOMB
-};
-
-enum class ContactFormulation
-{
-  RANFS,
-  KINEMATIC,
-  PENALTY,
-  AUGMENTED_LAGRANGE,
-  TANGENTIAL_PENALTY,
-  MORTAR,
-  MORTAR_PENALTY
-};
-
-enum class ProximityMethod
-{
-  NODE,
-  CENTROID
-};
+CreateMooseEnumClass(ContactModel, FRICTIONLESS, GLUED, COULOMB);
+CreateMooseEnumClass(ContactFormulation,
+                     RANFS,
+                     KINEMATIC,
+                     PENALTY,
+                     AUGMENTED_LAGRANGE,
+                     TANGENTIAL_PENALTY,
+                     MORTAR,
+                     MORTAR_PENALTY);
+CreateMooseEnumClass(ProximityMethod, NODE, CENTROID);
 
 /**
  * Action class for creating constraints, kernels, and user objects necessary for mechanical
@@ -110,6 +97,16 @@ protected:
 
   /// Whether mortar dynamic contact constraints are to be used
   const bool _mortar_dynamics;
+
+  struct MortarInfo
+  {
+    BoundaryID primary_id;
+    BoundaryID secondary_id;
+    std::string uo_name;
+  };
+
+  /// Map from boundary pair to mortar user object name
+  std::map<std::pair<BoundaryName, BoundaryName>, const MortarInfo> _bnd_pair_to_mortar_info;
 
 private:
   /**

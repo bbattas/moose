@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "GeometricCutUserObject.h"
+#include "MeshCutUserObjectBase.h"
 #include "CrackFrontDefinition.h"
 
 #include <array>
@@ -22,7 +22,7 @@ class Function;
  * (3) grows the mesh based on prescribed growth functions.
  */
 
-class CrackMeshCut3DUserObject : public GeometricCutUserObject
+class CrackMeshCut3DUserObject : public MeshCutUserObjectBase
 {
 public:
   static InputParameters validParams();
@@ -57,27 +57,16 @@ public:
     Get crack front points in the active segment
     -1 means inactive; positive is the point's index in the Crack Front Definition starting from 0
    */
-  std::vector<int> getFrontPointsIndex();
-
-  /**
-    Return growth size at the active boundary to the mesh cutter
-   */
-  void setSubCriticalGrowthSize(std::vector<Real> & growth_size);
+  std::vector<int> getFrontPointsIndex() const;
 
   /**
     Return the total number of crack front points.
-    This function is currently not called anywhere in the code.
-    Ideally, in a future update, the number of crack front points will be managed by
-    CrackFrontPointsProvider instead of CrackFrontDefinition. In that case,
-    getNumberOfCrackFrontPoints() defined here may be used to override a virtual function defined in
-    CrackFrontPointsProvider
+    Returns the number of crack front points for use by CrackFrontDefinition.
+    Overrides the virtual function defined in CrackFrontPointsProvider.
    */
-  unsigned int getNumberOfCrackFrontPoints() const;
+  virtual unsigned int getNumberOfCrackFrontPoints() const override;
 
 protected:
-  /// The cutter mesh
-  std::unique_ptr<MeshBase> _cut_mesh;
-
   /// The cutter mesh has triangluar elements only
   const unsigned int _cut_elem_nnode = 3;
   const unsigned int _cut_elem_dim = 2;
@@ -107,11 +96,11 @@ protected:
   /// Enum to for crack growth rate
   enum class GrowthRateEnum
   {
-    FATIGUE,
+    REPORTER,
     FUNCTION
   };
-  /// The rate method for growing mesh at the front
-  const GrowthRateEnum _growth_rate_method;
+  /// The growth increment method for growing mesh at the front
+  const GrowthRateEnum _growth_increment_method;
 
   /// The structural mesh must be 3D only
   const unsigned int _elem_dim = 3;
@@ -142,6 +131,7 @@ protected:
   /// therefore, they are (1) in the same order as defined in the input and (2) the number of nodes does not change
   std::vector<dof_id_type> _tracked_crack_front_points;
 
+  /// is it using the crack_front_definition
   bool _cfd;
 
   /// Edges at the boundary
@@ -152,13 +142,6 @@ protected:
 
   /// Growth direction for active boundaries
   std::vector<std::vector<Point>> _active_direction;
-
-  /// Growth size for the active boundary in a subcritical simulation
-  std::vector<Real> _growth_size;
-
-  /// Fatigue life
-  std::vector<unsigned long int> _dn;
-  std::vector<unsigned long int> _n;
 
   /// New boundary after growth
   std::vector<std::vector<dof_id_type>> _front;
@@ -264,10 +247,22 @@ protected:
   void joinBoundary();
 
   /**
+   * Determine initial crack front nodes from cutter mesh
+   */
+  void initializeCrackFrontNodes();
+
+  /**
     Parsed functions of front growth
    */
   const Function * _func_x;
   const Function * _func_y;
   const Function * _func_z;
   const Function * _func_v;
+
+  /// Pointer to fracture integral ki if available
+  const std::vector<Real> * const _ki_vpp;
+  /// Pointer to fracture integral kii if available
+  const std::vector<Real> * const _kii_vpp;
+  /// Pointer to reporter with growth increment if available
+  const std::vector<Real> * const _growth_inc_reporter;
 };

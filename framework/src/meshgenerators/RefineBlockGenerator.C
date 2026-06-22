@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,7 +26,8 @@ RefineBlockGenerator::validParams()
   params.addRequiredParam<std::vector<SubdomainName>>("block", "The list of blocks to be refined");
   params.addRequiredParam<std::vector<unsigned int>>(
       "refinement",
-      "Minimum amount of times to refine each block, corresponding to their index in 'block'");
+      "Minimum amount of times to refine each block, corresponding to their index in 'block'. A "
+      "single value can be specified to refine all blocks.");
   params.addParam<bool>(
       "enable_neighbor_refinement",
       true,
@@ -46,6 +47,8 @@ RefineBlockGenerator::RefineBlockGenerator(const InputParameters & parameters)
     _enable_neighbor_refinement(getParam<bool>("enable_neighbor_refinement")),
     _max_element_volume(getParam<Real>("max_element_volume"))
 {
+  if (_refinement.size() == 1)
+    _refinement.resize(_block.size(), _refinement[0]);
   if (_block.size() != _refinement.size())
     paramError("refinement", "The blocks and refinement parameter vectors should be the same size");
 }
@@ -58,6 +61,8 @@ RefineBlockGenerator::generate()
       MooseMeshUtils::getSubdomainIDs(*_input, getParam<std::vector<SubdomainName>>("block"));
 
   // Check that the block ids/names exist in the mesh
+  if (!_input->preparation().has_cached_elem_data)
+    _input->cache_elem_data();
   std::set<SubdomainID> mesh_blocks;
   _input->subdomain_ids(mesh_blocks);
 
@@ -66,7 +71,10 @@ RefineBlockGenerator::generate()
       paramError("block",
                  "The block '",
                  getParam<std::vector<SubdomainName>>("block")[i],
-                 "' was not found within the mesh");
+                 "' was not found within the mesh.\nBlock ID: ",
+                 block_ids[i],
+                 "\nBlock IDs in the mesh: ",
+                 Moose::stringify(mesh_blocks));
 
   std::unique_ptr<MeshBase> mesh = std::move(_input);
   int max = *std::max_element(_refinement.begin(), _refinement.end());
@@ -110,7 +118,7 @@ RefineBlockGenerator::generate()
   }
 
   if (refined_on_size || max > 0)
-    mesh_ptr->set_isnt_prepared();
+    mesh_ptr->unset_is_prepared();
 
   return mesh_ptr;
 }

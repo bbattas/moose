@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -11,7 +11,7 @@
 
 #include "ADMortarLagrangeConstraint.h"
 
-class BilinearMixedModeCohesiveZoneModel;
+class CohesiveZoneModelBase;
 
 class MortarGenericTraction : public ADMortarLagrangeConstraint
 {
@@ -27,5 +27,5 @@ protected:
   const MooseEnum _component;
 
   /// The cohesive zone user object that provides the surface traction
-  const BilinearMixedModeCohesiveZoneModel & _cohesize_zone_uo;
+  const CohesiveZoneModelBase & _cohesize_zone_uo;
 };

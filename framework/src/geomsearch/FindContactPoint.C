@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -23,6 +23,9 @@
 #include "libmesh/fe_base.h"
 #include "libmesh/vector_value.h"
 
+// C++
+#include <cstring> // for "Jacobian" exception test
+
 using namespace libMesh;
 
 namespace Moose
@@ -35,7 +38,8 @@ namespace Moose
  * @param p_info The penetration info object, contains primary_elem, side, various other information
  * @param fe_elem FE object for the element
  * @param fe_side FE object for the side
- * @param fe_side_type The type of fe_side, needed for inverse_map routines
+ * @param fe_side_type Unused; was used for a now-deprecated
+ * inverse_map overload.
  * @param start_with_centroid if true, start inverse mapping procedure from element centroid
  * @param tangential_tolerance 'tangential' tolerance for determining whether a contact point on a
  * side
@@ -49,7 +53,7 @@ void
 findContactPoint(PenetrationInfo & p_info,
                  FEBase * fe_elem,
                  FEBase * fe_side,
-                 FEType & fe_side_type,
+                 FEType & /* fe_side_type */,
                  const libMesh::Point & secondary_point,
                  bool start_with_centroid,
                  const Real tangential_tolerance,
@@ -109,8 +113,7 @@ findContactPoint(PenetrationInfo & p_info,
   libMesh::Point ref_point;
 
   if (start_with_centroid)
-    ref_point = FEInterface::inverse_map(
-        dim - 1, fe_side_type, side, side->vertex_average(), TOLERANCE, false);
+    ref_point = FEMap::inverse_map(dim - 1, side, side->vertex_average(), TOLERANCE, false);
   else
     ref_point = p_info._closest_point_ref;
 
@@ -205,8 +208,13 @@ findContactPoint(PenetrationInfo & p_info,
         update_size = update.l2_norm();
         break;
       }
-      catch (libMesh::LogicError & e)
+      // libMesh might throw here if we hit a zero/negative Jacobian
+      catch (std::exception & e)
       {
+        // Make sure this *is* just a bad mapping Jacobian
+        if (!strstr(e.what(), "Jacobian") && !strstr(e.what(), "det != 0"))
+          throw;
+
         ref_point(0) -= mult * update(0);
         if (dim - 1 == 2)
           ref_point(1) -= mult * update(1);
@@ -276,7 +284,7 @@ findContactPoint(PenetrationInfo & p_info,
   if (dot > 0.0)
     p_info._distance = -p_info._distance;
 
-  contact_point_on_side = FEInterface::on_reference_element(ref_point, side->type());
+  contact_point_on_side = side->on_reference_element(ref_point);
 
   p_info._tangential_distance = 0.0;
 

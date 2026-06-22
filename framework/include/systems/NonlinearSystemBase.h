@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -43,10 +43,10 @@ class NodalKernelBase;
 class Split;
 class KernelBase;
 class HDGKernel;
-class HDGIntegratedBC;
 class BoundaryCondition;
 class ResidualObject;
 class PenetrationInfo;
+class FieldSplitPreconditionerBase;
 
 // libMesh forward declarations
 namespace libMesh
@@ -57,6 +57,7 @@ template <typename T>
 class SparseMatrix;
 template <typename T>
 class DiagonalMatrix;
+class DofMapBase;
 } // namespace libMesh
 
 /**
@@ -71,6 +72,8 @@ public:
   virtual ~NonlinearSystemBase();
 
   virtual void preInit() override;
+  /// Update the mortar functors if the mesh has changed
+  void reinitMortarFunctors();
 
   bool computedScalingJacobian() const { return _computed_scaling; }
 
@@ -101,13 +104,12 @@ public:
   virtual void jacobianSetup() override;
 
   virtual void setupFiniteDifferencedPreconditioner() = 0;
-  void setupFieldDecomposition();
 
   bool haveFiniteDifferencedPreconditioner() const
   {
     return _use_finite_differenced_preconditioner;
   }
-  bool haveFieldSplitPreconditioner() const { return _use_field_split_preconditioner; }
+  bool haveFieldSplitPreconditioner() const { return _fsp; }
 
   /**
    * Adds a kernel
@@ -128,16 +130,6 @@ public:
   virtual void addHDGKernel(const std::string & kernel_name,
                             const std::string & name,
                             InputParameters & parameters);
-
-  /**
-   * Adds a hybridized discontinuous Galerkin (HDG) bc
-   * @param bc_name The type of the hybridized bc
-   * @param name The name of the hybridized bc
-   * @param parameters HDG bc parameters
-   */
-  virtual void addHDGIntegratedBC(const std::string & bc_name,
-                                  const std::string & name,
-                                  InputParameters & parameters);
 
   /**
    * Adds a NodalKernel
@@ -168,6 +160,38 @@ public:
   void addBoundaryCondition(const std::string & bc_name,
                             const std::string & name,
                             InputParameters & parameters);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Adds a Kokkos kernel
+   * @param kernel_name The type of the kernel
+   * @param name The name of the kernel
+   * @param parameters Kernel parameters
+   */
+  virtual void addKokkosKernel(const std::string & kernel_name,
+                               const std::string & name,
+                               InputParameters & parameters);
+
+  /**
+   * Adds a Kokkos nodal kernel
+   * @param kernel_name The type of the nodal kernel
+   * @param name The name of the kernel
+   * @param parameters Kernel parameters
+   */
+  virtual void addKokkosNodalKernel(const std::string & kernel_name,
+                                    const std::string & name,
+                                    InputParameters & parameters);
+
+  /**
+   * Adds a Kokkos boundary condition
+   * @param bc_name The type of the boundary condition
+   * @param name The name of the boundary condition
+   * @param parameters Boundary condition parameters
+   */
+  void addKokkosBoundaryCondition(const std::string & bc_name,
+                                  const std::string & name,
+                                  InputParameters & parameters);
+#endif
 
   /**
    * Adds a Constraint
@@ -233,6 +257,11 @@ public:
   std::shared_ptr<Split> getSplit(const std::string & name);
 
   /**
+   * Retrieves all splits
+   */
+  MooseObjectWarehouseBase<Split> & getSplits() { return _splits; }
+
+  /**
    * We offer the option to check convergence against the pre-SMO residual. This method handles the
    * logic as to whether we should perform such residual evaluation.
    *
@@ -275,6 +304,10 @@ public:
 
   void setInitialSolution();
 
+#ifdef MOOSE_KOKKOS_ENABLED
+  void setKokkosInitialSolution();
+#endif
+
   /**
    * Sets the value of constrained variables in the solution vector.
    */
@@ -314,6 +347,11 @@ public:
   void computeResidualAndJacobianInternal(const std::set<TagID> & vector_tags,
                                           const std::set<TagID> & matrix_tags);
 
+#ifdef MOOSE_KOKKOS_ENABLED
+  void computeKokkosResidualAndJacobian(const std::set<TagID> & vector_tags,
+                                        const std::set<TagID> & matrix_tags);
+#endif
+
   /**
    * Form a residual vector for a given tag
    */
@@ -329,10 +367,10 @@ public:
   /**
    * Add jacobian contributions from Constraints
    *
-   * @param jacobian reference to the Jacobian matrix
+   * @param jacobian reference to a read-only view of the Jacobian matrix
    * @param displaced Controls whether to do the displaced Constraints or non-displaced
    */
-  void constraintJacobians(bool displaced);
+  void constraintJacobians(const SparseMatrix<Number> & jacobian_to_view, bool displaced);
 
   /**
    * Computes multiple (tag associated) Jacobian matricese
@@ -456,16 +494,15 @@ public:
   }
 
   /**
-   * If called with a single string, it is used as the name of a the top-level decomposition split.
-   * If the array is empty, no decomposition is used.
-   * In all other cases an error occurs.
+   * If called with a non-null object true this system will use a field split preconditioner matrix.
    */
-  void setDecomposition(const std::vector<std::string> & decomposition);
+  void useFieldSplitPreconditioner(FieldSplitPreconditionerBase * fsp) { _fsp = fsp; }
 
   /**
-   * If called with true this system will use a field split preconditioner matrix.
+   * @returns A field split preconditioner. This will error if there is no field split
+   * preconditioner
    */
-  void useFieldSplitPreconditioner(bool use = true) { _use_field_split_preconditioner = use; }
+  FieldSplitPreconditionerBase & getFieldSplitPreconditioner();
 
   /**
    * If called with true this will add entries into the jacobian to link together degrees of freedom
@@ -525,12 +562,12 @@ public:
   /**
    * Return the number of non-linear iterations
    */
-  unsigned int nNonlinearIterations() const { return _n_iters; }
+  virtual unsigned int nNonlinearIterations() const { return _n_iters; }
 
   /**
    * Return the number of linear iterations
    */
-  unsigned int nLinearIterations() const { return _n_linear_iters; }
+  virtual unsigned int nLinearIterations() const { return _n_linear_iters; }
 
   /**
    * Return the total number of residual evaluations done so far in this calculation
@@ -540,7 +577,7 @@ public:
   /**
    * Return the final nonlinear residual
    */
-  Real finalNonlinearResidual() const { return _final_residual; }
+  virtual Real finalNonlinearResidual() const { return _final_residual; }
 
   /**
    * Return the last nonlinear norm
@@ -577,7 +614,7 @@ public:
    * Indicates whether this system needs material properties on internal sides.
    * @return Boolean if DGKernels are active
    */
-  bool needSubdomainMaterialOnSide(SubdomainID subdomain_id, THREAD_ID tid) const;
+  bool needInternalNeighborSideMaterial(SubdomainID subdomain_id, THREAD_ID tid) const;
 
   /**
    * Getter for _doing_dg
@@ -597,6 +634,15 @@ public:
   }
   MooseObjectTagWarehouse<DiracKernelBase> & getDiracKernelWarehouse() { return _dirac_kernels; }
   MooseObjectTagWarehouse<IntegratedBCBase> & getIntegratedBCWarehouse() { return _integrated_bcs; }
+  const MooseObjectTagWarehouse<ScalarKernelBase> & getScalarKernelWarehouse() const
+  {
+    return _scalar_kernels;
+  }
+  const MooseObjectTagWarehouse<NodalKernelBase> & getNodalKernelWarehouse() const
+  {
+    return _nodal_kernels;
+  }
+  MooseObjectTagWarehouse<HDGKernel> & getHDGKernelWarehouse() { return _hybridized_kernels; }
   const MooseObjectWarehouse<ElementDamper> & getElementDamperWarehouse() const
   {
     return _element_dampers;
@@ -619,6 +665,25 @@ public:
   {
     return _integrated_bcs;
   }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  ///@{
+  /// Return the Kokkos residual object warehouses
+  MooseObjectTagWarehouse<ResidualObject> & getKokkosKernelWarehouse() { return _kokkos_kernels; }
+  MooseObjectTagWarehouse<ResidualObject> & getKokkosNodalKernelWarehouse()
+  {
+    return _kokkos_nodal_kernels;
+  }
+  MooseObjectTagWarehouse<ResidualObject> & getKokkosNodalBCWarehouse()
+  {
+    return _kokkos_nodal_bcs;
+  }
+  MooseObjectTagWarehouse<ResidualObject> & getKokkosIntegratedBCWarehouse()
+  {
+    return _kokkos_integrated_bcs;
+  }
+  ///@}
+#endif
 
   //@}
 
@@ -715,31 +780,55 @@ protected:
    */
   void computeResidualInternal(const std::set<TagID> & tags);
 
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Compute residual with Kokkos objects
+   */
+  void computeKokkosResidual(const std::set<TagID> & tags);
+  /**
+   * Compute Kokkos nodal BCs
+   */
+  void computeKokkosNodalBCsResidual(const std::set<TagID> & tags);
+#endif
+
   /**
    * Enforces nodal boundary conditions. The boundary condition will be implemented
    * in the residual using all the tags in the system.
    */
-  void computeNodalBCs(NumericVector<Number> & residual);
+  void computeNodalBCsResidual(NumericVector<Number> & residual);
 
   /**
    * Form a residual for BCs that at least has one of the given tags.
    */
-  void computeNodalBCs(NumericVector<Number> & residual, const std::set<TagID> & tags);
+  void computeNodalBCsResidual(NumericVector<Number> & residual, const std::set<TagID> & tags);
 
   /**
    * Form multiple tag-associated residual vectors for the given tags.
    */
-  void computeNodalBCs(const std::set<TagID> & tags);
+  void computeNodalBCsResidual(const std::set<TagID> & tags);
 
   /**
-   * compute the residual and Jacobian for nodal boundary conditions
+   * Compute the Jacobian for nodal boundary conditions
    */
-  void computeNodalBCsResidualAndJacobian();
+  void computeNodalBCsJacobian(const std::set<TagID> & tags);
+
+  /**
+   * Compute the residual and Jacobian together for nodal boundary conditions
+   */
+  void computeNodalBCsResidualAndJacobian(const std::set<TagID> & vector_tags,
+                                          const std::set<TagID> & matrix_tags);
 
   /**
    * Form multiple matrices for all the tags. Users should not call this func directly.
    */
   void computeJacobianInternal(const std::set<TagID> & tags);
+
+  /**
+   * Compute Jacobian with Kokkos objects
+   */
+#ifdef MOOSE_KOKKOS_ENABLED
+  void computeKokkosJacobian(const std::set<TagID> & tags);
+#endif
 
   void computeDiracContributions(const std::set<TagID> & tags, bool is_jacobian);
 
@@ -749,7 +838,14 @@ protected:
    * Enforce nodal constraints
    */
   void enforceNodalConstraintsResidual(NumericVector<Number> & residual);
-  void enforceNodalConstraintsJacobian();
+
+  /**
+   * Enforce nodal constraints in the Jacobian
+   * @param jacobian The Jacobian to read from while constructing the Jacobians corresponding to the
+   * nodal constraints
+   * @returns Whether there were active nodal constraints
+   */
+  bool enforceNodalConstraintsJacobian(const SparseMatrix<Number> & jacobian);
 
   /**
    * Do mortar constraint residual/jacobian computations
@@ -840,11 +936,10 @@ protected:
   ///@{
   /// Kernel Storage
   MooseObjectTagWarehouse<KernelBase> _kernels;
-  MooseObjectWarehouse<HDGKernel> _hybridized_kernels;
+  MooseObjectTagWarehouse<HDGKernel> _hybridized_kernels;
   MooseObjectTagWarehouse<ScalarKernelBase> _scalar_kernels;
   MooseObjectTagWarehouse<DGKernelBase> _dg_kernels;
   MooseObjectTagWarehouse<InterfaceKernelBase> _interface_kernels;
-
   ///@}
 
   ///@{
@@ -853,8 +948,18 @@ protected:
   MooseObjectTagWarehouse<NodalBCBase> _nodal_bcs;
   MooseObjectWarehouse<DirichletBCBase> _preset_nodal_bcs;
   MooseObjectWarehouse<ADDirichletBCBase> _ad_preset_nodal_bcs;
-  MooseObjectWarehouse<HDGIntegratedBC> _hybridized_ibcs;
   ///@}
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  ///@{
+  /// Kokkos residual object warhouses
+  MooseObjectTagWarehouse<ResidualObject> _kokkos_kernels;
+  MooseObjectTagWarehouse<ResidualObject> _kokkos_integrated_bcs;
+  MooseObjectTagWarehouse<ResidualObject> _kokkos_nodal_bcs;
+  MooseObjectWarehouse<ResidualObject> _kokkos_preset_nodal_bcs;
+  MooseObjectTagWarehouse<ResidualObject> _kokkos_nodal_kernels;
+  ///@}
+#endif
 
   /// Dirac Kernel storage for each thread
   MooseObjectTagWarehouse<DiracKernelBase> _dirac_kernels;
@@ -887,12 +992,8 @@ protected:
 
   MatFDColoring _fdcoloring;
 
-  /// Whether or not the system can be decomposed into splits
-  bool _have_decomposition;
-  /// Name of the top-level split of the decomposition
-  std::string _decomposition_split;
-  /// Whether or not to use a FieldSplitPreconditioner matrix based on the decomposition
-  bool _use_field_split_preconditioner;
+  /// The field split preconditioner if this sytem is using one
+  FieldSplitPreconditionerBase * _fsp;
 
   /// Whether or not to add implicit geometric couplings to the Jacobian for FDP
   bool _add_implicit_geometric_coupling_entries_to_jacobian;

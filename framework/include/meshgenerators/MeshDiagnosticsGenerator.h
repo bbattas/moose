@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -53,8 +53,10 @@ private:
   void checkNonConformalMeshFromAdaptivity(const std::unique_ptr<MeshBase> & mesh) const;
   /// Routine to check whether the Jacobians (elem and side) are not negative
   void checkLocalJacobians(const std::unique_ptr<MeshBase> & mesh) const;
-  //// Routine to check for non matching edges
+  /// Routine to check for non matching edges
   void checkNonMatchingEdges(const std::unique_ptr<MeshBase> & mesh) const;
+  /// Routine to check for non-convex polygons
+  void checkPolygons(const std::unique_ptr<MeshBase> & mesh) const;
 
   /**
    * Utility routine to output the final diagnostics level in the desired mode
@@ -100,6 +102,8 @@ private:
   const MooseEnum _check_adaptivity_non_conformality;
   /// whether to check for negative jacobians in the domain
   const MooseEnum _check_local_jacobian;
+  /// whether to check for non-convex polygons in the mesh
+  const MooseEnum _check_polygons;
   /// number of logs to output at most for each check
   const unsigned int _num_outputs;
 };

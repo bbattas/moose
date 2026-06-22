@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -30,7 +30,8 @@ public:
                                       const ADReal & crack_initiation_strain,
                                       const ADReal & crack_max_strain,
                                       const ADReal & cracking_stress,
-                                      const ADReal & youngs_modulus) override;
+                                      const ADReal & youngs_modulus,
+                                      const ADReal & poissons_ratio) override;
 
 protected:
   /// Reduction factor applied to the initial stiffness each time a new crack initiates

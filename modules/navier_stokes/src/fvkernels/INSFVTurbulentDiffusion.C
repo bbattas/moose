@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -20,7 +20,6 @@ INSFVTurbulentDiffusion::validParams()
       "Computes residual for the turbulent scaled diffusion operator for finite volume method.");
   params.addParam<MooseFunctorName>(
       "scaling_coef", 1.0, "Scaling factor to divide the diffusion coefficient with");
-  params.set<unsigned short>("ghost_layers") = 2;
   params.addParam<std::vector<BoundaryName>>(
       "walls", {}, "Boundaries that correspond to solid walls.");
 
@@ -49,7 +48,7 @@ INSFVTurbulentDiffusion::computeQpResidual()
   using namespace Moose::FV;
   const auto state = determineState();
 
-  const auto dudn = gradUDotNormal(state);
+  const auto dudn = gradUDotNormal(state, _correct_skewness);
   ADReal coeff;
   ADReal scaling_coef;
 

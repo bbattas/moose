@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -25,6 +25,13 @@ protected:
 
   /// input parameter multiplied by the reaction kernel
   const Real _coef;
+
+  using ReactionTempl<is_ad>::_test;
+  using ReactionTempl<is_ad>::_i;
+  using ReactionTempl<is_ad>::_qp;
+  using ReactionTempl<is_ad>::_rate;
+  using ReactionTempl<is_ad>::_phi;
+  using ReactionTempl<is_ad>::_j;
 };
 
 typedef CoefReactionTempl<false> CoefReaction;

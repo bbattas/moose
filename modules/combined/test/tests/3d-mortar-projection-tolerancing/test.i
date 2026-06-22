@@ -123,7 +123,6 @@ thermal_expansion_coeff = 6.66e-6
     type = ADGenericFunctionMaterial
     prop_values = '5e10*max(11455*(t)/7,1e-9)'
     prop_names = 'radial_source'
-    output_properties = 'radial_source'
     block = 'pellet_inner pellet_outer'
     use_displaced_mesh = false
   []
@@ -194,7 +193,7 @@ thermal_expansion_coeff = 6.66e-6
     cylinder_axis_point_1 = '0 0 0'
     cylinder_axis_point_2 = '0 0 1'
     use_displaced_mesh = true
-    quadrature = SECOND
+    segment_quadrature = FIFTH
   []
 []
 

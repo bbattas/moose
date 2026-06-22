@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -33,11 +33,11 @@
 #include "RayTracingApp.h"
 #include "RdgApp.h"
 #include "ReactorApp.h"
-#include "RichardsApp.h"
 #include "ScalarTransportApp.h"
+#include "SolidMechanicsApp.h"
 #include "SolidPropertiesApp.h"
 #include "StochasticToolsApp.h"
-#include "SolidMechanicsApp.h"
+#include "SubChannelApp.h"
 #include "ThermalHydraulicsApp.h"
 #include "XFEMApp.h"
 
@@ -87,11 +87,11 @@ CombinedApp::registerApps()
   RayTracingApp::registerApps();
   RdgApp::registerApps();
   ReactorApp::registerApps();
-  RichardsApp::registerApps();
   ScalarTransportApp::registerApps();
   SolidMechanicsApp::registerApps();
   SolidPropertiesApp::registerApps();
   StochasticToolsApp::registerApps();
+  SubChannelApp::registerApps();
   ThermalHydraulicsApp::registerApps();
   XFEMApp::registerApps();
 }
@@ -121,31 +121,13 @@ CombinedApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
   RayTracingApp::registerAll(f, af, s);
   RdgApp::registerAll(f, af, s);
   ReactorApp::registerAll(f, af, s);
-  RichardsApp::registerAll(f, af, s);
   ScalarTransportApp::registerAll(f, af, s);
   SolidMechanicsApp::registerAll(f, af, s);
   SolidPropertiesApp::registerAll(f, af, s);
   StochasticToolsApp::registerAll(f, af, s);
+  SubChannelApp::registerAll(f, af, s);
   ThermalHydraulicsApp::registerAll(f, af, s);
   XFEMApp::registerAll(f, af, s);
-}
-
-void
-CombinedApp::registerObjects(Factory & /*factory*/)
-{
-  mooseError("registerObjects is deprecated, fix the calling application");
-}
-
-void
-CombinedApp::associateSyntax(Syntax & /*syntax*/, ActionFactory & /*action_factory*/)
-{
-  mooseError("associateSyntax is deprecated, fix the calling application");
-}
-
-void
-CombinedApp::registerExecFlags(Factory & /*factory*/)
-{
-  mooseError("registerExecFlags is deprecated, fix the calling application");
 }
 
 extern "C" void

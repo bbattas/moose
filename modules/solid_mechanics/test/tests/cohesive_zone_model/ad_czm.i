@@ -37,7 +37,7 @@
     []
     [CohesiveZone]
       [interface]
-        boundary = 'interface'
+        boundary = 'Block1_Block2 Block1_Block3 Block1_Block4 Block1_Block5 Block1_Block6 Block2_Block3 Block2_Block4 Block2_Block5 Block2_Block7 Block3_Block4 Block3_Block6 Block3_Block7 Block4_Block5 Block4_Block6 Block4_Block7 Block5_Block6 Block5_Block7 Block6_Block7'
         strain = SMALL
         use_automatic_differentiation = true
       []
@@ -58,12 +58,14 @@
     type = EqualValueBoundaryConstraint
     variable = disp_x
     secondary = 'x1' # boundary
+    primary_node_coord = '1 0 1'
     penalty = 1e6
   []
   [y1]
     type = EqualValueBoundaryConstraint
     variable = disp_y
     secondary = 'y1' # boundary
+    primary_node_coord = '0 1 1'
     penalty = 1e6
   []
 []
@@ -139,7 +141,8 @@
     enable_objects = 'BCs::fix_x BCs::fix_y BCs::fix_z BCs::back_z Constraints::x1 Constraints::y1'
     disable_objects = 'BCs::rotate_x BCs::rotate_y BCs::rotate_z'
     start_time = '0'
-    end_time = '0.05'
+    end_time = '0.051'
+    execute_on = 'initial timestep_begin'
   []
 []
 
@@ -154,9 +157,9 @@
   []
   [czm_mat]
     type = ADPureElasticTractionSeparation
-    normal_stiffness = 1e4
-    tangent_stiffness = 7e3
-    boundary = 'interface'
+    normal_stiffness = 100e2
+    tangent_stiffness = 70e2
+    boundary = 'Block1_Block2 Block1_Block3 Block1_Block4 Block1_Block5 Block1_Block6 Block2_Block3 Block2_Block4 Block2_Block5 Block2_Block7 Block3_Block4 Block3_Block6 Block3_Block7 Block4_Block5 Block4_Block6 Block4_Block7 Block5_Block6 Block5_Block7 Block6_Block7'
   []
 []
 

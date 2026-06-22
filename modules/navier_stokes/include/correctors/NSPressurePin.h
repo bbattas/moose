@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -51,8 +51,4 @@ protected:
 
   /// If using average pressure pin, provides the average pressure value
   const PostprocessorValue * const _current_pressure_average;
-
-private:
-  /// The nonlinear system
-  SystemBase & _sys;
 };

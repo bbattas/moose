@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -73,6 +73,7 @@ public:
 
 protected:
   virtual bool usingSecondOrderMesh() const override;
+  std::string sortBy() const;
 
   /// Map of end type to a list of connections
   std::map<Component1DConnection::EEndType, std::vector<Connection>> _connections;

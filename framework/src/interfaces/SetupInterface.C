@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -34,6 +34,13 @@ SetupInterface::SetupInterface(const MooseObject * moose_object)
   _empty_execute_enum
       .clearSetValues(); // remove any flags for the case when "execute_on" is not used
 }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+SetupInterface::SetupInterface(const SetupInterface & object, const Moose::Kokkos::FunctorCopy &)
+  : _execute_enum(object._execute_enum), _current_execute_flag(object._current_execute_flag)
+{
+}
+#endif
 
 SetupInterface::~SetupInterface() {}
 

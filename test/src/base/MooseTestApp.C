@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -52,6 +52,9 @@ MooseTestApp::validParams()
       "--test-check-legacy-params",
       "Check for legacy parameter construction with CheckLegacyParamsAction; for testing");
 
+  params.addCommandLineParam<std::string>(
+      "append_header", "--append-header <header>", "", "String to print at top of console output");
+
   params.set<bool>("automatic_automatic_scaling") = false;
   params.set<bool>("use_legacy_material_output") = false;
   params.set<bool>("use_legacy_initial_residual_evaluation_behavior") = false;
@@ -68,7 +71,8 @@ MooseTestApp::MooseTestApp(const InputParameters & parameters) : MooseApp(parame
   if (getParam<bool>("test_getRestartableDataMap_error"))
     getRestartableDataMap("slaughter");
   if (getParam<bool>("disallow_test_objects"))
-    _pars.set<bool>(MeshGeneratorSystem::allow_data_driven_param) = false;
+    const_cast<InputParameters &>(_pars).set<bool>(MeshGeneratorSystem::allow_data_driven_param) =
+        false;
 }
 
 MooseTestApp::~MooseTestApp() {}
@@ -117,6 +121,18 @@ MooseTestApp::registerAll(Factory & f, ActionFactory & af, Syntax & s, bool use_
   {
     auto & syntax = s; // for resiterSyntax macros
 
+    registerAppDataFilePath("moose_test");
+
+    addBoolCapability("test_false", false, "For testing: value false");
+    addIntCapability("test_one", 1, "For testing: value 1");
+    addIntCapability("test_two_explicit", 2, "For testing: value 2 explicit").setExplicit();
+    addStringCapability("test_string", "string", "For testing: value string");
+    addStringCapability("test_string_explicit", "string", "For testing: value string explicit")
+        .setExplicit();
+    addStringCapability("test_string_enum", "string", "For testing: value string with enum")
+        .setEnumeration({"string", "foo"});
+    addStringCapability("test_version", "2.0.0", "For testing: version string");
+
     registerSyntax("ConvDiffMetaAction", "ConvectionDiffusion");
     registerSyntaxTask("AddAuxVariableAction", "MoreAuxVariables/*", "add_aux_variable");
     registerSyntaxTask("AddLotsOfAuxVariablesAction", "LotsOfAuxVariables/*", "add_variable");
@@ -132,6 +148,9 @@ MooseTestApp::registerAll(Factory & f, ActionFactory & af, Syntax & s, bool use_
     registerSyntax("MeshMetaDataDependenceAction", "AutoLineSamplerTest");
     registerSyntax("AppendMeshGeneratorAction", "ModifyMesh/*");
     registerSyntax("CheckMeshMetaDataAction", "CheckMeshMetaData");
+    // For testing Physics & ActionComponents
+    registerSyntax("TestPhysicsComponentInterfaceErrors",
+                   "Physics/Test/ComponentInterfaceErrors/*");
   }
 }
 
@@ -139,6 +158,12 @@ void
 MooseTestApp::registerApps()
 {
   registerApp(MooseTestApp);
+}
+
+std::string
+MooseTestApp::header() const
+{
+  return getParam<std::string>("append_header");
 }
 
 extern "C" void

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -24,6 +24,8 @@ UnitTripChainControl::validParams()
                         true,
                         "If set to 'true', the trip occurs if the input has a value of 'true'; "
                         "else the trip occurs if the input has a value of 'false'.");
+  params.addParam<bool>(
+      "use_old_input", false, "Whether to use the input from the previous time step");
 
   return params;
 }
@@ -31,7 +33,8 @@ UnitTripChainControl::validParams()
 UnitTripChainControl::UnitTripChainControl(const InputParameters & parameters)
   : ChainControl(parameters),
     _trip_on_true(getParam<bool>("trip_on_true")),
-    _input(getChainControlData<bool>("input")),
+    _input(getParam<bool>("use_old_input") ? getChainControlDataOld<bool>("input")
+                                           : getChainControlData<bool>("input")),
     _tripped(declareChainControlData<bool>("tripped"))
 {
   _tripped = false;

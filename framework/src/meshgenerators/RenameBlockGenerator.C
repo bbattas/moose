@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -146,6 +146,8 @@ RenameBlockGenerator::generate()
   const MeshBase & const_mesh = *mesh;
 
   // Get the subdomains in the mesh (this is global)
+  if (!mesh->preparation().has_cached_elem_data)
+    mesh->cache_elem_data();
   std::set<subdomain_id_type> block_ids;
   mesh->subdomain_ids(block_ids);
 
@@ -292,6 +294,6 @@ RenameBlockGenerator::generate()
   for (const auto & pair : new_names)
     mesh->subdomain_name(pair.first) = pair.second;
 
-  mesh->set_isnt_prepared();
+  mesh->unset_is_prepared();
   return dynamic_pointer_cast<MeshBase>(mesh);
 }

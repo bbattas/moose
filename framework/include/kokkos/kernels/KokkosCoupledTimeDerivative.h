@@ -1,0 +1,56 @@
+//* This file is part of the MOOSE framework
+//* https://mooseframework.inl.gov
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#pragma once
+
+#include "KokkosKernelValue.h"
+
+/**
+ * This calculates the time derivative for a coupled variable
+ **/
+class KokkosCoupledTimeDerivative : public Moose::Kokkos::KernelValue
+{
+public:
+  static InputParameters validParams();
+
+  KokkosCoupledTimeDerivative(const InputParameters & parameters);
+
+  template <typename Derived>
+  KOKKOS_FUNCTION Real computeQpResidual(const unsigned int qp, AssemblyDatum & datum) const;
+  template <typename Derived>
+  KOKKOS_FUNCTION Real computeQpOffDiagJacobian(const unsigned int j,
+                                                const unsigned int jvar,
+                                                const unsigned int qp,
+                                                AssemblyDatum & datum) const;
+
+protected:
+  const Moose::Kokkos::VariableValue _v_dot;
+  const Moose::Kokkos::Scalar<const Real> _dv_dot;
+  const unsigned int _v_var;
+};
+
+template <typename Derived>
+KOKKOS_FUNCTION Real
+KokkosCoupledTimeDerivative::computeQpResidual(const unsigned int qp, AssemblyDatum & datum) const
+{
+  return _v_dot(datum, qp);
+}
+
+template <typename Derived>
+KOKKOS_FUNCTION Real
+KokkosCoupledTimeDerivative::computeQpOffDiagJacobian(const unsigned int j,
+                                                      const unsigned int jvar,
+                                                      const unsigned int qp,
+                                                      AssemblyDatum & datum) const
+{
+  if (jvar == _v_var)
+    return _phi(datum, j, qp) * _dv_dot;
+  else
+    return 0;
+}

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -28,16 +28,21 @@ void
 LinearFVElementalKernel::addMatrixContribution()
 {
   // These only contribute to the diagonal of the matrix, so we just get
-  // the contribution and insert it immediately.
-  (*_linear_system.matrix).add(_dof_id, _dof_id, computeMatrixContribution());
+  // the contribution and insert it immediately. We add it to every tagged matrix.
+  const auto mx_contrib = computeMatrixContribution();
+  for (auto & matrix : _matrices)
+    (*matrix).add(_dof_id, _dof_id, mx_contrib);
 }
 
 void
 LinearFVElementalKernel::addRightHandSideContribution()
 {
   // These only contribute to one entry of the right hand side, so we just get
-  // the contribution and insert it immediately.
-  (*_linear_system.rhs).add(_dof_id, computeRightHandSideContribution());
+  // the contribution and insert it immediately. We add it to every tagged
+  // vector.
+  const auto rhs_contrib = computeRightHandSideContribution();
+  for (auto & vector : _vectors)
+    (*vector).add(_dof_id, rhs_contrib);
 }
 
 void

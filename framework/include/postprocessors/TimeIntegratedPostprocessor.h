@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -37,4 +37,14 @@ protected:
 
   /// The old post-processor value
   const PostprocessorValue & _pps_value_old;
+
+  /// The time integration method
+  const MooseEnum & _time_integration_scheme;
+
+  /// Enum of the time integration methods we support
+  enum TimeIntegration
+  {
+    ImplicitEuler,
+    TrapezoidalRule
+  };
 };

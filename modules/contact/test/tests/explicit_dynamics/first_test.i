@@ -193,6 +193,7 @@
     primary = base_front
     secondary = ball_back
     penalty = 1.0e3
+    verbose = true
   []
 []
 
@@ -247,6 +248,7 @@
   []
   [critical_time_step]
     type = CriticalTimeStep
+    density = density
   []
   [contact_pressure_max]
     type = NodalExtremeValue

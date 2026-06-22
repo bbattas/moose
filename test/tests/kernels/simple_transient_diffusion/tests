@@ -38,7 +38,6 @@
     requirement = "We shall be able to solve an initially poorly scaled problem by using MOOSE's automatic scaling feature"
     cli_args = 'Executioner/automatic_scaling=true'
     max_parallel = 1 # no parallel svd preconditioner
-    petsc_version = '>=3.9.0'
   []
   [automatic-scaling-done-once-parallel-preconditioner]
     type = Exodiff
@@ -50,7 +49,6 @@
     cli_args = 'Executioner/automatic_scaling=true -pc_type hypre -pc_hypre_type boomeramg'
     prereq = 'automatic-scaling-done-once'
     max_parallel = 2 # Can't reset preallocation in PETSc when there are no dofs on a process
-    petsc_version = '>=3.9.0'
   []
   [cant-solve-large-transient-changes]
     type = RunException
@@ -62,7 +60,6 @@
     requirement = 'We shall not be able to solve a problem where the physics has large changes over time if we only scale once'
     cli_args = "Executioner/automatic_scaling=true Materials/active='function' Executioner/num_steps=10 BCs/right/function='ramp' Outputs/exodus=false"
     max_parallel = 1 # no parallel svd preconditioner
-    petsc_version = '>=3.9.0'
   []
   [automatic-scaling-done-per-time-step]
     type = Exodiff
@@ -74,7 +71,6 @@
     requirement = 'We shall be able to solve a problem where the physics has large changes over time if we scale on every time step'
     cli_args = "Executioner/automatic_scaling=true Executioner/compute_scaling_once=false Materials/active='function' Executioner/num_steps=10 BCs/right/function='ramp' Outputs/file_base=transient"
     max_parallel = 1 # no parallel svd preconditioner
-    petsc_version = '>=3.9.0'
   []
   [automatic-scaling-done-per-time-step-parallel-preconditioner]
     type = Exodiff
@@ -94,5 +90,16 @@
     requirement = 'The system shall be able to do on the fly time derivative and gradient evaluations of variable functors.'
     design = 'MooseVariableBase.md'
     issues = '#16809'
+  []
+  [execute_on_final]
+    type = CSVDiff
+    input = simple_transient_diffusion.i
+    csvdiff = simple_transient_diffusion_out.csv
+    cli_args = "Postprocessors/avg/type=ElementAverageValue Postprocessors/avg/variable=u Outputs/csv=true Outputs/execute_on='final' Executioner/dt=10 Executioner/nl_abs_tol=1e-12"
+    recover = false # execute_on = 'final' means we won't have any checkpoint files in a half-transient
+    requirement = 'The system shall be able to apply a blanket execution on final criterion to all outputs from common output syntax.'
+    prereq = 'test_mallocs'
+    design = 'syntax/Outputs/index.md'
+    issues = '#4497'
   []
 []

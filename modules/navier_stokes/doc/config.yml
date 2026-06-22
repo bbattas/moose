@@ -4,6 +4,10 @@ Content:
     - modules/fluid_properties/doc/content
     - modules/heat_transfer/doc/content
     - modules/ray_tracing/doc/content
+    - utility:
+        root_dir: ${MOOSE_DIR}/modules/doc/content
+        content:
+            - application_usage/restart_recover.md
 
 Renderer:
     type: MooseDocs.base.MaterializeRenderer
@@ -29,6 +33,9 @@ Extensions:
         shortcuts: !include framework/doc/globals.yml
     MooseDocs.extensions.acronym:
         acronyms: !include framework/doc/acronyms.yml
+    MooseDocs.extensions.bibtex:
+        duplicates:
+            - rhebergen2017analysis # referenced also in framework
     MooseDocs.extensions.sqa:
         active: True
         reports: !include modules/navier_stokes/doc/sqa_reports.yml

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -39,11 +39,6 @@ SideSetsFromBoundingBoxGenerator::validParams()
       "block_id",
       "Subdomain id to set for inside/outside the bounding box",
       "The parameter 'block_id' is not used.");
-  params.makeParamRequired<std::vector<BoundaryName>>("included_boundaries");
-  params.addParam<std::vector<BoundaryName>>(
-      "boundaries_old",
-      "The list of boundaries on the specified block within the bounding box to be modified");
-  params.deprecateParam("boundaries_old", "included_boundaries", "4/01/2025");
   params.addRequiredParam<BoundaryName>(
       "boundary_new", "Boundary on specified block within the bounding box to assign");
   params.addParam<bool>("boundary_id_overlap",
@@ -196,6 +191,6 @@ SideSetsFromBoundingBoxGenerator::generate()
       mooseError("No nodes found within the bounding box");
   }
 
-  mesh->set_isnt_prepared();
+  mesh->unset_is_prepared();
   return dynamic_pointer_cast<MeshBase>(mesh);
 }

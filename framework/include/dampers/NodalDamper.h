@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -24,7 +24,7 @@ class Assembly;
 /**
  * Base class for deriving nodal dampers
  */
-class NodalDamper : public Damper, protected MaterialPropertyInterface
+class NodalDamper : public Damper, public MaterialPropertyInterface
 {
 public:
   static InputParameters validParams();
@@ -35,6 +35,11 @@ public:
    * Computes this Damper's damping for one node.
    */
   Real computeDamping();
+
+  /**
+   * Check whether this damper's variable has DOFs on the given node
+   */
+  bool variableDefinedOnNode(const Node * node) const;
 
   /**
    * Get the variable this damper is acting on

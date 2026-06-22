@@ -141,6 +141,7 @@ cfl = 0.95
 [Postprocessors]
   [cfl_dt]
     type = ADCFLTimeStepSize
+    block = 'pipe1 pipe2 pipe3'
     CFL = ${cfl}
     c_names = 'c'
     vel_names = 'vel'
@@ -185,16 +186,8 @@ cfl = 0.95
     type = PostprocessorDT
     postprocessor = cfl_dt
   []
-  abort_on_solve_fail = true
 
   solve_type = LINEAR
-[]
-
-[Times]
-  [output_times]
-    type = TimeIntervalTimes
-    time_interval = 7e-4
-  []
 []
 
 [Outputs]
@@ -202,8 +195,6 @@ cfl = 0.95
   [csv]
     type = CSV
     show = 'p_pipe1_048 p_pipe2_052 p_pipe3_048'
-    sync_only = true
-    sync_times_object = output_times
   []
   [console]
     type = Console

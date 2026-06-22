@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -43,6 +43,15 @@ protected:
 
   /// Whether to stitch to the mesh defining each hole
   const std::vector<bool> _stitch_holes;
+
+  /// Whether to convert 3D hole meshes with non-TRI3 surface elements into a compatible form
+  const bool _convert_holes_for_stitching;
+
+  /// Method to convert 3D hole meshes into compatible meshes
+  const MooseEnum _conversion_method;
+
+  /// Whether to stitch all holes in one combined stitching step
+  const bool _combined_stitching;
 
   /// Type of algorithm used to find matching nodes (binary or exhaustive)
   const MooseEnum _algorithm;

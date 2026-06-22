@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -192,6 +192,17 @@ ADVolumeJunctionBaseUserObject::getFlux(const unsigned int & connection_index) c
 
   checkValidConnectionIndex(connection_index);
   return _flux[connection_index];
+}
+
+std::vector<const MooseVariableBase *>
+ADVolumeJunctionBaseUserObject::getFlowChannelVariables() const
+{
+  // TODO: This default implementation should be deleted and made pure virtual
+  // after apps update.
+  std::vector<const MooseVariableBase *> vars(_flow_variable_names.size());
+  for (const auto i : index_range(_flow_variable_names))
+    vars[i] = getVar(_flow_variable_names[i], 0);
+  return vars;
 }
 
 std::vector<const MooseVariableBase *>

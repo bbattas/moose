@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -33,11 +33,9 @@ GrainAdvectionAux::validParams()
 
 GrainAdvectionAux::GrainAdvectionAux(const InputParameters & parameters)
   : AuxKernel(parameters),
-    _grain_tracker(
-        dynamic_cast<const GrainTrackerInterface &>(getUserObjectBase("grain_tracker_object"))),
+    _grain_tracker(getUserObject<GrainTrackerInterface>("grain_tracker_object")),
     _grain_volumes(getVectorPostprocessorValue("grain_volumes", "feature_volumes")),
-    _grain_force_torque(
-        dynamic_cast<const GrainForceAndTorqueInterface &>(getUserObjectBase("grain_force"))),
+    _grain_force_torque(getUserObject<GrainForceAndTorqueInterface>("grain_force")),
     _grain_forces(_grain_force_torque.getForceValues()),
     _grain_torques(_grain_force_torque.getTorqueValues()),
     _mt(getParam<Real>("translation_constant")),

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -32,5 +32,10 @@ AddVectorPostprocessorAction::act()
   if (!_problem)
     mooseError("The Problem has not been initialized yet!");
 
-  _problem->addVectorPostprocessor(_type, _name, _moose_object_pars);
+#ifdef MOOSE_KOKKOS_ENABLED
+  if (_moose_object_pars.isKokkosObject())
+    _problem->addKokkosVectorPostprocessor(_type, _name, _moose_object_pars);
+  else
+#endif
+    _problem->addVectorPostprocessor(_type, _name, _moose_object_pars);
 }

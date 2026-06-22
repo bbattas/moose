@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -101,6 +101,10 @@ public:
   void addSyncTime(const std::set<Real> & times);
   ///@}
 
+  /// Whether we are currently solving a failed time step
+  /// Note: you should first try to use the restartableSystem for logic to handle failed time steps
+  bool justFailedTimeStep() const { return _currently_restepping; }
+
 protected:
   /**
    * Computes time step size for the initial time step
@@ -147,6 +151,9 @@ protected:
 
   /// True if dt has been reset
   bool _has_reset_dt;
+
+  /// If we are currently solving a failed step
+  bool _currently_restepping;
 
   /// Cumulative amount of steps that have failed
   unsigned int _failure_count;

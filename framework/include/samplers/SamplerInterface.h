@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -37,6 +37,13 @@ public:
    *        left hand side of the statement "sampler = sampler_name"
    */
   SamplerInterface(const MooseObject * moose_object);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  SamplerInterface(const SamplerInterface & object, const Moose::Kokkos::FunctorCopy & key);
+#endif
 
   /**
    * Get a sampler with a given name

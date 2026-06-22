@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -207,6 +207,7 @@ using libMesh::PetscSolverException;
 
 // Common data types
 using libMesh::boundary_id_type;
+using libMesh::dof_id_signed_type;
 using libMesh::dof_id_type;
 using libMesh::Number;
 using libMesh::numeric_index_type;

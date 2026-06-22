@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -36,11 +36,8 @@ KernelValue::computeResidual()
   accumulateTaggedLocalResidual();
 
   if (_has_save_in)
-  {
-    Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
     for (const auto & var : _save_in)
       var->sys().solution().add_vector(_local_re, var->dofIndices());
-  }
 }
 
 void
@@ -66,7 +63,6 @@ KernelValue::computeJacobian()
     for (unsigned int i = 0; i < rows; i++) // target for auto vectorization
       diag(i) = _local_ke(i, i);
 
-    Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
     for (const auto & var : _diag_save_in)
       var->sys().solution().add_vector(diag, var->dofIndices());
   }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -35,7 +35,7 @@ EBSDReaderAvgDataAux::EBSDReaderAvgDataAux(const InputParameters & parameters)
   : AuxKernel(parameters),
     _phase(isParamValid("phase") ? getParam<unsigned int>("phase") : libMesh::invalid_uint),
     _ebsd_reader(getUserObject<EBSDReader>("ebsd_reader")),
-    _grain_tracker(dynamic_cast<const GrainTrackerInterface &>(getUserObjectBase("grain_tracker"))),
+    _grain_tracker(getUserObject<GrainTrackerInterface>("grain_tracker")),
     _data_name(getParam<MooseEnum>("data_name")),
     _val(_ebsd_reader.getAvgDataAccessFunctor(_data_name)),
     _invalid(getParam<Real>("invalid"))

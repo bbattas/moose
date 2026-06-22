@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -32,10 +32,11 @@ PeriodicNodeMapTester::PeriodicNodeMapTester(const InputParameters & parameters)
 void
 PeriodicNodeMapTester::initialSetup()
 {
+  const auto & periodic_dims = _mesh.queryPeriodicDimensions(*getFieldVar("v", 0));
   // collect mesh periodicity data
   for (unsigned int i = 0; i < _dim; ++i)
   {
-    if (!_mesh.isRegularOrthogonal() || !_mesh.isTranslatedPeriodic(_v_var, i))
+    if (!_mesh.isRegularOrthogonal() || !periodic_dims[i])
       paramError("v", "Variable must be periodic in all directions");
 
     _periodic_min[i] = _mesh.getMinInDimension(i);

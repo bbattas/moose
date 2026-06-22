@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,7 +27,8 @@ protected:
   virtual void prepareEvaluationOfInterpValues(const unsigned int var_index) override;
 
   virtual void
-  evaluateInterpValues(const std::vector<std::pair<Point, unsigned int>> & incoming_points,
+  evaluateInterpValues(const unsigned int /*var_index*/,
+                       const std::vector<std::pair<Point, unsigned int>> & incoming_points,
                        std::vector<std::pair<Real, Real>> & outgoing_vals) override;
 
 private:

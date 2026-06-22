@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,6 +10,7 @@
 #pragma once
 
 #include "MeshGenerator.h"
+#include "MooseEnum.h"
 
 class ElementOrderConversionGenerator : public MeshGenerator
 {
@@ -20,13 +21,8 @@ public:
 
   virtual std::unique_ptr<MeshBase> generate() override;
 
-  enum class OrderConversionType
-  {
-    FIRST_ORDER,
-    SECOND_ORDER_NONFULL,
-    SECOND_ORDER,
-    COMPLETE_ORDER
-  };
+  CreateMooseEnumClass(
+      OrderConversionType, FIRST_ORDER, SECOND_ORDER_NONFULL, SECOND_ORDER, COMPLETE_ORDER);
 
 protected:
   ///The input mesh

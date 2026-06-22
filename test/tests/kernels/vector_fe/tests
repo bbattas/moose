@@ -20,6 +20,59 @@
     requirement = 'The system shall be able to estimate the L2 and H(curl) errors for a curl-curl '
                   'problem solved using Nedelec elements of the first kind.'
   []
+  [ad_vector_fe]
+    type = Exodiff
+    input = 'ad_vector_kernel.i'
+    exodiff = 'vector_kernel_out.e'
+    cli_args = 'Outputs/file_base=vector_kernel_out'
+    abs_zero = 1e-8
+    issues = '#29868'
+    requirement = "The system shall be able to solve a curl-curl problem "
+                  "using Nedelec elements of the first kind with automatic differentiation."
+  []
+  [ad_vector_fe_jacobian]
+    type = 'PetscJacobianTester'
+    input = 'ad_vector_kernel.i'
+    cli_args = 'Outputs/exodus=false'
+    run_sim = True
+    difference_tol = 1e10
+    issues = '#29868'
+    requirement = "The system shall be able to solve a curl-curl problem "
+                  "using Nedelec elements of the first kind with automatic differentiation and have a perfect Jacobian."
+  []
+  [ad_coupled_curl_product]
+    type = Exodiff
+    input = 'ad_coupled_curl_product.i'
+    exodiff = 'ad_coupled_curl_product_out.e'
+    custom_cmp = 'ad_coupled_curl_product.cmp'
+    abs_zero = 1e-8
+    issues = '#29868'
+    requirement = "The system shall be able to solve a problem that supplies the product "
+                  "of the curl of a variable vector and a supplied field into a "
+                  "diffusion problem using automatic differentiation."
+  []
+  [ad_coupled_curl_product_errors]
+    type = CSVDiff
+    input = ad_coupled_curl_product.i
+    csvdiff = ad_coupled_curl_product_out.csv
+    prereq = 'ad_coupled_curl_product'
+    should_execute = false
+    issues = '#29868'
+    requirement = 'The system shall be able to estimate the L2 and H(curl) errors for a '
+                  'problem that supplies the product of the curl of a variable vector '
+                  'and a supplied field into a diffusion problem using automatic differentiation.'
+  []
+  [ad_coupled_curl_product_jacobian]
+    type = 'PetscJacobianTester'
+    input = 'ad_coupled_curl_product.i'
+    cli_args = 'Outputs/exodus=false'
+    difference_tol = 1e10
+    heavy = true
+    issues = '#29868'
+    requirement = "The system shall be able to solve a problem that supplies the product "
+                  "of the curl of a variable vector and a supplied field into a "
+                  "diffusion problem using automatic differentiation and have a perfect Jacobian."
+  []
   [coupled_scalar_vector]
     type = Exodiff
     input = 'coupled_scalar_vector.i'
@@ -193,12 +246,13 @@
       type = Exodiff
       input = coupled_electrostatics.i
       exodiff = coupled_electrostatics_tet14.e
-      cli_args = 'Mesh/gmg/elem_type=TET14 '
+      # Reduce the size of the penalty to get reproducible results across platforms
+      cli_args = 'Mesh/gmg/elem_type=TET14 BCs/sides/penalty=1e5 '
                  'Outputs/file_base=coupled_electrostatics_tet14'
+      # tolerance increased from inter-platform differences
       abs_zero = 1e-7
+      rel_err = 6e-4
       detail = 'TET14, '
-      # PR #26848. Clang 16 Apple Si is not compatible.
-      machine = X86_64
     []
     [tri6]
       type = Exodiff
@@ -304,6 +358,74 @@
                  'Postprocessors/active="PP L2Error HDivSemiError HDivError" '
                  'Outputs/file_base=coupled_electrostatics_quad9 '
                  'Outputs/exodus=false Outputs/csv=true'
+      detail = 'and QUAD9.'
+    []
+  []
+  [grad_div]
+    design = 'DivDivField.md VectorDivPenaltyDirichletBC.md '
+             'ElementVectorL2Error.md ElementHDivSemiError.md ElementHDivError.md'
+    issues = '#32233'
+    requirement = 'The system shall be capable of modeling a grad-div problem '
+                  'in H(div) using the following Raviart-Thomas elements: '
+    [hex27]
+      type = Exodiff
+      input = grad_div.i
+      exodiff = grad_div_hex27.e
+      cli_args = 'Outputs/file_base=grad_div_hex27'
+      detail = 'HEX27, '
+    []
+    [tet14]
+      type = Exodiff
+      input = grad_div.i
+      exodiff = grad_div_tet14.e
+      # tolerance increased from inter-platform differences
+      abs_zero = 8e-9
+      rel_err = 6e-4
+      # Reduce the size of the penalty to get reproducible results across platforms
+      cli_args = 'Mesh/gmg/elem_type=TET14 Mesh/gmg/nx=6 Mesh/gmg/ny=6 BCs/sides/penalty=1e5 '
+                 'Outputs/file_base=grad_div_tet14'
+      detail = 'TET14, '
+    []
+    [tri6]
+      type = Exodiff
+      input = grad_div.i
+      exodiff = grad_div_tri6.e
+      abs_zero = 5e-5
+      cli_args = 'Mesh/gmg/dim=2 Mesh/gmg/elem_type=TRI6 '
+                 'BCs/sides/boundary="top bottom left right" '
+                 'Executioner/petsc_options_value="hypre ams 1e-14 preconditioned" '
+                 'Outputs/file_base=grad_div_tri6'
+      detail = 'TRI6, '
+    []
+    [tri7]
+      type = Exodiff
+      input = grad_div.i
+      exodiff = grad_div_tri7.e
+      abs_zero = 5e-5
+      cli_args = 'Mesh/gmg/dim=2 Mesh/gmg/elem_type=TRI7 '
+                 'BCs/sides/boundary="top bottom left right" '
+                 'Executioner/petsc_options_value="hypre ams 1e-14 preconditioned" '
+                 'Outputs/file_base=grad_div_tri7'
+      detail = 'TRI7, '
+    []
+    [quad8]
+      type = Exodiff
+      input = grad_div.i
+      exodiff = grad_div_quad8.e
+      cli_args = 'Mesh/gmg/dim=2 Mesh/gmg/elem_type=QUAD8 '
+                 'BCs/sides/boundary="top bottom left right" '
+                 'Executioner/petsc_options_value="hypre ams 1e-14 preconditioned" '
+                 'Outputs/file_base=grad_div_quad8'
+      detail = 'QUAD8, '
+    []
+    [quad9]
+      type = Exodiff
+      input = grad_div.i
+      exodiff = grad_div_quad9.e
+      cli_args = 'Mesh/gmg/dim=2 Mesh/gmg/elem_type=QUAD9 '
+                 'BCs/sides/boundary="top bottom left right" '
+                 'Executioner/petsc_options_value="hypre ams 1e-14 preconditioned" '
+                 'Outputs/file_base=grad_div_quad9'
       detail = 'and QUAD9.'
     []
   []

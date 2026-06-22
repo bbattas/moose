@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -11,6 +11,7 @@
 #include "FEProblem.h"
 #include "SegregatedSolverUtils.h"
 #include "LinearSystem.h"
+#include "Executioner.h"
 
 using namespace libMesh;
 
@@ -18,6 +19,89 @@ InputParameters
 LinearAssemblySegregatedSolve::validParams()
 {
   InputParameters params = SIMPLESolveBase::validParams();
+
+  params.addParam<std::vector<SolverSystemName>>(
+      "active_scalar_systems", {}, "The solver system for each active scalar advection equation.");
+
+  /*
+   * Parameters to control the solution of each scalar advection system
+   */
+  params.addParam<std::vector<Real>>("active_scalar_equation_relaxation",
+                                     std::vector<Real>(),
+                                     "The relaxation which should be used for the active scalar "
+                                     "equations. (=1 for no relaxation, "
+                                     "diagonal dominance will still be enforced)");
+
+  params.addParam<MultiMooseEnum>("active_scalar_petsc_options",
+                                  Moose::PetscSupport::getCommonPetscFlags(),
+                                  "Singleton PETSc options for the active scalar equation(s)");
+  params.addParam<MultiMooseEnum>(
+      "active_scalar_petsc_options_iname",
+      Moose::PetscSupport::getCommonPetscKeys(),
+      "Names of PETSc name/value pairs for the active scalar equation(s)");
+  params.addParam<std::vector<std::string>>(
+      "active_scalar_petsc_options_value",
+      "Values of PETSc name/value pairs (must correspond with \"petsc_options_iname\" for the "
+      "active scalar equation(s)");
+  params.addParam<std::vector<Real>>(
+      "active_scalar_absolute_tolerance",
+      std::vector<Real>(),
+      "The absolute tolerance(s) on the normalized residual(s) of the active scalar equation(s).");
+  params.addRangeCheckedParam<Real>("active_scalar_l_tol",
+                                    1e-5,
+                                    "0.0<=active_scalar_l_tol & active_scalar_l_tol<1.0",
+                                    "The relative tolerance on the normalized residual in the "
+                                    "linear solver of the active scalar equation(s).");
+  params.addRangeCheckedParam<Real>("active_scalar_l_abs_tol",
+                                    1e-10,
+                                    "0.0<active_scalar_l_abs_tol",
+                                    "The absolute tolerance on the normalized residual in the "
+                                    "linear solver of the active scalar equation(s).");
+  params.addParam<unsigned int>(
+      "active_scalar_l_max_its",
+      10000,
+      "The maximum allowed iterations in the linear solver of the turbulence equation.");
+
+  params.addParamNamesToGroup(
+      "active_scalar_systems active_scalar_equation_relaxation active_scalar_petsc_options "
+      "active_scalar_petsc_options_iname "
+      "active_scalar_petsc_options_value active_scalar_petsc_options_value "
+      "active_scalar_absolute_tolerance "
+      "active_scalar_l_tol active_scalar_l_abs_tol active_scalar_l_max_its",
+      "Active Scalars Equations");
+
+  /*
+   * Flags to optionally skip solving subsets of the thermal-hydraulics system (useful when
+   * recovering a converged solution and only advancing scalar transport for example).
+   */
+  params.addParam<bool>(
+      "should_solve_momentum", true, "Whether we should solve the momentum predictor/corrector.");
+  params.addParam<bool>(
+      "should_solve_pressure", true, "Whether we should solve the pressure corrector.");
+  params.addParam<bool>(
+      "should_solve_energy", true, "Whether we should solve the fluid energy equation.");
+  params.addParam<bool>(
+      "should_solve_solid_energy", true, "Whether we should solve the solid energy equation.");
+  params.addParam<bool>("should_solve_turbulence",
+                        true,
+                        "Whether we should solve the turbulence surrogate equations.");
+  params.addParam<bool>(
+      "should_solve_passive_scalars", true, "Whether we should solve passive scalar equations.");
+  params.addParam<bool>(
+      "should_solve_active_scalars", true, "Whether we should solve active scalar equations.");
+  params.addParam<bool>("should_solve_pm_radiation",
+                        true,
+                        "Whether we should solve participating media radiation equations.");
+  params.addParamNamesToGroup("should_solve_momentum should_solve_pressure should_solve_energy "
+                              "should_solve_solid_energy should_solve_turbulence "
+                              "should_solve_passive_scalars should_solve_active_scalars",
+                              "Solve control");
+
+  /*
+   * Parameters to control the conjugate heat transfer
+   */
+  params += NS::FV::CHTHandler::validParams();
+
   return params;
 }
 
@@ -28,36 +112,154 @@ LinearAssemblySegregatedSolve::LinearAssemblySegregatedSolve(Executioner & ex)
     _energy_sys_number(_has_energy_system
                            ? _problem.linearSysNum(getParam<SolverSystemName>("energy_system"))
                            : libMesh::invalid_uint),
-    _energy_system(_has_energy_system ? &_problem.getLinearSystem(_energy_sys_number) : nullptr)
+    _energy_system(_has_energy_system ? &_problem.getLinearSystem(_energy_sys_number) : nullptr),
+    _solid_energy_sys_number(
+        _has_solid_energy_system
+            ? _problem.linearSysNum(getParam<SolverSystemName>("solid_energy_system"))
+            : libMesh::invalid_uint),
+    _solid_energy_system(
+        _has_solid_energy_system ? &_problem.getLinearSystem(_solid_energy_sys_number) : nullptr),
+    _should_solve_momentum(getParam<bool>("should_solve_momentum")),
+    _should_solve_pressure(getParam<bool>("should_solve_pressure")),
+    _should_solve_energy(getParam<bool>("should_solve_energy")),
+    _should_solve_solid_energy(getParam<bool>("should_solve_solid_energy")),
+    _should_solve_turbulence(getParam<bool>("should_solve_turbulence")),
+    _should_solve_passive_scalars(getParam<bool>("should_solve_passive_scalars")),
+    _should_solve_active_scalars(getParam<bool>("should_solve_active_scalars")),
+    _should_solve_pm_radiation(getParam<bool>("should_solve_pm_radiation")),
+    _active_scalar_system_names(getParam<std::vector<SolverSystemName>>("active_scalar_systems")),
+    _has_active_scalar_systems(!_active_scalar_system_names.empty()),
+    _active_scalar_equation_relaxation(
+        getParam<std::vector<Real>>("active_scalar_equation_relaxation")),
+    _active_scalar_l_abs_tol(getParam<Real>("active_scalar_l_abs_tol")),
+    _active_scalar_absolute_tolerance(
+        getParam<std::vector<Real>>("active_scalar_absolute_tolerance")),
+    _cht(ex.parameters())
 {
-  // We fetch the systems and their numbers for the momentum equations.
-  for (auto system_i : index_range(_momentum_system_names))
-  {
-    _momentum_system_numbers.push_back(_problem.linearSysNum(_momentum_system_names[system_i]));
-    _momentum_systems.push_back(&_problem.getLinearSystem(_momentum_system_numbers[system_i]));
-    _systems_to_solve.push_back(_momentum_systems.back());
-  }
+  if (!_should_solve_momentum && _should_solve_pressure)
+    paramError("should_solve_momentum",
+               "Pressure correction requires solving the momentum equations.");
+  if (_should_solve_momentum && !_should_solve_pressure)
+    paramError("should_solve_pressure",
+               "Solving momentum without a pressure corrector is not supported.");
+  if (_has_solid_energy_system && !_should_solve_energy && _should_solve_solid_energy)
+    paramError("should_solve_solid_energy",
+               "Solid energy solve cannot be enabled when the fluid energy solve is disabled.");
 
-  _systems_to_solve.push_back(&_pressure_system);
+  // We fetch the systems and their numbers for the momentum equations only if we solve them
+  if (_should_solve_momentum)
+    for (auto system_i : index_range(_momentum_system_names))
+    {
+      _momentum_system_numbers.push_back(_problem.linearSysNum(_momentum_system_names[system_i]));
+      _momentum_systems.push_back(&_problem.getLinearSystem(_momentum_system_numbers[system_i]));
+      _systems_to_solve.push_back(_momentum_systems.back());
+    }
 
-  if (_has_energy_system)
+  if (_should_solve_pressure)
+    _systems_to_solve.push_back(&_pressure_system);
+
+  if (_has_energy_system && _should_solve_energy)
     _systems_to_solve.push_back(_energy_system);
 
+  if (_has_solid_energy_system && _should_solve_solid_energy)
+    _systems_to_solve.push_back(_solid_energy_system);
+  // and for the turbulence surrogate equations
+  if (_has_turbulence_systems && _should_solve_turbulence)
+    for (auto system_i : index_range(_turbulence_system_names))
+    {
+      _turbulence_system_numbers.push_back(
+          _problem.linearSysNum(_turbulence_system_names[system_i]));
+      _turbulence_systems.push_back(
+          &_problem.getLinearSystem(_turbulence_system_numbers[system_i]));
+    }
+
   // and for the passive scalar equations
-  if (_has_passive_scalar_systems)
+  if (_has_passive_scalar_systems && _should_solve_passive_scalars)
     for (auto system_i : index_range(_passive_scalar_system_names))
     {
       _passive_scalar_system_numbers.push_back(
           _problem.linearSysNum(_passive_scalar_system_names[system_i]));
       _passive_scalar_systems.push_back(
           &_problem.getLinearSystem(_passive_scalar_system_numbers[system_i]));
-      _systems_to_solve.push_back(_passive_scalar_systems.back());
+      if (_should_solve_passive_scalars)
+        _systems_to_solve.push_back(_passive_scalar_systems.back());
     }
+
+  // and for the participating media radiation equations
+  if (_has_pm_radiation_systems && _should_solve_pm_radiation)
+    for (auto system_i : index_range(_pm_radiation_system_names))
+    {
+      _pm_radiation_system_numbers.push_back(
+          _problem.linearSysNum(_pm_radiation_system_names[system_i]));
+      _pm_radiation_systems.push_back(
+          &_problem.getLinearSystem(_pm_radiation_system_numbers[system_i]));
+      _systems_to_solve.push_back(_pm_radiation_systems.back());
+    }
+
+  // and for the active scalar equations
+  if (_has_active_scalar_systems && _should_solve_active_scalars)
+    for (auto system_i : index_range(_active_scalar_system_names))
+    {
+      _active_scalar_system_numbers.push_back(
+          _problem.linearSysNum(_active_scalar_system_names[system_i]));
+      _active_scalar_systems.push_back(
+          &_problem.getLinearSystem(_active_scalar_system_numbers[system_i]));
+      _systems_to_solve.push_back(_active_scalar_systems.back());
+
+      const auto & active_scalar_petsc_options =
+          getParam<MultiMooseEnum>("active_scalar_petsc_options");
+      const auto & active_scalar_petsc_pair_options = getParam<MooseEnumItem, std::string>(
+          "active_scalar_petsc_options_iname", "active_scalar_petsc_options_value");
+      Moose::PetscSupport::addPetscFlagsToPetscOptions(
+          active_scalar_petsc_options, "", *this, _active_scalar_petsc_options);
+      Moose::PetscSupport::addPetscPairsToPetscOptions(active_scalar_petsc_pair_options,
+                                                       _problem.mesh().dimension(),
+                                                       "",
+                                                       *this,
+                                                       _active_scalar_petsc_options);
+
+      _active_scalar_linear_control.real_valued_data["rel_tol"] =
+          getParam<Real>("active_scalar_l_tol");
+      _active_scalar_linear_control.real_valued_data["abs_tol"] =
+          getParam<Real>("active_scalar_l_abs_tol");
+      _active_scalar_linear_control.int_valued_data["max_its"] =
+          getParam<unsigned int>("active_scalar_l_max_its");
+    }
+
+  if (_active_scalar_equation_relaxation.size() != _active_scalar_system_names.size())
+    paramError("active_scalar_equation_relaxation",
+               "Should be the same size as the number of systems");
+
+  // We disable the prefix here for the time being, the segregated solvers use a different approach
+  // for setting the petsc parameters
+  for (auto & system : _systems_to_solve)
+    system->system().prefix_with_name(false);
+
+  // Link CHT objects, this will also do some error checking
+  // Make a copy for compatibility. These could change in the future
+  // Convert _pm_radiation_systems to std::vector<SystemBase *>
+  if (_cht.enabled())
+  {
+    if (!_should_solve_energy)
+      paramError("should_solve_energy",
+                 "Conjugate heat transfer requires solving the fluid energy equation.");
+    if (_has_solid_energy_system && !_should_solve_solid_energy)
+      paramError("should_solve_solid_energy",
+                 "Conjugate heat transfer requires solving the solid energy equation.");
+
+    std::vector<SystemBase *> pm_radiation_systems_base(_pm_radiation_systems.begin(),
+                                                        _pm_radiation_systems.end());
+
+    _cht.linkEnergySystems(_solid_energy_system, _energy_system, pm_radiation_systems_base);
+  }
 }
 
 void
 LinearAssemblySegregatedSolve::linkRhieChowUserObject()
 {
+  if (!_should_solve_momentum)
+    return;
+
   _rc_uo =
       const_cast<RhieChowMassFlux *>(&getUserObject<RhieChowMassFlux>("rhie_chow_user_object"));
   _rc_uo->linkMomentumPressureSystems(
@@ -100,7 +302,7 @@ LinearAssemblySegregatedSolve::solveMomentumPredictor()
     auto diff_diagonal = solution.zero_clone();
 
     // We assemble the matrix and the right hand side
-    _problem.computeLinearSystemSys(momentum_system, mmat, rhs);
+    _problem.computeLinearSystemSys(momentum_system, mmat, rhs, /*compute_grads*/ true);
 
     // Still need to relax the right hand side with the same vector
     NS::FV::relaxMatrix(mmat, _momentum_equation_relaxation, *diff_diagonal);
@@ -132,8 +334,6 @@ LinearAssemblySegregatedSolve::solveMomentumPredictor()
 
     if (_print_fields)
     {
-      _console << " solution after solve " << std::endl;
-      solution.print();
       _console << " matrix when we solve " << std::endl;
       mmat.print();
       _console << " rhs when we solve " << std::endl;
@@ -166,6 +366,16 @@ LinearAssemblySegregatedSolve::solveMomentumPredictor()
   momentum_solver.reuse_preconditioner(false);
 
   return its_normalized_residuals;
+}
+
+void
+LinearAssemblySegregatedSolve::initialSetup()
+{
+  if (_cht.enabled())
+  {
+    _cht.deduceCHTBoundaryCoupling();
+    _cht.setupConjugateHeatTransferContainers();
+  }
 }
 
 std::pair<unsigned int, Real>
@@ -233,6 +443,66 @@ LinearAssemblySegregatedSolve::solvePressureCorrector()
 }
 
 std::pair<unsigned int, Real>
+LinearAssemblySegregatedSolve::solveSolidEnergy()
+{
+  _problem.setCurrentLinearSystem(_solid_energy_sys_number);
+
+  // We will need some members from the linear system
+  LinearImplicitSystem & system =
+      libMesh::cast_ref<LinearImplicitSystem &>(_solid_energy_system->system());
+
+  // We will need the solution, the right hand side and the matrix
+  NumericVector<Number> & current_local_solution = *(system.current_local_solution);
+  NumericVector<Number> & solution = *(system.solution);
+  SparseMatrix<Number> & mmat = *(system.matrix);
+  NumericVector<Number> & rhs = *(system.rhs);
+
+  // Fetch the linear solver from the system
+  PetscLinearSolver<Real> & solver =
+      libMesh::cast_ref<PetscLinearSolver<Real> &>(*system.get_linear_solver());
+
+  _problem.computeLinearSystemSys(system, mmat, rhs, false);
+
+  if (_print_fields)
+  {
+    _console << "Solid energy matrix" << std::endl;
+    mmat.print();
+  }
+
+  // We compute the normalization factors based on the fluxes
+  Real norm_factor = NS::FV::computeNormalizationFactor(solution, mmat, rhs);
+
+  // We need the non-preconditioned norm to be consistent with the norm factor
+  LibmeshPetscCall(KSPSetNormType(solver.ksp(), KSP_NORM_UNPRECONDITIONED));
+
+  // Setting the linear tolerances and maximum iteration counts
+  _solid_energy_linear_control.real_valued_data["abs_tol"] = _solid_energy_l_abs_tol * norm_factor;
+  solver.set_solver_configuration(_solid_energy_linear_control);
+
+  auto its_res_pair = solver.solve(mmat, mmat, solution, rhs);
+  system.update();
+
+  if (_print_fields)
+  {
+    _console << " rhs when we solve solid energy " << std::endl;
+    rhs.print();
+    _console << " Solid energy " << std::endl;
+    solution.print();
+    _console << "Norm factor " << norm_factor << std::endl;
+  }
+
+  _solid_energy_system->setSolution(current_local_solution);
+
+  const auto residuals =
+      std::make_pair(its_res_pair.first, solver.get_initial_residual() / norm_factor);
+
+  _console << " Solid energy equation: " << COLOR_GREEN << residuals.second << COLOR_DEFAULT
+           << " Linear its: " << residuals.first << std::endl;
+
+  return residuals;
+}
+
+std::pair<unsigned int, Real>
 LinearAssemblySegregatedSolve::correctVelocity(const bool subtract_updated_pressure,
                                                const bool recompute_face_mass_flux,
                                                const SolverParams & solver_params)
@@ -279,7 +549,9 @@ LinearAssemblySegregatedSolve::solveAdvectedSystem(const unsigned int system_num
                                                    LinearSystem & system,
                                                    const Real relaxation_factor,
                                                    SolverConfiguration & solver_config,
-                                                   const Real absolute_tol)
+                                                   const Real absolute_tol,
+                                                   const Real field_relaxation,
+                                                   const Real min_value_limiter)
 {
   _problem.setCurrentLinearSystem(system_num);
 
@@ -334,6 +606,20 @@ LinearAssemblySegregatedSolve::solveAdvectedSystem(const unsigned int system_num
     _console << " Norm factor " << norm_factor << std::endl;
   }
 
+  // Limiting scalar solution
+  if (min_value_limiter != std::numeric_limits<Real>::min())
+    NS::FV::limitSolutionUpdate(current_local_solution, min_value_limiter);
+
+  // Relax the field update for the next momentum predictor
+  if (field_relaxation != 1.0)
+  {
+    auto & old_local_solution = *(system.solutionPreviousNewton());
+    NS::FV::relaxSolutionUpdate(current_local_solution, old_local_solution, field_relaxation);
+
+    // Update old solution, only needed if relaxing the field
+    old_local_solution = current_local_solution;
+  }
+
   system.setSolution(current_local_solution);
 
   const auto residuals =
@@ -360,16 +646,24 @@ LinearAssemblySegregatedSolve::solve()
   // Initialize the SIMPLE iteration counter
   unsigned int simple_iteration_counter = 0;
 
-  // Assign residuals to general residual vector
-  const unsigned int no_systems = _momentum_systems.size() + 1 + _has_energy_system;
-  std::vector<std::pair<unsigned int, Real>> ns_residuals(no_systems, std::make_pair(0, 1.0));
-  std::vector<Real> ns_abs_tols(_momentum_systems.size(), _momentum_absolute_tolerance);
-  ns_abs_tols.push_back(_pressure_absolute_tolerance);
-  if (_has_energy_system)
-    ns_abs_tols.push_back(_energy_absolute_tolerance);
+  // We set up the residual storage and the corresponding tolerances.
+  ResidualStorage residual_storage = setupResidualStorage();
+  auto & ns_residuals = residual_storage.ns_residuals;
+  auto & ns_abs_tols = residual_storage.ns_abs_tols;
+  const auto & momentum_indices = residual_storage.momentum_indices;
+  const auto pressure_index = residual_storage.pressure_index;
+  const auto energy_index = residual_storage.energy_index;
+  const auto solid_energy_index = residual_storage.solid_energy_index;
+  const auto & active_scalar_indices = residual_storage.active_scalar_indices;
+  const auto & turbulence_indices = residual_storage.turbulence_indices;
+  const auto & pm_radiation_indices = residual_storage.pm_radiation_indices;
 
-  bool converged = false;
+  bool converged = residual_storage.converged;
+
   // Loop until converged or hit the maximum allowed iteration number
+  if (_cht.enabled() && _should_solve_energy)
+    _cht.initializeCHTCouplingFields();
+
   while (simple_iteration_counter < _num_iterations && !converged)
   {
     simple_iteration_counter++;
@@ -377,47 +671,146 @@ LinearAssemblySegregatedSolve::solve()
     // We set the preconditioner/controllable parameters through petsc options. Linear
     // tolerances will be overridden within the solver. In case of a segregated momentum
     // solver, we assume that every velocity component uses the same preconditioner
-    Moose::PetscSupport::petscSetOptions(_momentum_petsc_options, solver_params);
+    if (_should_solve_momentum)
+      Moose::PetscSupport::petscSetOptions(_momentum_petsc_options, solver_params);
 
     // Initialize pressure gradients, after this we just reuse the last ones from each
     // iteration
-    if (simple_iteration_counter == 1)
+    if (_should_solve_pressure && simple_iteration_counter == 1)
       _pressure_system.computeGradients();
 
     _console << "Iteration " << simple_iteration_counter << " Initial residual norms:" << std::endl;
 
     // Solve the momentum predictor step
-    auto momentum_residual = solveMomentumPredictor();
-    for (const auto system_i : index_range(momentum_residual))
-      ns_residuals[system_i] = momentum_residual[system_i];
+    if (_should_solve_momentum)
+    {
+      auto momentum_residual = solveMomentumPredictor();
+      for (const auto system_i : index_range(momentum_residual))
+        ns_residuals[momentum_indices[system_i]] = momentum_residual[system_i];
+    }
 
     // Now we correct the velocity, this function depends on the method, it differs for
     // SIMPLE/PIMPLE, this returns the pressure errors
-    ns_residuals[momentum_residual.size()] = correctVelocity(true, true, solver_params);
+    if (_should_solve_pressure)
+      ns_residuals[pressure_index] = correctVelocity(true, true, solver_params);
 
     // If we have an energy equation, solve it here.We assume the material properties in the
     // Navier-Stokes equations depend on temperature, therefore we can not solve for temperature
     // outside of the velocity-pressure loop
-    if (_has_energy_system)
+    if (_has_energy_system && _should_solve_energy)
+    {
+      // If there is no CHT specified this will just do go once through this block
+      _cht.resetCHTConvergence();
+      while (!_cht.converged())
+      {
+        if (_cht.enabled())
+          _cht.updateCHTBoundaryCouplingFields(NS::CHTSide::FLUID);
+
+        // We set the preconditioner/controllable parameters through petsc options. Linear
+        // tolerances will be overridden within the solver.
+        Moose::PetscSupport::petscSetOptions(_energy_petsc_options, solver_params);
+        ns_residuals[energy_index] = solveAdvectedSystem(_energy_sys_number,
+                                                         *_energy_system,
+                                                         _energy_equation_relaxation,
+                                                         _energy_linear_control,
+                                                         _energy_l_abs_tol);
+
+        if (_has_pm_radiation_systems && _should_solve_pm_radiation)
+        {
+          // We set the preconditioner/controllable parameters through petsc options. Linear
+          // tolerances will be overridden within the solver.
+          Moose::PetscSupport::petscSetOptions(_pm_radiation_petsc_options, solver_params);
+          for (const auto i : index_range(_pm_radiation_system_names))
+          {
+            ns_residuals[pm_radiation_indices[i]] =
+                solveAdvectedSystem(_pm_radiation_system_numbers[i],
+                                    *_pm_radiation_systems[i],
+                                    _pm_radiation_equation_relaxation[i],
+                                    _pm_radiation_linear_control,
+                                    _pm_radiation_l_abs_tol);
+          }
+        }
+
+        if (_has_solid_energy_system && _should_solve_solid_energy)
+        {
+          // For now we only update gradients if cht is needed, might change in the future
+          if (_cht.enabled())
+          {
+            _energy_system->computeGradients();
+            _cht.updateCHTBoundaryCouplingFields(NS::CHTSide::SOLID);
+          }
+
+          // We set the preconditioner/controllable parameters through petsc options. Linear
+          // tolerances will be overridden within the solver.
+          Moose::PetscSupport::petscSetOptions(_solid_energy_petsc_options, solver_params);
+          ns_residuals[solid_energy_index] = solveSolidEnergy();
+
+          // For now we only update gradients if cht is needed, might change in the future
+          if (_cht.enabled())
+            _solid_energy_system->computeGradients();
+        }
+
+        if (_cht.enabled())
+        {
+          _cht.sumIntegratedFluxes();
+          _cht.printIntegratedFluxes();
+        }
+
+        _cht.incrementCHTIterators();
+      }
+      if (_cht.enabled())
+        _cht.resetIntegratedFluxes();
+    }
+
+    // If we have active scalar equations, solve them here in case they depend on temperature
+    // or they affect the fluid properties such that they must be solved concurrently with
+    // pressure and velocity
+    if (_has_active_scalar_systems && _should_solve_active_scalars)
+    {
+      _problem.execute(EXEC_NONLINEAR);
+
+      // We set the preconditioner/controllable parameters through petsc options. Linear
+      // tolerances will be overridden within the solver.
+      Moose::PetscSupport::petscSetOptions(_active_scalar_petsc_options, solver_params);
+      for (const auto i : index_range(_active_scalar_system_names))
+        ns_residuals[active_scalar_indices[i]] =
+            solveAdvectedSystem(_active_scalar_system_numbers[i],
+                                *_active_scalar_systems[i],
+                                _active_scalar_equation_relaxation[i],
+                                _active_scalar_linear_control,
+                                _active_scalar_l_abs_tol);
+    }
+
+    // If we have turbulence equations, solve them here.
+    // The turbulent viscosity depends on the value of the turbulence surrogate variables
+    if (_has_turbulence_systems && _should_solve_turbulence)
     {
       // We set the preconditioner/controllable parameters through petsc options. Linear
       // tolerances will be overridden within the solver.
-      Moose::PetscSupport::petscSetOptions(_energy_petsc_options, solver_params);
-      ns_residuals[momentum_residual.size() + 1] = solveAdvectedSystem(_energy_sys_number,
-                                                                       *_energy_system,
-                                                                       _energy_equation_relaxation,
-                                                                       _energy_linear_control,
-                                                                       _energy_l_abs_tol);
+      Moose::PetscSupport::petscSetOptions(_turbulence_petsc_options, solver_params);
+      for (const auto i : index_range(_turbulence_system_names))
+      {
+        ns_residuals[turbulence_indices[i]] =
+            solveAdvectedSystem(_turbulence_system_numbers[i],
+                                *_turbulence_systems[i],
+                                _turbulence_equation_relaxation[i],
+                                _turbulence_linear_control,
+                                _turbulence_l_abs_tol,
+                                _turbulence_field_relaxation[i],
+                                _turbulence_field_min_limit[i]);
+      }
     }
+
     _problem.execute(EXEC_NONLINEAR);
 
     converged = NS::FV::converged(ns_residuals, ns_abs_tols);
   }
 
-  // If we have passive scalar equations, solve them here. We assume the material properties in the
-  // Navier-Stokes equations do not depend on passive scalars, as they are passive, therefore we
-  // solve outside of the velocity-pressure loop
-  if (_has_passive_scalar_systems && converged)
+  // If we have passive scalar equations, solve them here. We assume the material properties in
+  // the Navier-Stokes equations do not depend on passive scalars, as they are passive, therefore
+  // we solve outside of the velocity-pressure loop
+  if (_has_passive_scalar_systems && _should_solve_passive_scalars &&
+      (converged || _continue_on_max_its))
   {
     // The reason why we need more than one iteration is due to the matrix relaxation
     // which can be used to stabilize the equations
@@ -456,4 +849,68 @@ LinearAssemblySegregatedSolve::solve()
   converged = _continue_on_max_its ? true : converged;
 
   return converged;
+}
+
+LinearAssemblySegregatedSolve::ResidualStorage
+LinearAssemblySegregatedSolve::setupResidualStorage() const
+{
+  ResidualStorage storage;
+
+  // Residual store: position in this vector defines the ordering used by NS::FV::converged()
+  // Each entry holds (linear its, normalized residual) for one system
+  if (_should_solve_momentum)
+    for ([[maybe_unused]] const auto system_i : index_range(_momentum_systems))
+    {
+      storage.momentum_indices.push_back(storage.ns_residuals.size());
+      storage.ns_residuals.push_back(std::make_pair(0, 1.0));
+      storage.ns_abs_tols.push_back(_momentum_absolute_tolerance);
+    }
+
+  if (_should_solve_pressure)
+  {
+    storage.pressure_index = storage.ns_residuals.size();
+    storage.ns_residuals.push_back(std::make_pair(0, 1.0));
+    storage.ns_abs_tols.push_back(_pressure_absolute_tolerance);
+  }
+
+  if (_has_energy_system && _should_solve_energy)
+  {
+    storage.energy_index = storage.ns_residuals.size();
+    storage.ns_residuals.push_back(std::make_pair(0, 1.0));
+    storage.ns_abs_tols.push_back(_energy_absolute_tolerance);
+  }
+
+  if (_has_solid_energy_system && _should_solve_solid_energy)
+  {
+    storage.solid_energy_index = storage.ns_residuals.size();
+    storage.ns_residuals.push_back(std::make_pair(0, 1.0));
+    storage.ns_abs_tols.push_back(_solid_energy_absolute_tolerance);
+  }
+
+  if (_has_active_scalar_systems && _should_solve_active_scalars)
+    for (const auto i : index_range(_active_scalar_system_names))
+    {
+      storage.active_scalar_indices.push_back(storage.ns_residuals.size());
+      storage.ns_residuals.push_back(std::make_pair(0, 1.0));
+      storage.ns_abs_tols.push_back(_active_scalar_absolute_tolerance[i]);
+    }
+
+  if (_has_turbulence_systems && _should_solve_turbulence)
+    for (const auto i : index_range(_turbulence_system_names))
+    {
+      storage.turbulence_indices.push_back(storage.ns_residuals.size());
+      storage.ns_residuals.push_back(std::make_pair(0, 1.0));
+      storage.ns_abs_tols.push_back(_turbulence_absolute_tolerance[i]);
+    }
+
+  if (_has_pm_radiation_systems && _should_solve_pm_radiation)
+    for (const auto i : index_range(_pm_radiation_system_names))
+    {
+      storage.pm_radiation_indices.push_back(storage.ns_residuals.size());
+      storage.ns_residuals.push_back(std::make_pair(0, 1.0));
+      storage.ns_abs_tols.push_back(_pm_radiation_absolute_tolerance[i]);
+    }
+
+  storage.converged = storage.ns_residuals.empty();
+  return storage;
 }

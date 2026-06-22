@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,32 +8,19 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "Function.h"
+#include "FEProblemBase.h"
 
 using namespace Moose;
 
 InputParameters
 Function::validParams()
 {
-  InputParameters params = MooseObject::validParams();
-  params += SetupInterface::validParams();
-
-  // Functions should be executed on the fly
-  params.suppressParameter<ExecFlagEnum>("execute_on");
-  params.registerBase("Function");
-
+  InputParameters params = FunctionBase::validParams();
   return params;
 }
 
 Function::Function(const InputParameters & parameters)
-  : MooseObject(parameters),
-    SetupInterface(this),
-    TransientInterface(this),
-    PostprocessorInterface(this),
-    UserObjectInterface(this),
-    Restartable(this, "Functions"),
-    MeshChangedInterface(parameters),
-    ScalarCoupleable(this),
-    Moose::FunctorBase<Real>(name())
+  : FunctionBase(parameters), Moose::FunctorBase<Real>(name())
 {
 }
 

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -57,7 +57,7 @@ NodalConstraint::NodalConstraint(const InputParameters & parameters)
 }
 
 void
-NodalConstraint::computeResidual(NumericVector<Number> & residual)
+NodalConstraint::computeResidual(const NumericVector<Number> & residual)
 {
   if ((_weights.size() == 0) && (_primary_node_vector.size() == 1))
     _weights.push_back(1.0);
@@ -99,7 +99,7 @@ NodalConstraint::computeResidual(NumericVector<Number> & residual)
 }
 
 void
-NodalConstraint::computeJacobian(SparseMatrix<Number> & jacobian)
+NodalConstraint::computeJacobian(const SparseMatrix<Number> & jacobian)
 {
   if ((_weights.size() == 0) && (_primary_node_vector.size() == 1))
     _weights.push_back(1.0);

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,7 +27,7 @@ public:
   virtual void initialize() override;
 
   /// Reference to the mesh
-  MooseMesh & _mesh;
+  const MooseMesh & _mesh;
 
   /// Type of the quadrature
   libMesh::QuadratureType _q_type;

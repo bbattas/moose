@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -147,6 +147,24 @@ TEST(NewtonInversion, NewtonSolve2D)
       y1, y2, guess1, guess2, return_x1, return_x2, 1e-8, 1e-8, func2, func3);
   x1_soln = 0.1;
   x2_soln = 0.3;
+  EXPECT_NEAR(return_x1, x1_soln, tol);
+  EXPECT_NEAR(return_x2, x2_soln, tol);
+
+  // First problem again
+  // Try a degenerate case where the second function has 0 derivative
+  y1 = -3;
+  y2 = -37;
+  x1_soln = -4;
+  x2_soln = -11;
+  auto func2_with_cte = [&](Real x, Real y, Real & g, Real & dgdx, Real & dgdy)
+  {
+    function_g2(x, y, g, dgdx, dgdy);
+    // creates an empty row in the Jacobian
+    dgdy = 0;
+    dgdx = 0;
+  };
+  FluidPropertiesUtils::NewtonSolve2D(
+      y1, y2, guess1, x2_soln, return_x1, return_x2, 1e-8, 1e-8, func1, func2_with_cte);
   EXPECT_NEAR(return_x1, x1_soln, tol);
   EXPECT_NEAR(return_x2, x2_soln, tol);
 

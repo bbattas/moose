@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -20,6 +20,9 @@ public:
   SolidWall1Phase(const InputParameters & params);
 
   virtual void addMooseObjects() override;
+
+protected:
+  virtual bool supportsPassiveTransport() const override { return true; }
 
 public:
   static InputParameters validParams();

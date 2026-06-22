@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,6 +9,7 @@
 
 #include "SetValueChainControl.h"
 #include "MooseUtils.h"
+#include "MooseApp.h"
 
 registerMooseObject("MooseApp", SetRealValueChainControl);
 registerMooseObject("MooseApp", SetBoolValueChainControl);
@@ -38,4 +39,12 @@ void
 SetValueChainControlTempl<T>::execute()
 {
   setControllableValue<T>("parameter", _value);
+}
+
+template <typename T>
+void
+SetValueChainControlTempl<T>::initialSetup()
+{
+  if (_app.isRecovering())
+    setControllableValue<T>("parameter", _value);
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -14,6 +14,7 @@
 #include "NonlinearSystemBase.h"
 #include "NonlinearSystem.h"
 #include "NodalBCBase.h"
+#include "Executioner.h"
 
 #include "libmesh/fuzzy_equals.h"
 #include "libmesh/petsc_matrix.h"
@@ -61,6 +62,17 @@ AdjointSolve::AdjointSolve(Executioner & ex)
   // in case a user provides scaling for an individual variables but doesn't have any
   // AD objects.
   _nl_forward.addScalingVector();
+
+  // Set the solver options for the adjoint system
+  mooseAssert(_problem.numSolverSystems() > 1,
+              "We should have forward and adjoint systems as evidenced by our initialization list");
+  const auto prefix = _nl_adjoint.prefix();
+  Moose::PetscSupport::storePetscOptions(_problem, prefix, ex);
+  Moose::PetscSupport::setConvergedReasonFlags(_problem, prefix);
+  // Set solver parameter prefix
+  auto & solver_params = _problem.solverParams(_nl_adjoint.number());
+  solver_params._prefix = prefix;
+  solver_params._solver_sys_num = _nl_adjoint.number();
 }
 
 bool
@@ -68,20 +80,23 @@ AdjointSolve::solve()
 {
   TIME_SECTION("execute", 1, "Executing adjoint problem", false);
 
-  if (_inner_solve && !_inner_solve->solve())
-    return false;
+  mooseAssert(!_inner_solve,
+              "I don't see any code path in which this class winds up with an inner solve");
 
   // enforce PETSc options are passed to the adjoint solve as well, as set in the user file
   auto & petsc_options = _problem.getPetscOptions();
-  auto & pars = _problem.solverParams();
+  auto & pars = _problem.solverParams(_nl_adjoint.number());
   Moose::PetscSupport::petscSetOptions(petsc_options, pars);
 
   _problem.execute(OptimizationAppTypes::EXEC_ADJOINT_TIMESTEP_BEGIN);
+
   if (!_problem.execMultiApps(OptimizationAppTypes::EXEC_ADJOINT_TIMESTEP_BEGIN))
   {
     _console << "MultiApps failed to converge on ADJOINT_TIMESTEP_BEGIN!" << std::endl;
     return false;
   }
+  // Output results between the forward and adjoint solve.
+  _problem.outputStep(OptimizationAppTypes::EXEC_ADJOINT_TIMESTEP_BEGIN);
 
   checkIntegrity();
 
@@ -136,7 +151,7 @@ AdjointSolve::assembleAdjointSystem(SparseMatrix<Number> & matrix,
 
   _problem.setCurrentNonlinearSystem(_adjoint_sys_num);
   _problem.computeResidualTag(*_nl_adjoint.currentSolution(), rhs, _nl_adjoint.nonTimeVectorTag());
-
+  rhs.close();
   rhs.scale(-1.0);
 }
 

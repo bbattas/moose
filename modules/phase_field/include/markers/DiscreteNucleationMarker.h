@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -30,8 +30,8 @@ protected:
   /// UserObject providing a map of currently active nuclei
   const DiscreteNucleationMap & _map;
 
-  /// variable number to use for minPeriodicDistance calls (i.e. use the periodicity of this variable)
-  int _periodic;
+  /// variable to use for minPeriodicDistance calls (i.e. use the periodicity of this variable)
+  const MooseVariableFieldBase * const _periodic_var;
 
   /// UserObject that manages nucleus insertin and deletion
   const DiscreteNucleationInserterBase & _inserter;

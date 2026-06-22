@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -33,6 +33,9 @@ protected:
    * which to evaluate the functor. If not provided, defaults to the functor.
    */
   const Moose::Functor<GenericReal<is_ad>> & _proxy_functor;
+
+  /// Scaling factor to apply to the functor value
+  const Real _scale;
 };
 
 typedef ElementExtremeFunctorValueTempl<false> ElementExtremeFunctorValue;

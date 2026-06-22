@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -17,7 +17,7 @@ TEST_F(JSONReaderTest, errors)
   // JSONFileReader is uninitialized at construction, any other JSONFileReader with such
   // behavior would do
   InputParameters params = _factory.getValidParams("JSONFileReader");
-  params.set<std::string>("_type") = "JSONFileReader";
+  params.set<std::string>(MooseBase::type_param) = "JSONFileReader";
   params.set<FileName>("filename") = "data/json/function_values.json";
   auto & reader = addObject<JSONFileReader>("JSONFileReader", "test", params);
 

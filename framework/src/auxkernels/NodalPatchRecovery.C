@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -233,9 +233,6 @@ NodalPatchRecovery::compute()
   // set nodal value
   _fe_problem.reinitNode(_current_node, _tid);
   dof_id_type dof = _var.nodalDofIndex();
-  {
-    Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
-    _solution.set(dof, nodal_value);
-  }
+  _solution.set(dof, nodal_value);
   _var.setNodalValue(nodal_value);
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,8 +10,12 @@
 #pragma once
 
 #include "LinearFVFluxKernel.h"
-#include "RhieChowMassFlux.h"
-#include "LinearFVAdvectionDiffusionBC.h"
+
+#include <array>
+
+class RhieChowMassFlux;
+class LinearFVBoundaryCondition;
+class LinearFVAdvectionDiffusionBC;
 
 /**
  * Kernel that implements the stress tensor and advection terms for the momentum
@@ -107,6 +111,10 @@ protected:
   /// matrix and right hand side contribution
   Real _face_mass_flux;
 
+  /// Multiplier that ensures the normal of the boundary always points outwards, even in cases
+  /// when the boundary is within the mesh.
+  Real _boundary_normal_factor;
+
   /// The cached matrix contribution
   Real _stress_matrix_contribution;
 
@@ -120,10 +128,15 @@ protected:
   /// in the stress term
   const unsigned int _index;
 
-  /// Velocity in direction x
-  const MooseLinearVariableFVReal * const _u_var;
-  /// Velocity in direction y
-  const MooseLinearVariableFVReal * const _v_var;
-  /// Velocity in direction z
-  const MooseLinearVariableFVReal * const _w_var;
+  /// Velocity variables for each coordinate direction
+  std::array<const MooseLinearVariableFVReal *, 3> _velocity_vars;
+
+  /// Coordinate system of the blocks this kernel operates on
+  const Moose::CoordinateSystemType _coord_type;
+
+  /// Axisymmetric radial coordinate index (only used when in RZ)
+  const unsigned int _rz_radial_coord;
+
+  /// Helper to access the velocity variable for a given direction
+  const MooseLinearVariableFVReal & velocityVar(unsigned int dir) const;
 };

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,7 +8,6 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "DenseMatrix.h"
-#include "MooseConfig.h"
 #include "DataIO.h"
 #include "MooseMesh.h"
 #include "FEProblemBase.h"
@@ -16,6 +15,7 @@
 
 #include "libmesh/vector_value.h"
 #include "libmesh/tensor_value.h"
+#include "libmesh/fe_type.h"
 
 #include "libmesh/elem.h"
 #include "libmesh/petsc_vector.h"
@@ -64,6 +64,31 @@ void
 dataStore(std::ostream & stream, bool & v, void * /*context*/)
 {
   stream.write((char *)&v, sizeof(v));
+}
+
+template <>
+void
+dataStore(std::ostream & stream, FEType & v, void * context)
+{
+  auto order = v.order.get_order();
+  dataStore(stream, order, context);
+
+  auto family = v.family;
+  dataStore(stream, family, context);
+
+#ifdef LIBMESH_ENABLE_INFINITE_ELEMENTS
+  auto radial_order = v.radial_order.get_order();
+  dataStore(stream, radial_order, context);
+
+  auto radial_family = v.radial_family;
+  dataStore(stream, radial_family, context);
+
+  auto inf_map = v.inf_map;
+  dataStore(stream, inf_map, context);
+#endif
+
+  auto p_refinement = v.p_refinement;
+  dataStore(stream, p_refinement, context);
 }
 
 template <>
@@ -192,35 +217,6 @@ dataStore(std::ostream & stream, std::stringstream & s, void * /* context */)
   stream.write((char *)&s_size, sizeof(s_size));
 
   stream.write(s_str.c_str(), sizeof(char) * (s_str.size()));
-}
-
-template <>
-void
-dataStore(std::ostream & stream, RealEigenVector & v, void * context)
-{
-  unsigned int m = v.size();
-  stream.write((char *)&m, sizeof(m));
-  for (unsigned int i = 0; i < v.size(); i++)
-  {
-    Real r = v(i);
-    dataStore(stream, r, context);
-  }
-}
-
-template <>
-void
-dataStore(std::ostream & stream, RealEigenMatrix & v, void * context)
-{
-  unsigned int m = v.rows();
-  stream.write((char *)&m, sizeof(m));
-  unsigned int n = v.cols();
-  stream.write((char *)&n, sizeof(n));
-  for (unsigned int i = 0; i < m; i++)
-    for (unsigned int j = 0; j < n; j++)
-    {
-      Real r = v(i, j);
-      dataStore(stream, r, context);
-    }
 }
 
 template <typename T>
@@ -415,6 +411,28 @@ dataLoad(std::istream & stream, bool & v, void * /*context*/)
 
 template <>
 void
+dataLoad(std::istream & stream, FEType & v, void * context)
+{
+  int order = 0;
+  dataLoad(stream, order, context);
+  v.order = order;
+
+  dataLoad(stream, v.family, context);
+
+#ifdef LIBMESH_ENABLE_INFINITE_ELEMENTS
+  int radial_order = 0;
+  dataLoad(stream, radial_order, context);
+  v.radial_order = radial_order;
+
+  dataLoad(stream, v.radial_family, context);
+  dataLoad(stream, v.inf_map, context);
+#endif
+
+  dataLoad(stream, v.p_refinement, context);
+}
+
+template <>
+void
 dataLoad(std::istream & stream, std::vector<bool> & v, void * context)
 {
   for (bool b : v)
@@ -535,39 +553,6 @@ dataLoad(std::istream & stream, std::stringstream & s, void * /* context */)
   // Clear the stringstream before loading new data into it.
   s.str(std::string());
   s.write(s_s.get(), s_size);
-}
-
-template <>
-void
-dataLoad(std::istream & stream, RealEigenVector & v, void * context)
-{
-  unsigned int n = 0;
-  stream.read((char *)&n, sizeof(n));
-  v.resize(n);
-  for (unsigned int i = 0; i < n; i++)
-  {
-    Real r = 0;
-    dataLoad(stream, r, context);
-    v(i) = r;
-  }
-}
-
-template <>
-void
-dataLoad(std::istream & stream, RealEigenMatrix & v, void * context)
-{
-  unsigned int m = 0;
-  stream.read((char *)&m, sizeof(m));
-  unsigned int n = 0;
-  stream.read((char *)&n, sizeof(n));
-  v.resize(m, n);
-  for (unsigned int i = 0; i < m; i++)
-    for (unsigned int j = 0; j < n; j++)
-    {
-      Real r = 0;
-      dataLoad(stream, r, context);
-      v(i, j) = r;
-    }
 }
 
 template <typename T>

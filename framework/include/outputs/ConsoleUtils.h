@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -55,10 +55,10 @@ std::string outputMeshInformation(FEProblemBase & problem, bool verbose = true);
 std::string outputAuxiliarySystemInformation(FEProblemBase & problem);
 
 /**
- * Output the Nonlinear system information
+ * Output a solver system information
  */
-std::string outputNonlinearSystemInformation(FEProblemBase & problem,
-                                             const unsigned int nl_sys_num);
+std::string outputSolverSystemInformation(FEProblemBase & problem,
+                                          const unsigned int solver_sys_num);
 
 /**
  * Output action RelationshipManager information

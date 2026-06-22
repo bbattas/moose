@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,6 +10,7 @@
 // MOOSE includes
 #include "RealFunctionControl.h"
 #include "Function.h"
+#include "MooseApp.h"
 
 registerMooseObject("MooseApp", RealFunctionControl);
 
@@ -36,6 +37,16 @@ RealFunctionControl::RealFunctionControl(const InputParameters & parameters)
 void
 RealFunctionControl::execute()
 {
-  Real value = _function.value(_t);
+  const Real value = _function.value(_t);
   setControllableValue<Real>("parameter", value);
+}
+
+void
+RealFunctionControl::initialSetup()
+{
+  if (_app.isRecovering())
+  {
+    const Real value = _function.value(_t);
+    setControllableValue<Real>("parameter", value);
+  }
 }

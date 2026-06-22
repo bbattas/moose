@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -154,7 +154,7 @@ RayTracingStudyTest::generateRays()
       moveRayToBuffer(duplicate_ray);
     }
 
-    if (getParam<bool>("add_local_non_unique_id_ray"))
+    if (getParam<bool>("add_local_non_unique_id_ray") && ray->id() == 0)
     {
       std::shared_ptr<Ray> other_ray = acquireCopiedRay(*ray);
       moveRayToBuffer(ray);

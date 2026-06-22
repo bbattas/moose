@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -64,7 +64,7 @@ MeshMetaDataDependenceAction::act()
 
   vpp_params.set<Point>("start_point") = start_point;
   vpp_params.set<Point>("end_point") = end_point;
-  vpp_params.set<MooseEnum>("sort_by") = "x";
+  vpp_params.set<std::string>("sort_by") = "x";
 
   // line up samples along nodes
   vpp_params.set<unsigned int>("num_points") = num_elements_x_prop + 1;

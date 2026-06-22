@@ -3,22 +3,22 @@
 []
 
 [Modules]
-  [./PhaseField]
-    [./GrainGrowth]
+  [PhaseField]
+    [GrainGrowth]
       op_num = 4
       var_name_base = gr
       initial_from_file = true
       variable_mobility = false
-    [../]
-  [../]
+    []
+  []
 []
 
 [Materials]
-  [./const]
+  [const]
     type = GenericConstantMaterial
     prop_names = 'L mu gamma_asymm kappa_op'
     prop_values = '0 0 0 0'
-  [../]
+  []
 []
 
 [Executioner]
@@ -33,7 +33,9 @@
 []
 
 [Outputs]
-  exodus = true
-  execute_on = FINAL
-  hide = bnds
+  [out]
+    type = Exodus
+    execute_on = FINAL
+    hide = bnds
+  []
 []

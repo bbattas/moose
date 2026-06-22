@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,6 +12,7 @@
 // MOOSE includes
 #include "CrackFrontPointsProvider.h"
 #include "XFEMAppTypes.h"
+#include "SolidMechanicsAppTypes.h"
 
 #include "libmesh/libmesh_common.h"
 #include "libmesh/libmesh.h" // libMesh::invalid_uint
@@ -113,6 +114,11 @@ public:
   virtual void execute() override;
   virtual void threadJoin(const UserObject & y) override;
   virtual void finalize() override;
+
+  virtual unsigned int getNumberOfCrackFrontPoints() const override
+  {
+    mooseError("getNumberOfCrackFrontPoints() is not implemented for this object.");
+  }
 
   /**
    * Check to see whether a specified 2D element should be cut based on geometric

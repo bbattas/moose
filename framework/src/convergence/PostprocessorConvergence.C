@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -44,5 +44,11 @@ PostprocessorConvergence::checkConvergenceInner(unsigned int /*iter*/)
     return MooseConvergenceStatus::CONVERGED;
   }
   else
+  {
+    std::ostringstream oss;
+    oss << "Still iterating due to |post-processor| (" << std::abs(_postprocessor)
+        << ") > tolerance (" << _tol << ").";
+    verboseOutput(oss);
     return MooseConvergenceStatus::ITERATING;
+  }
 }

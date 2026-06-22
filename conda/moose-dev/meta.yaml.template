@@ -1,0 +1,45 @@
+# Making a Change to this package?
+# REMEMBER TO UPDATE the .yaml files for the following packages:
+#   moose/conda_build_config.yaml
+# As well as any directions pertaining to modifying those files.
+{% set version = "__VERSIONER_MOOSE_DEV_VERSION__" %}
+
+package:
+  name: moose-dev
+  version: {{ version }}
+
+build:
+  number: 0
+  string: {{ mpi }}
+  script_env:
+    - REQUESTS_CA_BUNDLE
+    - SSL_CERT_FILE
+    - CURL_CA_BUNDLE
+    - NODE_EXTRA_CA_CERTS
+  run_exports:
+    # things that depend on this moose-dev must use the
+    # exact moose-* packages that this was built with
+    - moose-build __VERSIONER_BUILD_VERSION__ {{ mpi }}
+    - moose-libmesh __VERSIONER_LIBMESH_VERSION__ {{ mpi }}___VERSIONER_LIBMESH_BUILD_NUMBER__
+    - moose-wasp __VERSIONER_WASP_VERSION__ build___VERSIONER_WASP_BUILD_NUMBER__
+    - moose-tools __VERSIONER_TOOLS_VERSION__
+
+requirements:
+  run:
+    - moose-build __VERSIONER_BUILD_VERSION__ {{ mpi }}
+    - moose-libmesh __VERSIONER_LIBMESH_VERSION__ {{ mpi }}___VERSIONER_LIBMESH_BUILD_NUMBER__
+    - moose-wasp __VERSIONER_WASP_VERSION__ build___VERSIONER_WASP_BUILD_NUMBER__
+    - moose-tools __VERSIONER_TOOLS_VERSION__
+  run_constrained:
+    - {{ moose_python_constrained }}
+
+about:
+  home: https://mooseframework.inl.gov/
+  license: LGPL 2.1
+  summary: >
+    A simple package which installs all necessary Conda packages for MOOSE based development.
+
+extra:
+  recipe-maintainers:
+    - cticenhour
+    - loganharbour

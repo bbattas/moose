@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -22,10 +22,15 @@ typedef MooseVariableFE<Real> MooseVariable;
 typedef MooseVariableFE<VectorValue<Real>> VectorMooseVariable;
 class Assembly;
 
+namespace libMesh
+{
+class QBase;
+}
+
 /**
  * Base class for deriving element dampers
  */
-class ElementDamper : public Damper, protected MaterialPropertyInterface
+class ElementDamper : public Damper, public MaterialPropertyInterface
 {
 public:
   static InputParameters validParams();
@@ -36,6 +41,11 @@ public:
    * Computes this Damper's damping for one element.
    */
   Real computeDamping();
+
+  /**
+   * Check whether this damper's variable has DOFs/components on the given element
+   */
+  bool variableDefinedOnElement(const Elem * elem) const;
 
   /**
    * Get the variable this damper is acting on

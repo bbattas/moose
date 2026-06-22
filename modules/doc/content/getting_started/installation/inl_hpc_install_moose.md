@@ -1,7 +1,7 @@
 # INL HPC Cluster
 
 The following instructions are for those operating on [!ac](INL) [!ac](HPC) machines. This includes
-Bitterroot, Lemhi, and Sawtooth. It also includes the protected access hosts `rod` and `cone`.
+WindRiver, Bitterroot, and Sawtooth. It also includes the protected access hosts `rod` and `cone`.
 
 Requesting access to [!ac](INL) [!ac](HPC) is handled by the [NCRC](https://inl.gov/ncrc/) group.
 Once access has been granted, one can use [HPC OnDemand](hpc_ondemand.md) services to gain access to
@@ -28,7 +28,7 @@ practice that bundles all application and application dependencies (i.e., MOOSE 
 app), needed to run on any host. This means that applications built within this environment can be
 executed across all [!ac](INL) [!ac](HPC) clusters. For example, you can build an application within
 a compute node on Sawtooth and execute the same executable of the application (providing you follow
-the instructions that follow) on both Bitterroot and Lemhi.
+the instructions that follow) on both Bitterroot and WindRiver.
 
 ## Obtain MOOSE
 
@@ -62,6 +62,7 @@ Enter the `moose` directory where ever that may be, and run the following comman
 assumes you cloned MOOSE as directed in the previous step):
 
 ```bash
+module load use.moose versioner
 cd /scratch/<your INL HPC User ID>/projects/moose
 # or cd to your application/moose directory
 ./scripts/versioner.py moose-dev
@@ -111,7 +112,7 @@ MOOSE based work:
 
 1. figure out the version you need:
 
-  `moose/scripts/versioner.py moose-dev`
+  `module load use.moose versioner; moose/scripts/versioner.py moose-dev`
 
 
 2. load the matching module version:

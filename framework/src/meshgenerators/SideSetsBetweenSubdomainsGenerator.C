@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,6 +10,7 @@
 #include "SideSetsBetweenSubdomainsGenerator.h"
 #include "InputParameters.h"
 #include "MooseTypes.h"
+#include "MeshTraversingUtils.h"
 #include "MooseMeshUtils.h"
 #include "CastUniquePointer.h"
 
@@ -73,7 +74,8 @@ SideSetsBetweenSubdomainsGenerator::generate()
   for (const auto & elem : mesh->active_element_ptr_range())
   {
     // We only need to loop over elements in the primary subdomain
-    if (_check_subdomains && !elementSubdomainIdInList(elem, _included_subdomain_ids))
+    if (_check_subdomains &&
+        !MeshTraversingUtils::elementSubdomainIdInList(elem, _included_subdomain_ids))
       continue;
 
     for (const auto & side : make_range(elem->n_sides()))
@@ -186,6 +188,6 @@ SideSetsBetweenSubdomainsGenerator::generate()
   for (const auto & i : make_range(boundary_ids.size()))
     boundary_info.sideset_name(boundary_ids[i]) = _boundary_names[i];
 
-  mesh->set_isnt_prepared();
+  mesh->unset_is_prepared();
   return dynamic_pointer_cast<MeshBase>(mesh);
 }

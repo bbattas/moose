@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -55,11 +55,8 @@ ADKernelValueTempl<T>::computeResidual()
   accumulateTaggedLocalResidual();
 
   if (_has_save_in)
-  {
-    Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
     for (unsigned int i = 0; i < _save_in.size(); i++)
       _save_in[i]->sys().solution().add_vector(_local_re, _save_in[i]->dofIndices());
-  }
 }
 
 template <typename T>

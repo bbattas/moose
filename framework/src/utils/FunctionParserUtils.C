@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -42,7 +42,7 @@ FunctionParserUtils<is_ad>::validParams()
   params.addParamNamesToGroup(
       "enable_jit enable_ad_cache enable_auto_optimize disable_fpoptimizer evalerror_behavior",
       "Parsed expression advanced");
-  params.addParam<Real>("epsilon", FunctionParser::epsilon(), "Fuzzy comparison tolerance");
+  params.addParam<Real>("epsilon", 0, "Fuzzy comparison tolerance");
   return params;
 }
 
@@ -76,7 +76,7 @@ FunctionParserUtils<is_ad>::FunctionParserUtils(const InputParameters & paramete
 
 template <bool is_ad>
 void
-FunctionParserUtils<is_ad>::setParserFeatureFlags(SymFunctionPtr & parser)
+FunctionParserUtils<is_ad>::setParserFeatureFlags(SymFunctionPtr & parser) const
 {
   parser->SetADFlags(SymFunction::ADCacheDerivatives, _enable_ad_cache);
   parser->SetADFlags(SymFunction::ADAutoOptimize, _enable_auto_optimize);
@@ -95,6 +95,8 @@ FunctionParserUtils<is_ad>::evaluate(SymFunctionPtr & parser,
                                      const std::vector<GenericReal<is_ad>> & func_params,
                                      const std::string & name)
 {
+  using std::isnan;
+
   // null pointer is a shortcut for vanishing derivatives, see functionsOptimize()
   if (parser == NULL)
     return 0.0;
@@ -110,7 +112,7 @@ FunctionParserUtils<is_ad>::evaluate(SymFunctionPtr & parser,
   parser->setEpsilon(tmp_eps);
 
   // fetch fparser evaluation error (set to unknown if the JIT result is nan)
-  int error_code = _enable_jit ? (std::isnan(result) ? -1 : 0) : parser->EvalError();
+  int error_code = _enable_jit ? (isnan(result) ? -1 : 0) : parser->EvalError();
 
   // no error
   if (error_code == 0)
@@ -151,7 +153,7 @@ void
 FunctionParserUtils<is_ad>::addFParserConstants(
     SymFunctionPtr & parser,
     const std::vector<std::string> & constant_names,
-    const std::vector<std::string> & constant_expressions)
+    const std::vector<std::string> & constant_expressions) const
 {
   // check constant vectors
   unsigned int nconst = constant_expressions.size();
@@ -171,7 +173,7 @@ FunctionParserUtils<is_ad>::addFParserConstants(
     // add previously evaluated constants
     for (unsigned int j = 0; j < i; ++j)
       if (!expression->AddConstant(constant_names[j], constant_values[j]))
-        mooseError("Invalid constant name in ParsedMaterialHelper");
+        mooseError("Invalid constant name: ", constant_names[j], " and value ", constant_values[j]);
 
     // build the temporary constant expression function
     if (expression->Parse(constant_expressions[i], "") >= 0)
@@ -191,22 +193,73 @@ template <>
 void
 FunctionParserUtils<false>::functionsOptimize(SymFunctionPtr & parsed_function)
 {
+  // set desired epsilon for optimization!
+  auto tmp_eps = parsed_function->epsilon();
+  parsed_function->setEpsilon(_epsilon);
+
   // base function
   if (!_disable_fpoptimizer)
     parsed_function->Optimize();
   if (_enable_jit && !parsed_function->JITCompile())
     mooseInfo("Failed to JIT compile expression, falling back to byte code interpretation.");
+
+  parsed_function->setEpsilon(tmp_eps);
 }
 
 template <>
 void
 FunctionParserUtils<true>::functionsOptimize(SymFunctionPtr & parsed_function)
 {
+  // set desired epsilon for optimization!
+  auto tmp_eps = parsed_function->epsilon();
+  parsed_function->setEpsilon(_epsilon);
+
   // base function
   if (!_disable_fpoptimizer)
     parsed_function->Optimize();
   if (!_enable_jit || !parsed_function->JITCompile())
     mooseError("AD parsed objects require JIT compilation to be enabled and working.");
+
+  parsed_function->setEpsilon(tmp_eps);
+}
+
+template <bool is_ad>
+void
+FunctionParserUtils<is_ad>::parsedFunctionSetup(
+    SymFunctionPtr & function,
+    const std::string & expression,
+    const std::string & variables,
+    const std::vector<std::string> & constant_names,
+    const std::vector<std::string> & constant_expressions,
+    const libMesh::Parallel::Communicator & comm) const
+{
+  // set FParser internal feature flags
+  setParserFeatureFlags(function);
+
+  // add the constant expressions
+  addFParserConstants(function, constant_names, constant_expressions);
+
+  // parse function
+  if (function->Parse(expression, variables) >= 0)
+    mooseError("Invalid function\n", expression, "\nError:\n", function->ErrorMsg());
+
+  // optimize
+  if (!_disable_fpoptimizer)
+    function->Optimize();
+
+  // just-in-time compile
+  if (_enable_jit)
+  {
+    // let rank 0 do the JIT compilation first
+    if (comm.rank() != 0)
+      comm.barrier();
+
+    function->JITCompile();
+
+    // wait for ranks > 0 to catch up
+    if (comm.rank() == 0)
+      comm.barrier();
+  }
 }
 
 // explicit instantiation

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -32,7 +32,7 @@ ADOneD3EqnEnergyHeatFluxFromHeatStructure3D::validParams()
 ADOneD3EqnEnergyHeatFluxFromHeatStructure3D::ADOneD3EqnEnergyHeatFluxFromHeatStructure3D(
     const InputParameters & parameters)
   : ADKernel(parameters),
-    _user_object(getUserObjectBase("user_object")),
+    _user_object(getUserObject<UserObject>("user_object")),
     _Hw(getADMaterialProperty<Real>("Hw")),
     _T(getADMaterialProperty<Real>("T")),
     _P_hf(adCoupledValue("P_hf"))

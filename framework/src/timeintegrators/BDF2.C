@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -84,4 +84,27 @@ BDF2::duDotDuCoeff() const
     return 1;
   else
     return _weight[0];
+}
+
+Real
+BDF2::timeDerivativeRHSContribution(dof_id_type dof_id, const std::vector<Real> & factors) const
+{
+  mooseAssert(factors.size() == numStatesRequired(),
+              "Either too many or too few states are given!");
+
+  if (_t_step == 1)
+    return factors[0] * _solution_old(dof_id) / _dt;
+  else
+    return -(_weight[1] * factors[0] * _solution_old(dof_id) +
+             _weight[2] * factors[1] * _solution_older(dof_id)) /
+           _dt;
+}
+
+Real
+BDF2::timeDerivativeMatrixContribution(const Real factor) const
+{
+  if (_t_step == 1)
+    return factor / _dt;
+  else
+    return factor * _weight[0] / _dt;
 }

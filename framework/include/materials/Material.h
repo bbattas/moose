@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,6 +12,7 @@
 // MOOOSE includes
 #include "MaterialBase.h"
 #include "Coupleable.h"
+#include "MooseEnum.h"
 #include "MaterialPropertyInterface.h"
 #include "FEProblemBase.h"
 
@@ -206,12 +207,7 @@ public:
   }
   virtual void subdomainSetup() override;
 
-  enum class ConstantTypeEnum
-  {
-    NONE,
-    ELEMENT,
-    SUBDOMAIN
-  };
+  CreateMooseEnumClass(ConstantTypeEnum, NONE, ELEMENT, SUBDOMAIN);
 
   bool ghostable() const override final { return _ghostable; }
 
@@ -223,6 +219,7 @@ protected:
 
   virtual const MaterialData & materialData() const override { return _material_data; }
   virtual MaterialData & materialData() override { return _material_data; }
+  virtual Moose::MaterialDataType materialDataType() override { return _material_data_type; }
 
   virtual const QBase & qRule() const override { return *_qrule; }
 

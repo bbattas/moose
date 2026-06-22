@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,7 +10,8 @@
 #pragma once
 
 #include "MooseTypes.h"
-#include "PerfGraph.h"
+
+class PerfGraph;
 
 /**
  * Scope guard for starting and stopping timing for a node
@@ -30,14 +31,14 @@ public:
    * @param graph The graph to add time into
    * @param id The unique id of the section
    */
-  PerfGuard(PerfGraph & graph, const PerfID id) : _graph(graph) { _graph.push(id); }
+  PerfGuard(PerfGraph & graph, const PerfID id);
 
   /**
    * Stop timing
    */
-  ~PerfGuard() { _graph.pop(); }
+  ~PerfGuard();
 
 protected:
-  ///The graph we're working on
+  /// The graph we're working on
   PerfGraph & _graph;
 };

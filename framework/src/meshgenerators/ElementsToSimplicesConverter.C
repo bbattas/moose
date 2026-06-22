@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -39,6 +39,12 @@ ElementsToSimplicesConverter::generate()
   // Put the input mesh in a local pointer
   std::unique_ptr<UnstructuredMesh> mesh =
       dynamic_pointer_cast<UnstructuredMesh>(std::move(_input_ptr));
+
+  // all_tri() on a ReplicatedMesh skips its internal prepare_for_use() call (it only prepares
+  // for non-replicated meshes). Without preparation, element_ptr_range() may not iterate over
+  // all elements correctly, producing incomplete results. Prepare here to ensure correctness.
+  if (!mesh->is_prepared())
+    mesh->prepare_for_use();
 
   MeshTools::Modification::all_tri(*mesh);
 

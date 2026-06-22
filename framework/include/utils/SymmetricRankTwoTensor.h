@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -42,8 +42,6 @@ class TypeTensor;
 template <typename>
 class TensorValue;
 }
-
-namespace boostcopy = libMesh::boostcopy;
 
 namespace MathUtils
 {
@@ -250,8 +248,7 @@ public:
    * Assignment-from-scalar operator.  Used only to zero out vectors.
    */
   template <typename Scalar>
-  typename boostcopy::enable_if_c<libMesh::ScalarTraits<Scalar>::value,
-                                  SymmetricRankTwoTensorTempl &>::type
+  typename std::enable_if<libMesh::ScalarTraits<Scalar>::value, SymmetricRankTwoTensorTempl &>::type
   operator=(const Scalar & libmesh_dbg_var(p))
   {
     libmesh_assert_equal_to(p, Scalar(0));
@@ -419,6 +416,12 @@ public:
   /// Print the Real part of the ADReal rank two tensor along with its first nDual dual numbers
   void printADReal(unsigned int nDual, std::ostream & stm = Moose::out) const;
 
+  friend std::ostream & operator<<(std::ostream & os, const SymmetricRankTwoTensorTempl<T> & t)
+  {
+    t.print(os);
+    return os;
+  }
+
   /// Add identity times a to _vals
   void addIa(const T & a);
 
@@ -577,6 +580,8 @@ SymmetricRankFourTensorTempl<T>
 SymmetricRankTwoTensorTempl<T>::positiveProjectionEigenDecomposition(
     std::vector<T> & eigval, RankTwoTensorTempl<T> & eigvec) const
 {
+  using std::abs;
+
   // The calculate of projection tensor follows
   // C. Miehe and M. Lambrecht, Commun. Numer. Meth. Engng 2001; 17:337~353
 
@@ -588,9 +593,9 @@ SymmetricRankTwoTensorTempl<T>::positiveProjectionEigenDecomposition(
     // Separate out positive and negative eigen values
     std::array<T, N> epos;
     std::array<T, N> d;
-    for (unsigned int i = 0; i < N; ++i)
+    for (unsigned int i = 0; i < Ndim; ++i)
     {
-      epos[i] = (std::abs(eigval[i]) + eigval[i]) / 2.0;
+      epos[i] = (abs(eigval[i]) + eigval[i]) / 2.0;
       d[i] = 0 < eigval[i] ? 1.0 : 0.0;
     }
 
@@ -642,6 +647,7 @@ template <typename T>
 T
 SymmetricRankTwoTensorTempl<T>::sin3Lode(const T & r0, const T & r0_value) const
 {
+  using std::max, std::min, std::sqrt, std::pow;
   if (MooseUtils::IsLikeReal<T>::value)
   {
     T bar = secondInvariant();
@@ -650,8 +656,7 @@ SymmetricRankTwoTensorTempl<T>::sin3Lode(const T & r0, const T & r0_value) const
       return r0_value;
     else
       // the min and max here gaurd against precision-loss when bar is tiny but nonzero.
-      return std::max(std::min(thirdInvariant() * -1.5 * std::sqrt(3.0) / std::pow(bar, 1.5), 1.0),
-                      -1.0);
+      return max(min(thirdInvariant() * -1.5 * sqrt(3.0) / pow(bar, 1.5), 1.0), -1.0);
   }
   else
     mooseError("sin3Lode is only available for ordered tensor component types");
@@ -661,15 +666,16 @@ template <typename T>
 SymmetricRankTwoTensorTempl<T>
 SymmetricRankTwoTensorTempl<T>::dsin3Lode(const T & r0) const
 {
+  using std::sqrt, std::pow;
   if (MooseUtils::IsLikeReal<T>::value)
   {
     T bar = secondInvariant();
     if (bar <= r0)
       return SymmetricRankTwoTensorTempl<T>();
     else
-      return -1.5 * std::sqrt(3.0) *
-             (dthirdInvariant() / std::pow(bar, 1.5) -
-              1.5 * dsecondInvariant() * thirdInvariant() / std::pow(bar, 2.5));
+      return -1.5 * sqrt(3.0) *
+             (dthirdInvariant() / pow(bar, 1.5) -
+              1.5 * dsecondInvariant() * thirdInvariant() / pow(bar, 2.5));
   }
   else
     mooseError("dsin3Lode is only available for ordered tensor component types");

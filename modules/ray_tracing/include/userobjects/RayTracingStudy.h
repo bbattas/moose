@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -915,6 +915,13 @@ private:
    * Check for if all of the element types in the mesh are supported by ray tracing
    */
   void traceableMeshChecks();
+
+  /**
+   * Check for overlapping PeriodicRayBC boundaries and check for cases in which
+   * ghosting may not be sufficient with distributed mesh for overlapping
+   * periodic boundaries.
+   */
+  void periodicBoundaryChecks();
 
   /**
    * Does the setup for internal sidesets. This includes:

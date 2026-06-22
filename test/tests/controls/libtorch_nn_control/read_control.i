@@ -6,7 +6,7 @@ cp = 1.0
 [Functions]
   [src_func]
     type = ParsedFunction
-    value = "sin(${pi}/${period}*t)"
+    expression = "sin(${pi}/${period}*t)"
   []
 []
 
@@ -98,6 +98,7 @@ cp = 1.0
     type = LibtorchNeuralNetControl
     parameters = "Kernels/anti_source/value"
     responses = 'T_max'
+    execute_on = 'TIMESTEP_BEGIN'
   []
 []
 

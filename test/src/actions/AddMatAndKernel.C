@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -86,7 +86,7 @@ AddMatAndKernel::act()
   {
     InputParameters params = _factory.getValidParams("GenericConstantMaterial");
     params.set<std::vector<std::string>>("prop_names") = {"prop1"};
-    params.set<std::vector<Real>>("prop_values") = {42};
+    params.set<std::vector<Real>>("prop_values") = std::vector<Real>{42};
     _problem->addMaterial("GenericConstantMaterial", "mat1", params);
   }
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -46,6 +46,9 @@ ElementDamper::ElementDamper(const InputParameters & parameters)
     _u(_var.sln()),
     _grad_u(_var.gradSln())
 {
+  mooseAssert(_var.count() == 1,
+              "ElementDamper only supports scalar variables. Variable '" + _var.name() +
+                  "' has multiple components.");
 }
 
 Real
@@ -62,4 +65,10 @@ ElementDamper::computeDamping()
   }
 
   return damping;
+}
+
+bool
+ElementDamper::variableDefinedOnElement(const Elem * elem) const
+{
+  return _var.hasBlocks(elem->subdomain_id());
 }

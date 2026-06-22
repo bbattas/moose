@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -45,8 +45,6 @@ class VectorValue;
 
 // Forward declarations
 class MooseEnum;
-
-namespace boostcopy = libMesh::boostcopy;
 
 namespace MathUtils
 {
@@ -188,6 +186,12 @@ public:
   /// Print the values of the rank four tensor
   void printReal(std::ostream & stm = Moose::out) const;
 
+  friend std::ostream & operator<<(std::ostream & os, const SymmetricRankFourTensorTempl<T> & t)
+  {
+    t.print(os);
+    return os;
+  }
+
   /// copies values from a into this tensor
   SymmetricRankFourTensorTempl<T> & operator=(const SymmetricRankFourTensorTempl<T> & a) = default;
 
@@ -197,8 +201,8 @@ public:
    * \returns A reference to *this.
    */
   template <typename Scalar>
-  typename boostcopy::enable_if_c<libMesh::ScalarTraits<Scalar>::value,
-                                  SymmetricRankFourTensorTempl &>::type
+  typename std::enable_if<libMesh::ScalarTraits<Scalar>::value,
+                          SymmetricRankFourTensorTempl &>::type
   operator=(const Scalar & libmesh_dbg_var(p))
   {
     libmesh_assert_equal_to(p, Scalar(0));

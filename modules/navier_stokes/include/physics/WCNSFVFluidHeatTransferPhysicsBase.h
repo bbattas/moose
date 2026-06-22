@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -15,11 +15,11 @@
 
 #define registerWCNSFVFluidHeatTransferPhysicsBaseTasks(app_name, derived_name)                    \
   registerMooseAction(app_name, derived_name, "get_turbulence_physics");                           \
-  registerMooseAction(app_name, derived_name, "add_variable");                                     \
-  registerMooseAction(app_name, derived_name, "add_ic");                                           \
+  registerMooseAction(app_name, derived_name, "add_variables_physics");                            \
+  registerMooseAction(app_name, derived_name, "add_ics_physics");                                  \
   registerMooseAction(app_name, derived_name, "add_fv_kernel");                                    \
   registerMooseAction(app_name, derived_name, "add_fv_bc");                                        \
-  registerMooseAction(app_name, derived_name, "add_material")
+  registerMooseAction(app_name, derived_name, "add_materials_physics")
 
 /**
  * Creates all the objects needed to solve the Navier Stokes energy equation
@@ -33,7 +33,7 @@ public:
   WCNSFVFluidHeatTransferPhysicsBase(const InputParameters & parameters);
 
   /// Get the name of the fluid temperature variable
-  const NonlinearVariableName & getFluidTemperatureName() const { return _fluid_temperature_name; }
+  const VariableName & getFluidTemperatureName() const { return _fluid_temperature_name; }
 
   /// Get the name of the specific heat material property
   const MooseFunctorName & getSpecificHeatName() const { return _specific_heat_name; }
@@ -62,36 +62,40 @@ protected:
   void addInitialConditions() override;
   void addFVKernels() override;
   void addFVBCs() override;
-  void addMaterials() override;
 
   unsigned short getNumberAlgebraicGhostingLayersNeeded() const override;
 
   /**
    * Functions adding kernels for the incompressible / weakly compressible energy equation
-   * If the material properties are not constant, some of these can be used for
-   * weakly-compressible simulations as well.
    */
-  virtual void addINSEnergyTimeKernels() = 0;
-  virtual void addWCNSEnergyTimeKernels() = 0;
-  virtual void addINSEnergyHeatConductionKernels() = 0;
-  virtual void addINSEnergyAdvectionKernels() = 0;
-  virtual void addINSEnergyAmbientConvection() = 0;
-  virtual void addINSEnergyExternalHeatSource() = 0;
+  virtual void addEnergyTimeKernels() = 0;
+  virtual void addEnergyHeatConductionKernels() = 0;
+  virtual void addEnergyAdvectionKernels() = 0;
+  virtual void addEnergyAmbientConvection() = 0;
+  virtual void addEnergyExternalHeatSource() = 0;
 
-  /// Functions adding boundary conditions for the incompressible simulation.
-  /// These are used for weakly-compressible simulations as well.
-  virtual void addINSEnergyInletBC() = 0;
-  virtual void addINSEnergyWallBC() = 0;
-  virtual void addINSEnergyOutletBC() = 0;
+  /// Functions adding boundary conditions for the fluid heat transfer equation.
+  virtual void addEnergyInletBC() = 0;
+  virtual void addEnergyWallBC() = 0;
+  virtual void addEnergyOutletBC() = 0;
+  virtual void addEnergySeparatorBC() = 0;
 
   /// Process thermal conductivity (multiple functor input options are available).
   /// Return true if we have vector thermal conductivity and false if scalar
   bool processThermalConductivity();
+  /// Define the effective diffusion coefficient when:
+  /// - solving with a turbulence model: k <- k+kt
+  /// - solving for enthalpy: k / cp
+  void defineEffectiveThermalDiffusionCoeffFunctors(const bool use_ad);
 
   /// A boolean to help compatibility with the old Modules/NavierStokesFV syntax
   const bool _has_energy_equation;
+  /// User-selected option to solve for enthalpy
+  const bool _solve_for_enthalpy;
+  /// Name of the fluid specific enthalpy
+  const VariableName _fluid_enthalpy_name;
   /// Fluid temperature name
-  NonlinearVariableName _fluid_temperature_name;
+  VariableName _fluid_temperature_name;
   /// Name of the specific heat material property
   MooseFunctorName _specific_heat_name;
   /// Vector of subdomain groups where we want to have different thermal conduction

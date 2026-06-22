@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -48,9 +48,10 @@ ADBoundaryFlux3EqnGhostDensityVelocity::ADBoundaryFlux3EqnGhostDensityVelocity(
 }
 
 std::vector<ADReal>
-ADBoundaryFlux3EqnGhostDensityVelocity::getGhostCellSolution(
-    const std::vector<ADReal> & U_interior) const
+ADBoundaryFlux3EqnGhostDensityVelocity::getGhostCellSolution(const std::vector<ADReal> & U_interior,
+                                                             const Point & /*point*/) const
 {
+  mooseAssert(U_interior.size() == THMVACE1D::N_FLUX_INPUTS, "Passive transport not implemented");
   const ADReal rhoA = U_interior[THMVACE1D::RHOA];
   const ADReal rhouA = U_interior[THMVACE1D::RHOUA];
   const ADReal rhoEA = U_interior[THMVACE1D::RHOEA];

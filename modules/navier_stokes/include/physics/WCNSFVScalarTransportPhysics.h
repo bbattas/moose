@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,12 +10,6 @@
 #pragma once
 
 #include "WCNSFVScalarTransportPhysicsBase.h"
-
-#define registerWCNSFVScalarTransportBaseTasks(app_name, derived_name)                             \
-  registerMooseAction(app_name, derived_name, "add_variable");                                     \
-  registerMooseAction(app_name, derived_name, "add_ic");                                           \
-  registerMooseAction(app_name, derived_name, "add_fv_kernel");                                    \
-  registerMooseAction(app_name, derived_name, "add_fv_bc")
 
 /**
  * Creates all the objects needed to solve the Navier Stokes scalar transport equations
@@ -46,6 +40,6 @@ private:
   /// Functions adding boundary conditions for the incompressible simulation.
   /// These are used for weakly-compressible simulations as well.
   virtual void addScalarInletBC() override;
-  virtual void addScalarWallBC() override{};
+  virtual void addScalarWallBC() override {}
   virtual void addScalarOutletBC() override;
 };

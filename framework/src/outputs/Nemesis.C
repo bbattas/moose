@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -220,9 +220,9 @@ Nemesis::output()
 std::string
 Nemesis::filename()
 {
-  // Append the .e extension on the base file name
+  // Append the .n extension on the base file name
   std::ostringstream output;
-  output << _file_base << ".e";
+  output << _file_base << ".n";
 
   // Add the _000x extension to the file
   if (_file_num > 1)

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -20,7 +20,7 @@ namespace Moose
 /**
  * Create a MooseApp from command-line arguments.
  */
-std::shared_ptr<MooseApp>
+std::unique_ptr<MooseApp>
 createMooseApp(const std::string & default_app_type, int argc, char * argv[]);
 
 /**

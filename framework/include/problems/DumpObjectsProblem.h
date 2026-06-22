@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -19,6 +19,15 @@ class DumpObjectsNonlinearSystem;
   {                                                                                                \
     dumpObjectHelper(path, type, name, parameters);                                                \
     FEProblemBase::method_name(type, name, parameters);                                            \
+  }
+
+#define captureDumpUO(method_name, path)                                                           \
+  std::vector<std::shared_ptr<UserObject>> method_name(                                            \
+      const std::string & type, const std::string & name, InputParameters & parameters) override   \
+  {                                                                                                \
+    dumpObjectHelper(path, type, name, parameters);                                                \
+    FEProblemBase::method_name(type, name, parameters);                                            \
+    return std::vector<std::shared_ptr<UserObject>>();                                             \
   }
 
 /**
@@ -49,7 +58,7 @@ public:
   // output data (we expect to call this from the DumpObjectsAction)
   void printObjects();
 
-  virtual void initialSetup() override {}
+  virtual void initialSetup() override;
   virtual void advanceState() override {}
   virtual void timestepSetup() override {}
   virtual void execute(const ExecFlagType & /*exec_type*/) override {}
@@ -89,40 +98,50 @@ protected:
 
 public:
   // clang-format off
-  captureDump(addAuxKernel,           "AuxKernels")
-  captureDump(addAuxScalarKernel,     "AuxScalarKernels")
-  captureDump(addAuxVariable,         "AuxVariables")
-  captureDump(addBoundaryCondition,   "BCs")
-  captureDump(addConstraint,          "Constraints")
-  captureDump(addDamper,              "Dampers")
-  captureDump(addDGKernel,            "DGKernels")
-  captureDump(addDiracKernel,         "DiracKernels")
-  captureDump(addDistribution,        "Distributions")
-  captureDump(addFunction,            "Functions")
-  captureDump(addFunctorMaterial,     "FunctorMaterials")
-  captureDump(addFVBC,                "FVBCs")
-  captureDump(addFVInitialCondition,  "FVICs")
-  captureDump(addFVInterfaceKernel,   "FVInterfaceKernels")
-  captureDump(addFVKernel,            "FVKernels")
-  captureDump(addHDGIntegratedBC,     "HDGBCs")
-  captureDump(addHDGKernel,           "HDGKernels")
-  captureDump(addIndicator,           "Adaptivity/Indicators")
-  captureDump(addInitialCondition,    "ICs")
-  captureDump(addInterfaceKernel,     "InterfaceKernels")
-  captureDump(addKernel,              "Kernels")
-  captureDump(addLinearFVBC,      "LinearFVBCs")
-  captureDump(addLinearFVKernel,      "LinearFVKernels")
-  captureDump(addMarker,              "Adaptivity/Markers")
-  captureDump(addMaterial,            "Materials")
-  captureDump(addMultiApp,            "MultiApps")
-  captureDump(addNodalKernel,         "NodalKernels")
-  captureDump(addPostprocessor,       "Postprocessors")
-  captureDump(addPredictor,           "Executioner/Predictor")
-  captureDump(addSampler,             "Samplers")
-  captureDump(addScalarKernel,        "ScalarKernels")
-  captureDump(addTransfer,            "Transfers")
-  captureDump(addTimeIntegrator,      "TimeIntegrators")
-  captureDump(addVariable,            "Variables")
-  captureDump(addVectorPostprocessor, "VectorPostprocessors")
+  captureDump(addAuxKernel,               "AuxKernels")
+  captureDump(addAuxScalarKernel,         "AuxScalarKernels")
+  captureDump(addAuxVariable,             "AuxVariables")
+  captureDump(addBoundaryCondition,       "BCs")
+  captureDump(addConstraint,              "Constraints")
+  captureDump(addConvergence,             "Convergence")
+  captureDump(addDamper,                  "Dampers")
+  captureDump(addDGKernel,                "DGKernels")
+  captureDump(addDiracKernel,             "DiracKernels")
+  captureDump(addDistribution,            "Distributions")
+  captureDump(addFunction,                "Functions")
+  captureDump(addFunctorMaterial,         "FunctorMaterials")
+  captureDump(addFVBC,                    "FVBCs")
+  captureDump(addFVInitialCondition,      "FVICs")
+  captureDump(addFVInterfaceKernel,       "FVInterfaceKernels")
+  captureDump(addFVKernel,                "FVKernels")
+  captureDump(addHDGKernel,               "HDGKernels")
+  captureDump(addIndicator,               "Adaptivity/Indicators")
+  captureDump(addInitialCondition,        "ICs")
+  captureDump(addInterfaceKernel,         "InterfaceKernels")
+  captureDump(addKernel,                  "Kernels")
+#ifdef MOOSE_KOKKOS_ENABLED
+  captureDump(addKokkosAuxKernel,         "AuxKernels")
+  captureDump(addKokkosBoundaryCondition, "BCs")
+  captureDump(addKokkosFunction,          "Functions")
+  captureDump(addKokkosKernel,            "Kernels")
+  captureDump(addKokkosMaterial,          "Materials")
+  captureDump(addKokkosNodalKernel,       "NodalKernels")
+#endif
+  captureDump(addLinearFVBC,              "LinearFVBCs")
+  captureDump(addLinearFVKernel,          "LinearFVKernels")
+  captureDump(addMarker,                  "Adaptivity/Markers")
+  captureDump(addMaterial,                "Materials")
+  captureDump(addMeshDivision,            "MeshDivisions")
+  captureDump(addMultiApp,                "MultiApps")
+  captureDump(addNodalKernel,             "NodalKernels")
+  captureDump(addPostprocessor,           "Postprocessors")
+  captureDump(addPredictor,               "Executioner/Predictor")
+  captureDump(addSampler,                 "Samplers")
+  captureDump(addScalarKernel,            "ScalarKernels")
+  captureDump(addTransfer,                "Transfers")
+  captureDump(addTimeIntegrator,          "Executioner/TimeIntegrators")
+  captureDumpUO(addUserObject,            "UserObjects")
+  captureDump(addVariable,                "Variables")
+  captureDump(addVectorPostprocessor,     "VectorPostprocessors")
   // clang-format off
 };

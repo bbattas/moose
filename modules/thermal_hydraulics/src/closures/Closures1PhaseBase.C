@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -24,7 +24,6 @@ void
 Closures1PhaseBase::addWallFrictionFunctionMaterial(const FlowChannel1Phase & flow_channel) const
 {
   const FunctionName & f_D_fn_name = flow_channel.getParam<FunctionName>("f");
-  flow_channel.makeFunctionControllableIfConstant(f_D_fn_name, "f");
 
   const std::string class_name = "ADWallFrictionFunctionMaterial";
   InputParameters params = _factory.getValidParams(class_name);

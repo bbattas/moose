@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -31,6 +31,13 @@ public:
   static InputParameters validParams();
 
   FunctorInterface(const MooseObject * moose_object);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  FunctorInterface(const FunctorInterface & object, const Moose::Kokkos::FunctorCopy & key);
+#endif
 
   /**
    * Helper to look up a functor name through the input parameter keys
@@ -127,6 +134,16 @@ protected:
   template <typename T>
   void checkFunctorSupportsSideIntegration(const std::string & name, bool qp_integration);
 
+  /**
+   * Retrieves a functor from the subproblem. This method also leverages the ability to create
+   * default functors if the user passed an integer or real in the input file
+   * @param name The name of the functor to retrieve. This should match the actual name of the
+   * functor created in the input file
+   * @return The functor
+   */
+  template <typename T>
+  const Moose::Functor<T> & getFunctorByName(const std::string & name);
+
 private:
   /**
    * Retrieves a functor from the passed-in subproblem. This method also leverages the ability to
@@ -201,6 +218,14 @@ FunctorInterface::getFunctor(const std::string & name)
 {
   mooseAssert(_fi_subproblem, "This must be non-null");
   return getFunctor<T>(name, *_fi_subproblem, _fi_tid);
+}
+
+template <typename T>
+const Moose::Functor<T> &
+FunctorInterface::getFunctorByName(const std::string & name)
+{
+  mooseAssert(_fi_subproblem, "This must be non-null");
+  return getFunctorByName<T>(name, *_fi_subproblem, _fi_tid);
 }
 
 template <typename T>

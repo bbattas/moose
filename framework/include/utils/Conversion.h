@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -17,6 +17,8 @@
 #include "libmesh/enum_quadrature_type.h"
 #include "libmesh/enum_fe_family.h"
 #include "libmesh/enum_elem_type.h"
+
+#include <variant>
 
 // Forward declarations
 class MultiMooseEnum;
@@ -105,6 +107,23 @@ stringify(unsigned long long v)
   return std::to_string(v);
 }
 
+namespace internal
+{
+template <typename T, typename V>
+inline std::string
+stringify_variant(const V & value)
+{
+  return std::holds_alternative<T>(value) ? stringify(std::get<T>(value)) : "";
+}
+}
+
+template <typename... T>
+inline std::string
+stringify(std::variant<T...> v)
+{
+  return (internal::stringify_variant<T>(v) + ...);
+}
+
 /// Convert solve type into human readable string
 std::string stringify(const SolveType & t);
 
@@ -135,6 +154,27 @@ std::string
 stringify(const std::pair<T, U> & p, const std::string & delim = ":")
 {
   return stringify(p.first) + delim + stringify(p.second);
+}
+
+/// Add tuple stringify
+template <typename... Args>
+std::string
+stringify(const std::tuple<Args...> & t, const std::string & delim = ":")
+{
+  if constexpr (sizeof...(Args) == 0)
+  {
+    return "";
+  }
+
+  return std::apply(
+      [&delim](const auto &... args)
+      {
+        std::size_t n{0};
+        std::string result;
+        ((result += (n++ == 0 ? "" : delim) + stringify(args)), ...);
+        return result;
+      },
+      t);
 }
 
 /**

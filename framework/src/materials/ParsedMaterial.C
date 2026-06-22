@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -24,8 +24,9 @@ ParsedMaterialTempl<is_ad>::validParams()
 
 template <bool is_ad>
 ParsedMaterialTempl<is_ad>::ParsedMaterialTempl(const InputParameters & parameters)
-  : ParsedMaterialHelper<is_ad>(parameters, VariableNameMappingMode::USE_MOOSE_NAMES),
-    ParsedMaterialBase(parameters, this)
+  : ParsedMaterialBase(parameters),
+    ParsedMaterialHelper<is_ad>(
+        parameters, VariableNameMappingMode::USE_MOOSE_NAMES, _function_param)
 {
 
   // get all reserved names

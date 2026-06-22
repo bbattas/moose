@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -38,7 +38,7 @@ TimePeriod::TimePeriod(const InputParameters & parameters) : TimePeriodBase(para
   if (isParamValid("start_time"))
     _start_time = getParam<std::vector<Real>>("start_time");
   else
-    _start_time = {_app.getExecutioner()->getParam<Real>("start_time")};
+    _start_time = std::vector<Real>(1, _app.getExecutioner()->getParam<Real>("start_time"));
 
   // Set end time
   if (isParamValid("end_time"))

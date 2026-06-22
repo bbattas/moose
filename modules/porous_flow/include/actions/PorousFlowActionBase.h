@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -254,8 +254,9 @@ protected:
    * @param m van Genuchten exponent
    * @param alpha van Genuchten alpha
    * @param userobject_name name of the user object
+   * @param sat_lr liquid residual saturation
    */
-  void addCapillaryPressureVG(Real m, Real alpha, std::string userobject_name);
+  void addCapillaryPressureVG(Real m, Real alpha, std::string userobject_name, Real sat_lr = 0.0);
 
   void addAdvectiveFluxCalculatorSaturated(unsigned phase,
                                            bool multiply_by_density,

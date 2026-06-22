@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -57,8 +57,11 @@ ADExponentialSoftening::computeCrackingRelease(ADReal & stress,
                                                const ADReal & crack_initiation_strain,
                                                const ADReal & crack_max_strain,
                                                const ADReal & cracking_stress,
-                                               const ADReal & youngs_modulus)
+                                               const ADReal & youngs_modulus,
+                                               const ADReal & /*poissons_ratio*/)
 {
+  using std::exp;
+
   mooseAssert(crack_max_strain >= crack_initiation_strain,
               "crack_max_strain must be >= crack_initiation_strain");
 
@@ -69,10 +72,10 @@ ADExponentialSoftening::computeCrackingRelease(ADReal & stress,
     alpha = -youngs_modulus;
 
   // Compute stress that follows exponental curve
-  stress = cracking_stress *
-           (_residual_stress +
-            (1.0 - _residual_stress) * std::exp(alpha * _beta / cracking_stress *
-                                                (crack_max_strain - crack_initiation_strain)));
+  stress =
+      cracking_stress * (_residual_stress + (1.0 - _residual_stress) *
+                                                exp(alpha * _beta / cracking_stress *
+                                                    (crack_max_strain - crack_initiation_strain)));
   // Compute ratio of current stiffness to original stiffness
   stiffness_ratio = stress * crack_initiation_strain / (crack_max_strain * cracking_stress);
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -181,8 +181,6 @@ ExtraNodesetGenerator::generate()
   for (unsigned int i = 0; i < boundary_ids.size(); ++i)
     boundary_info.nodeset_name(boundary_ids[i]) = boundary_names[i];
 
-  // This is a terrible hack that we'll want to remove once BMBBG isn't terrible
-  if (!_app.getMeshGeneratorSystem().hasBreakMeshByBlockGenerator())
-    mesh->set_isnt_prepared();
+  mesh->unset_is_prepared();
   return dynamic_pointer_cast<MeshBase>(mesh);
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -140,7 +140,8 @@ ComputeNodalAuxVarsThread<AuxKernelType>::printGeneralExecutionInformation() con
 
   const auto & console = _fe_problem.console();
   const auto & execute_on = _fe_problem.getCurrentExecuteOnFlag();
-  console << "[DBG] Beginning nodal loop of nodal auxiliary kernels on " << execute_on << std::endl;
+  console << "[DBG] Beginning nodal loop of nodal " << MooseUtils::prettyCppType<AuxKernelType>()
+          << " on " << execute_on << std::endl;
   console << "[DBG] Ordering of the kernels on each block they are defined on:" << std::endl;
   // TODO Check that all objects are active at this point
   console << _storage.activeObjectsToFormattedString() << std::endl;

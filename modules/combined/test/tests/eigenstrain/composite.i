@@ -122,7 +122,7 @@
     type = CompositeEigenstrain
     tensors = 'eigen1  eigen2'
     weights = 'weight1 weight2'
-    args = c
+    coupled_variables = c
     eigenstrain_name = eigenstrain
   [../]
 []
@@ -148,6 +148,8 @@
 []
 
 [Outputs]
-  exodus = true
-  execute_on = final
+  [out]
+    type = Exodus
+    execute_on = final
+  []
 []

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -36,6 +36,11 @@ MeshOnlyAction::MeshOnlyAction(const InputParameters & params) : Action(params) 
 void
 MeshOnlyAction::act()
 {
+  // Run error checking on input file first before trying to generate a mesh
+  bool warn = _app.unusedFlagIsWarning();
+  bool err = _app.unusedFlagIsError();
+  _app.builder().errorCheck(comm(), warn, err);
+
   std::string mesh_file = _app.parameters().get<std::string>("mesh_only");
   auto & mesh_ptr = _app.actionWarehouse().mesh();
 
@@ -63,6 +68,30 @@ MeshOnlyAction::act()
     auto & output_mesh = mesh_ptr->getMesh();
     ExodusII_IO exio(output_mesh);
 
+    // Default to the maximum name length allowed by libMesh ExodusII
+    exio.set_max_name_length(80);
+
+    // Extract the Output action to look for a non-default name
+    // length, e.g. truncation to 32 to match gold files
+    const auto & output_actions = _app.actionWarehouse().getActionListByName("add_output");
+    for (const auto & act : output_actions)
+    {
+      AddOutputAction * action = dynamic_cast<AddOutputAction *>(act);
+      if (!action)
+        continue;
+
+      InputParameters & params = action->getObjectParams();
+      if (params.isParamSetByUser("max_output_name_length"))
+      {
+        const int max_output_name_length =
+            action->getObjectParams().get<unsigned int>("max_output_name_length");
+
+        exio.set_max_name_length(max_output_name_length);
+
+        break;
+      }
+    }
+
     Exodus::setOutputDimensionInExodusWriter(exio, *mesh_ptr);
 
     // Default to non-HDF5 output for wider compatibility
@@ -75,7 +104,7 @@ MeshOnlyAction::act()
 
     // Iterate through all actions and see if `Outputs/output_extra_element_ids = true` in input
     // file
-    const auto & output_actions = _app.actionWarehouse().getActionListByName("add_output");
+
     // Truth of whether to output extra element ids is initially determined by whether
     // there are extra element ids defined on the mesh
     bool output_extra_ids = (n_eeid > 0);

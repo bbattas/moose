@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -59,6 +59,11 @@ protected:
    * @param[in] c   Connection index
    */
   virtual void computeFluxesAndResiduals(const unsigned int & c) = 0;
+
+  /**
+   * Gets the flow channel variables
+   */
+  virtual std::vector<const MooseVariableBase *> getFlowChannelVariables() const;
 
   /**
    * Gets the junction variables

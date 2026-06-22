@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -16,7 +16,7 @@ template <bool is_ad>
 class GenericKernel : public Kernel
 {
 public:
-  static InputParameters validParams() { return Kernel::validParams(); };
+  static InputParameters validParams() { return Kernel::validParams(); }
   GenericKernel(const InputParameters & parameters) : Kernel(parameters) {}
 };
 
@@ -24,7 +24,7 @@ template <>
 class GenericKernel<true> : public ADKernel
 {
 public:
-  static InputParameters validParams() { return ADKernel::validParams(); };
+  static InputParameters validParams() { return ADKernel::validParams(); }
   GenericKernel(const InputParameters & parameters) : ADKernel(parameters) {}
 };
 
@@ -41,6 +41,7 @@ public:
   using GenericKernel<is_ad>::_u;                                                                  \
   using GenericKernel<is_ad>::_phi;                                                                \
   using GenericKernel<is_ad>::_test;                                                               \
+  using GenericKernel<is_ad>::_grad_test;                                                          \
   using GenericKernel<is_ad>::_q_point;                                                            \
   using GenericKernel<is_ad>::_var;                                                                \
   using GenericKernel<is_ad>::getVar;                                                              \

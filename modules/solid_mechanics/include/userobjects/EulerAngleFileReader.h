@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -24,16 +24,12 @@ public:
 
   EulerAngleFileReader(const InputParameters & parameters);
 
-  virtual const EulerAngles & getEulerAngles(unsigned int) const;
-  virtual unsigned int getGrainNum() const;
-
-  virtual void initialize() {}
-  virtual void execute() {}
-  virtual void finalize() {}
+  virtual void initialize() {};
+  virtual void execute() {};
+  virtual void finalize() {};
 
 protected:
   void readFile();
 
   FileName _file_name;
-  std::vector<EulerAngles> _angles;
 };

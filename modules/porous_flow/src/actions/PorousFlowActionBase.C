@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -647,7 +647,10 @@ PorousFlowActionBase::addRelativePermeabilityFLAC(
 }
 
 void
-PorousFlowActionBase::addCapillaryPressureVG(Real m, Real alpha, std::string userobject_name)
+PorousFlowActionBase::addCapillaryPressureVG(Real m,
+                                             Real alpha,
+                                             std::string userobject_name,
+                                             Real sat_lr)
 {
   if (_current_task == "add_user_object")
   {
@@ -657,6 +660,7 @@ PorousFlowActionBase::addCapillaryPressureVG(Real m, Real alpha, std::string use
       params.set<std::vector<SubdomainName>>("block") = _subdomain_names;
     params.set<Real>("m") = m;
     params.set<Real>("alpha") = alpha;
+    params.set<Real>("sat_lr") = sat_lr;
     _problem->addUserObject(userobject_type, userobject_name, params);
   }
 }

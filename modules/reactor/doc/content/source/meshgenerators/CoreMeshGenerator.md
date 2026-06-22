@@ -46,10 +46,13 @@ By default, `CoreMeshGenerator` will stitch assemblies created by [`AssemblyMesh
 `CoreMeshGenerator` will throw a warning if it detects that assembly stitching may lead to hanging nodes. If this happens, the user can regenerate the core mesh by setting [ReactorMeshParams](ReactorMeshParams.md)/[!param](/Mesh/ReactorMeshParams/flexible_assembly_stitching) to `true` to enable flexible assembly stitching. This flexible assembly stitching algorithm deletes the outermost mesh interval and replaces it with a triangulated region using [`FlexiblePatternGenerator`](FlexiblePatternGenerator.md). For a homogeneous assembly, the entire assembly region is triangulated. By doing so, the number of nodes at the outer boundary of each input assembly will be identical and positioned at the same locations, thus enabling stitching of dissimilar assemblies. In order to control the number of sectors at the outer assembly boundary after the triangulation step, the user can set this parameter using [ReactorMeshParams](ReactorMeshParams.md)/[!param](/Mesh/ReactorMeshParams/num_sectors_at_flexible_boundary). If the core lattice consists of any structures created with [ControlDrumMeshGenerator](ControlDrumMeshGenerator.md), then [ReactorMeshParams](ReactorMeshParams.md)/[!param](/Mesh/ReactorMeshParams/flexible_assembly_stitching) must be set to `true`. The following three images describe how flexible assembly patterning can be used to address the issue of hanging nodes for the three cases listed above:
 
 !media reactor/meshgenerators/rgmb_flexible_stitching_case1.png style=width:70%;
+      alt=Assemblies with different numbers of pins, stitched together.
 
 !media reactor/meshgenerators/rgmb_flexible_stitching_case2.png style=width:70%;
+       alt=Assemblies with the same number of pins but different number of sectors per side, stitched together.
 
 !media reactor/meshgenerators/rgmb_flexible_stitching_case3.png style=width:70%;
+       alt=A heterogeneous and homogeneous assembly, stitched together.
 
 ## Metadata Information
 
@@ -76,10 +79,14 @@ For applications where an output mesh does not need to be created and meshing ro
 This is the resulting mesh block layout, where by default a single block is assigned to all of the quadrilateral elements in the mesh:
 
 !media reactor/meshgenerators/core_mesh_generator.png style=width:40%;
+       alt=Mesh layout generated above, with all of the quad elements making up a single block.
 
 This is the resulting "region_id" extra element integer layout, which was chosen by setting the region IDs for each of the constituent pins and assemblies:
 
-!media reactor/meshgenerators/core_mesh_generator_rid.png style=width:40%;
+!media reactor/meshgenerators/core_mesh_generator_rid.png
+       style=width:40%;
+       alt=The region IDs for the above mesh, with the region ID set for each constituent pin and assembly.
+ 
 
 ## Periphery Mesh Generation
 
@@ -91,7 +98,19 @@ The `CoreMeshGenerator` includes support for meshing a circular reactor peripher
 
 This is the resulting mesh block layout:
 
-!media reactor/meshgenerators/core_mesh_generator_ptmg.png style=width:40%;
+!media reactor/meshgenerators/core_mesh_generator_ptmg.png
+       style=width:40%;
+       alt=Reactor core mesh with hexagonal assemblies and a circular periphery.
+
+## Constructive Solid Geometry (CSG)
+
+`CoreMeshGenerator` can generate a [constructive solid geometry (CSG)](syntax/CSG/index.md), meaning that `--csg-only` can be called on a mesh input file that contains CoreMeshGenerator to represent the assembly structure as a CSG object.
+
+All incoming assembly structures are added to the core CSG structure as their own universes with name `[ASSEMBLY_MG_NAME]_univ`, where `[ASSEMBLY_MG_NAME]` denotes the name of the input assembly mesh generator. Each of these assembly universes are assembled into a [CSGLattice.md] structure. Additionally, dummy assembly positions are filled with an empty universe named "empty_univ", represented by a single universe filled with a void cell that has an empty region.
+
+When a core peripheral ring is present, the core lattice outer region is filled by a material named `"rgmb_region_[REGION_ID]"`, where `[REGION_ID]` refers to the region ID of the peripheral ring region. The lattice is then used as a fill for a cell whose region is bounded by the peripheral ring radius and if extruded, the top and bottom axial planes of the core.
+
+When a core peripheral ring is not present, the core lattice outer region is an empty universe that is the same universe used to represent dummy assembly positions. This lattice is then used as a fill for a cell whose region is constrained by a cylinder that contains the entire core lattice. For hexagonal lattices, the radius of this ring is equivalent to `([LATTICE_SIZE] + 2) / 2 * [ASSEMBLY_PITCH]`, where `[ASSEMBLY_PITCH]` is the pitch of the assembly and `[LATTICE_SIZE]` is the number of assembly widths that spans the lattice. For example, a 1 ring hexagonal assembly lattice has 3 assembly widths, a 2 ring hexagonal assembly lattice has 5 assembly widths, a 3 ring  hexagonal assembly lattice has 7 assembly widths, and so on. For Cartesian lattices, the ring radius will be set to `([LATTICE_SIZE] / 2 * SQRT(2) * [ASSEMBLY_PITCH]`, where `LATTICE_SIZE` is the number of assembly widths of the lattice. For example, a 4x4 square lattice has 4 assembly widths. This additional cell defined by a cylindrical region is created to represent the outer boundary of the CSG domain in a simpler manner, instead of as a jagged or non-uniform boundary that would result for a hexagonal lattice or a lattice with dummy assembly positions.
 
 !syntax parameters /Mesh/CoreMeshGenerator
 

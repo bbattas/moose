@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -14,6 +14,7 @@
 #include "FaceCenteredMapFunctor.h"
 #include "VectorComponentFunctor.h"
 #include "LinearFVAnisotropicDiffusion.h"
+#include "LinearFVElementalKernel.h"
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
@@ -89,7 +90,7 @@ protected:
   selectPressureGradient(const bool updated_pressure);
 
   /// Compute the cell volumes on the mesh
-  void setupCellVolumes();
+  void setupMeshInformation();
 
   /// Populate the face values of the H/A and 1/A fields
   void
@@ -101,6 +102,8 @@ protected:
    */
   template <typename VarType>
   void checkBlocks(const VarType & var) const;
+
+  virtual bool supportMeshVelocity() const override { return false; }
 
   /// The \p MooseMesh that this user object operates on
   const MooseMesh & _moose_mesh;
@@ -146,10 +149,17 @@ protected:
    */
   std::vector<std::unique_ptr<NumericVector<Number>>> _Ainv_raw;
 
+  std::unique_ptr<NumericVector<Number>> _A_avg;
+
   /**
    * A map functor from faces to mass fluxes which are used in the advection terms.
    */
   FaceCenteredMapFunctor<Real, std::unordered_map<dof_id_type, Real>> & _face_mass_flux;
+
+  /// Pointer to the body force terms
+  std::vector<std::vector<LinearFVElementalKernel *>> _body_force_kernels;
+  /// Vector of body force term names
+  std::vector<std::vector<std::string>> _body_force_kernel_names;
 
   /**
    * for a PISO iteration we need to hold on to the original pressure gradient field.
@@ -182,6 +192,14 @@ protected:
 
   /// We will hold a vector of cell volumes to make sure we can do volume corrections rapidly
   std::unique_ptr<NumericVector<Number>> _cell_volumes;
+
+  /// Enumerator for the method used for pressure projection
+  const MooseEnum _pressure_projection_method;
+
+private:
+  /// The subset of the FaceInfo objects that actually cover the subdomains which the
+  /// flow field is defined on. Cached for performance optimization.
+  std::vector<const FaceInfo *> _flow_face_info;
 };
 
 template <typename VarType>

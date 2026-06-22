@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -37,6 +37,7 @@ TEST_F(HeliumFluidPropertiesTest, thermalConductivity)
   REL_TEST(_fp->k_from_v_e(v, e), 1.8651584722911332e-01, REL_TOL_SAVED_VALUE);
   REL_TEST(_fp->k_from_p_T(p, T), 1.8651584722911332e-01, REL_TOL_SAVED_VALUE);
   DERIV_TEST(_fp->k_from_p_T, p, T, REL_TOL_DERIVATIVE);
+  DERIV_TEST(_fp->k_from_v_e, v, e, REL_TOL_DERIVATIVE);
 }
 
 /**
@@ -52,6 +53,7 @@ TEST_F(HeliumFluidPropertiesTest, viscosity)
   REL_TEST(_fp->mu_from_v_e(v, e), 2.4061901685126415e-05, REL_TOL_SAVED_VALUE);
   REL_TEST(_fp->mu_from_p_T(p, T), 2.4061901685126415e-05, REL_TOL_SAVED_VALUE);
   DERIV_TEST(_fp->mu_from_p_T, p, T, REL_TOL_DERIVATIVE);
+  DERIV_TEST(_fp->mu_from_v_e, v, e, REL_TOL_DERIVATIVE);
 }
 
 /**
@@ -110,6 +112,12 @@ TEST_F(HeliumFluidPropertiesTest, specificInternalEnergy)
   ABS_TEST(_fp->e_from_p_T(p, T), 1.2254485499999998e6, REL_TOL_SAVED_VALUE);
   DERIV_TEST(_fp->e_from_p_T, p, T, REL_TOL_DERIVATIVE);
   ABS_TEST(_fp->e_from_p_rho(p, rho), 1.2254485499999998e6, REL_TOL_SAVED_VALUE);
+
+  // Equivalent (v,h), (p,T)
+  const Real v = 1. / rho;
+  const Real h = _fp->h_from_p_T(p, T);
+  ABS_TEST(_fp->e_from_v_h(v, h), 1.2254485499999998e6, REL_TOL_SAVED_VALUE);
+  DERIV_TEST(_fp->e_from_v_h, v, h, REL_TOL_DERIVATIVE);
 }
 
 /**
@@ -153,4 +161,16 @@ TEST_F(HeliumFluidPropertiesTest, specificEnthalpy)
 
   ABS_TEST(_fp->h_from_p_T(p, T), 2.0424142499999998e+06, REL_TOL_SAVED_VALUE);
   DERIV_TEST(_fp->h_from_p_T, p, T, REL_TOL_DERIVATIVE);
+
+  // Derivatives
+  const ADReal T_ad = T;
+  const ADReal p_ad = p;
+  Real h, dhdT, dhdp;
+  ADReal h_ad, dhdT_ad, dhdp_ad;
+  _fp->h_from_p_T(p, T, h, dhdT, dhdp);
+  _fp->h_from_p_T(p_ad, T_ad, h_ad, dhdT_ad, dhdp_ad);
+  DERIV_TEST(_fp->h_from_p_T, p, T, REL_TOL_DERIVATIVE);
+  REL_TEST(h, h_ad.value(), REL_TOL_CONSISTENCY);
+  REL_TEST(dhdT, dhdT_ad.value(), REL_TOL_CONSISTENCY);
+  REL_TEST(dhdp, dhdp_ad.value(), REL_TOL_CONSISTENCY);
 }

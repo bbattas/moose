@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -14,6 +14,7 @@
 #include "MooseVariableScalar.h"
 #include "SubProblem.h"
 #include "NonlinearSystem.h"
+#include "FEProblemBase.h"
 
 #include "libmesh/threads.h"
 #include "libmesh/quadrature.h"
@@ -114,7 +115,6 @@ ArrayKernel::computeResidual()
 
   if (_has_save_in)
   {
-    libMesh::Threads::spin_mutex::scoped_lock lock(libMesh::Threads::spin_mtx);
     for (const auto & var : _save_in)
     {
       auto * avar = dynamic_cast<ArrayMooseVariable *>(var);
@@ -149,7 +149,6 @@ ArrayKernel::computeJacobian()
   if (_has_diag_save_in)
   {
     DenseVector<Number> diag = _assembly.getJacobianDiagonal(_local_ke);
-    libMesh::Threads::spin_mutex::scoped_lock lock(libMesh::Threads::spin_mtx);
     for (const auto & var : _diag_save_in)
     {
       auto * avar = dynamic_cast<ArrayMooseVariable *>(var);
@@ -176,20 +175,16 @@ ArrayKernel::computeOffDiagJacobian(const unsigned int jvar_num)
 
   prepareMatrixTag(_assembly, _var.number(), jvar_num);
 
-  // This (undisplaced) jvar could potentially yield the wrong phi size if this object is acting on
-  // the displaced mesh
-  auto phi_size = jvar.dofIndices().size();
-
   precalculateOffDiagJacobian(jvar_num);
   for (_qp = 0; _qp < _qrule->n_points(); _qp++)
   {
     initQpOffDiagJacobian(jvar);
     for (_i = 0; _i < _test.size(); _i++)
-      for (_j = 0; _j < phi_size; _j++)
+      for (_j = 0; _j < _phi.size(); _j++)
       {
         _work_matrix = computeQpOffDiagJacobian(jvar) * _JxW[_qp] * _coord[_qp];
         _assembly.saveFullLocalArrayJacobian(
-            _local_ke, _i, _test.size(), _j, phi_size, _var.number(), jvar_num, _work_matrix);
+            _local_ke, _i, _test.size(), _j, _phi.size(), _var.number(), jvar_num, _work_matrix);
       }
   }
 
@@ -198,7 +193,6 @@ ArrayKernel::computeOffDiagJacobian(const unsigned int jvar_num)
   if (_has_diag_save_in && same_var)
   {
     DenseVector<Number> diag = _assembly.getJacobianDiagonal(_local_ke);
-    libMesh::Threads::spin_mutex::scoped_lock lock(libMesh::Threads::spin_mtx);
     for (const auto & var : _diag_save_in)
     {
       auto * avar = dynamic_cast<ArrayMooseVariable *>(var);

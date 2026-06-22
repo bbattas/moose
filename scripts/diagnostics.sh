@@ -1,6 +1,6 @@
 #!/bin/bash
 #* This file is part of the MOOSE framework
-#* https://www.mooseframework.org
+#* https://mooseframework.inl.gov
 #*
 #* All rights reserved, see COPYRIGHT for full restrictions
 #* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -313,7 +313,7 @@ source "${SCRIPT_DIR}"/functions/diagnostic_tests.sh
 
 # Get individual packages for now, until moose-mpi becomes available
 export MOOSE_PACKAGES
-MOOSE_PACKAGES="moose-mpi moose-libmesh-vtk moose-tools $(get_value 'default_mpi') \
+MOOSE_PACKAGES="moose-build moose-libmesh-vtk moose-tools $(get_value 'default_mpi') \
  zlib python packaging pyaml jinja2"
 
 install_conda

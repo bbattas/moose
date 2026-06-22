@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -18,8 +18,6 @@ HSBoundarySpecifiedTemperature::validParams()
   InputParameters params = HSBoundary::validParams();
 
   params.addRequiredParam<FunctionName>("T", "Prescribed temperature [K]");
-
-  params.declareControllable("T");
 
   params.addClassDescription("Applies Dirichlet boundary conditions on a heat structure");
 
@@ -43,6 +41,5 @@ HSBoundarySpecifiedTemperature::addMooseObjects()
     pars.set<std::vector<BoundaryName>>("boundary") = _boundary;
     pars.set<FunctionName>("function") = _T_func;
     getTHMProblem().addBoundaryCondition(class_name, genName(name(), "bc"), pars);
-    makeFunctionControllableIfConstant(_T_func, "T");
   }
 }

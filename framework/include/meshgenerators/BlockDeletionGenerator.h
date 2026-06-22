@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,6 +26,9 @@ protected:
   virtual bool shouldDelete(const Elem * elem) override;
 
 private:
+  /// Whether to remove or keep the specified blocks
+  MooseEnum _operation;
+
   /// Ids of the blocks to be removed
   std::vector<SubdomainID> _block_ids;
 };

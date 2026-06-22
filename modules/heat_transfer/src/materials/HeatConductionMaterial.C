@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -22,6 +22,7 @@ HeatConductionMaterialTempl<is_ad>::validParams()
   InputParameters params = Material::validParams();
 
   params.addCoupledVar("temp", "Coupled Temperature");
+  params.deprecateCoupledVar("temp", "temperature", "01/12/2027");
 
   params.addParam<Real>("thermal_conductivity", "The thermal conductivity value");
   params.addParam<FunctionName>("thermal_conductivity_temperature_function",

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -64,8 +64,7 @@ NSPressurePin::NSPressurePin(const InputParameters & params)
     _pressure_pin_point(_pressure_pin_type == "point-value" ? getParam<Point>("point")
                                                             : Point(0, 0, 0)),
     _current_pressure_average(
-        _pressure_pin_type == "average" ? &getPostprocessorValue("pressure_average") : nullptr),
-    _sys(*getCheckedPointerParam<SystemBase *>("_sys"))
+        _pressure_pin_type == "average" ? &getPostprocessorValue("pressure_average") : nullptr)
 {
 }
 

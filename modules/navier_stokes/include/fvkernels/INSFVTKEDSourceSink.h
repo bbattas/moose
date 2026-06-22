@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -63,10 +63,10 @@ protected:
   NS::WallTreatmentEnum _wall_treatment;
 
   /// Value of the first epsilon closure coefficient
-  const Real _C1_eps;
+  const Moose::Functor<ADReal> & _C1_eps;
 
   /// Value of the second epsilon closure coefficient
-  const Real _C2_eps;
+  const Moose::Functor<ADReal> & _C2_eps;
 
   /// C_mu constant
   const Real _C_mu;
@@ -84,7 +84,7 @@ protected:
 
   ///@{
   /** Maps for wall treatment */
-  std::map<const Elem *, bool> _wall_bounded;
+  std::unordered_set<const Elem *> _wall_bounded;
   std::map<const Elem *, std::vector<Real>> _dist;
   std::map<const Elem *, std::vector<const FaceInfo *>> _face_infos;
   ///@}

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -29,6 +29,12 @@ public:
   RealFunctionControl(const InputParameters & parameters);
 
   virtual void execute() override;
+
+  /**
+   * Called once at the beginning of the simulation, used to initialize
+   * recovered control values
+   */
+  virtual void initialSetup() override;
 
 private:
   /// The function to execute

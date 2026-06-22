@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -56,11 +56,6 @@ struct MortarSegmentInfo
    * reasons, see the list below.
    */
   bool isValid() const;
-
-  /**
-   * Returns true if this segment has a valid primary, false otherwise.
-   */
-  bool hasPrimary() const;
 
   Real xi1_a, xi1_b;
   Real xi2_a, xi2_b;

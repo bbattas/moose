@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -43,7 +43,7 @@ class NumericVector;
 /// class and kernels coupling to these values will naturally "see" according
 /// to the selected reconstruction methods.
 ///
-/// OutputType          OutputShape           OutputData
+/// OutputType          OutputShape           DofValue
 /// ----------------------------------------------------
 /// Real                Real                  Real
 /// RealVectorValue     RealVectorValue       Real
@@ -67,8 +67,10 @@ public:
   using OutputShapeSecond = typename MooseVariableField<OutputType>::OutputShapeSecond;
   using OutputShapeDivergence = typename MooseVariableField<OutputType>::OutputShapeDivergence;
 
-  using OutputData = typename MooseVariableField<OutputType>::OutputData;
-  using DoFValue = typename MooseVariableField<OutputType>::DoFValue;
+  using typename MooseVariableField<OutputType>::DofValue;
+  using typename MooseVariableField<OutputType>::DofValues;
+  using typename MooseVariableField<OutputType>::ADDofValue;
+  using typename MooseVariableField<OutputType>::ADDofValues;
 
   using FieldVariablePhiValue = typename MooseVariableField<OutputType>::FieldVariablePhiValue;
   using FieldVariablePhiDivergence =
@@ -166,7 +168,7 @@ public:
 
   virtual void setNodalValue(const OutputType & value, unsigned int idx = 0) override;
 
-  virtual void setDofValue(const OutputData & value, unsigned int index) override;
+  virtual void setDofValue(const DofValue & value, unsigned int index) override;
 
   void clearDofIndices() override;
 
@@ -193,11 +195,11 @@ public:
 
   void clearAllDofIndices() final;
 
-  const DoFValue & nodalVectorTagValue(TagID) const override
+  const DofValues & nodalVectorTagValue(TagID) const override
   {
     mooseError("nodalVectorTagValue not implemented for finite volume variables.");
   }
-  const DoFValue & nodalMatrixTagValue(TagID) const override
+  const DofValues & nodalMatrixTagValue(TagID) const override
   {
     mooseError("nodalMatrixTagValue not implemented for finite volume variables.");
   }
@@ -206,7 +208,7 @@ public:
   {
     return _element_data->vectorTagValue(tag);
   }
-  const DoFValue & vectorTagDofValue(TagID tag) const override
+  const DofValues & vectorTagDofValue(TagID tag) const override
   {
     return _element_data->vectorTagDofValue(tag);
   }
@@ -337,6 +339,10 @@ public:
   {
     return _element_data->adGradSlnDot();
   }
+  const ADTemplateVariableCurl<OutputType> & adCurlSln() const override
+  {
+    mooseError("We don't currently implement curl for FV");
+  }
 
   /// neighbor AD
   const ADTemplateVariableValue<OutputType> & adSlnNeighbor() const override
@@ -363,6 +369,10 @@ public:
   {
     return _neighbor_data->adGradSlnDot();
   }
+  const ADTemplateVariableCurl<OutputType> & adCurlSlnNeighbor() const override
+  {
+    mooseError("We don't currently implement curl for FV");
+  }
 
   /// Initializes/computes variable values from the solution vectors for the
   /// current element being operated on in assembly. This
@@ -382,53 +392,53 @@ public:
   /**
    * Set local DOF values and evaluate the values on quadrature points
    */
-  virtual void setDofValues(const DenseVector<OutputData> & values) override;
-  virtual void setLowerDofValues(const DenseVector<OutputData> & values) override;
+  virtual void setDofValues(const DenseVector<DofValue> & values) override;
+  virtual void setLowerDofValues(const DenseVector<DofValue> & values) override;
 
   /// Get the current value of this variable on an element
   /// @param[in] elem   Element at which to get value
   /// @param[in] idx    Local index of this variable's element DoFs
   /// @return Variable value
-  OutputData getElementalValue(const Elem * elem, unsigned int idx = 0) const;
+  DofValue getElementalValue(const Elem * elem, unsigned int idx = 0) const;
   /// Get the old value of this variable on an element
   /// @param[in] elem   Element at which to get value
   /// @param[in] idx    Local index of this variable's element DoFs
   /// @return Variable value
-  OutputData getElementalValueOld(const Elem * elem, unsigned int idx = 0) const;
+  DofValue getElementalValueOld(const Elem * elem, unsigned int idx = 0) const;
   /// Get the older value of this variable on an element
   /// @param[in] elem   Element at which to get value
   /// @param[in] idx    Local index of this variable's element DoFs
   /// @return Variable value
-  OutputData getElementalValueOlder(const Elem * elem, unsigned int idx = 0) const;
+  DofValue getElementalValueOlder(const Elem * elem, unsigned int idx = 0) const;
 
   virtual void insert(libMesh::NumericVector<libMesh::Number> & vector) override;
   virtual void insertLower(libMesh::NumericVector<libMesh::Number> & vector) override;
   virtual void add(libMesh::NumericVector<libMesh::Number> & vector) override;
 
-  const DoFValue & dofValues() const override;
-  const DoFValue & dofValuesOld() const override;
-  const DoFValue & dofValuesOlder() const override;
-  const DoFValue & dofValuesPreviousNL() const override;
-  const DoFValue & dofValuesNeighbor() const override;
-  const DoFValue & dofValuesOldNeighbor() const override;
-  const DoFValue & dofValuesOlderNeighbor() const override;
-  const DoFValue & dofValuesPreviousNLNeighbor() const override;
-  const DoFValue & dofValuesDot() const override;
-  const DoFValue & dofValuesDotNeighbor() const override;
-  const DoFValue & dofValuesDotOld() const override;
-  const DoFValue & dofValuesDotOldNeighbor() const override;
-  const DoFValue & dofValuesDotDot() const override;
-  const DoFValue & dofValuesDotDotNeighbor() const override;
-  const DoFValue & dofValuesDotDotOld() const override;
-  const DoFValue & dofValuesDotDotOldNeighbor() const override;
+  const DofValues & dofValues() const override;
+  const DofValues & dofValuesOld() const override;
+  const DofValues & dofValuesOlder() const override;
+  const DofValues & dofValuesPreviousNL() const override;
+  const DofValues & dofValuesNeighbor() const override;
+  const DofValues & dofValuesOldNeighbor() const override;
+  const DofValues & dofValuesOlderNeighbor() const override;
+  const DofValues & dofValuesPreviousNLNeighbor() const override;
+  const DofValues & dofValuesDot() const override;
+  const DofValues & dofValuesDotNeighbor() const override;
+  const DofValues & dofValuesDotOld() const override;
+  const DofValues & dofValuesDotOldNeighbor() const override;
+  const DofValues & dofValuesDotDot() const override;
+  const DofValues & dofValuesDotDotNeighbor() const override;
+  const DofValues & dofValuesDotDotOld() const override;
+  const DofValues & dofValuesDotDotOldNeighbor() const override;
   const MooseArray<libMesh::Number> & dofValuesDuDotDu() const override;
   const MooseArray<libMesh::Number> & dofValuesDuDotDuNeighbor() const override;
   const MooseArray<libMesh::Number> & dofValuesDuDotDotDu() const override;
   const MooseArray<libMesh::Number> & dofValuesDuDotDotDuNeighbor() const override;
 
-  const MooseArray<ADReal> & adDofValues() const override;
-  const MooseArray<ADReal> & adDofValuesNeighbor() const override;
-  const MooseArray<ADReal> & adDofValuesDot() const override;
+  const ADDofValues & adDofValues() const override;
+  const ADDofValues & adDofValuesNeighbor() const override;
+  const ADDofValues & adDofValuesDot() const override;
 
   /// Note: const monomial is always the case - higher order solns are
   /// reconstructed - so this is simpler func than FE equivalent.
@@ -454,6 +464,7 @@ public:
   std::pair<bool, std::vector<const FVFluxBC *>> getFluxBCs(const FaceInfo & fi) const;
 
   virtual void residualSetup() override;
+  virtual void initialSetup() override;
   virtual void jacobianSetup() override;
   virtual void timestepSetup() override;
   virtual void meshChanged() override;
@@ -494,6 +505,8 @@ public:
 
   bool supportsFaceArg() const override final { return true; }
   bool supportsElemSideQpArg() const override final { return true; }
+
+  virtual void sizeMatrixTagData() override;
 
 protected:
   /**
@@ -558,6 +571,14 @@ private:
 
   /// Whether the boundary to Dirichlet cache map has been setup yet
   bool _dirichlet_map_setup = false;
+
+  /**
+   * Setup the boundary to Flux BC map
+   */
+  void determineBoundaryToFluxBCMap();
+
+  /// Whether the boundary to fluxBC cache map has been setup yet
+  bool _flux_map_setup = false;
 
 public:
   const MooseArray<OutputType> & nodalValueArray() const override
@@ -695,6 +716,10 @@ private:
   /// in \p getDirichletBC
   std::unordered_map<BoundaryID, const FVDirichletBCBase *> _boundary_id_to_dirichlet_bc;
 
+  /// Map from boundary ID to flux boundary conditions. Added to enable internal separator
+  /// boundaries.
+  std::unordered_map<BoundaryID, std::vector<const FVFluxBC *>> _boundary_id_to_flux_bc;
+
   /**
    * Emit an error message for unsupported lower-d ops
    */
@@ -723,21 +748,21 @@ protected:
 };
 
 template <typename OutputType>
-inline const MooseArray<ADReal> &
+inline const typename MooseVariableFV<OutputType>::ADDofValues &
 MooseVariableFV<OutputType>::adDofValues() const
 {
   return _element_data->adDofValues();
 }
 
 template <typename OutputType>
-inline const MooseArray<ADReal> &
+inline const typename MooseVariableFV<OutputType>::ADDofValues &
 MooseVariableFV<OutputType>::adDofValuesNeighbor() const
 {
   return _neighbor_data->adDofValues();
 }
 
 template <typename OutputType>
-inline const MooseArray<ADReal> &
+inline const typename MooseVariableFV<OutputType>::ADDofValues &
 MooseVariableFV<OutputType>::adDofValuesDot() const
 {
   return _element_data->adDofValuesDot();
@@ -823,10 +848,20 @@ MooseVariableFV<OutputType>::dofIndicesLower() const
 
 template <typename OutputType>
 void
+MooseVariableFV<OutputType>::initialSetup()
+{
+  determineBoundaryToDirichletBCMap();
+  determineBoundaryToFluxBCMap();
+  MooseVariableField<OutputType>::initialSetup();
+}
+
+template <typename OutputType>
+void
 MooseVariableFV<OutputType>::meshChanged()
 {
   _prev_elem = nullptr;
   _dirichlet_map_setup = false;
+  _flux_map_setup = false;
   MooseVariableField<OutputType>::meshChanged();
 }
 
@@ -835,6 +870,7 @@ void
 MooseVariableFV<OutputType>::timestepSetup()
 {
   _dirichlet_map_setup = false;
+  _flux_map_setup = false;
   MooseVariableField<OutputType>::timestepSetup();
 }
 

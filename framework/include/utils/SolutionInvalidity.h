@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -68,24 +68,45 @@ public:
    */
   bool hasInvalidSolution() const;
 
+  /**
+   * Whether or not any warning or invalid solution has ever been encountered during the simulation
+   *
+   * This must be called after a sync.
+   */
+  bool hasEverHadSolutionIssue() const;
+
   /// Reset the number of solution invalid occurrences back to zero for the current time step
-  void resetSolutionInvalidTimeStep();
+  void resetTimeStepOccurences();
 
   /// Reset the number of solution invalid occurrences back to zero
-  void resetSolutionInvalidCurrentIteration();
+  void resetIterationOccurences();
 
   /// Pass the number of solution invalid occurrences from current iteration to cumulative counters
-  void solutionInvalidAccumulation();
+  void accumulateIterationIntoTimeStepOccurences();
 
-  /// Pass the number of solution invalid occurrences from current iteration to cumulative time iteration counters
-  void solutionInvalidAccumulationTimeStep();
+  /// Pass the number of solution invalid occurrences from current timestep to cumulative timestep counter (e.g. the total)
+  void accumulateTimeStepIntoTotalOccurences(const unsigned int timestep_index);
 
-  /// Struct used in _counts for storing invalid occurrences
+  /// Struct used in InvalidCounts for storing the time history of invalid occurrences
+  struct TimestepCounts
+  {
+    TimestepCounts() : timestep_index(std::numeric_limits<unsigned int>::max()) {}
+    TimestepCounts(unsigned int timestep_index) : timestep_index(timestep_index) {}
+    unsigned int timestep_index;
+    unsigned int counts = 0;
+  };
+
+  /// Struct used in _counts for storing warning and invalid-solution occurrences
   struct InvalidCounts
   {
-    unsigned int counts = 0;
-    unsigned int timestep_counts = 0;
+    /// Counts for the current iteration (depends on the count, but usually linear iteration)
+    unsigned int current_counts = 0;
+    /// Counts for the current time step
+    unsigned int current_timestep_counts = 0;
+    /// Total counts across the entire simulation
     unsigned int total_counts = 0;
+    /// Keep track of the occurences across all time steps
+    std::vector<TimestepCounts> timestep_counts;
   };
 
   /// Access the private solution invalidity counts
@@ -98,11 +119,24 @@ public:
   void print(const ConsoleStream & console) const;
 
   /**
+   * Print the time history table of Solution Invalid warnings
+   * @param console The output stream to output to
+   */
+  void printHistory(const ConsoleStream & console, unsigned int & timestep_interval_size) const;
+
+  /**
    * Immediately print the section and message for debug purpose
    */
   void printDebug(InvalidSolutionID _invalid_solution_id) const;
 
-  void sync();
+  /**
+   * Sync iteration counts to main processor
+   * Sum across all processors
+   */
+  void syncIteration();
+
+  /// Whether the solution invalidity has synchronized iteration counts across MPI processes
+  bool hasSynced() const { return _has_synced; }
 
   friend void dataStore(std::ostream &, SolutionInvalidity &, void *);
   friend void dataLoad(std::istream &, SolutionInvalidity &, void *);
@@ -122,6 +156,11 @@ private:
   /// Build a VariadicTable for solution invalidity
   FullTable summaryTable() const;
 
+  typedef VariadicTable<std::string, std::string, unsigned long int, unsigned long int> TimeTable;
+
+  /// Build a VariadicTable for solution invalidity history
+  TimeTable transientTable(unsigned int & time_interval) const;
+
   /// Create a registry to keep track of the names and occurrences of the solution invalidity
   SolutionInvalidityRegistry & _solution_invalidity_registry;
 
@@ -134,8 +173,16 @@ private:
   bool _has_solution_warning;
   /// Whether or not we have an invalid solution (only after a sync)
   bool _has_solution_error;
+  /// Whether or not we have ever had any warning or solution issue during the simulation
+  bool _has_recorded_issue;
 };
 
 // datastore and dataload for recover
+void dataStore(std::ostream & stream,
+               SolutionInvalidity::TimestepCounts & timestep_counts,
+               void * context);
+void dataLoad(std::istream & stream,
+              SolutionInvalidity::TimestepCounts & timestep_counts,
+              void * context);
 void dataStore(std::ostream & stream, SolutionInvalidity & solution_invalidity, void * context);
 void dataLoad(std::istream & stream, SolutionInvalidity & solution_invalidity, void * context);

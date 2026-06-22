@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -49,12 +49,14 @@ protected:
   const ADMaterialProperty<Real> & _rhoA1;
   const ADMaterialProperty<Real> & _rhouA1;
   const ADMaterialProperty<Real> & _rhoEA1;
+  const ADMaterialProperty<std::vector<Real>> & _passives_times_area1;
   const ADMaterialProperty<Real> & _p1;
 
   // reconstructed variable values in neighbor cell
   const ADMaterialProperty<Real> & _rhoA2;
   const ADMaterialProperty<Real> & _rhouA2;
   const ADMaterialProperty<Real> & _rhoEA2;
+  const ADMaterialProperty<std::vector<Real>> & _passives_times_area2;
   const ADMaterialProperty<Real> & _p2;
 
   /// Numerical flux user object
@@ -64,6 +66,9 @@ protected:
   const unsigned int _rhoA_var;
   const unsigned int _rhouA_var;
   const unsigned int _rhoEA_var;
+
+  /// Number of passive transport variables
+  const unsigned int _n_passives;
 
   /// map of coupled variable index to equations variable index convention
   const std::map<unsigned int, unsigned int> _jmap;

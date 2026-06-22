@@ -9,49 +9,43 @@
       type = CSVDiff
       input = 'air.i'
       csvdiff = 'air_out.csv'
-      threading = '!pthreads'
       detail = 'spline-based table-lookup air fluid properties,'
-      required_submodule = 'contrib/air'
+      capabilities = 'airapp'
     []
     [CO2_pT]
       type = CSVDiff
       input = 'co2.i'
       csvdiff = 'co2_out.csv'
-      threading = '!pthreads'
       detail = 'vapor carbon dioxide fluid properties,'
-      required_submodule = 'contrib/carbon_dioxide'
+      capabilities = 'carbondioxideapp'
     []
     [helium_pT]
       type = CSVDiff
       input = 'helium.i'
       csvdiff = 'helium_out.csv'
-      threading = '!pthreads'
       detail = 'spline-based table-lookup Helium fluid properties,'
-      required_submodule = 'contrib/helium'
+      capabilities = 'heliumapp'
     []
     [nitrogen_pT]
       type = CSVDiff
       input = 'nitrogen.i'
       csvdiff = 'nitrogen_out.csv'
-      threading = '!pthreads'
       detail = 'spline-based table-lookup Nitrogen fluid properties,'
-      required_submodule = 'contrib/nitrogen'
+      capabilities = 'nitrogenapp'
     []
     [potassium_pT]
       type = CSVDiff
       input = 'potassium.i'
       csvdiff = 'potassium_out.csv'
-      threading = '!pthreads'
       detail = 'liquid Potassium fluid properties,'
-      required_submodule = 'contrib/potassium'
+      capabilities = 'potassiumapp'
     []
     [sodium_pT]
       type = CSVDiff
       input = 'sodium.i'
       csvdiff = 'sodium_out.csv'
-      threading = '!pthreads'
       detail = 'liquid Sodium fluid properties.'
-      required_submodule = 'contrib/sodium'
+      capabilities = 'sodiumapp'
     []
   []
 []

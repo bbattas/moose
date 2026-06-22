@@ -45,7 +45,6 @@
       type = RunApp
       input = global_vs_local.i
       recover = false
-      min_parallel = 1
       max_parallel = 1
       allow_test_objects = true
       detail = "on a single processor,"
@@ -72,7 +71,6 @@
       type = RunApp
       input = global_vs_local.i
       recover = false
-      min_parallel = 1
       max_parallel = 1
       allow_test_objects = true
       cli_args = 'Samplers/sample/use_rand=true Postprocessors/test/test_type=RAND_GLOBAL_VS_LOCAL'
@@ -109,7 +107,7 @@
       input = errors.i
       expect_err = "Changing the size of the sample must not occur during matrix access"
       cli_args = "Samplers/sample/error_test=call_set_number_of_rows"
-      method = 'DBG DEVEL' # message from assert
+      capabilities = 'method=dbg | method=devel' # message from assert
 
       detail = "if the number of rows is altered during sample access,"
     []
@@ -118,7 +116,7 @@
       input = errors.i
       expect_err = "Changing the size of the sample must not occur during matrix access"
       cli_args = "Samplers/sample/error_test=call_set_number_of_cols"
-      method = 'DBG DEVEL' # message from assert
+      capabilities = 'method=dbg | method=devel' # message from assert
 
       detail = "if the number of columns is altered during sample access,"
     []

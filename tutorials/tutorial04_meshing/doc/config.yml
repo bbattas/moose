@@ -22,6 +22,8 @@ Executioner:
 Renderer:
     type: MooseDocs.base.RevealRenderer
     theme: simple
+    extra-css:
+        - getting_started/examples_and_tutorials/tutorial04_meshing/css/styles.css
 
 Extensions:
     disable_defaults: True
@@ -54,7 +56,6 @@ Extensions:
                 Component: Components/*/*
         remove:
             framework: !include framework/doc/remove.yml
-            richards: !include modules/richards/doc/remove.yml
             stochastic_tools: !include modules/stochastic_tools/doc/remove.yml
     MooseDocs.extensions.acronym:
         acronyms: !include framework/doc/acronyms.yml

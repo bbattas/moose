@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,11 +8,8 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #pragma once
-#include "Moose.h"
 
-/// Exec flag used to execute MooseObjects while elements are being
-/// marked for cutting by XFEM
-extern const ExecFlagType EXEC_XFEM_MARK;
+#include "Moose.h"
 
 // XFEM typedefs
 typedef unsigned int CutSubdomainID;

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -61,6 +61,8 @@ public:
    */
   virtual ~NavierStokesProblem();
 
+  virtual void initialSetup() override;
+
 protected:
   /**
    * Reinitialize PETSc output for proper linear/nonlinear iteration display
@@ -80,10 +82,10 @@ private:
   /// Whether the user attached a Poisson operator matrix
   const bool _have_L_matrix;
 
-  /// Whether to directly use the pressure mass matrix to form the Schur complement
-  /// preconditioner. This is only appropriate for Stokes flow in which the pressure mass matrix is
-  /// spectrally equivalent to the Schur complement
-  const bool _pressure_mass_matrix_as_pre;
+  /// Whether and what to set as the user-provided Schur complement preconditioner MASS is only
+  /// appropriate for Stokes flow or augmented Lagrange formulations in which the pressure mass
+  /// matrix is spectrally equivalent to the Schur complement
+  const enum class SetSchurPreType { FALSE, MASS, A11_AND_MASS } _set_schur_pre;
 
   /// The length of this vector should correspond to the number of split nesting levels there are in
   /// the field split. Then the integers should indicate the path one shold take in the nesting tree

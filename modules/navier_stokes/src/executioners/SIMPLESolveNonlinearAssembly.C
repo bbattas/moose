@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,6 +10,9 @@
 #include "SIMPLESolveNonlinearAssembly.h"
 #include "FEProblem.h"
 #include "SegregatedSolverUtils.h"
+#include "NonlinearSystemBase.h"
+
+#include "libmesh/nonlinear_implicit_system.h"
 
 using namespace libMesh;
 
@@ -23,118 +26,6 @@ SIMPLESolveNonlinearAssembly::validParams()
                            "The name of the tags associated with the kernels in the momentum "
                            "equations which are not related to the pressure gradient.");
 
-  /*
-   * The names of the different systems in the segregated solver
-   */
-  params.addParam<SolverSystemName>("solid_energy_system",
-                                    "The solver system for the solid energy equation.");
-  params.addParam<std::vector<SolverSystemName>>(
-      "turbulence_systems", {}, "The solver system(s) for the turbulence equation(s).");
-
-  /*
-   * Relaxation parameters for the different system
-   */
-  params.addParam<std::vector<Real>>(
-      "turbulence_equation_relaxation",
-      std::vector<Real>(),
-      "The relaxation which should be used for the turbulence equations "
-      "equations. (=1 for no relaxation, "
-      "diagonal dominance will still be enforced)");
-
-  params.addParam<std::vector<Real>>(
-      "turbulence_field_min_limit",
-      std::vector<Real>(),
-      "The lower limit imposed on turbulent quantities. The recommended value for robustness "
-      "is 1e-8.");
-
-  params.addParamNamesToGroup("energy_equation_relaxation "
-                              "turbulence_equation_relaxation",
-                              "Relaxation");
-
-  /*
-   * Petsc options for every equations in the system
-   */
-  params.addParam<MultiMooseEnum>("solid_energy_petsc_options",
-                                  Moose::PetscSupport::getCommonPetscFlags(),
-                                  "Singleton PETSc options for the solid energy equation");
-  params.addParam<MultiMooseEnum>("solid_energy_petsc_options_iname",
-                                  Moose::PetscSupport::getCommonPetscKeys(),
-                                  "Names of PETSc name/value pairs for the solid energy equation");
-  params.addParam<std::vector<std::string>>(
-      "solid_energy_petsc_options_value",
-      "Values of PETSc name/value pairs (must correspond with \"petsc_options_iname\" for the "
-      "solid energy equation");
-
-  params.addParam<MultiMooseEnum>("turbulence_petsc_options",
-                                  Moose::PetscSupport::getCommonPetscFlags(),
-                                  "Singleton PETSc options for the turbulence equation(s)");
-  params.addParam<MultiMooseEnum>("turbulence_petsc_options_iname",
-                                  Moose::PetscSupport::getCommonPetscKeys(),
-                                  "Names of PETSc name/value pairs for the turbulence equation(s)");
-  params.addParam<std::vector<std::string>>(
-      "turbulence_petsc_options_value",
-      "Values of PETSc name/value pairs (must correspond with \"petsc_options_iname\" for the "
-      "turbulence equation");
-
-  params.addParamNamesToGroup(
-      "solid_energy_petsc_options solid_energy_petsc_options_iname "
-      "solid_energy_petsc_options_value "
-      "turbulence_petsc_options turbulence_petsc_options_iname turbulence_petsc_options_value",
-      "PETSc Control");
-
-  /*
-   * Iteration tolerances for the different equations
-   */
-  params.addRangeCheckedParam<Real>(
-      "solid_energy_absolute_tolerance",
-      1e-5,
-      "0.0<solid_energy_absolute_tolerance",
-      "The absolute tolerance on the normalized residual of the solid energy equation.");
-  params.addParam<std::vector<Real>>(
-      "turbulence_absolute_tolerance",
-      std::vector<Real>(),
-      "The absolute tolerance(s) on the normalized residual(s) of the turbulence equation(s).");
-
-  params.addParamNamesToGroup("solid_energy_absolute_tolerance turbulence_absolute_tolerance",
-                              "Iteration Control");
-  /*
-   * Linear iteration tolerances for the different equations
-   */
-  params.addRangeCheckedParam<Real>("solid_energy_l_tol",
-                                    1e-5,
-                                    "0.0<=solid_energy_l_tol & solid_energy_l_tol<1.0",
-                                    "The relative tolerance on the normalized residual in the "
-                                    "linear solver of the solid energy equation.");
-  params.addRangeCheckedParam<Real>("solid_energy_l_abs_tol",
-                                    1e-10,
-                                    "0.0<solid_energy_l_abs_tol",
-                                    "The absolute tolerance on the normalized residual in the "
-                                    "linear solver of the solid energy equation.");
-  params.addRangeCheckedParam<unsigned int>(
-      "solid_energy_l_max_its",
-      10000,
-      "0<solid_energy_l_max_its",
-      "The maximum allowed iterations in the linear solver of the solid energy equation.");
-  params.addRangeCheckedParam<Real>("turbulence_l_tol",
-                                    1e-5,
-                                    "0.0<=turbulence_l_tol & turbulence_l_tol<1.0",
-                                    "The relative tolerance on the normalized residual in the "
-                                    "linear solver of the turbulence equation(s).");
-  params.addRangeCheckedParam<Real>("turbulence_l_abs_tol",
-                                    1e-10,
-                                    "0.0<turbulence_l_abs_tol",
-                                    "The absolute tolerance on the normalized residual in the "
-                                    "linear solver of the turbulence equation(s).");
-  params.addParam<unsigned int>(
-      "turbulence_l_max_its",
-      10000,
-      "The maximum allowed iterations in the linear solver of the turbulence equation(s).");
-
-  params.addParamNamesToGroup(
-      "solid_energy_l_tol solid_energy_l_abs_tol solid_energy_l_max_its turbulence_l_tol "
-      "turbulence_l_abs_tol turbulence_l_max_its",
-      "Linear Iteration Control");
-
   return params;
 }
 
@@ -142,7 +33,6 @@ SIMPLESolveNonlinearAssembly::SIMPLESolveNonlinearAssembly(Executioner & ex)
   : SIMPLESolveBase(ex),
     _pressure_sys_number(_problem.nlSysNum(getParam<SolverSystemName>("pressure_system"))),
     _pressure_system(_problem.getNonlinearSystemBase(_pressure_sys_number)),
-    _has_solid_energy_system(_has_energy_system && isParamValid("solid_energy_system")),
     _has_turbulence_systems(!getParam<std::vector<SolverSystemName>>("turbulence_systems").empty()),
     _energy_sys_number(_has_energy_system
                            ? _problem.nlSysNum(getParam<SolverSystemName>("energy_system"))
@@ -156,16 +46,17 @@ SIMPLESolveNonlinearAssembly::SIMPLESolveNonlinearAssembly(Executioner & ex)
     _solid_energy_system(_has_solid_energy_system
                              ? &_problem.getNonlinearSystemBase(_solid_energy_sys_number)
                              : nullptr),
-    _solid_energy_l_abs_tol(getParam<Real>("solid_energy_l_abs_tol")),
     _turbulence_system_names(getParam<std::vector<SolverSystemName>>("turbulence_systems")),
     _turbulence_equation_relaxation(getParam<std::vector<Real>>("turbulence_equation_relaxation")),
     _turbulence_field_min_limit(getParam<std::vector<Real>>("turbulence_field_min_limit")),
     _turbulence_l_abs_tol(getParam<Real>("turbulence_l_abs_tol")),
-    _solid_energy_absolute_tolerance(getParam<Real>("solid_energy_absolute_tolerance")),
     _turbulence_absolute_tolerance(getParam<std::vector<Real>>("turbulence_absolute_tolerance")),
     _pressure_tag_name(getParam<TagName>("pressure_gradient_tag")),
     _pressure_tag_id(_problem.addVectorTag(_pressure_tag_name))
 {
+  // We disable this considering that this object passes petsc options a little differently
+  _pressure_system.system().prefix_with_name(false);
+
   // We fetch the system numbers for the momentum components plus add vectors
   // for removing the contribution from the pressure gradient terms.
   for (auto system_i : index_range(_momentum_system_names))
@@ -174,6 +65,9 @@ SIMPLESolveNonlinearAssembly::SIMPLESolveNonlinearAssembly(Executioner & ex)
     _momentum_systems.push_back(
         &_problem.getNonlinearSystemBase(_momentum_system_numbers[system_i]));
     _momentum_systems[system_i]->addVector(_pressure_tag_id, false, ParallelType::PARALLEL);
+
+    // We disable this considering that this object passes petsc options a little differently
+    _momentum_systems[system_i]->system().prefix_with_name(false);
   }
 
   if (_has_passive_scalar_systems)
@@ -183,20 +77,25 @@ SIMPLESolveNonlinearAssembly::SIMPLESolveNonlinearAssembly(Executioner & ex)
           _problem.nlSysNum(_passive_scalar_system_names[system_i]));
       _passive_scalar_systems.push_back(
           &_problem.getNonlinearSystemBase(_passive_scalar_system_numbers[system_i]));
+
+      // We disable this considering that this object passes petsc options a little differently
+      _passive_scalar_systems[system_i]->system().prefix_with_name(false);
     }
 
   if (_has_turbulence_systems)
+  {
     for (auto system_i : index_range(_turbulence_system_names))
     {
       _turbulence_system_numbers.push_back(_problem.nlSysNum(_turbulence_system_names[system_i]));
       _turbulence_systems.push_back(
           &_problem.getNonlinearSystemBase(_turbulence_system_numbers[system_i]));
+
+      // We disable this considering that this object passes petsc options a little differently
+      _turbulence_systems[system_i]->system().prefix_with_name(false);
     }
 
-  // We check for input errors with regards to the turbulence equations. At the same time, we
-  // set up the corresponding system numbers
-  if (_has_turbulence_systems)
-  {
+    // We check for input errors with regards to the turbulence equations. At the same time, we
+    // set up the corresponding system numbers
     if (_turbulence_system_names.size() != _turbulence_equation_relaxation.size())
       paramError("turbulence_equation_relaxation",
                  "The number of equation relaxation parameters does not match the number of "
@@ -219,48 +118,18 @@ SIMPLESolveNonlinearAssembly::SIMPLESolveNonlinearAssembly(Executioner & ex)
         "solid_energy_system",
         "We cannot solve a solid energy system without solving for the fluid energy as well!");
 
-  if (_has_energy_system)
-  {
-    // We only allow the solve for a solid energy system if we already solve for the fluid energy
-    if (_has_solid_energy_system)
-    {
-      const auto & solid_energy_petsc_options =
-          getParam<MultiMooseEnum>("solid_energy_petsc_options");
-      const auto & solid_energy_petsc_pair_options = getParam<MooseEnumItem, std::string>(
-          "solid_energy_petsc_options_iname", "solid_energy_petsc_options_value");
-      Moose::PetscSupport::processPetscFlags(solid_energy_petsc_options,
-                                             _solid_energy_petsc_options);
-      Moose::PetscSupport::processPetscPairs(solid_energy_petsc_pair_options,
-                                             _problem.mesh().dimension(),
-                                             _solid_energy_petsc_options);
-
-      _solid_energy_linear_control.real_valued_data["rel_tol"] =
-          getParam<Real>("solid_energy_l_tol");
-      _solid_energy_linear_control.real_valued_data["abs_tol"] =
-          getParam<Real>("solid_energy_l_abs_tol");
-      _solid_energy_linear_control.int_valued_data["max_its"] =
-          getParam<unsigned int>("solid_energy_l_max_its");
-    }
-    else
-      checkDependentParameterError("solid_energy_system",
-                                   {"solid_energy_petsc_options",
-                                    "solid_energy_petsc_options_iname",
-                                    "solid_energy_petsc_options_value",
-                                    "solid_energy_l_tol",
-                                    "solid_energy_l_abs_tol",
-                                    "solid_energy_l_max_its",
-                                    "solid_energy_absolute_tolerance"},
-                                   false);
-  }
-
   if (_has_turbulence_systems)
   {
     const auto & turbulence_petsc_options = getParam<MultiMooseEnum>("turbulence_petsc_options");
     const auto & turbulence_petsc_pair_options = getParam<MooseEnumItem, std::string>(
         "turbulence_petsc_options_iname", "turbulence_petsc_options_value");
-    Moose::PetscSupport::processPetscFlags(turbulence_petsc_options, _turbulence_petsc_options);
-    Moose::PetscSupport::processPetscPairs(
-        turbulence_petsc_pair_options, _problem.mesh().dimension(), _turbulence_petsc_options);
+    Moose::PetscSupport::addPetscFlagsToPetscOptions(
+        turbulence_petsc_options, "", *this, _turbulence_petsc_options);
+    Moose::PetscSupport::addPetscPairsToPetscOptions(turbulence_petsc_pair_options,
+                                                     _problem.mesh().dimension(),
+                                                     "",
+                                                     *this,
+                                                     _turbulence_petsc_options);
 
     _turbulence_linear_control.real_valued_data["rel_tol"] = getParam<Real>("turbulence_l_tol");
     _turbulence_linear_control.real_valued_data["abs_tol"] = getParam<Real>("turbulence_l_abs_tol");
@@ -364,12 +233,7 @@ SIMPLESolveNonlinearAssembly::solveMomentumPredictor()
       _console << "Norm factor " << norm_factor << std::endl;
       _console << Moose::stringify(momentum_solver.get_initial_residual()) << std::endl;
     }
-  }
 
-  for (const auto system_i : index_range(_momentum_systems))
-  {
-    NonlinearImplicitSystem & momentum_system =
-        libMesh::cast_ref<NonlinearImplicitSystem &>(_momentum_systems[system_i]->system());
     _momentum_systems[system_i]->setSolution(*(momentum_system.current_local_solution));
     _momentum_systems[system_i]->copyPreviousNonlinearSolutions();
   }
@@ -480,6 +344,8 @@ SIMPLESolveNonlinearAssembly::solveAdvectedSystem(const unsigned int system_num,
   {
     _console << system.name() << " system matrix" << std::endl;
     mmat.print();
+    _console << system.name() << " RHS vector" << std::endl;
+    rhs.print();
   }
 
   // We compute the normalization factors based on the fluxes

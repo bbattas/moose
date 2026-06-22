@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -40,6 +40,12 @@ public:
 
 protected:
   /**
+   * FullSolveMultiApp always performs a complete fresh solve on every execution,
+   * so the parent's recovery state must never be propagated to its sub-apps.
+   */
+  bool propagateRecoverToSubApps() const override { return false; }
+
+  /**
    * This function is called after each sub-application solve and is meant to display
    * information about the solve. It can be overridden. In this class, it simply
    * displays whether or not the sub-application solve was successful.
@@ -51,6 +57,8 @@ protected:
 private:
   /// Switch to tell executioner to keep going despite app solve not converging
   const bool _ignore_diverge;
+  /// Switch to tell the systems or not to update the old solution using the unrestored solution (the one we 'kept during restore')
+  const bool _update_old_state_when_keeping_solution_during_restore;
 
   std::vector<Executioner *> _executioners;
 };

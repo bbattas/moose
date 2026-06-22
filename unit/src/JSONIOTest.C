@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -104,5 +104,79 @@ TEST(JSONIOTest, uniquePtrSerializer)
     std::unique_ptr<unsigned int> null_value;
     nlohmann::json json = null_value;
     EXPECT_TRUE(json.is_null());
+  }
+}
+
+TEST(JSONIOTest, attributeVariant)
+{
+  {
+    // int
+    int x = 42;
+    const AttributeVariant data = x;
+    nlohmann::json jout = data;
+    EXPECT_EQ(jout, x);
+  }
+  {
+    // unsigned int
+    unsigned int x = 42;
+    const AttributeVariant data = x;
+    nlohmann::json jout = data;
+    EXPECT_EQ(jout, x);
+  }
+  {
+    // string
+    std::string x = "test_string";
+    const AttributeVariant data = x;
+    nlohmann::json jout = data;
+    EXPECT_EQ(jout, x);
+  }
+  {
+    // Real
+    Real x = 3.14;
+    const AttributeVariant data = x;
+    nlohmann::json jout = data;
+    EXPECT_EQ(jout, x);
+  }
+  {
+    // bool
+    bool x = true;
+    const AttributeVariant data = x;
+    nlohmann::json jout = data;
+    EXPECT_EQ(jout, x);
+  }
+  {
+    // vector of ints
+    std::vector<int> x = {-1, 2, 3};
+    const AttributeVariant data = x;
+    nlohmann::json jout = data;
+    EXPECT_EQ(jout, x);
+  }
+  {
+    // vector of unsigned ints
+    std::vector<unsigned int> x = {1, 2, 3};
+    const AttributeVariant data = x;
+    nlohmann::json jout = data;
+    EXPECT_EQ(jout, x);
+  }
+  {
+    // vector of strings
+    std::vector<std::string> x = {"one", "two", "three"};
+    const AttributeVariant data = x;
+    nlohmann::json jout = data;
+    EXPECT_EQ(jout, x);
+  }
+  {
+    // vector of Reals
+    std::vector<Real> x = {1.1, 2.2, 3.3};
+    const AttributeVariant data = x;
+    nlohmann::json jout = data;
+    EXPECT_EQ(jout, x);
+  }
+  {
+    // vector of bools
+    std::vector<bool> x = {true, false, true};
+    const AttributeVariant data = x;
+    nlohmann::json jout = data;
+    EXPECT_EQ(jout, x);
   }
 }

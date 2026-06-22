@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -48,6 +48,16 @@ private:
   /// Container for the velocity on the face which will be reused in the advection term's
   /// matrix and right hand side contribution
   Real _volumetric_face_flux;
+
+  /// slip velocity in direction x
+  const Moose::Functor<ADReal> * const _u_slip;
+  /// slip velocity in direction y
+  const Moose::Functor<ADReal> * const _v_slip;
+  /// slip velocity in direction z
+  const Moose::Functor<ADReal> * const _w_slip;
+
+  /// Whether to use an additional slip velocity to compute the face flux
+  bool _add_slip_model;
 
   /// The interpolation method to use for the advected quantity
   Moose::FV::InterpMethod _advected_interp_method;

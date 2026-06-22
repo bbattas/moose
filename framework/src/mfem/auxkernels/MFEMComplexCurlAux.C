@@ -1,0 +1,69 @@
+//* This file is part of the MOOSE framework
+//* https://mooseframework.inl.gov
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#ifdef MOOSE_MFEM_ENABLED
+
+#include "MFEMComplexCurlAux.h"
+#include "MFEMProblem.h"
+
+registerMooseObject("MooseApp", MFEMComplexCurlAux);
+
+InputParameters
+MFEMComplexCurlAux::validParams()
+{
+  InputParameters params = MFEMComplexAuxKernel::validParams();
+  params.addClassDescription(
+      "Calculates the curl of a complex H(curl) conforming ND source variable and stores the result"
+      " on an H(div) conforming RT result complex auxvariable");
+  MFEMExecutedObject::addRequiredDependencyParam<VariableName>(
+      params, "source", "Vector H(curl) MFEMComplexVariable to take the curl of.");
+  params.addParam<mfem::real_t>(
+      "scale_factor_real", 1.0, "Real part of the factor to scale result auxvariable by.");
+  params.addParam<mfem::real_t>(
+      "scale_factor_imag", 0.0, "Imaginary part of the factor to scale result auxvariable by.");
+  return params;
+}
+
+MFEMComplexCurlAux::MFEMComplexCurlAux(const InputParameters & parameters)
+  : MFEMComplexAuxKernel(parameters),
+    _source_var_name(getParam<VariableName>("source")),
+    _source_var(*getMFEMProblem().getComplexGridFunction(_source_var_name)),
+    _scale_factor(getParam<mfem::real_t>("scale_factor_real"),
+                  getParam<mfem::real_t>("scale_factor_imag")),
+    _curl(_source_var.ParFESpace(), _result_var.ParFESpace())
+{
+  _sequence = _source_var.GetSequence() + _result_var.GetSequence();
+  _curl.Assemble();
+  _curl.Finalize();
+}
+
+// Computes the auxvariable.
+void
+MFEMComplexCurlAux::execute()
+{
+  update();
+  _curl.AddMult(_source_var.real(), _result_var.real() = 0);
+  _curl.AddMult(_source_var.imag(), _result_var.imag() = 0);
+
+  complexScale(_result_var, _scale_factor);
+}
+
+void
+MFEMComplexCurlAux::update()
+{
+  if (long sequence = _source_var.GetSequence() + _result_var.GetSequence() > _sequence)
+  {
+    _sequence = sequence;
+    _curl.Update();
+    _curl.Assemble();
+    _curl.Finalize();
+  }
+}
+
+#endif

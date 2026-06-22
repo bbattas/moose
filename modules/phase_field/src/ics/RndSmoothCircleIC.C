@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -46,7 +46,7 @@ RndSmoothCircleIC::computeCircleValue(const Point & p, const Point & center, con
     l_center(2) = 0.0;
   }
   // Compute the distance between the current point and the center
-  Real dist = _mesh.minPeriodicDistance(_var.number(), l_p, l_center);
+  Real dist = _mesh.minPeriodicDistance(_var, l_p, l_center);
 
   // Return value
   Real value = 0.0;

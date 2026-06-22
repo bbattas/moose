@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "GeometricCutUserObject.h"
+#include "MeshCutUserObjectBase.h"
 class MeshCut2DNucleationBase;
 class CrackFrontDefinition;
 /**
@@ -18,7 +18,7 @@ class CrackFrontDefinition;
  * Derived classes modify the class and grow the mesh
  */
 
-class MeshCut2DUserObjectBase : public GeometricCutUserObject
+class MeshCut2DUserObjectBase : public MeshCutUserObjectBase
 {
 public:
   static InputParameters validParams();
@@ -37,6 +37,8 @@ public:
                                      std::vector<Xfem::CutEdge> & cut_edges) const override;
   virtual bool cutFragmentByGeometry(std::vector<std::vector<Point>> & frag_faces,
                                      std::vector<Xfem::CutFace> & cut_faces) const override;
+  virtual unsigned int getNumberOfCrackFrontPoints() const override;
+
   virtual const std::vector<Point>
   getCrackFrontPoints(unsigned int num_crack_front_points) const override;
 
@@ -49,14 +51,9 @@ public:
   virtual const std::vector<RealVectorValue>
   getCrackPlaneNormals(unsigned int num_crack_front_points) const override;
 
-  MeshBase & getCutterMesh() const;
-
 protected:
   /// The FE solution mesh
   MooseMesh & _mesh;
-
-  /// The xfem cutter mesh
-  std::unique_ptr<MeshBase> _cutter_mesh;
 
   /// 2D UO for nucleating cracks
   const MeshCut2DNucleationBase * _nucleate_uo;

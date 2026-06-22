@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -64,19 +64,14 @@ public:
   virtual void reinitNodesNeighbor(const std::vector<dof_id_type> & nodes) = 0;
 
   /**
-   * Filed type of this variable
+   * Field type of this variable
    */
   virtual Moose::VarFieldType fieldType() const = 0;
 
   /**
-   * @returns true if this is an array variable, false otherwise.
-   */
-  virtual bool isArray() const = 0;
-
-  /**
    * Get the variable name of a component in libMesh
    */
-  std::string componentName(const unsigned int comp) const;
+  const std::string & componentName(const unsigned int comp) const;
 
   /**
    * @returns true if this is a vector-valued element, false otherwise.

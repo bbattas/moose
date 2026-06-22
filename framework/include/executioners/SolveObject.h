@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -25,6 +25,11 @@ class SolveObject : public MooseObject, public PerfGraphInterface, public Postpr
 {
 public:
   SolveObject(Executioner & ex);
+
+  /**
+   * Method that should be executed once, before any solve calls
+   */
+  virtual void initialSetup() {};
 
   /**
    * Solve routine provided by this object.

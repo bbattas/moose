@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -63,24 +63,6 @@ HeatConductionModel::addInitialConditions()
 {
   const auto & subdomain_names = _geometrical_component.getSubdomainNames();
   _sim.addFunctionIC(TEMPERATURE, _hs_interface.getInitialT(), subdomain_names);
-}
-
-void
-HeatConductionModel::addMaterials()
-{
-  const auto & blocks = _geometrical_component.getSubdomainNames();
-  const auto & material_names =
-      _geometrical_component.getParam<std::vector<std::string>>("materials");
-
-  for (std::size_t i = 0; i < blocks.size(); i++)
-  {
-    std::string class_name = "ADSolidMaterial";
-    InputParameters params = _factory.getValidParams(class_name);
-    params.set<std::vector<SubdomainName>>("block") = {blocks[i]};
-    params.set<std::vector<VariableName>>("T") = {TEMPERATURE};
-    params.set<UserObjectName>("properties") = material_names[i];
-    _sim.addMaterial(class_name, genName(blocks[i], "mat"), params);
-  }
 }
 
 void

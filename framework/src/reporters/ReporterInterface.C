@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -25,6 +25,17 @@ ReporterInterface::ReporterInterface(const MooseObject * moose_object)
 {
 }
 
+#ifdef MOOSE_KOKKOS_ENABLED
+ReporterInterface::ReporterInterface(const ReporterInterface & object,
+                                     const Moose::Kokkos::FunctorCopy &)
+  : _ri_params(object._ri_params),
+    _ri_fe_problem_base(object._ri_fe_problem_base),
+    _ri_reporter_data(object._ri_reporter_data),
+    _ri_moose_object(object._ri_moose_object)
+{
+}
+#endif
+
 bool
 ReporterInterface::hasReporterValue(const std::string & param_name) const
 {
@@ -43,6 +54,16 @@ ReporterInterface::hasReporterValueByName(const ReporterName & reporter_name) co
         "Cannot call hasReporterValueByName() until all Reporters have been constructed.");
 
   return _ri_reporter_data.hasReporterValue(reporter_name);
+}
+
+const ReporterContextBase &
+ReporterInterface::getReporterContextBaseByName(const ReporterName & reporter_name) const
+{
+  if (!reportersAdded())
+    _ri_moose_object.mooseError(
+        "Cannot call getReporterContextBaseByName() until all Reporters have been constructed.");
+
+  return _ri_reporter_data.getReporterContextBase(reporter_name);
 }
 
 const ReporterName &

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -59,7 +59,7 @@ protected:
    * @return The vector of strings, if the input function is valid
    * @see ParsedFunction
    */
-  const std::string verifyFunction(const std::string & function_str);
+  std::string verifyFunction(const std::string & function_str);
 
   /// Reference to the FEProblemBase class for this object
   FEProblemBase & _pfb_feproblem;

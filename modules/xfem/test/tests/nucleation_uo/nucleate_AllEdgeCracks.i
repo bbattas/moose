@@ -34,7 +34,6 @@
   displacements = 'disp_x disp_y'
   crack_front_points_provider = cut_mesh2
   2d=true
-  number_points_from_provider = 0
   crack_direction_method = CurvedCrackFront
   radius_inner = '0.15'
   radius_outer = '0.45'
@@ -42,7 +41,6 @@
   youngs_modulus = 207000
   block = 0
   incremental = true
-  used_by_xfem_to_grow_crack = true
 []
 
 [UserObjects]

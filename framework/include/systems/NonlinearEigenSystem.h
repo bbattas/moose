@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -22,6 +22,8 @@ class KernelBase;
 class ResidualObject;
 
 #ifdef LIBMESH_HAVE_SLEPC
+
+#include <slepceps.h>
 
 namespace Moose
 {
@@ -79,6 +81,10 @@ public:
    * @return The number of converged eigenvalues
    */
   unsigned int getNumConvergedEigenvalues() const { return _eigen_sys.get_n_converged(); };
+
+  virtual unsigned int nNonlinearIterations() const override;
+  virtual unsigned int nLinearIterations() const override;
+  virtual Real finalNonlinearResidual() const override;
 
   virtual libMesh::NonlinearSolver<Number> * nonlinearSolver() override;
 

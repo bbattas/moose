@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -29,7 +29,7 @@
  *
  * Each variable can compute nodal or elemental (at QPs) values.
  *
- * OutputType          OutputShape           OutputData
+ * OutputType          OutputShape           DofValue
  * ----------------------------------------------------
  * Real                Real                  Real
  * RealVectorValue     RealVectorValue       Real
@@ -78,8 +78,10 @@ public:
   typedef MooseArray<std::vector<OutputShapeDivergence>> FieldVariableTestDivergence;
 
   // DoF value type for the template class OutputType
-  typedef typename Moose::DOFType<OutputType>::type OutputData;
-  typedef MooseArray<OutputData> DoFValue;
+  using DofValue = typename MooseVariableDataBase<OutputType>::DofValue;
+  using DofValues = typename MooseVariableDataBase<OutputType>::DofValues;
+  using ADDofValue = typename MooseVariableDataBase<OutputType>::ADDofValue;
+  using ADDofValues = typename MooseVariableDataBase<OutputType>::ADDofValues;
 
   MooseVariableField(const InputParameters & parameters);
 
@@ -95,7 +97,7 @@ public:
   /**
    * Degree of freedom value setters
    */
-  virtual void setDofValue(const OutputData & value, unsigned int index) = 0;
+  virtual void setDofValue(const DofValue & value, unsigned int index) = 0;
   ///@}
 
   /**
@@ -119,6 +121,11 @@ public:
   virtual const ADTemplateVariableGradient<OutputType> & adGradSlnDot() const = 0;
 
   /**
+   * AD curl solution getter
+   */
+  virtual const ADTemplateVariableCurl<OutputType> & adCurlSln() const = 0;
+
+  /**
    * AD grad neighbor solution getter
    */
   virtual const ADTemplateVariableGradient<OutputType> & adGradSlnNeighbor() const = 0;
@@ -127,6 +134,11 @@ public:
    * AD grad of time derivative neighbor solution getter
    */
   virtual const ADTemplateVariableGradient<OutputType> & adGradSlnNeighborDot() const = 0;
+
+  /**
+   * AD curl neighbor solution getter
+   */
+  virtual const ADTemplateVariableCurl<OutputType> & adCurlSlnNeighbor() const = 0;
 
   /**
    * AD second solution getter
@@ -161,17 +173,17 @@ public:
   /**
    * Return the AD dof values
    */
-  virtual const MooseArray<ADReal> & adDofValues() const = 0;
+  virtual const ADDofValues & adDofValues() const = 0;
 
   /**
    * Return the AD neighbor dof values
    */
-  virtual const MooseArray<ADReal> & adDofValuesNeighbor() const = 0;
+  virtual const ADDofValues & adDofValuesNeighbor() const = 0;
 
   /**
    * Return the AD time derivatives at dofs
    */
-  virtual const MooseArray<ADReal> & adDofValuesDot() const = 0;
+  virtual const ADDofValues & adDofValuesDot() const = 0;
 
   ///@{
   /**
@@ -311,13 +323,13 @@ public:
   /**
    * Set local DOF values and evaluate the values on quadrature points
    */
-  virtual void setDofValues(const DenseVector<OutputData> & values) = 0;
+  virtual void setDofValues(const DenseVector<DofValue> & values) = 0;
 
   /**
    * Set local DOF values for a lower dimensional element and evaluate the values on quadrature
    * points
    */
-  virtual void setLowerDofValues(const DenseVector<OutputData> & values) = 0;
+  virtual void setLowerDofValues(const DenseVector<DofValue> & values) = 0;
 
   /**
    * Whether or not this variable is actually using the shape function value.
@@ -342,34 +354,37 @@ public:
   /**
    * dof values getters
    */
-  virtual const DoFValue & dofValues() const = 0;
-  virtual const DoFValue & dofValuesOld() const = 0;
-  virtual const DoFValue & dofValuesOlder() const = 0;
-  virtual const DoFValue & dofValuesPreviousNL() const = 0;
-  virtual const DoFValue & dofValuesNeighbor() const = 0;
-  virtual const DoFValue & dofValuesOldNeighbor() const = 0;
-  virtual const DoFValue & dofValuesOlderNeighbor() const = 0;
-  virtual const DoFValue & dofValuesPreviousNLNeighbor() const = 0;
-  virtual const DoFValue & dofValuesDot() const = 0;
-  virtual const DoFValue & dofValuesDotNeighbor() const = 0;
-  virtual const DoFValue & dofValuesDotOld() const = 0;
-  virtual const DoFValue & dofValuesDotOldNeighbor() const = 0;
-  virtual const DoFValue & dofValuesDotDot() const = 0;
-  virtual const DoFValue & dofValuesDotDotNeighbor() const = 0;
-  virtual const DoFValue & dofValuesDotDotOld() const = 0;
-  virtual const DoFValue & dofValuesDotDotOldNeighbor() const = 0;
+  virtual const DofValues & dofValues() const = 0;
+  virtual const DofValues & dofValuesOld() const = 0;
+  virtual const DofValues & dofValuesOlder() const = 0;
+  virtual const DofValues & dofValuesPreviousNL() const = 0;
+  virtual const DofValues & dofValuesNeighbor() const = 0;
+  virtual const DofValues & dofValuesOldNeighbor() const = 0;
+  virtual const DofValues & dofValuesOlderNeighbor() const = 0;
+  virtual const DofValues & dofValuesPreviousNLNeighbor() const = 0;
+  virtual const DofValues & dofValuesDot() const = 0;
+  virtual const DofValues & dofValuesDotNeighbor() const = 0;
+  virtual const DofValues & dofValuesDotOld() const = 0;
+  virtual const DofValues & dofValuesDotOldNeighbor() const = 0;
+  virtual const DofValues & dofValuesDotDot() const = 0;
+  virtual const DofValues & dofValuesDotDotNeighbor() const = 0;
+  virtual const DofValues & dofValuesDotDotOld() const = 0;
+  virtual const DofValues & dofValuesDotDotOldNeighbor() const = 0;
   virtual const MooseArray<libMesh::Number> & dofValuesDuDotDu() const = 0;
   virtual const MooseArray<libMesh::Number> & dofValuesDuDotDuNeighbor() const = 0;
   virtual const MooseArray<libMesh::Number> & dofValuesDuDotDotDu() const = 0;
   virtual const MooseArray<libMesh::Number> & dofValuesDuDotDotDuNeighbor() const = 0;
 
+  template <bool is_ad>
+  const MooseArray<GenericReal<is_ad>> & genericDofValues() const;
+
   /**
    * tag values getters
    */
   virtual const FieldVariableValue & vectorTagValue(TagID tag) const = 0;
-  virtual const DoFValue & nodalVectorTagValue(TagID tag) const = 0;
-  virtual const DoFValue & vectorTagDofValue(TagID tag) const = 0;
-  virtual const DoFValue & nodalMatrixTagValue(TagID tag) const = 0;
+  virtual const DofValues & nodalVectorTagValue(TagID tag) const = 0;
+  virtual const DofValues & vectorTagDofValue(TagID tag) const = 0;
+  virtual const DofValues & nodalMatrixTagValue(TagID tag) const = 0;
   virtual const FieldVariableValue & matrixTagValue(TagID tag) const = 0;
 
   virtual void residualSetup() override;
@@ -387,17 +402,30 @@ public:
   bool hasBlocks(const SubdomainID id) const override { return BlockRestrictable::hasBlocks(id); }
 
 protected:
-  /**
-   * Get the solution corresponding to the provided state
-   */
-  const libMesh::NumericVector<libMesh::Number> & getSolution(const Moose::StateArg & state) const;
-
   /// the time integrator used for computing time derivatives
   const TimeIntegrator * const _time_integrator;
 
   /// A dummy ADReal variable
   mutable ADReal _ad_real_dummy = 0;
 };
+
+template <>
+template <>
+const MooseArray<Real> & MooseVariableField<Real>::genericDofValues<false>() const;
+template <>
+template <>
+const MooseArray<Real> & MooseVariableField<RealVectorValue>::genericDofValues<false>() const;
+template <>
+template <>
+const MooseArray<Real> & MooseVariableField<RealEigenVector>::genericDofValues<false>() const;
+
+template <typename OutputType>
+template <bool is_ad>
+const MooseArray<GenericReal<is_ad>> &
+MooseVariableField<OutputType>::genericDofValues() const
+{
+  return adDofValues();
+}
 
 #define usingMooseVariableFieldMembers                                                             \
   usingMooseVariableFieldBaseMembers;                                                              \

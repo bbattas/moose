@@ -34,7 +34,7 @@ MOOSE supports reading and writing a large number of formats and could be extend
 | Extension   | Description                              |
 | :-          | :-                                       |
 | .dat        | Tecplot ASCII file                       |
-| .e, .exd    | Sandia's ExodusII format                 |
+| .e, .exo    | Sandia's ExodusII format                 |
 | .fro        | ACDL's surface triangulation file        |
 | .gmv        | LANL's GMV (General Mesh Viewer) format  |
 | .mat        | Matlab triangular ASCII file (read only) |
@@ -52,7 +52,7 @@ MOOSE supports reading and writing a large number of formats and could be extend
 
 ## Generating Meshes in MOOSE
 
-Built-in mesh generation is implemented for lines, rectangles,  rectangular prisms or [extruded reactor geometries](modules/reactor/index.md).
+Built-in mesh generation is implemented for lines, rectangles, or [extruded reactor geometries](modules/reactor/index.md).
 
 !listing face_info_tri.i block=Mesh
 
@@ -77,17 +77,34 @@ Names can be assigned to IDs for existing meshes to ease input file maintenance.
 
 !---
 
-!listing name_on_the_fly.i block=Mesh BCs Materials
+We create a mesh with ids, and give the blocks, identified by their id, names for convenience
+
+!listing inputs/step01_diffusion/mesh.i block=Mesh remove=Mesh/hollow_concrete Mesh/rename_boundaries_step1 Mesh/rename_boundaries_step2 Mesh/rename_boundaries_step3 style=height:150px link=False
 
 !---
+
+## Chaining mesh operations
+
+We can chain the generation of unit cell meshes, stitching to form lattices, extrusion and homogenization to form
+this advanced reactor mesh, entirely using MOOSE mesh generators.
+
+!media tutorial04_meshing/rgmb_abtr_hethom_stepbystep.png
+       style=width:80%;display:block;margin-left:auto;margin-right:auto;
+       alt=Process for producing an extruded homogeneous core for a sodium-cooled fast reactor.
+
+!!mesh-advanced
+
+# Mesh system (continued)
 
 ## Replicated Mesh
 
 When running in parallel the default mode for operation is to use a replicated mesh, which
 creates a complete copy of the mesh for each processor.
 
-```text
-parallel_type = replicated
+```moose
+[Mesh]
+  parallel_type = replicated
+[]
 ```
 
 !---
@@ -97,8 +114,10 @@ parallel_type = replicated
 Changing the type to distributed when running in parallel operates such that only the portion of the
 mesh owned by a processor is stored on that processor.
 
-```text
-parallel_type = distributed
+```moose
+[Mesh]
+  parallel_type = distributed
+[]
 ```
 
 If the mesh is too large to read in on a single processor, it can be split prior to the simulation.
@@ -117,8 +136,16 @@ Calculations can take place in either the initial mesh configuration or, when re
 To enable displacements, provide a vector of displacement variable names for each spatial dimension
 in the Mesh block.
 
+!style! fontsize=75%
+
 !listing /displaced/child.i block=Mesh
+
+!style-end!
 
 Objects can enforce the use of the displaced mesh within the validParams function.
 
+!style! fontsize=75%
+
 !listing PenetrationAux.C line=use_displaced_mesh
+
+!style-end!

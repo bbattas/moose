@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -80,7 +80,7 @@ InitialConditionBase::getSuppliedItems()
 }
 
 void
-InitialConditionBase::addUserObjectDependencyHelper(const UserObject & uo) const
+InitialConditionBase::addUserObjectDependencyHelper(const UserObjectBase & uo) const
 {
   if (!_ignore_uo_dependency)
     _depend_uo.insert(uo.name());

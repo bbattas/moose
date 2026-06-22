@@ -10,19 +10,25 @@ guide.
   bash Miniforge3-Linux-x86_64.sh -b -p ~/miniforge
   ```
 
-- +Macintosh Users with Intel processors:+
-
-  ```bash
-  curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-x86_64.sh
-  bash Miniforge3-MacOSX-x86_64.sh -b -p ~/miniforge
-  ```
-
 - +Macintosh Users with Apple Silicon processors:+
 
   ```bash
   curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh
   bash Miniforge3-MacOSX-arm64.sh -b -p ~/miniforge
   ```
+
+!alert! note title=Intel Macs nearing End of Life
+
+Apple is expected to discontinue support for Intel-based Macs in its operating system releases starting in 2026. We will align with this timeline and end our support for these machines accordingly.
+
++Macintosh Users with Intel processors:+
+
+```bash
+curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-x86_64.sh
+bash Miniforge3-MacOSX-x86_64.sh -b -p ~/miniforge
+```
+
+!alert-end!
 
 With Miniforge installed in your home directory, export PATH so that it may be used:
 

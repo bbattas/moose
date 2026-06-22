@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -29,6 +29,7 @@
 #include "libmesh/exodusII_io.h"
 #include "libmesh/exodusII_io_helper.h"
 #include "libmesh/enum_xdr_mode.h"
+#include "libmesh/nemesis_io.h"
 
 registerMooseObject("MooseApp", SolutionUserObject);
 
@@ -52,14 +53,10 @@ SolutionUserObject::validParams()
 SolutionUserObject::SolutionUserObject(const InputParameters & parameters)
   : SolutionUserObjectBase(parameters), FunctionParserUtils<false>(parameters)
 {
-  // setup parsed expression for the time transformation
+  // Create parsed function
   _time_transformation = std::make_shared<SymFunction>();
-  setParserFeatureFlags(_time_transformation);
-
-  // parse function
-  const auto & expression = getParam<std::string>("time_transformation");
-  if (_time_transformation->Parse(expression, "t") >= 0)
-    mooseError("Invalid parsed function\n", expression, "\n", _time_transformation->ErrorMsg());
+  parsedFunctionSetup(
+      _time_transformation, getParam<std::string>("time_transformation"), "t", {}, {}, comm());
 
   // the only parameter is time
   _func_params.resize(1);

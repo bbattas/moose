@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -23,7 +23,8 @@ public:
   ADBoundaryFlux3EqnGhostStagnationPressureTemperature(const InputParameters & parameters);
 
 protected:
-  virtual std::vector<ADReal> getGhostCellSolution(const std::vector<ADReal> & U1) const override;
+  virtual std::vector<ADReal> getGhostCellSolution(const std::vector<ADReal> & U1,
+                                                   const Point & point) const override;
 
   /// Specified stagnation pressure
   const Real & _p0;

@@ -3,3 +3,7 @@
 - greenshields2010implementation # referenced in both Navier Stokes and Framework
 - jasak1996error # referenced in both Navier Stokes and Darcy Flow tutorial
 - puso2008segment # referenced in both Contact and Framework
+- todreas2021nuclear # referenced in both THM and Subchannel
+- rhebergen2017analysis # referenced in both Navier Stokes and Framework
+- brooks1982streamline # referenced in both Phase Field and Level Set
+- donea2003finite # referenced in both Phase Field and Level Set

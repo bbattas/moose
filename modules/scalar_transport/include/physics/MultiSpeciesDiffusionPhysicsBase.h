@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -17,7 +17,7 @@ class ActionComponent;
   registerPhysicsBaseTasks(app_name, derived_name);                                                \
   registerMooseAction(app_name, derived_name, "add_preconditioning");                              \
   registerMooseAction(app_name, derived_name, "add_postprocessor");                                \
-  registerMooseAction(app_name, derived_name, "add_ic")
+  registerMooseAction(app_name, derived_name, "add_ics_physics")
 
 /**
  * Base class to host all common parameters and attributes of Physics actions to solve the diffusion

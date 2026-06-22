@@ -1,0 +1,70 @@
+# MAKE SURE THAT seacas_version and seacas_git_rev match if performing a version update!
+{% set build = "__VERSIONER_SEACAS_BUILD_NUMBER__" %}
+{% set seacas_version = "__VERSIONER_SEACAS_VERSION__" %}
+{% set seacas_git_rev = "v" ~ seacas_version.replace(".", "-") %}
+{% set strbuild = "build_" + build|string %}
+
+package:
+  name: moose-seacas
+  version: {{ seacas_version }}
+
+source:
+  - git_url: https://github.com/sandialabs/seacas
+  - git_rev: {{ seacas_git_rev }}
+  - git_depth: 1
+  - path: ../functions/retry_build.sh
+  - patches:
+      - sequoia-15.4.patch
+
+build:
+  number: {{ build }}
+  string: {{ strbuild }}
+  script_env:
+    - MOOSE_JOBS
+    - REQUESTS_CA_BUNDLE
+    - SSL_CERT_FILE
+    - CURL_CA_BUNDLE
+    - NODE_EXTRA_CA_CERTS
+requirements:
+  build:
+    - {{ compiler("c") }}
+    - {{ compiler("cxx") }}
+    - {{ compiler("fortran") }}
+    - {{ stdlib("c") }}
+    - automake
+    - cmake
+    - make
+    - ninja
+  host:
+    - fmt
+    - xorg-libx11
+    - xorg-xorgproto
+    - zlib
+    - zstd
+
+test:
+  requires:
+    - python >=3.10
+  commands:
+    - test "$SEACAS_DIR" == "${PREFIX}/moose-seacas"
+    - exodiff --version
+    - algebra
+    - explore
+    - grepos
+    - gjoin -v
+    - python3 ${SEACAS_DIR}/lib/tests/test_exodus3.py
+    - blot --help || test $? -eq 1
+
+about:
+  home: https://github.com/sandialabs/seacas
+  license: BSD 3-clause
+  license_file: LICENSE
+  summary: >
+    The Sandia Engineering Analysis Code Access System (SEACAS) is a suite of
+    preprocessing, postprocessing, translation, and utility applications supporting
+    finite element analysis software using the Exodus database file format.
+
+extra:
+  recipe-maintainers:
+    - cticenhour
+    - loganharbour

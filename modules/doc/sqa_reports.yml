@@ -94,7 +94,7 @@ Applications:
     heat_transfer:
         exe_directory: modules/combined
         app_types:
-            - HeatConductionApp
+            - HeatTransferApp
         content_directory: modules/heat_transfer/doc/content
         unregister:
             - framework/doc/unregister.yml
@@ -241,6 +241,17 @@ Applications:
         unregister:
             - framework/doc/unregister.yml
         log_stub_files: WARNING
+
+    subchannel:
+        exe_directory: modules/combined
+        app_types:
+            - SubChannelApp
+        content_directory: modules/subchannel/doc/content
+        remove:
+            - framework/doc/remove.yml
+            - modules/subchannel/doc/remove.yml
+        unregister:
+            - framework/doc/unregister.yml
 
     THM:
         exe_directory: modules/combined
@@ -395,11 +406,6 @@ Requirements:
         directories:
             - modules/reactor
 
-    richards:
-        directories:
-            - modules/richards
-        log_missing: NONE # deprecated module
-
     scalar_transport:
         directories:
             - modules/scalar_transport
@@ -418,6 +424,10 @@ Requirements:
         log_duplicate_requirement: WARNING
         log_missing: WARNING
         log_empty_issues: WARNING
+
+    subchannel:
+        directories:
+            - modules/subchannel
 
     thermal_hydraulics:
         directories:

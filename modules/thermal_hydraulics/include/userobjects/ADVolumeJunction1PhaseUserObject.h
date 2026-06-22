@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -28,8 +28,18 @@ public:
 
   virtual void finalize() override;
 
+  std::vector<ADReal> compute3DFlux(const ADNumericalFlux3EqnBase & numerical_flux,
+                                    const std::vector<ADReal> & Ui,
+                                    const RealVectorValue & ni) const;
+  std::vector<ADReal> computeResidual(const std::vector<ADReal> & flux_3d,
+                                      const std::vector<ADReal> & Ui,
+                                      const RealVectorValue & ni,
+                                      bool is_primary_connection) const;
+
 protected:
   virtual void computeFluxesAndResiduals(const unsigned int & c) override;
+  virtual std::vector<const MooseVariableBase *> getFlowChannelVariables() const override;
+  virtual std::vector<const MooseVariableBase *> getJunctionVariables() const override;
 
   /// Cross-sectional area of connected flow channels
   const ADVariableValue & _A;

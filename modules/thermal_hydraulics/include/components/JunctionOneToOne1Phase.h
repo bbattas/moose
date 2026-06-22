@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,6 +26,7 @@ public:
   virtual void init() override;
   virtual void check() const override;
   virtual void addMooseObjects() override;
+  virtual Convergence * getNonlinearConvergence() const override { return nullptr; }
 
 protected:
   virtual void setupMesh() override;

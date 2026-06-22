@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -23,6 +23,7 @@
 #include "GreenGaussGradient.h"
 #include "LinearFVBoundaryCondition.h"
 #include "LinearFVAdvectionDiffusionFunctorDirichletBC.h"
+#include "GradientLimiterType.h"
 
 #include "libmesh/numeric_vector.h"
 
@@ -32,6 +33,22 @@
 using namespace Moose;
 
 registerMooseObject("MooseApp", MooseLinearVariableFVReal);
+
+namespace
+{
+const std::vector<std::unique_ptr<libMesh::NumericVector<libMesh::Number>>> &
+linearFVGradientContainer(SystemBase & sys)
+{
+  if (auto * const linear_system = dynamic_cast<LinearSystem *>(&sys))
+    return linear_system->linearFVGradientContainer();
+
+  if (auto * const auxiliary_system = dynamic_cast<AuxiliarySystem *>(&sys))
+    return auxiliary_system->linearFVGradientContainer();
+
+  mooseError("The assigned system is not a linear or an auxiliary system. Linear variables can "
+             "only be assigned to linear or auxiliary systems.");
+}
+}
 
 template <typename OutputType>
 InputParameters
@@ -48,7 +65,9 @@ template <typename OutputType>
 MooseLinearVariableFV<OutputType>::MooseLinearVariableFV(const InputParameters & parameters)
   : MooseVariableField<OutputType>(parameters),
     _needs_cell_gradients(false),
-    _grad_container(this->_sys.gradientContainer()),
+    _linear_system(dynamic_cast<LinearSystem *>(&this->_sys)),
+    _auxiliary_system(dynamic_cast<AuxiliarySystem *>(&this->_sys)),
+    _grad_container(linearFVGradientContainer(this->_sys)),
     _sys_num(this->_sys.number()),
     _solution(this->_sys.currentSolution()),
     // The following members are needed to be able to interface with the postprocessor and
@@ -65,7 +84,7 @@ MooseLinearVariableFV<OutputType>::MooseLinearVariableFV(const InputParameters &
     _grad_phi_neighbor(
         this->_assembly.template feGradPhiNeighbor<OutputShape>(FEType(CONSTANT, MONOMIAL)))
 {
-  if (!dynamic_cast<LinearSystem *>(&_sys) && !dynamic_cast<AuxiliarySystem *>(&_sys))
+  if (!_linear_system && !_auxiliary_system)
     this->paramError("solver_sys",
                      "The assigned system is not a linear or an auxiliary system! Linear variables "
                      "can only be assigned to linear or auxiliary systems!");
@@ -76,6 +95,30 @@ MooseLinearVariableFV<OutputType>::MooseLinearVariableFV(const InputParameters &
 
   if (libMesh::n_threads() > 1)
     mooseError("MooseLinearVariableFV does not support threading at the moment!");
+}
+
+template <typename OutputType>
+void
+MooseLinearVariableFV<OutputType>::computeCellGradients(
+    const Moose::FV::GradientLimiterType limiter_type)
+{
+  if (limiter_type == Moose::FV::GradientLimiterType::None)
+    computeCellGradients();
+  else
+    computeCellLimitedGradients(limiter_type);
+}
+
+template <typename OutputType>
+void
+MooseLinearVariableFV<OutputType>::computeCellLimitedGradients(
+    const Moose::FV::GradientLimiterType limiter_type)
+{
+  computeCellGradients();
+
+  if (_linear_system)
+    _linear_system->requestLinearFVLimitedGradients(limiter_type, this->_var_num);
+  else
+    _auxiliary_system->requestLinearFVLimitedGradients(limiter_type, this->_var_num);
 }
 
 template <typename OutputType>
@@ -112,9 +155,12 @@ MooseLinearVariableFV<OutputType>::getElemValue(const ElemInfo & elem_info,
 }
 
 template <typename OutputType>
-const VectorValue<Real>
-MooseLinearVariableFV<OutputType>::gradSln(const ElemInfo & elem_info) const
+VectorValue<Real>
+MooseLinearVariableFV<OutputType>::gradSln(const ElemInfo & elem_info, const StateArg & state) const
 {
+  if (state.state != 0)
+    gradientStateError(state);
+
   if (_needs_cell_gradients)
   {
     _cell_gradient.zero();
@@ -127,19 +173,109 @@ MooseLinearVariableFV<OutputType>::gradSln(const ElemInfo & elem_info) const
 }
 
 template <typename OutputType>
-VectorValue<Real>
-MooseLinearVariableFV<OutputType>::gradSln(const FaceInfo & fi, const StateArg & /*state*/) const
+Real
+MooseLinearVariableFV<OutputType>::gradSlnComponent(const ElemInfo & elem_info,
+                                                    const unsigned int component) const
 {
-  const bool var_defined_on_elem = this->hasBlocks(fi.elem().subdomain_id());
+  mooseAssert(_needs_cell_gradients,
+              "Gradient component requested without calling computeCellGradients().");
+  mooseAssert(component < _grad_container.size(), "Gradient component index out of range.");
+
+  return (*_grad_container[component])(elem_info.dofIndices()[this->_sys_num][this->_var_num]);
+}
+
+template <typename OutputType>
+VectorValue<Real>
+MooseLinearVariableFV<OutputType>::gradSln(const ElemInfo & elem_info,
+                                           const StateArg & state,
+                                           const Moose::FV::GradientLimiterType limiter_type) const
+{
+  return (limiter_type == Moose::FV::GradientLimiterType::None)
+             ? gradSln(elem_info, state)
+             : limitedGradSln(elem_info, state, limiter_type);
+}
+
+template <typename OutputType>
+VectorValue<Real>
+MooseLinearVariableFV<OutputType>::limitedGradSln(
+    const ElemInfo & elem_info,
+    const StateArg & state,
+    const Moose::FV::GradientLimiterType limiter_type) const
+{
+  if (state.state != 0)
+    gradientStateError(state);
+
+  _cell_gradient.zero();
+  const auto & limited_grad_container =
+      _linear_system ? _linear_system->linearFVLimitedGradientContainer(limiter_type)
+                     : _auxiliary_system->linearFVLimitedGradientContainer(limiter_type);
+  for (const auto i : make_range(this->_mesh.dimension()))
+    _cell_gradient(i) =
+        (*limited_grad_container[i])(elem_info.dofIndices()[this->_sys_num][this->_var_num]);
+
+  return _cell_gradient;
+}
+
+template <typename OutputType>
+VectorValue<Real>
+MooseLinearVariableFV<OutputType>::gradSln(const FaceInfo & fi, const StateArg & state) const
+{
+  const auto face_type = fi.faceType(std::make_pair(this->_var_num, this->_sys_num));
+  mooseAssert(face_type != FaceInfo::VarFaceNeighbors::NEITHER,
+              "Gradient requested on a face where the variable is defined on neither side.");
+
+  const bool var_defined_on_elem = (face_type == FaceInfo::VarFaceNeighbors::BOTH) ||
+                                   (face_type == FaceInfo::VarFaceNeighbors::ELEM);
   const auto * const elem_one = var_defined_on_elem ? fi.elemInfo() : fi.neighborInfo();
   const auto * const elem_two = var_defined_on_elem ? fi.neighborInfo() : fi.elemInfo();
 
-  const auto elem_one_grad = gradSln(*elem_one);
+  const auto elem_one_grad = gradSln(*elem_one, state);
 
   // If we have a neighbor then we interpolate between the two to the face.
-  if (elem_two && this->hasBlocks(elem_two->subdomain_id()))
+  if (face_type == FaceInfo::VarFaceNeighbors::BOTH)
   {
-    const auto elem_two_grad = gradSln(*elem_two);
+    mooseAssert(elem_two, "Face type indicates BOTH but neighbor information is missing.");
+    const auto elem_two_grad = gradSln(*elem_two, state);
+    return Moose::FV::linearInterpolation(elem_one_grad, elem_two_grad, fi, var_defined_on_elem);
+  }
+  else
+    return elem_one_grad;
+}
+
+template <typename OutputType>
+VectorValue<Real>
+MooseLinearVariableFV<OutputType>::gradSln(const FaceInfo & fi,
+                                           const StateArg & state,
+                                           const Moose::FV::GradientLimiterType limiter_type) const
+{
+  return (limiter_type == Moose::FV::GradientLimiterType::None)
+             ? gradSln(fi, state)
+             : limitedGradSln(fi, state, limiter_type);
+}
+
+template <typename OutputType>
+VectorValue<Real>
+MooseLinearVariableFV<OutputType>::limitedGradSln(
+    const FaceInfo & fi,
+    const StateArg & state,
+    const Moose::FV::GradientLimiterType limiter_type) const
+{
+  const auto face_type = fi.faceType(std::make_pair(this->_var_num, this->_sys_num));
+  mooseAssert(face_type != FaceInfo::VarFaceNeighbors::NEITHER,
+              "Limited gradient requested on a face where the variable is defined on neither "
+              "side.");
+
+  const bool var_defined_on_elem = (face_type == FaceInfo::VarFaceNeighbors::BOTH) ||
+                                   (face_type == FaceInfo::VarFaceNeighbors::ELEM);
+  const auto * const elem_one = var_defined_on_elem ? fi.elemInfo() : fi.neighborInfo();
+  const auto * const elem_two = var_defined_on_elem ? fi.neighborInfo() : fi.elemInfo();
+
+  const auto elem_one_grad = limitedGradSln(*elem_one, state, limiter_type);
+
+  if (face_type == FaceInfo::VarFaceNeighbors::BOTH)
+  {
+    mooseAssert(elem_two, "Face type indicates BOTH but neighbor information is missing.");
+    const auto elem_two_grad = limitedGradSln(*elem_two, state, limiter_type);
     return Moose::FV::linearInterpolation(elem_one_grad, elem_two_grad, fi, var_defined_on_elem);
   }
   else
@@ -155,6 +291,14 @@ MooseLinearVariableFV<OutputType>::initialSetup()
 }
 
 template <typename OutputType>
+void
+MooseLinearVariableFV<OutputType>::timestepSetup()
+{
+  MooseVariableField<OutputType>::timestepSetup();
+  cacheBoundaryBCMap();
+}
+
+template <typename OutputType>
 typename MooseLinearVariableFV<OutputType>::ValueType
 MooseLinearVariableFV<OutputType>::evaluate(const FaceArg & face, const StateArg & state) const
 {
@@ -163,6 +307,7 @@ MooseLinearVariableFV<OutputType>::evaluate(const FaceArg & face, const StateArg
   mooseAssert(fi, "The face information must be non-null");
 
   const auto face_type = fi->faceType(std::make_pair(this->_var_num, this->_sys_num));
+
   if (face_type == FaceInfo::VarFaceNeighbors::BOTH)
     return Moose::FV::interpolate(*this, face, state);
   else if (auto * bc_pointer = this->getBoundaryCondition(*fi->boundaryIDs().begin()))
@@ -289,14 +434,14 @@ MooseLinearVariableFV<OutputType>::getDofIndices(const Elem * elem,
 
 template <typename OutputType>
 void
-MooseLinearVariableFV<OutputType>::setDofValue(const OutputData & value, unsigned int index)
+MooseLinearVariableFV<OutputType>::setDofValue(const DofValue & value, unsigned int index)
 {
   _element_data->setDofValue(value, index);
 }
 
 template <typename OutputType>
 void
-MooseLinearVariableFV<OutputType>::setDofValues(const DenseVector<OutputData> & values)
+MooseLinearVariableFV<OutputType>::setDofValues(const DenseVector<DofValue> & values)
 {
   _element_data->setDofValues(values);
 }
@@ -309,112 +454,112 @@ MooseLinearVariableFV<OutputType>::clearDofIndices()
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValues() const
 {
   return _element_data->dofValues();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesNeighbor() const
 {
   return _neighbor_data->dofValues();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesOld() const
 {
   return _element_data->dofValuesOld();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesOlder() const
 {
   return _element_data->dofValuesOlder();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesPreviousNL() const
 {
   return _element_data->dofValuesPreviousNL();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesOldNeighbor() const
 {
   return _neighbor_data->dofValuesOld();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesOlderNeighbor() const
 {
   return _neighbor_data->dofValuesOlder();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesPreviousNLNeighbor() const
 {
   return _neighbor_data->dofValuesPreviousNL();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesDot() const
 {
   timeIntegratorError();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesDotDot() const
 {
   timeIntegratorError();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesDotOld() const
 {
   timeIntegratorError();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesDotDotOld() const
 {
   timeIntegratorError();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesDotNeighbor() const
 {
   timeIntegratorError();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesDotDotNeighbor() const
 {
   timeIntegratorError();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesDotOldNeighbor() const
 {
   timeIntegratorError();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::dofValuesDotDotOldNeighbor() const
 {
   timeIntegratorError();
@@ -517,7 +662,7 @@ MooseLinearVariableFV<OutputType>::dofIndicesNeighbor() const
 
 template <typename OutputType>
 void
-MooseLinearVariableFV<OutputType>::setLowerDofValues(const DenseVector<OutputData> &)
+MooseLinearVariableFV<OutputType>::setLowerDofValues(const DenseVector<DofValue> &)
 {
   lowerDError();
 }
@@ -548,14 +693,14 @@ MooseLinearVariableFV<OutputType>::setNodalValue(const OutputType & /*value*/, u
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::nodalVectorTagValue(TagID) const
 {
   nodalError();
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::nodalMatrixTagValue(TagID) const
 {
   nodalError();
@@ -640,7 +785,7 @@ MooseLinearVariableFV<OutputType>::vectorTagValue(TagID tag) const
 }
 
 template <typename OutputType>
-const typename MooseLinearVariableFV<OutputType>::DoFValue &
+const typename MooseLinearVariableFV<OutputType>::DofValues &
 MooseLinearVariableFV<OutputType>::vectorTagDofValue(TagID tag) const
 {
   return _element_data->vectorTagDofValue(tag);
@@ -843,21 +988,35 @@ MooseLinearVariableFV<OutputType>::adGradSln() const
 }
 
 template <typename OutputType>
-const MooseArray<ADReal> &
+const ADTemplateVariableCurl<OutputType> &
+MooseLinearVariableFV<OutputType>::adCurlSln() const
+{
+  adError();
+}
+
+template <typename OutputType>
+const ADTemplateVariableCurl<OutputType> &
+MooseLinearVariableFV<OutputType>::adCurlSlnNeighbor() const
+{
+  adError();
+}
+
+template <typename OutputType>
+const typename MooseLinearVariableFV<OutputType>::ADDofValues &
 MooseLinearVariableFV<OutputType>::adDofValues() const
 {
   adError();
 }
 
 template <typename OutputType>
-const MooseArray<ADReal> &
+const typename MooseLinearVariableFV<OutputType>::ADDofValues &
 MooseLinearVariableFV<OutputType>::adDofValuesNeighbor() const
 {
   adError();
 }
 
 template <typename OutputType>
-const MooseArray<ADReal> &
+const typename MooseLinearVariableFV<OutputType>::ADDofValues &
 MooseLinearVariableFV<OutputType>::adDofValuesDot() const
 {
   adError();
@@ -875,6 +1034,13 @@ const dof_id_type &
 MooseLinearVariableFV<OutputType>::nodalDofIndexNeighbor() const
 {
   nodalError();
+}
+
+template <typename OutputType>
+void
+MooseLinearVariableFV<OutputType>::sizeMatrixTagData()
+{
+  _element_data->sizeMatrixTagData();
 }
 
 template class MooseLinearVariableFV<Real>;

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -91,7 +91,7 @@ public:
 
   // DoF value type for the template class OutputType
   typedef typename Moose::DOFType<OutputType>::type OutputData;
-  typedef MooseArray<OutputData> DoFValue;
+  typedef MooseArray<OutputData> DofValue;
 
   MooseVariableDataFV(const MooseVariableFV<OutputType> & var,
                       SystemBase & sys,
@@ -247,10 +247,10 @@ public:
 
   /////////////////////////// DoF value getters /////////////////////////////////////
 
-  const DoFValue & dofValuesDot() const;
-  const DoFValue & dofValuesDotOld() const;
-  const DoFValue & dofValuesDotDot() const;
-  const DoFValue & dofValuesDotDotOld() const;
+  const DofValue & dofValuesDot() const;
+  const DofValue & dofValuesDotOld() const;
+  const DofValue & dofValuesDotDot() const;
+  const DofValue & dofValuesDotDotOld() const;
   const MooseArray<libMesh::Number> & dofValuesDuDotDu() const;
   const MooseArray<libMesh::Number> & dofValuesDuDotDotDu() const;
 
@@ -293,7 +293,7 @@ private:
    * values as they're referred to here in this class). These methods are only truly meaningful
    * for nodal basis families
    */
-  void fetchADDoFValues();
+  void fetchADDofValues();
 
   /**
    * Helper method that tells us whether it's safe to compute _ad_u_dot
@@ -373,19 +373,19 @@ private:
   FieldVariableValue _u_dot;
 
   /// u_dotdot (second time derivative)
-  FieldVariableValue _u_dotdot, _u_dotdot_bak;
+  FieldVariableValue _u_dotdot;
 
   /// u_dot_old (time derivative)
-  FieldVariableValue _u_dot_old, _u_dot_old_bak;
+  FieldVariableValue _u_dot_old;
 
   /// u_dotdot_old (second time derivative)
-  FieldVariableValue _u_dotdot_old, _u_dotdot_old_bak;
+  FieldVariableValue _u_dotdot_old;
 
   /// derivative of u_dot wrt u
   VariableValue _du_dot_du;
 
   /// derivative of u_dotdot wrt u
-  VariableValue _du_dotdot_du, _du_dotdot_du_bak;
+  VariableValue _du_dotdot_du;
 
   /// Pointer to time integrator
   const TimeIntegrator * const _time_integrator;
@@ -430,7 +430,7 @@ private:
   using MooseVariableDataBase<OutputType>::_need_matrix_tag_u;
   using MooseVariableDataBase<OutputType>::_dof_indices;
   using MooseVariableDataBase<OutputType>::_has_dof_values;
-  using MooseVariableDataBase<OutputType>::fetchDoFValues;
+  using MooseVariableDataBase<OutputType>::fetchDofValues;
   using MooseVariableDataBase<OutputType>::assignNodalValue;
   using MooseVariableDataBase<OutputType>::zeroSizeDofValues;
   using MooseVariableDataBase<OutputType>::_solution_tag;

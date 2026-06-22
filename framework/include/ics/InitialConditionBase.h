@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -101,7 +101,7 @@ protected:
   const bool _ignore_uo_dependency;
 
 private:
-  void addUserObjectDependencyHelper(const UserObject & uo) const override final;
+  void addUserObjectDependencyHelper(const UserObjectBase & uo) const override final;
   void addPostprocessorDependencyHelper(const PostprocessorName & name) const override final;
 
   /// Dependent variables

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,7 +13,7 @@
 #include "GeneralUserObject.h"
 
 /**
- * Reporter object that has a single execution of the "execute" method for for each execute flag.
+ * Reporter object that has a single execution of the "execute" method for each execute flag.
  */
 class GeneralReporter : public GeneralUserObject, public Reporter
 {

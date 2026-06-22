@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -253,7 +253,8 @@ SymmetricRankFourTensorTempl<T>::L2norm() const
   T l2 = Utility::pow<2>(_vals[0]);
   for (const auto i : make_range(1u, N2))
     l2 += Utility::pow<2>(_vals[i]);
-  return std::sqrt(l2);
+  using std::sqrt;
+  return sqrt(l2);
 }
 
 template <typename T>

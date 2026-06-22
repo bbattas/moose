@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,6 +12,7 @@
 // Moose includes
 #include "RhieChowMassFlux.h"
 #include "SIMPLESolveBase.h"
+#include "CHTHandler.h"
 
 /**
  * Common base class for segregated solvers for the Navier-Stokes
@@ -27,6 +28,8 @@ public:
   static InputParameters validParams();
 
   virtual void linkRhieChowUserObject() override;
+
+  virtual void initialSetup() override;
 
   /**
    * Performs the momentum pressure coupling.
@@ -57,12 +60,51 @@ protected:
   /// @param relaxation_factor The relaxation factor for matrix relaxation
   /// @param solver_config The solver configuration object for the linear solve
   /// @param abs_tol The scaled absolute tolerance for the linear solve
+  /// @param field_relaxation (optional) The relaxation factor for fields if relax_fields is true. Default value is 1.0.
+  /// @param min_value_limiter (optional) The minimum value for the solution field
   /// @return The normalized residual norm of the equation.
-  std::pair<unsigned int, Real> solveAdvectedSystem(const unsigned int system_num,
-                                                    LinearSystem & system,
-                                                    const Real relaxation_factor,
-                                                    libMesh::SolverConfiguration & solver_config,
-                                                    const Real abs_tol);
+  std::pair<unsigned int, Real>
+  solveAdvectedSystem(const unsigned int system_num,
+                      LinearSystem & system,
+                      const Real relaxation_factor,
+                      libMesh::SolverConfiguration & solver_config,
+                      const Real abs_tol,
+                      const Real field_relaxation = 1.0,
+                      const Real min_value_limiter = std::numeric_limits<Real>::min());
+
+  /// Aggregated storage for residuals, tolerances, and indices used in convergence checks
+  struct ResidualStorage
+  {
+    /// (linear iterations, normalized residual) entries in the order used by NS::FV::converged()
+    std::vector<std::pair<unsigned int, Real>> ns_residuals;
+    /// Absolute tolerances matching ns_residuals
+    std::vector<Real> ns_abs_tols;
+    /// Indices of momentum equations in ns_residuals
+    std::vector<std::size_t> momentum_indices;
+    /// Index of the pressure equation in ns_residuals
+    std::size_t pressure_index = Moose::invalid_size_t;
+    /// Index of the energy equation in ns_residuals
+    std::size_t energy_index = Moose::invalid_size_t;
+    /// Index of the solid energy equation in ns_residuals
+    std::size_t solid_energy_index = Moose::invalid_size_t;
+    /// Indices of active scalar equations in ns_residuals
+    std::vector<std::size_t> active_scalar_indices;
+    /// Indices of turbulence surrogate equations in ns_residuals
+    std::vector<std::size_t> turbulence_indices;
+    /// Indices of participating media radiation equations in ns_residuals
+    std::vector<std::size_t> pm_radiation_indices;
+    /// This will be an initial indicator if we have something to solve.
+    /// If we dont have anything we just set this to true.
+    bool converged = false;
+  };
+
+  /**
+   * Build residual/tolerance vectors and associated indices for all enabled systems.
+   */
+  ResidualStorage setupResidualStorage() const;
+
+  /// Solve an equation which contains the solid energy conservation.
+  std::pair<unsigned int, Real> solveSolidEnergy();
 
   /// The number(s) of the system(s) corresponding to the momentum equation(s)
   std::vector<unsigned int> _momentum_system_numbers;
@@ -73,21 +115,78 @@ protected:
   /// The number of the system corresponding to the pressure equation
   const unsigned int _pressure_sys_number;
 
-  /// Reference to the nonlinear system corresponding to the pressure equation
+  /// Reference to the linear system corresponding to the pressure equation
   LinearSystem & _pressure_system;
 
   /// The number of the system corresponding to the energy equation
   const unsigned int _energy_sys_number;
 
-  /// Pointer to the nonlinear system corresponding to the fluid energy equation
+  /// Pointer to the linear system corresponding to the fluid energy equation
   LinearSystem * _energy_system;
+
+  /// The number of the system corresponding to the solid energy equation
+  const unsigned int _solid_energy_sys_number;
+
+  /// Pointer to the linear system corresponding to the solid energy equation
+  LinearSystem * _solid_energy_system;
 
   /// Pointer(s) to the system(s) corresponding to the passive scalar equation(s)
   std::vector<LinearSystem *> _passive_scalar_systems;
+
+  /// Pointer(s) to the system(s) corresponding to the participting media radiation equation(s)
+  std::vector<LinearSystem *> _pm_radiation_systems;
+
+  /// Pointer(s) to the system(s) corresponding to the active scalar equation(s)
+  std::vector<LinearSystem *> _active_scalar_systems;
+
+  /// Pointer(s) to the system(s) corresponding to the turbulence equation(s)
+  std::vector<LinearSystem *> _turbulence_systems;
 
   /// Pointer to the segregated RhieChow interpolation object
   RhieChowMassFlux * _rc_uo;
 
   /// Shortcut to every linear system that we solve for here
   std::vector<LinearSystem *> _systems_to_solve;
+
+  /// Flags controlling which systems are actively solved (can be used with restart to freeze flow)
+  const bool _should_solve_momentum;
+  const bool _should_solve_pressure;
+  const bool _should_solve_energy;
+  const bool _should_solve_solid_energy;
+  const bool _should_solve_turbulence;
+  const bool _should_solve_passive_scalars;
+  const bool _should_solve_active_scalars;
+  const bool _should_solve_pm_radiation;
+
+  // ************************ Active Scalar Variables ************************ //
+
+  /// The names of the active scalar systems
+  const std::vector<SolverSystemName> & _active_scalar_system_names;
+
+  /// Boolean for easy check if a active scalar systems shall be solved or not
+  const bool _has_active_scalar_systems;
+
+  // The number(s) of the system(s) corresponding to the active scalar equation(s)
+  std::vector<unsigned int> _active_scalar_system_numbers;
+
+  /// The user-defined relaxation parameter(s) for the active scalar equation(s)
+  const std::vector<Real> _active_scalar_equation_relaxation;
+
+  /// Options which hold the petsc settings for the active scalar equation(s)
+  Moose::PetscSupport::PetscOptions _active_scalar_petsc_options;
+
+  /// Options for the linear solver of the active scalar equation(s)
+  SIMPLESolverConfiguration _active_scalar_linear_control;
+
+  /// Absolute linear tolerance for the active scalar equation(s). We need to store this, because
+  /// it needs to be scaled with a representative flux.
+  const Real _active_scalar_l_abs_tol;
+
+  /// The user-defined absolute tolerance for determining the convergence in active scalars
+  const std::vector<Real> _active_scalar_absolute_tolerance;
+
+  /// ********************** Conjugate heat transfer variables ************** //
+
+  // Handler object for CHT problems
+  NS::FV::CHTHandler _cht;
 };

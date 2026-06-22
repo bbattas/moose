@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -363,4 +363,11 @@ MultiMooseEnum::operator+=(const std::initializer_list<std::string> & names)
 {
   mooseDeprecated("MultiMooseEnum::operator+= is deprecated, use MultiMooseEnum::addValidName");
   return MooseEnumBase::operator+=(names);
+}
+
+void
+MultiMooseEnum::addValidName(const MultiMooseEnum & names)
+{
+  for (const auto & item : names._items)
+    addEnumerationItem(MooseEnumItem(item.name(), getNextValidID()));
 }

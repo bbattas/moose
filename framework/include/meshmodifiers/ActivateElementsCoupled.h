@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,5 +27,5 @@ protected:
   /// variable value to decide wether an element whould be activated
   const Real _activate_value;
   /// type of activation - blow or above
-  const enum class ActivateType { BELOW, EQUAL, ABOVE } _activate_type;
+  CreateMooseEnumClass(ActivateType, BELOW, EQUAL, ABOVE) _activate_type;
 };

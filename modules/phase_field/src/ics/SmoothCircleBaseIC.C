@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,6 +10,7 @@
 #include "SmoothCircleBaseIC.h"
 #include "MooseMesh.h"
 #include "MooseVariable.h"
+#include "FEProblemBase.h"
 
 #include "libmesh/utility.h"
 
@@ -116,7 +117,7 @@ SmoothCircleBaseIC::computeCircleValue(const Point & p, const Point & center, co
     l_center(2) = 0.0;
   }
   // Compute the distance between the current point and the center
-  Real dist = _mesh.minPeriodicDistance(_var.number(), l_p, l_center);
+  Real dist = _mesh.minPeriodicDistance(_var, l_p, l_center);
 
   switch (_profile)
   {
@@ -157,7 +158,7 @@ SmoothCircleBaseIC::computeCircleGradient(const Point & p,
     l_center(2) = 0.0;
   }
   // Compute the distance between the current point and the center
-  Real dist = _mesh.minPeriodicDistance(_var.number(), l_p, l_center);
+  Real dist = _mesh.minPeriodicDistance(_var, l_p, l_center);
 
   // early return if we are probing the center of the circle
   if (dist == 0.0)
@@ -185,5 +186,5 @@ SmoothCircleBaseIC::computeCircleGradient(const Point & p,
       mooseError("Internal error.");
   }
 
-  return _mesh.minPeriodicVector(_var.number(), center, p) * (DvalueDr / dist);
+  return _mesh.minPeriodicVector(_var, center, p) * (DvalueDr / dist);
 }

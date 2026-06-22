@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -288,11 +288,9 @@ MultiAppShapeEvaluationTransfer::transferVariable(unsigned int i)
       {
         if (local_bboxes[i_from].contains_point(pt))
         {
-          const auto from_global_num =
-              _current_direction == TO_MULTIAPP ? 0 : _from_local2global_map[i_from];
           // Use mesh function to compute interpolation values
-          vals_ids_for_incoming_points[i_pt].first =
-              (local_meshfuns[i_from])(_from_transforms[from_global_num]->mapBack(pt));
+          vals_ids_for_incoming_points[i_pt].first = (local_meshfuns[i_from])(
+              getPointInSourceAppFrame(pt, i_from, "Shape evaluation transfer"));
           // Record problem ID as well
           switch (_current_direction)
           {

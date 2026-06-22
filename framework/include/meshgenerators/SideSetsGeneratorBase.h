@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -50,21 +50,6 @@ protected:
    */
   void
   flood(const Elem * elem, const Point & normal, const boundary_id_type & side_id, MeshBase & mesh);
-
-  /**
-   * Determines whether two normal vectors are within normal_tol of each other.
-   * @param normal_1 The first normal vector to compare to normal_2.
-   * @param normal_2 The second normal vector to compare to normal_1.
-   * @param tol The comparison tolerance.
-   * @return A bool indicating whether 1 - dot(normal_1, normal_2) <= tol.
-   */
-  bool normalsWithinTol(const Point & normal_1, const Point & normal_2, const Real & tol) const;
-
-  /**
-   * Determines whether the given element's subdomain id is in the given subdomain_id_list.
-   */
-  bool elementSubdomainIdInList(const Elem * const elem,
-                                const std::vector<subdomain_id_type> & subdomain_id_list) const;
 
   /**
    * Determines whether the given side of an element belongs to any boundaries in the

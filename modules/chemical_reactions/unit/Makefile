@@ -12,11 +12,12 @@ THIS_MODULE_DIR    ?= $(shell dirname `pwd`)
 MODULE_DIR         ?= $(shell dirname $(THIS_MODULE_DIR))
 MOOSE_DIR          ?= $(shell dirname $(MODULE_DIR))
 FRAMEWORK_DIR      ?= $(MOOSE_DIR)/framework
-ADDITIONAL_CPPFLAGS += -Wall -Wextra
+ADDITIONAL_CPPFLAGS += -Wall -Wextra -DMOOSE_UNIT_TEST
 ###############################################################################
 
 # Extra stuff for GTEST
 ADDITIONAL_INCLUDES	:= -isystem $(FRAMEWORK_DIR)/contrib/gtest
+ADDITIONAL_INCLUDES	:= -isystem $(MOOSE_DIR)/unit/include
 ADDITIONAL_LIBS 	:= $(FRAMEWORK_DIR)/contrib/gtest/libgtest.la
 
 # framework

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -178,7 +178,7 @@ protected:
    * the end of the constructor of a final inherited class, after `_components` has been set.
    * See GeneralizedKelvinVoigtModel or GeneralizedMaxwell model for example.
    */
-  void declareViscoelasticProperties();
+  virtual void declareViscoelasticProperties();
 
   /// Provides theta as a function of the time step and a viscosity
   Real computeTheta(Real dt, Real viscosity) const;
@@ -222,6 +222,11 @@ protected:
   ///@{ List of viscosities of each subsequent dashpot in the chain
   std::vector<MaterialProperty<Real> *> _dashpot_viscosities;
   std::vector<const MaterialProperty<Real> *> _dashpot_viscosities_old;
+  ///@}
+
+  ///@{ Elasticity tensor corresponding to the long-term dashpot
+  MaterialProperty<RankFourTensor> * _longterm_elasticity_tensor;
+  MaterialProperty<RankFourTensor> * _longterm_elasticity_tensor_inv;
   ///@}
 
   /**@{

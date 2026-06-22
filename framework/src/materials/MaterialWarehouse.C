@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -105,7 +105,7 @@ MaterialWarehouse::updateActive(THREAD_ID tid /*=0*/)
 }
 
 void
-MaterialWarehouse::sort(THREAD_ID tid /*=0*/)
+MaterialWarehouse::sort(THREAD_ID tid /*=0*/, bool sort_all_objects /*=false*/)
 {
   checkThreadID(tid);
 
@@ -124,5 +124,41 @@ MaterialWarehouse::sort(THREAD_ID tid /*=0*/)
   for (auto & object_pair : _face_materials._all_boundary_objects[tid])
     sortHelper(object_pair.second);
 
+  if (sort_all_objects)
+  {
+    sortHelper(_all_objects[tid]);
+    sortHelper(_neighbor_materials._all_objects[tid]);
+    sortHelper(_face_materials._all_objects[tid]);
+  }
+
   updateActive(tid);
+}
+
+void
+MaterialWarehouse::updateMatPropDependencyHelper(
+    std::unordered_set<unsigned int> & needed_mat_props,
+    const std::vector<std::shared_ptr<MaterialBase>> & materials,
+    const bool producer_only) const
+{
+  if (producer_only)
+  {
+    std::unordered_set<unsigned int> consumer_needed_mat_props;
+
+    do
+    {
+      consumer_needed_mat_props = needed_mat_props;
+
+      for (auto & material : materials)
+        for (const auto prop : consumer_needed_mat_props)
+          if (material->getSuppliedPropIDs().count(prop))
+          {
+            auto & mp_deps = material->getMatPropDependencies();
+            needed_mat_props.insert(mp_deps.begin(), mp_deps.end());
+          }
+
+    } while (consumer_needed_mat_props.size() != needed_mat_props.size());
+  }
+  else
+    MooseObjectWarehouseBase<MaterialBase>::updateMatPropDependencyHelper(
+        needed_mat_props, materials, producer_only);
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -47,8 +47,9 @@ ADBoundaryFlux3EqnGhostStagnationPressureTemperature::
 
 std::vector<ADReal>
 ADBoundaryFlux3EqnGhostStagnationPressureTemperature::getGhostCellSolution(
-    const std::vector<ADReal> & U) const
+    const std::vector<ADReal> & U, const Point & /*point*/) const
 {
+  mooseAssert(U.size() == THMVACE1D::N_FLUX_INPUTS, "Passive transport not implemented");
   const ADReal rhoA = U[THMVACE1D::RHOA];
   const ADReal rhouA = U[THMVACE1D::RHOUA];
   const ADReal A = U[THMVACE1D::AREA];

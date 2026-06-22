@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,6 +13,7 @@
 #include "FEProblemBase.h"
 #include "DiscreteElementUserObject.h"
 #include "ThreadedGeneralUserObject.h"
+#include "MooseObject.h"
 
 InputParameters
 UserObjectInterface::validParams()
@@ -29,6 +30,16 @@ UserObjectInterface::UserObjectInterface(const MooseObject * moose_object)
                  : 0)
 {
 }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+UserObjectInterface::UserObjectInterface(const UserObjectInterface & object,
+                                         const Moose::Kokkos::FunctorCopy &)
+  : _uoi_moose_object(object._uoi_moose_object),
+    _uoi_feproblem(object._uoi_feproblem),
+    _uoi_tid(object._uoi_tid)
+{
+}
+#endif
 
 UserObjectName
 UserObjectInterface::getUserObjectName(const std::string & param_name) const
@@ -72,10 +83,35 @@ UserObjectInterface::hasUserObject(const std::string & param_name) const
 bool
 UserObjectInterface::hasUserObjectByName(const UserObjectName & object_name) const
 {
-  return _uoi_feproblem.hasUserObject(object_name);
+  bool flag = _uoi_feproblem.hasUserObject(object_name);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  flag = flag || _uoi_feproblem.hasKokkosUserObject(object_name);
+#endif
+
+  return flag;
 }
 
-const UserObject &
+const UserObjectBase &
+UserObjectInterface::getUserObjectFromFEProblem(const UserObjectName & object_name,
+                                                const THREAD_ID tid) const
+{
+  const UserObjectBase * uo = nullptr;
+
+  if (_uoi_feproblem.hasUserObject(object_name))
+    uo = &_uoi_feproblem.getUserObjectBase(object_name, tid);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  if (_uoi_feproblem.hasKokkosUserObject(object_name))
+    uo = &_uoi_feproblem.getKokkosUserObject<UserObjectBase>(object_name);
+#endif
+
+  mooseAssert(uo, "getUserObjectFromFEProblem() could not find user object");
+
+  return *uo;
+}
+
+const UserObjectBase &
 UserObjectInterface::getUserObjectBase(const std::string & param_name,
                                        const bool is_dependency) const
 {
@@ -87,7 +123,7 @@ UserObjectInterface::getUserObjectBase(const std::string & param_name,
   return getUserObjectBaseByName(object_name, is_dependency);
 }
 
-const UserObject &
+const UserObjectBase &
 UserObjectInterface::getUserObjectBaseByName(const UserObjectName & object_name,
                                              const bool is_dependency) const
 {
@@ -95,22 +131,31 @@ UserObjectInterface::getUserObjectBaseByName(const UserObjectName & object_name,
     _uoi_moose_object.mooseError(
         "The requested UserObject with the name \"", object_name, "\" was not found.");
 
-  const auto & uo_base_tid0 = _uoi_feproblem.getUserObjectBase(object_name, /* tid = */ 0);
+  const auto & uo_base_tid0 = getUserObjectFromFEProblem(object_name);
   if (is_dependency)
     addUserObjectDependencyHelper(uo_base_tid0);
 
   const THREAD_ID tid = uo_base_tid0.needThreadedCopy() ? _uoi_tid : 0;
-  return _uoi_feproblem.getUserObjectBase(object_name, tid);
+  return getUserObjectFromFEProblem(object_name, tid);
 }
 
 const std::string &
-UserObjectInterface::userObjectType(const UserObject & uo) const
+UserObjectInterface::userObjectType(const UserObjectBase & uo) const
 {
   return uo.type();
 }
 
 const std::string &
-UserObjectInterface::userObjectName(const UserObject & uo) const
+UserObjectInterface::userObjectName(const UserObjectBase & uo) const
 {
   return uo.name();
+}
+
+void
+UserObjectInterface::mooseObjectError(const std::string & param_name, std::stringstream & oss) const
+{
+  if (_uoi_moose_object.parameters().isParamValid(param_name))
+    _uoi_moose_object.paramError(param_name, oss.str());
+  else
+    _uoi_moose_object.mooseError(oss.str());
 }

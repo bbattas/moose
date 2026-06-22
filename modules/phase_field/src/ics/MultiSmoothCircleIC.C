@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -111,7 +111,7 @@ MultiSmoothCircleIC::computeCircleCenters()
       _centers[i] = _bottom_left + ran * _range;
 
       for (unsigned int j = 0; j < i; ++j)
-        if (_mesh.minPeriodicDistance(_var.number(), _centers[j], _centers[i]) < _bubspac)
+        if (_mesh.minPeriodicDistance(_var, _centers[j], _centers[i]) < _bubspac)
           goto fail;
 
       // accept the position of the new center

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,5 +27,10 @@ AddUserObjectAction::AddUserObjectAction(const InputParameters & params) : Moose
 void
 AddUserObjectAction::act()
 {
-  _problem->addUserObject(_type, _name, _moose_object_pars);
+#ifdef MOOSE_KOKKOS_ENABLED
+  if (_moose_object_pars.isKokkosObject())
+    _problem->addKokkosUserObject(_type, _name, _moose_object_pars);
+  else
+#endif
+    _problem->addUserObject(_type, _name, _moose_object_pars);
 }

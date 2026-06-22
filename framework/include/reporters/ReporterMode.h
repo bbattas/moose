@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -7,6 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 #pragma once
+
 #include "MooseEnum.h"
 
 /**
@@ -73,6 +74,30 @@ public:
   void insert(const ReporterMode & mode);
   ///@}
 };
+
+inline bool
+operator==(const ReporterProducerEnum & producer_mode, const ReporterMode & mode)
+{
+  return static_cast<int>(producer_mode) == static_cast<int>(mode);
+}
+
+inline bool
+operator==(const ReporterMode & mode, const ReporterProducerEnum & producer_mode)
+{
+  return producer_mode == mode;
+}
+
+inline bool
+operator!=(const ReporterProducerEnum & producer_mode, const ReporterMode & mode)
+{
+  return !(producer_mode == mode);
+}
+
+inline bool
+operator!=(const ReporterMode & mode, const ReporterProducerEnum & producer_mode)
+{
+  return !(mode == producer_mode);
+}
 
 template <typename... Args>
 void

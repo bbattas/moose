@@ -3,7 +3,7 @@
 #   moose-dev/*
 #
 # As well as any directions pertaining to modifying those files.
-{% set version = "2024.12.23" %}
+{% set version = "2026.06.16" %}
 
 package:
   name: moose-tools
@@ -17,21 +17,26 @@ build:
   script_env:
     - REQUESTS_CA_BUNDLE
     - SSL_CERT_FILE
-
+    - CURL_CA_BUNDLE
+    - NODE_EXTRA_CA_CERTS
 requirements:
   build:
-    - {{ moose_python }}
+    - python {{ python }}
     - setuptools
+  #
+  # NOTE: These should mirror ./requirements.txt as much as possible.
+  #
+  # ./requirements.txt is used to setup the python environment
+  # within apptainer distributions.
+  #
   run:
-    # NOTE: If you are here to add a Python package in order to make the TestHarness or
-    #       versioner.py work, you also have to add that package in mpi/meta.yaml, under
-    #       moose-python. This allows folks that build their own PETSc, libMesh, WASP,
-    #       etc combos, to continue to do so with only needing the moose-mpi package.
     - beautifulsoup4
-    - {{ clang_format }}
-    - clang-tools
+    - black {{ black }}
+    - clang-format {{ clang_format }}
+    - clang-tools {{ clang_tools }}
+    - coverage {{ coverage }}
     - deepdiff
-    - git-lfs <3.5.1
+    - git-lfs
     - gitpython
     - graphviz
     - h5py
@@ -39,12 +44,13 @@ requirements:
     - livereload
     - lxml
     - mako
-    - matplotlib-base !=3.9.0
+    - matplotlib-base
     - mock
     - numpy
     - packaging
     - pandas
     - paramiko
+    - plotly
     - psutil
     - psycopg2
     - pyarrow
@@ -53,25 +59,32 @@ requirements:
     - pyflakes
     - pylatexenc
     - pylint
+    - pymongo
+    - pytest
+    - pytest-cov
     - python
     - pyyaml
     - requests
+    - ruff {{ ruff }}
     - scikit-image
     - setuptools
     - sympy
     - tabulate
     - uncertainties
-    - xmltodict <0.14
+    - xmltodict {{ xmltodict }}
     - yaml
 test:
   commands:
+    - black --version
     - clang-format --version
     - dot -V
     - git-lfs --version
     - pg_config --help
+    - ruff --version
   imports:
     - bs4
     - deepdiff
+    - coverage
     - git
     - jinja2
     - livereload
@@ -87,6 +100,8 @@ test:
     - pyflakes
     - pylatexenc
     - pylint
+    - pymongo
+    - pytest
     - requests
     - skimage
     - sympy
@@ -95,7 +110,7 @@ test:
     - yaml
 
 about:
-  home: https://mooseframework.org/
+  home: https://mooseframework.inl.gov/
   license: LGPL 2.1
   summary: >
     This superficial module (moose-tools) acts as a top-level module designed to provide all
@@ -104,6 +119,5 @@ about:
 
 extra:
   recipe-maintainers:
-    - milljm
     - cticenhour
     - loganharbour

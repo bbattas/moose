@@ -5,7 +5,6 @@
     input = simple.i
     expect_out = "\(0,0\) On-diagonal Jacobian is slightly off \(by 0.500132 %\).*\(1,1\) On-diagonal Jacobian is wrong \(off by 100.0 %\).*\(2,2\) On-diagonal Jacobian needs to be implemented.*\(3,3\) On-diagonal Jacobian should just return  zero"
     recover = false
-    petsc_version = '<3.9.0 || >=3.9.4'
     issues = '#4182'
     requirement = 'We shall be able the scrape the DOFMapOutput and determine when the Jacobian is slightly off'
   [../]
@@ -16,7 +15,6 @@
     expect_out = "\(0,0\) On-diagonal Jacobian is questionable \(off by 10.00 %\).*\(1,1\) On-diagonal Jacobian is wrong \(off by 30.0 %\)"
     recover = false
     # Skip petsc-3.9.{0,1,2,3} since they have different APIs
-    petsc_version = '<3.9.0 || >=3.9.4'
     issues = '#4182'
     requirement = 'We shall be able the scrape the DOFMapOutput and determine when the Jacobian is questionable'
   [../]
@@ -29,7 +27,6 @@
     off_diagonal = false
     expect_out = "No errors detected. :-\)"
     recover = false
-    petsc_version = '<3.9.0 || >=3.9.4'
     issues = '#6624'
     requirement = 'We shall throw no errors if the off-diagonal Jacobian is wrong if we are only testing the on-diagonal Jacobian'
   [../]
@@ -45,8 +42,8 @@
     input = no_negative_jacobian.i
     prereq = no_negative_jacobian
     cli_args = 'Kernels/diff/use_displaced_mesh=true Executioner/num_steps=2'
-    expect_err = 'ERROR: negative Jacobian 0 at point \(x,y,z\)=\(       0, 0.211325, 0.211325\) in element 0'
-    should_crash = False
+    expect_err = 'Jacobian 0[\w\s]*at point \(x,y,z\)=\( *0, *0\.211325\d*, *0\.211325\d*\)'
+    expect_exit_code = 0
     issues = '#9740'
     requirement = 'A 3D simulation shall throw an exception if there is a zero element Jacobian, when use_displaced_mesh = true'
   [../]
@@ -56,8 +53,8 @@
     prereq = no_negative_jacobian
     # num_steps takes precendence over the end_time in the input file.
     cli_args = 'Kernels/diff/use_displaced_mesh=true Executioner/dt=0.8 Executioner/num_steps=2'
-    expect_err = 'ERROR: negative Jacobian -0.0625 at point \(x,y,z\)=\(-0.105662, 0.211325, 0.211325\) in element 0'
-    should_crash = False
+    expect_err = 'Jacobian -0\.0625[\w\s]*at point \(x,y,z\)=\( *-0\.105662\d*, *0\.211325\d*, *0\.211325\d*\)'
+    expect_exit_code = 0
     issues = '#9740'
     requirement = 'A 3D simulation shall throw an exception if there is a negative element Jacobian, when use_displaced_mesh = true'
   [../]
@@ -81,8 +78,8 @@
     input = no_negative_jacobian_2D.i
     prereq = zero_jacobian_2D_ok
     cli_args = 'Kernels/diff/use_displaced_mesh=true Executioner/dt=0.5 Executioner/num_steps=2'
-    expect_err = 'ERROR: negative Jacobian 0 at point \(x,y,z\)=\(       0, 0.211325,        0\) in element 0'
-    should_crash = False
+    expect_err = 'Jacobian 0[\w\s]*at point \(x,y,z\)=\( *0, *0\.211325\d*, *0\)'
+    expect_exit_code = 0
     issues = '#9740 #10229'
     requirement = 'A 2D simulation shall throw an exception if there is a zero element Jacobian, when use_displaced_mesh = true'
   [../]
@@ -94,7 +91,7 @@
     ratio_tol = nan
     difference_tol = nan
     cli_args = '--no-trap-fpe'
-    petsc_version = '<3.19.3'
+    capabilities = 'petsc<3.19.3'
     issues = '#10788'
     requirement = 'The PETSc Jacobian test shall reveal nans if there are nans in the matrix'
   [../]

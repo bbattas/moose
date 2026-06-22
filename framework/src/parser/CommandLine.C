@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -17,9 +17,12 @@
 
 #include "hit.h"
 
+#include "libmesh/libmesh.h"
 #include "libmesh/simple_range.h"
 #include "libmesh/parallel_algebra.h"
 #include "libmesh/parallel_sync.h"
+
+#include "PetscSupport.h"
 
 CommandLine::CommandLine() {}
 CommandLine::CommandLine(int argc, char * argv[]) { addArguments(argc, argv); }
@@ -198,7 +201,8 @@ CommandLine::~CommandLine() {}
 std::unique_ptr<CommandLine>
 CommandLine::initSubAppCommandLine(const std::string & multiapp_name,
                                    const std::string & subapp_name,
-                                   const std::vector<std::string> & input_cli_args)
+                                   const std::vector<std::string> & input_cli_args,
+                                   const std::set<std::string> & exclude_params)
 {
   mooseAssert(MooseUtils::beginsWith(subapp_name, multiapp_name),
               "Name for the subapp should begin with the multiapp");
@@ -210,6 +214,17 @@ CommandLine::initSubAppCommandLine(const std::string & multiapp_name,
   for (const auto & arg : input_cli_args)
     subapp_args.push_back(MooseUtils::removeExtraWhitespace(arg));
 
+  // Resolve the excluded parameter names to their Entry pointers so we can
+  // efficiently skip them in the propagation loop below. We skip entries for
+  // which findCommandLineParam returns end() (param registered but not present).
+  std::set<const Entry *> skip_entries;
+  for (const auto & param_name : exclude_params)
+  {
+    auto it = findCommandLineParam(param_name);
+    if (it != getEntries().end())
+      skip_entries.insert(&*it);
+  }
+
   // Pull out all of the arguments that are relevant to this multiapp from the parent
   // Note that the 0th argument of the main app, i.e., the name used to invoke the program,
   // is neither a global entry nor a subapp entry and, as such, won't be passed on
@@ -217,6 +232,10 @@ CommandLine::initSubAppCommandLine(const std::string & multiapp_name,
     if (entry.global || (entry.subapp_name && (*entry.subapp_name == multiapp_name ||
                                                *entry.subapp_name == subapp_name)))
     {
+      // Skip entries that the caller has asked to suppress from propagation
+      if (skip_entries.count(&entry))
+        continue;
+
       if (entry.hit_param)
       {
         // Append : to the beginning if this is global and should be passed to all
@@ -233,10 +252,11 @@ CommandLine::initSubAppCommandLine(const std::string & multiapp_name,
   return std::make_unique<CommandLine>(subapp_args);
 }
 
-std::string
+std::vector<std::string>
 CommandLine::buildHitParams()
 {
-  mooseAssert(_command_line_params_populated, "Must populate command line params first");
+  mooseAssert(!_hit_params_built, "Already built");
+  _hit_params_built = true;
 
   std::vector<std::string> params;
 
@@ -262,7 +282,7 @@ CommandLine::buildHitParams()
       {
         hit::check("CLI_ARG", arg);
       }
-      catch (hit::ParseError & err)
+      catch (hit::Error & err)
       {
         // bash might have eaten quotes around a hit string value or vector
         // so try quoting after the "=" and reparse
@@ -272,7 +292,7 @@ CommandLine::buildHitParams()
           hit::check("CLI_ARG", arg);
         }
         // At this point, we've failed to fix it
-        catch (hit::ParseError & err)
+        catch (hit::Error & err)
         {
           mooseError("Failed to parse HIT in command line argument '", arg, "'\n\n", err.what());
         }
@@ -284,7 +304,7 @@ CommandLine::buildHitParams()
       entry.used = true;
     }
 
-  return MooseUtils::stringJoin(params, " ");
+  return params;
 }
 
 void
@@ -356,7 +376,17 @@ CommandLine::populateCommandLineParams(InputParameters & params)
 
       // If this parameter is global, mark its entry as global
       if (param.metadata.global)
-        entry_it->global = true;
+        entry.global = true;
+
+      // If the arg is of the form "--key=value", PETSc will recognize it as an unused
+      // argument. That is, setting "--key" as a known command line argument is not
+      // sufficient for PETSc to consider "--key=value" as known. Thus, we explicitly
+      // add "--key=value" args as known when we come across them.
+      if (entry.value_separator && *entry.value_separator == "=")
+      {
+        mooseAssert(entry.raw_args.size() == 1, "Should have one value");
+        libMesh::add_command_line_name(entry.raw_args[0]);
+      }
     }
     // If we didn't find it and it is required, we need to error
     else if (param.metadata.required)
@@ -416,6 +446,10 @@ CommandLine::printUsage() const
 
   Moose::out << "Solver Options:\n"
              << "  See PETSc manual for details" << std::endl;
+
+  // If we get here, we are not running a simulation and should silence petsc's unused options
+  // warning
+  Moose::PetscSupport::setSinglePetscOption("-options_left", "0");
 }
 
 std::vector<std::string>
@@ -476,14 +510,8 @@ CommandLine::formatEntry(const CommandLine::Entry & entry) const
   oss << entry.name;
   if (entry.value)
   {
-    oss << "=";
-    const auto & value = *entry.value;
-    const auto has_space = value.find_first_not_of(" ") == std::string::npos;
-    if (has_space)
-      oss << "\"";
-    oss << value;
-    if (has_space)
-      oss << "\"";
+    const auto q = (*entry.value).find(" ") != std::string::npos ? "'" : "";
+    oss << *entry.value_separator << q << *entry.value << q;
   }
   return oss.str();
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,10 +13,11 @@
 #include "WCNSFVCoupledAdvectionPhysicsHelper.h"
 
 #define registerWCNSFVScalarTransportBaseTasks(app_name, derived_name)                             \
-  registerMooseAction(app_name, derived_name, "add_variable");                                     \
-  registerMooseAction(app_name, derived_name, "add_ic");                                           \
+  registerMooseAction(app_name, derived_name, "add_variables_physics");                            \
+  registerMooseAction(app_name, derived_name, "add_ics_physics");                                  \
   registerMooseAction(app_name, derived_name, "add_fv_kernel");                                    \
-  registerMooseAction(app_name, derived_name, "add_fv_bc")
+  registerMooseAction(app_name, derived_name, "add_fv_bc");                                        \
+  registerMooseAction(app_name, derived_name, "get_turbulence_physics")
 
 /**
  * Creates all the objects needed to solve the Navier Stokes scalar transport equations
@@ -39,6 +40,7 @@ public:
   bool hasScalarEquations() const { return _has_scalar_equation; }
 
 protected:
+  virtual void actOnAdditionalTasks() override;
   virtual void addFVKernels() override;
   virtual void addFVBCs() override;
   virtual void setSlipVelocityParams(InputParameters & /* params */) const {}
@@ -67,8 +69,6 @@ private:
   /**
    * Functions adding kernels for the incompressible / weakly-compressible scalar transport
    * equation
-   * If the material properties are not constant, some of these can be used for
-   * weakly-compressible simulations as well.
    */
   virtual void addScalarTimeKernels() = 0;
   virtual void addScalarDiffusionKernels() = 0;
@@ -76,8 +76,7 @@ private:
   /// Equivalent of NSFVAction addScalarCoupledSourceKernels
   virtual void addScalarSourceKernels() = 0;
 
-  /// Functions adding boundary conditions for the incompressible simulation.
-  /// These are used for weakly-compressible simulations as well.
+  /// Functions adding boundary conditions for the scalar conservation equations.
   virtual void addScalarInletBC() = 0;
   virtual void addScalarWallBC() = 0;
   virtual void addScalarOutletBC() = 0;

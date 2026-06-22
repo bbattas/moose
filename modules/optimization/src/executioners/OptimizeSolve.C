@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -198,7 +198,8 @@ OptimizeSolve::taoSolve()
 
   // save nonTAO PETSC options to reset before every call to execute()
   _petsc_options = _problem.getPetscOptions();
-  _solver_params = _problem.solverParams();
+  // We only use a single system solve at this point
+  _solver_params = _problem.solverParams(0);
 
   // Set bounds for bounded optimization
   LibmeshPetscCallQ(TaoSetVariableBoundsRoutine(_tao, variableBoundsWrapper, this));

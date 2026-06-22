@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,7 +27,7 @@ protected:
   virtual Real computeQpJacobian();
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
-  ///{@ The old and older states of the stress tensor that the divergence operator operates on
+  ///@{ The old and older states of the stress tensor that the divergence operator operates on
   const MaterialProperty<RankTwoTensor> & _stress_older;
   const MaterialProperty<RankTwoTensor> & _stress_old;
   ///@}

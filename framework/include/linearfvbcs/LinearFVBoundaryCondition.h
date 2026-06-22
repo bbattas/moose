@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,6 +27,7 @@
 #include "NonADFunctorInterface.h"
 #include "FaceArgInterface.h"
 #include "MooseLinearVariableFV.h"
+#include "MooseVariableInterface.h"
 
 #include "libmesh/linear_implicit_system.h"
 
@@ -116,6 +117,21 @@ protected:
       Moose::FV::LimiterType limiter_type = Moose::FV::LimiterType::CentralDifference,
       bool correct_skewness = false) const;
 
+  /**
+   * Determine a face argument for evaluating a functor on a face. If the functor is defined on a
+   * single side, that side is selected. If it is defined on both sides, the face is left unsided.
+   * @param functor the functor whose sidedness is queried on the provided face
+   * @param fi the FaceInfo for this face
+   * @param limiter_type the limiter type to use when building the face argument
+   * @param correct_skewness whether to perform skew correction at the face
+   */
+  template <typename FunctorType>
+  Moose::FaceArg
+  functorFaceArg(const FunctorType & functor,
+                 const FaceInfo * fi,
+                 Moose::FV::LimiterType limiter_type = Moose::FV::LimiterType::CentralDifference,
+                 bool correct_skewness = false) const;
+
   /// Thread id
   const THREAD_ID _tid;
 
@@ -126,16 +142,13 @@ protected:
   MooseMesh & _mesh;
 
   /// Reference to the ruling finite volume problem
-  FVProblemBase & _fv_problem;
+  FEProblemBase & _fv_problem;
 
   /// Reference to the linear finite volume variable object
   MooseLinearVariableFV<Real> & _var;
 
   /// Reference to system base class in MOOSE
   SystemBase & _sys;
-
-  /// Reference to the libmesh linear system this object contributes to
-  libMesh::LinearImplicitSystem & _linear_system;
 
   /// Pointer to the face info we are operating on right now
   const FaceInfo * _current_face_info;

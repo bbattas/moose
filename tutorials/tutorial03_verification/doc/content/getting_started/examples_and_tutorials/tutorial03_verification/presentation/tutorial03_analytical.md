@@ -32,7 +32,9 @@ left boundary ($x=0$) and the natural boundary condition on the opposite boundar
 
 !---
 
-!media tutorial03_verification/1d_exact.mp4 style=width:75%;margin-left:auto;margin-right:auto;display:block;
+!media tutorial03_verification/1d_exact.mp4
+       style=width:75%;margin-left:auto;margin-right:auto;display:block;
+       alt=The analytic solution for the heat equation, evolving in time.
 
 !---
 
@@ -127,8 +129,8 @@ The known solution can be defined using the Function System in the `Functions` b
 
 !listing tutorial03_verification/app/test/tests/step03_analytical/1d_analytical.i link=False block=Functions
 
-The "vars" and "vals" have a one-to-one relationship, e.g., $k=80.2$. If defined in this manner
-then the names in "vars" can be used in the definition of the equation in the "value" parameter.
+The "symbol_names" and "symbol_values" items have a one-to-one relationship, e.g., $k=80.2$. If defined in this manner
+then the names in "symbol_names" can be used in the definition of the equation in the "expression" parameter.
 
 !---
 
@@ -142,7 +144,9 @@ along with the average element size.
 
 !---
 
-!media tutorial03_verification/1d_analytical.mp4 style=width:75%;margin-left:auto;margin-right:auto;display:block;
+!media tutorial03_verification/1d_analytical.mp4
+       style=width:75%;margin-left:auto;margin-right:auto;display:block;
+       alt=Comparison of a MOOSE simulation to the analytic solution to the heat equation.
 
 !---
 
@@ -165,6 +169,7 @@ command line with "x" being an integer representing the number of refinements to
 !---
 
 !media tutorial03_verification/1d_analytical_spatial.png
+       alt=Plot of the L2 error of the heat equation simulation, as a function of element size.
 
 !---
 
@@ -179,6 +184,7 @@ For a temporal study, the time step is reduced.
 !---
 
 !media tutorial03_verification/1d_analytical_temporal.png
+       alt=Plot of the L2 error of the heat equation simulation, as a function of time-step size.
 
 !---
 

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -46,6 +46,23 @@ void lineRemoverMoveNode(libMesh::ReplicatedMesh & mesh,
                              std::vector<boundary_id_type>(),
                          const bool assign_ext_to_new = false,
                          const bool side_to_remove = true);
+
+/**
+ * Determines whether a point on XY-plane is on a given line, to within a tolerance
+ * @param px x coordinate of the point
+ * @param py y coordinate of the point
+ * @param param_1 parameter 1 (a) in line formula a*x+b*y+c=0
+ * @param param_2 parameter 2 (b) in line formula a*x+b*y+c=0
+ * @param param_3 parameter 3 (c) in line formula a*x+b*y+c=0
+ * @param dis_tol tolerance used in determining whether the point is on the line
+ * @return whether the point is on the line
+ */
+bool pointOnLine(const Real px,
+                 const Real py,
+                 const Real param_1,
+                 const Real param_2,
+                 const Real param_3,
+                 const Real dis_tol = libMesh::TOLERANCE);
 
 /**
  * Determines whether a point on XY-plane is on the side of a given line that needs to be removed
@@ -138,8 +155,6 @@ std::vector<std::pair<Real, unsigned int>> vertex_distances(const Elem & elem);
  * @param nid_4 id of the node on the second cut side of the triangle
  * @param single_elem_side_id subdomain id of the single element side
  * @param double_elem_side_id subdomain id of the double element side
- * @param new_boundary_id boundary id of the new boundary that divides the single element side and
- * the double element side
  */
 void triElemSplitter(libMesh::ReplicatedMesh & mesh,
                      const dof_id_type elem_id,
@@ -147,8 +162,7 @@ void triElemSplitter(libMesh::ReplicatedMesh & mesh,
                      const dof_id_type nid_3,
                      const dof_id_type nid_4,
                      const subdomain_id_type single_elem_side_id,
-                     const subdomain_id_type double_elem_side_id,
-                     const boundary_id_type new_boundary_id);
+                     const subdomain_id_type double_elem_side_id);
 
 /**
  * Split a TRI3 element into two TRI3 elements based on one node on one side of the triangle
@@ -159,15 +173,13 @@ void triElemSplitter(libMesh::ReplicatedMesh & mesh,
  * @param nid_m id of the node on the cut side of the triangle
  * @param first_elem_side_id subdomain id of the first element side
  * @param second_elem_side_id subdomain id of the second element side
- * @param new_boundary_id boundary id of the new boundary that divides the two elements
  */
 void triElemSplitter(libMesh::ReplicatedMesh & mesh,
                      const dof_id_type elem_id,
                      const unsigned short node_shift,
                      const dof_id_type nid_m,
                      const subdomain_id_type first_elem_side_id,
-                     const subdomain_id_type second_elem_side_id,
-                     const boundary_id_type new_boundary_id);
+                     const subdomain_id_type second_elem_side_id);
 
 /**
  * Split a QUAD4 element into two TRI3 elements

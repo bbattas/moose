@@ -1,0 +1,58 @@
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#pragma once
+
+#include "KokkosIntegratedBCValue.h"
+
+/**
+ * Boundary condition for convective heat flux where temperature and heat transfer coefficient are
+ * given by material properties.
+ */
+class KokkosConvectiveHeatFluxBC : public Moose::Kokkos::IntegratedBCValue
+{
+public:
+  static InputParameters validParams();
+
+  KokkosConvectiveHeatFluxBC(const InputParameters & parameters);
+
+  template <typename Derived>
+  KOKKOS_FUNCTION Real computeQpResidual(const unsigned int qp, AssemblyDatum & datum) const;
+  template <typename Derived>
+  KOKKOS_FUNCTION Real computeQpJacobian(const unsigned int j,
+                                         const unsigned int qp,
+                                         AssemblyDatum & datum) const;
+
+private:
+  /// Far-field temperature variable
+  Moose::Kokkos::MaterialProperty<Real> _T_infinity;
+
+  /// Convective heat transfer coefficient
+  Moose::Kokkos::MaterialProperty<Real> _htc;
+
+  /// Derivative of convective heat transfer coefficient with respect to temperature
+  Moose::Kokkos::MaterialProperty<Real> _htc_dT;
+};
+
+template <typename Derived>
+KOKKOS_FUNCTION Real
+KokkosConvectiveHeatFluxBC::computeQpResidual(const unsigned int qp, AssemblyDatum & datum) const
+{
+  return -_htc(datum, qp) * (_T_infinity(datum, qp) - _u(datum, qp));
+}
+
+template <typename Derived>
+KOKKOS_FUNCTION Real
+KokkosConvectiveHeatFluxBC::computeQpJacobian(const unsigned int j,
+                                              const unsigned int qp,
+                                              AssemblyDatum & datum) const
+{
+  return -_phi(datum, j, qp) *
+         (-_htc(datum, qp) + _htc_dT(datum, qp) * (_T_infinity(datum, qp) - _u(datum, qp)));
+}

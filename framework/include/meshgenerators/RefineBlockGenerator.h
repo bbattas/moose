@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -32,7 +32,7 @@ private:
   const std::vector<SubdomainName> _block;
 
   /// The amount of times to refine each block, corresponding to their index in 'block'
-  const std::vector<unsigned int> _refinement;
+  std::vector<unsigned int> _refinement;
 
   /// Toggles whether neighboring level one elements should be refined or not. Defaults to true.
   const bool _enable_neighbor_refinement;

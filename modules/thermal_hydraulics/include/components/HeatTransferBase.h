@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -23,6 +23,7 @@ public:
 
   virtual void addVariables() override;
   virtual void addMooseObjects() override;
+  virtual Convergence * getNonlinearConvergence() const override { return nullptr; }
 
   /**
    * Returns heated perimeter name
@@ -94,7 +95,6 @@ protected:
   const bool _P_hf_provided;
 
   /// Used closures object(s)
-  std::shared_ptr<ClosuresBase> _closures;
   std::vector<std::shared_ptr<ClosuresBase>> _closures_objects;
 
   /// heated perimeter name

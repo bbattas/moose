@@ -8,12 +8,27 @@ omega = '${fparse 2*3.14159265359*frequencyHz}'
   skip_nl_system_check = true
 []
 
+[Preconditioning]
+  [nl0]
+    type = SMP
+    nl_sys = 'nl0'
+    petsc_options_iname = '-pc_type'
+    petsc_options_value = 'lu'
+    full = true
+  []
+  [adjoint]
+    type = SMP
+    nl_sys = 'adjoint'
+    petsc_options_iname = '-pc_type'
+    petsc_options_value = 'lu'
+    full = true
+  []
+[]
+
 [Executioner]
   type = SteadyAndAdjoint
   forward_system = nl0
   adjoint_system = adjoint
-  petsc_options_iname = '-pc_type'
-  petsc_options_value = 'lu'
   nl_forced_its = 1
   line_search = none
   nl_abs_tol = 1e-8
@@ -177,8 +192,8 @@ omega = '${fparse 2*3.14159265359*frequencyHz}'
   [gradient]
     type = ParsedVectorReporter
     name = gradient
-    reporter_names = 'gradient_from_real/inner_product gradient_from_imag/inner_product'
-    reporter_symbols = 'a b'
+    vector_reporter_names = 'gradient_from_real/inner_product gradient_from_imag/inner_product'
+    vector_reporter_symbols = 'a b'
     expression = 'a+b'
     execute_on = ADJOINT_TIMESTEP_END
     execution_order_group = 0
@@ -186,8 +201,8 @@ omega = '${fparse 2*3.14159265359*frequencyHz}'
   [objective]
     type = ParsedScalarReporter
     name = objective
-    reporter_names = 'measure_data_ur/obj_val measure_data_ui/obj_val'
-    reporter_symbols = 'a b'
+    scalar_reporter_names = 'measure_data_ur/obj_val measure_data_ui/obj_val'
+    scalar_reporter_symbols = 'a b'
     expression = 'a+b'
     execute_on = ADJOINT_TIMESTEP_END
     # Just to confirm this happens after the gradient calcutions

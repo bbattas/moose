@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -34,7 +34,7 @@ InputParameters
 DomainIntegralAction::validParams()
 {
   InputParameters params = Action::validParams();
-  addCrackFrontDefinitionParams(params);
+  CrackFrontDefinition::includeCrackFrontDefinitionParams(params);
   MultiMooseEnum integral_vec(
       "JIntegral CIntegral KFromJIntegral InteractionIntegralKI InteractionIntegralKII "
       "InteractionIntegralKIII InteractionIntegralT");
@@ -113,7 +113,7 @@ DomainIntegralAction::validParams()
       "equivalent_k",
       false,
       "Calculate an equivalent K from KI, KII and KIII, assuming self-similar crack growth.");
-  params.addParam<bool>("output_q", true, "Output q");
+  params.addParam<bool>("output_q", false, "Output q");
   params.addRequiredParam<bool>(
       "incremental", "Flag to indicate whether an incremental or total model is being used.");
   params.addParam<std::vector<MaterialPropertyName>>(
@@ -133,13 +133,6 @@ DomainIntegralAction::validParams()
   params.addParam<bool>("use_automatic_differentiation",
                         false,
                         "Flag to use automatic differentiation (AD) objects when possible");
-  params.addParam<bool>(
-      "used_by_xfem_to_grow_crack",
-      false,
-      "Flag to trigger domainIntregal vector postprocessors to be executed on nonlinear.  This "
-      "updates the values in the vector postprocessor which will allow the crack to grow in XFEM "
-      "cutter objects that use the domainIntegral vector postprocssor values as a growth "
-      "criterion.");
   params.addParam<bool>("output_vpp",
                         true,
                         "Flag to control the vector postprocessor outputs. Select false to "
@@ -236,10 +229,6 @@ DomainIntegralAction::DomainIntegralAction(const InputParameters & params)
 
   if (isParamValid("crack_front_points_provider"))
   {
-    if (!isParamValid("number_points_from_provider"))
-      paramError("number_points_from_provider",
-                 "DomainIntegral error: when crack_front_points_provider is used, "
-                 "number_points_from_provider must be provided.");
     _use_crack_front_points_provider = true;
     _crack_front_points_provider = getParam<UserObjectName>("crack_front_points_provider");
   }
@@ -366,18 +355,7 @@ DomainIntegralAction::act()
   const std::string aux_grad_disp_base_name("aux_grad_disp");
 
   // checking if built with xfem and setting flags for vpps used by xfem
-  std::vector<std::string> xfem_exec_flags;
-  for (const auto & item :
-       moose::internal::ExecFlagRegistry::getExecFlagRegistry().getFlags().items())
-  {
-    if (item.name() == "XFEM_MARK")
-    {
-      // TODO the xfem_flags should be something like this:
-      // xfem_exec_flags = {item, EXEC_NONLINEAR, EXEC_TIMESTEP_END};
-      // but the item=XFEM_MARK flag causes xfem tests to diverge
-      xfem_exec_flags = {EXEC_INITIAL, EXEC_NONLINEAR, EXEC_TIMESTEP_END};
-    }
-  }
+  std::vector<std::string> xfem_exec_flags = {EXEC_XFEM_MARK, EXEC_TIMESTEP_END};
 
   std::string ad_prepend = "";
   if (_use_ad)
@@ -388,12 +366,10 @@ DomainIntegralAction::act()
     const std::string uo_type_name("CrackFrontDefinition");
 
     InputParameters params = _factory.getValidParams(uo_type_name);
-    if (_use_crack_front_points_provider && !xfem_exec_flags.empty())
-    {
-      // The CrackFrontDefinition updates the vpps and MUST execute before them
-      params.set<int>("execution_order_group") = -1;
+    // The CrackFrontDefinition updates the vpps and MUST execute before them
+    params.set<int>("execution_order_group") = -1;
+    if (_use_crack_front_points_provider)
       params.set<ExecFlagEnum>("execute_on") = xfem_exec_flags;
-    }
     else
       params.set<ExecFlagEnum>("execute_on") = {EXEC_INITIAL, EXEC_TIMESTEP_END};
 
@@ -418,8 +394,12 @@ DomainIntegralAction::act()
     if (_crack_front_points.size() != 0)
       params.set<std::vector<Point>>("crack_front_points") = _crack_front_points;
     if (_use_crack_front_points_provider)
-      params.applyParameters(parameters(),
-                             {"crack_front_points_provider, number_points_from_provider"});
+    {
+      params.set<UserObjectName>("crack_front_points_provider") = _crack_front_points_provider;
+      if (isParamValid("number_points_from_provider"))
+        params.set<unsigned int>("number_points_from_provider") =
+            getParam<unsigned int>("number_points_from_provider");
+    }
     if (_closed_loop)
       params.set<bool>("closed_loop") = _closed_loop;
     params.set<bool>("use_displaced_mesh") = _use_displaced_mesh;
@@ -454,6 +434,14 @@ DomainIntegralAction::act()
   }
   else if (_current_task == "add_aux_variable" && _output_q)
   {
+    if (isParamValid("number_points_from_provider") && num_crack_front_points == 0)
+    {
+      paramError("output_q",
+                 "Requesting AuxVariable output of q functions but the number of crack fronts for "
+                 "output is zero.  AuxVariable output for XFEM cutter objects requires "
+                 "number_points_from_provider to be set.");
+    }
+
     for (unsigned int ring_index = 0; ring_index < _ring_vec.size(); ++ring_index)
     {
       std::string aux_var_type;
@@ -548,6 +536,26 @@ DomainIntegralAction::act()
 
   else if (_current_task == "add_postprocessor")
   {
+    // Check that the number specified by the XFEM cutter object matches the number of points
+    // specified in the DomainIntegralAction block.  This is being done in teh add_postprocessor
+    // block because it must be done after all userObjects have been created.
+    if (_use_crack_front_points_provider && isParamValid("number_points_from_provider"))
+    {
+      auto crack_front_points_provider = &_problem->getUserObject<CrackFrontPointsProvider>(
+          getParam<UserObjectName>("crack_front_points_provider"));
+      if (crack_front_points_provider->usesMesh())
+      {
+        auto xfem_cutter_points = crack_front_points_provider->getNumberOfCrackFrontPoints();
+        if (xfem_cutter_points != num_crack_front_points)
+          paramError("number_points_from_provider",
+                     "This must match the number of points provided by the XFEM mesh cutter "
+                     "object."
+                     "\n   number_points_from_provider:",
+                     num_crack_front_points,
+                     "\n   XFEM Crack Front Points: ",
+                     xfem_cutter_points);
+      }
+    }
     for (std::set<INTEGRAL>::iterator sit = _integrals.begin(); sit != _integrals.end(); ++sit)
     {
       std::string pp_base_name;
@@ -753,7 +761,7 @@ DomainIntegralAction::act()
       if (!getParam<bool>("output_vpp"))
         params.set<std::vector<OutputName>>("outputs") = {"none"};
 
-      if (_use_crack_front_points_provider && !xfem_exec_flags.empty())
+      if (_use_crack_front_points_provider)
         params.set<ExecFlagEnum>("execute_on") = xfem_exec_flags;
       else
         params.set<ExecFlagEnum>("execute_on") = {EXEC_TIMESTEP_END};
@@ -1025,7 +1033,17 @@ DomainIntegralAction::calcNumCrackFrontPoints()
   else if (_crack_front_points.size() != 0)
     num_points = _crack_front_points.size();
   else if (_use_crack_front_points_provider)
-    num_points = getParam<unsigned int>("number_points_from_provider");
+  {
+    if (isParamValid("number_points_from_provider"))
+      num_points = getParam<unsigned int>("number_points_from_provider");
+    else
+      // Actual count determined at runtime by CrackFrontDefinition::initialSetup()
+      // which calls provider->getNumberOfCrackFrontPoints(). Use 0 here so the
+      // action does not create per-point objects that would access crack front data
+      // before it exists. The VectorPostprocessors (JIntegral, InteractionIntegral,
+      // etc.) dynamically size based on the runtime count.
+      num_points = 0;
+  }
   else
     mooseError("Must define either 'boundary' or 'crack_front_points'");
   return num_points;

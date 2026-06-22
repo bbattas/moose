@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,6 +26,8 @@ InputParameters
 ConcentricCircleMeshGenerator::validParams()
 {
   InputParameters params = MeshGenerator::validParams();
+  params.addParam<SubdomainName>("subdomain_name",
+                                 "Name of the subdomain assigned to all the elements");
   MooseEnum portion(
       "full top_right top_left bottom_left bottom_right right_half left_half top_half bottom_half",
       "full");
@@ -316,10 +318,10 @@ ConcentricCircleMeshGenerator::generate()
   {
     // inner circle area (polygonal core)
     Elem * elem = mesh->add_elem(std::make_unique<Quad4>());
-    elem->set_node(0) = nodes[index];
-    elem->set_node(1) = nodes[index + _num_sectors / 2 + 1];
-    elem->set_node(2) = nodes[index + _num_sectors / 2 + 2];
-    elem->set_node(3) = nodes[index + 1];
+    elem->set_node(0, nodes[index]);
+    elem->set_node(1, nodes[index + _num_sectors / 2 + 1]);
+    elem->set_node(2, nodes[index + _num_sectors / 2 + 2]);
+    elem->set_node(3, nodes[index + 1]);
     elem->subdomain_id() = subdomainIDs[0];
 
     if (index < standard / 2)
@@ -342,10 +344,10 @@ ConcentricCircleMeshGenerator::generate()
   {
     // inner circle elements touching B
     Elem * elem = mesh->add_elem(std::make_unique<Quad4>());
-    elem->set_node(0) = nodes[index];
-    elem->set_node(1) = nodes[index + _num_sectors / 2 + 1];
-    elem->set_node(2) = nodes[index + _num_sectors / 2 + 2];
-    elem->set_node(3) = nodes[index + 1];
+    elem->set_node(0, nodes[index]);
+    elem->set_node(1, nodes[index + _num_sectors / 2 + 1]);
+    elem->set_node(2, nodes[index + _num_sectors / 2 + 2]);
+    elem->set_node(3, nodes[index + 1]);
     elem->subdomain_id() = subdomainIDs[0];
 
     if (index == (standard / 2 + 1) * (standard / 2))
@@ -360,11 +362,10 @@ ConcentricCircleMeshGenerator::generate()
   {
     // inner circle elements touching C
     Elem * elem = mesh->add_elem(std::make_unique<Quad4>());
-    elem->set_node(0) = nodes[index];
-    elem->set_node(1) = nodes[index + (_num_sectors / 2 + 1) + counter * (_num_sectors / 2 + 2)];
-    elem->set_node(2) =
-        nodes[index + (_num_sectors / 2 + 1) + counter * (_num_sectors / 2 + 2) + 1];
-    elem->set_node(3) = nodes[index - _num_sectors / 2 - 1];
+    elem->set_node(0, nodes[index]);
+    elem->set_node(1, nodes[index + (_num_sectors / 2 + 1) + counter * (_num_sectors / 2 + 2)]);
+    elem->set_node(2, nodes[index + (_num_sectors / 2 + 1) + counter * (_num_sectors / 2 + 2) + 1]);
+    elem->set_node(3, nodes[index - _num_sectors / 2 - 1]);
     elem->subdomain_id() = subdomainIDs[0];
 
     if (index == standard + 1)
@@ -385,10 +386,10 @@ ConcentricCircleMeshGenerator::generate()
   while (index < limit)
   {
     Elem * elem = mesh->add_elem(std::make_unique<Quad4>());
-    elem->set_node(0) = nodes[index];
-    elem->set_node(1) = nodes[index + standard + 1];
-    elem->set_node(2) = nodes[index + standard + 2];
-    elem->set_node(3) = nodes[index + 1];
+    elem->set_node(0, nodes[index]);
+    elem->set_node(1, nodes[index + standard + 1]);
+    elem->set_node(2, nodes[index + standard + 2]);
+    elem->set_node(3, nodes[index + 1]);
 
     for (int i = 0; i < static_cast<int>(subdomainIDs.size() - 1); ++i)
       if (index < limit - (standard + 1) * i && index >= limit - (standard + 1) * (i + 1))
@@ -442,10 +443,10 @@ ConcentricCircleMeshGenerator::generate()
       {
         // outer square sector C
         Elem * elem = mesh->add_elem(std::make_unique<Quad4>());
-        elem->set_node(0) = nodes[index];
-        elem->set_node(1) = nodes[index + 1];
-        elem->set_node(2) = nodes[index + 1 + _rings.back() + 1];
-        elem->set_node(3) = nodes[index + 1 + _rings.back()];
+        elem->set_node(0, nodes[index]);
+        elem->set_node(1, nodes[index + 1]);
+        elem->set_node(2, nodes[index + 1 + _rings.back() + 1]);
+        elem->set_node(3, nodes[index + 1 + _rings.back()]);
         elem->subdomain_id() = subdomainIDs.back() + 1;
 
         if (index < (initial2 + static_cast<int>(_rings.back())))
@@ -478,10 +479,10 @@ ConcentricCircleMeshGenerator::generate()
       {
         // outer square sector A
         Elem * elem = mesh->add_elem(std::make_unique<Quad4>());
-        elem->set_node(3) = nodes[index];
-        elem->set_node(2) = nodes[index + _rings.back() + 2];
-        elem->set_node(1) = nodes[index + _rings.back() + 3];
-        elem->set_node(0) = nodes[index + 1];
+        elem->set_node(3, nodes[index]);
+        elem->set_node(2, nodes[index + _rings.back() + 2]);
+        elem->set_node(1, nodes[index + _rings.back() + 3]);
+        elem->set_node(0, nodes[index + 1]);
         elem->subdomain_id() = subdomainIDs.back() + 1;
 
         if (index >= static_cast<int>(limit - (_rings.back() + 1)))
@@ -510,10 +511,10 @@ ConcentricCircleMeshGenerator::generate()
 
       // pointy tips of the A sectors, touching the inner circle
       Elem * elem = mesh->add_elem(std::make_unique<Quad4>());
-      elem->set_node(3) = nodes[index1];
-      elem->set_node(2) = nodes[index2];
-      elem->set_node(1) = nodes[index2 + _rings.back() + 1];
-      elem->set_node(0) = nodes[index2 + _rings.back() + 2];
+      elem->set_node(3, nodes[index1]);
+      elem->set_node(2, nodes[index2]);
+      elem->set_node(1, nodes[index2 + _rings.back() + 1]);
+      elem->set_node(0, nodes[index2 + _rings.back() + 2]);
       elem->subdomain_id() = subdomainIDs.back() + 1;
 
       // adding elements for the left mid part.
@@ -525,10 +526,10 @@ ConcentricCircleMeshGenerator::generate()
       {
         // outer square elements in sector C touching the inner circle
         Elem * elem = mesh->add_elem(std::make_unique<Quad4>());
-        elem->set_node(3) = nodes[index];
-        elem->set_node(2) = nodes[index + 1];
-        elem->set_node(1) = nodes[index2 - _rings.back() - 1];
-        elem->set_node(0) = nodes[index2];
+        elem->set_node(3, nodes[index]);
+        elem->set_node(2, nodes[index + 1]);
+        elem->set_node(1, nodes[index2 - _rings.back() - 1]);
+        elem->set_node(0, nodes[index2]);
         elem->subdomain_id() = subdomainIDs.back() + 1;
 
         if (index == limit)
@@ -553,10 +554,10 @@ ConcentricCircleMeshGenerator::generate()
 
       // elements clockwise from the A sector tips
       elem = mesh->add_elem(std::make_unique<Quad4>());
-      elem->set_node(0) = nodes[index1];
-      elem->set_node(1) = nodes[index1 - 1];
-      elem->set_node(2) = nodes[index2];
-      elem->set_node(3) = nodes[index3];
+      elem->set_node(0, nodes[index1]);
+      elem->set_node(1, nodes[index1 - 1]);
+      elem->set_node(2, nodes[index2]);
+      elem->set_node(3, nodes[index3]);
       elem->subdomain_id() = subdomainIDs.back() + 1;
 
       if (standard == 2)
@@ -580,10 +581,10 @@ ConcentricCircleMeshGenerator::generate()
         {
           // outer square elements in sector B touching the inner circle
           Elem * elem = mesh->add_elem(std::make_unique<Quad4>());
-          elem->set_node(0) = nodes[index];
-          elem->set_node(1) = nodes[index1];
-          elem->set_node(2) = nodes[index1 - (_rings.back() + 1)];
-          elem->set_node(3) = nodes[index + 1];
+          elem->set_node(0, nodes[index]);
+          elem->set_node(1, nodes[index1]);
+          elem->set_node(2, nodes[index1 - (_rings.back() + 1)]);
+          elem->set_node(3, nodes[index + 1]);
           elem->subdomain_id() = subdomainIDs.back() + 1;
 
           if (index == limit)
@@ -603,10 +604,10 @@ ConcentricCircleMeshGenerator::generate()
       {
         // single elements between A and B on the outside of the square
         Elem * elem = mesh->add_elem(std::make_unique<Quad4>());
-        elem->set_node(3) = nodes[index];
-        elem->set_node(2) = nodes[index + 1];
-        elem->set_node(1) = nodes[index + 2];
-        elem->set_node(0) = nodes[index1];
+        elem->set_node(3, nodes[index]);
+        elem->set_node(2, nodes[index + 1]);
+        elem->set_node(1, nodes[index + 2]);
+        elem->set_node(0, nodes[index1]);
         elem->subdomain_id() = subdomainIDs.back() + 1;
 
         boundary_info.add_side(elem, 2, 3);
@@ -626,10 +627,10 @@ ConcentricCircleMeshGenerator::generate()
       while (index > limit)
       {
         Elem * elem = mesh->add_elem(std::make_unique<Quad4>());
-        elem->set_node(3) = nodes[index];
-        elem->set_node(2) = nodes[index + (_rings.back() + 2) * k + k + 1];
-        elem->set_node(1) = nodes[index + (_rings.back() + 2) * k + k + 2];
-        elem->set_node(0) = nodes[index - _rings.back() - 2];
+        elem->set_node(3, nodes[index]);
+        elem->set_node(2, nodes[index + (_rings.back() + 2) * k + k + 1]);
+        elem->set_node(1, nodes[index + (_rings.back() + 2) * k + k + 2]);
+        elem->set_node(0, nodes[index - _rings.back() - 2]);
         elem->subdomain_id() = subdomainIDs.back() + 1;
         index = index - (_rings.back() + 2);
         ++k;
@@ -657,10 +658,10 @@ ConcentricCircleMeshGenerator::generate()
         while (index < limit)
         {
           Elem * elem = mesh->add_elem(std::make_unique<Quad4>());
-          elem->set_node(0) = nodes[index];
-          elem->set_node(1) = nodes[index + 1];
-          elem->set_node(2) = nodes[index + 1 + _rings.back() + 1];
-          elem->set_node(3) = nodes[index + 1 + _rings.back()];
+          elem->set_node(0, nodes[index]);
+          elem->set_node(1, nodes[index + 1]);
+          elem->set_node(2, nodes[index + 1 + _rings.back() + 1]);
+          elem->set_node(3, nodes[index + 1 + _rings.back()]);
           elem->subdomain_id() = subdomainIDs.back() + 1;
 
           if (index > initial2)
@@ -980,8 +981,12 @@ ConcentricCircleMeshGenerator::generate()
     mesh->prepare_for_use();
 
   // Laplace smoothing
-  libMesh::LaplaceMeshSmoother lms(*mesh);
-  lms.smooth(_smoothing_max_it);
+  libMesh::LaplaceMeshSmoother lms(*mesh, _smoothing_max_it);
+  lms.smooth();
+
+  // Add subdomain name
+  if (isParamValid("subdomain_name"))
+    mesh->subdomain_name(0) = getParam<SubdomainName>("subdomain_name");
 
   mesh->prepare_for_use();
   return dynamic_pointer_cast<MeshBase>(mesh);

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -42,9 +42,6 @@ template <bool is_ad>
 Real
 ReactionTempl<is_ad>::computeQpJacobian()
 {
-  // This function will never be called for the AD version. But because C++ does
-  // not support an optional function declaration based on a template parameter,
-  // we must keep this template for all cases.
   mooseAssert(!is_ad,
               "In ADReaction, computeQpJacobian should not be called. Check computeJacobian "
               "implementation.");

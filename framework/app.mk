@@ -80,7 +80,7 @@ $(eval $(call unity_dir_rule, $(unity_src_dir)))
 # that won't benefit from unity building
 # Also, exclude the base directory by default because it's another big jumble
 # of unrelated stuff.
-non_unity_dirs := %.libs %/src $(app_non_unity_dirs)
+non_unity_dirs := %.libs %/src %/kokkos $(app_non_unity_dirs)
 
 # Find all of the subdirectories in our src folder(s) up to $(app_unity_depth)
 app_unity_depth ?= 1
@@ -105,11 +105,11 @@ non_unity_srcsubdirs := $(filter $(non_unity_dirs), $(allsrcsubdirs))
 # Loop over the subdirectories, creating a rule to create the Unity source file
 # for each subdirectory.  To do that we need to create a unique name using the
 # full hierarchy of the path underneath src
-$(foreach srcsubdir,$(unity_srcsubdirs_nonmaxdepth),$(eval $(call unity_file_rule,$(call unity_unique_name,$(unity_src_dir),$(APPLICATION_DIR),$(srcsubdir)),$(shell find $(srcsubdir) -maxdepth 1 \( -type f -o -type l \) -regex "[^\#~]*\.C"),$(srcsubdir),$(unity_src_dir))))
-$(foreach srcsubdir,$(unity_srcsubdirs_maxdepth),$(eval $(call unity_file_rule,$(call unity_unique_name,$(unity_src_dir),$(APPLICATION_DIR),$(srcsubdir)),$(shell find $(srcsubdir) \( -type f -o -type l \) -regex "[^\#~]*\.C"),$(srcsubdir),$(unity_src_dir))))
+$(foreach srcsubdir,$(unity_srcsubdirs_nonmaxdepth),$(eval $(call unity_file_rule,$(call unity_unique_name,$(unity_src_dir),$(APPLICATION_DIR),$(srcsubdir),C),$(shell find $(srcsubdir) -maxdepth 1 \( -type f -o -type l \) -regex "[^\#~]*\.C"),$(srcsubdir),$(unity_src_dir))))
+$(foreach srcsubdir,$(unity_srcsubdirs_maxdepth),$(eval $(call unity_file_rule,$(call unity_unique_name,$(unity_src_dir),$(APPLICATION_DIR),$(srcsubdir),C),$(shell find $(srcsubdir) \( -type f -o -type l \) -regex "[^\#~]*\.C"),$(srcsubdir),$(unity_src_dir))))
 
 # This creates the whole list of Unity source files so we can use it as a dependency
-app_unity_srcfiles := $(foreach srcsubdir,$(unity_srcsubdirs),$(call unity_unique_name,$(unity_src_dir),$(APPLICATION_DIR),$(srcsubdir)))
+app_unity_srcfiles := $(foreach srcsubdir,$(unity_srcsubdirs),$(call unity_unique_name,$(unity_src_dir),$(APPLICATION_DIR),$(srcsubdir),C))
 
 # Add to the global list of unity source files
 unity_srcfiles += $(app_unity_srcfiles)
@@ -295,10 +295,10 @@ LIBRARY_SUFFIX :=
 ifeq ($(MOOSE_HEADER_SYMLINKS),true)
 
 # If we are compiling with header symlinks, we don't want to start compiling any
-# object files until all symlinking is completed. The first dependency in the
+# object files until all symlinking is completed. The second dependency in the
 # list below ensures this.
 
-$(all_app_objects) : | $(app_LINKS) $(moose_config_symlink)
+$(all_app_objects) : $(moose_config_symlink) | $(app_LINKS)
 
 else
 
@@ -360,10 +360,131 @@ $(app_HEADER): $(app_HEADER_deps) | $(all_header_dir)
 	        $(FRAMEWORK_DIR)/scripts/get_repo_revision.py)
 	@ln -sf $@ $(all_header_dir)
 
-#
-# .APPNAME resource file
-#
-app_resource = $(APPLICATION_DIR)/$(APPLICATION_NAME).yaml
+# Kokkos for app
+
+ifeq ($(ENABLE_KOKKOS),true)
+
+app_KOKKOS_UNITY_SRC_FILES :=
+
+app_KOKKOS_SRC_FILES := $(shell find $(SRC_DIRS) -name "*.K")
+app_KOKKOS_OBJECTS   := $(patsubst %.K, %.$(KOKKOS_OBJ_SUFFIX), $(app_KOKKOS_SRC_FILES))
+app_KOKKOS_DEPS      := $(patsubst %.$(KOKKOS_OBJ_SUFFIX), %.$(KOKKOS_OBJ_SUFFIX).d, $(app_KOKKOS_OBJECTS))
+app_KOKKOS_LIB       :=
+
+ifneq ($(app_KOKKOS_OBJECTS),)
+  app_KOKKOS_LIB  := $(APPLICATION_DIR)/lib/lib$(APPLICATION_NAME)$(KOKKOS_LIB_SUFFIX)
+  app_KOKKOS_LIBS += $(app_KOKKOS_LIB)
+endif
+
+KOKKOS_OBJECTS += $(app_KOKKOS_OBJECTS)
+KOKKOS_DEPS    += $(app_KOKKOS_DEPS)
+
+-include $(app_KOKKOS_DEPS)
+
+ifeq ($(MOOSE_HEADER_SYMLINKS),true)
+  $(app_KOKKOS_OBJECTS): $(moose_config_symlink) | $(app_LINKS)
+else
+  $(app_KOKKOS_OBJECTS): $(moose_config)
+endif
+
+ifneq ($(app_KOKKOS_LIB),)
+
+ifeq ($(KOKKOS_COMPILER),CPU)
+
+$(app_KOKKOS_LIB): curr_dir  := $(APPLICATION_DIR)
+$(app_KOKKOS_LIB): curr_objs := $(app_KOKKOS_OBJECTS)
+$(app_KOKKOS_LIB): $(app_KOKKOS_OBJECTS)
+	@echo "Linking Kokkos Library "$@"..."
+	@bash -c '$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
+		$(KOKKOS_CXX) -o $@ $(curr_objs) $(KOKKOS_LDFLAGS) $(KOKKOS_LIBS) -rpath $(curr_dir)/lib ${SILENCE_SOME_WARNINGS}'
+	@$(libmesh_LIBTOOL) --mode=install --quiet install -c $@ $(curr_dir)/lib
+
+else
+
+# libtool ignores nvcc and just uses mpicxx to link, so cannot be used
+
+$(app_KOKKOS_LIB): curr_dir  := $(APPLICATION_DIR)
+$(app_KOKKOS_LIB): curr_objs := $(app_KOKKOS_OBJECTS)
+$(app_KOKKOS_LIB): $(app_KOKKOS_OBJECTS)
+	@mkdir -p $(curr_dir)/lib
+	@echo "Linking Kokkos Library "$@"..."
+	@$(KOKKOS_CXX) --shared -o $@ $(curr_objs) $(KOKKOS_LDFLAGS) $(KOKKOS_LIBS)
+
+endif
+
+endif
+
+ifneq ($(BUILD_TEST_OBJECTS_LIB),no)
+
+app_KOKKOS_TEST_SRC_FILES := $(shell find $(TEST_SRC_DIRS) -name "*.K" 2>/dev/null)
+app_KOKKOS_TEST_OBJECTS   := $(patsubst %.K, %.$(KOKKOS_OBJ_SUFFIX), $(app_KOKKOS_TEST_SRC_FILES))
+app_KOKKOS_TEST_DEPS      := $(patsubst %.$(KOKKOS_OBJ_SUFFIX), %.$(KOKKOS_OBJ_SUFFIX).d, $(app_KOKKOS_TEST_OBJECTS))
+app_KOKKOS_TEST_LIB       :=
+
+ifneq ($(app_KOKKOS_TEST_OBJECTS),)
+  app_KOKKOS_TEST_LIB := $(APPLICATION_DIR)/test/lib/lib$(APPLICATION_NAME)_test$(KOKKOS_LIB_SUFFIX)
+endif
+
+KOKKOS_OBJECTS += $(app_KOKKOS_TEST_OBJECTS)
+KOKKOS_DEPS    += $(app_KOKKOS_TEST_DEPS)
+
+-include $(app_KOKKOS_TEST_DEPS)
+
+ifeq ($(MOOSE_HEADER_SYMLINKS),true)
+  $(app_KOKKOS_TEST_OBJECTS): $(moose_config_symlink) | $(app_LINKS)
+else
+  $(app_KOKKOS_TEST_OBJECTS): $(moose_config)
+endif
+
+endif
+
+ifeq ($(USE_TEST_LIBS),yes)
+  depend_test_libs       := $(depend_test_libs) $(app_KOKKOS_TEST_LIB)
+  depend_test_libs_flags := $(depend_test_libs)
+endif
+
+ifneq ($(app_KOKKOS_TEST_LIB),)
+
+ifeq ($(KOKKOS_COMPILER),CPU)
+
+$(app_KOKKOS_TEST_LIB): curr_dir  := $(APPLICATION_DIR)/test
+$(app_KOKKOS_TEST_LIB): curr_objs := $(app_KOKKOS_TEST_OBJECTS)
+$(app_KOKKOS_TEST_LIB): $(app_KOKKOS_TEST_OBJECTS)
+	@echo "Linking Kokkos Test Library "$@"..."
+	@bash -c '$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
+		$(KOKKOS_CXX) -o $@ $(curr_objs) $(KOKKOS_LDFLAGS) $(KOKKOS_LIBS) -rpath $(curr_dir)/lib ${SILENCE_SOME_WARNINGS}'
+	@$(libmesh_LIBTOOL) --mode=install --quiet install -c $@ $(curr_dir)/lib
+
+else
+
+# libtool ignores nvcc and just uses mpicxx to link, so cannot be used
+
+$(app_KOKKOS_TEST_LIB): curr_dir  := $(APPLICATION_DIR)/test
+$(app_KOKKOS_TEST_LIB): curr_objs := $(app_KOKKOS_TEST_OBJECTS)
+$(app_KOKKOS_TEST_LIB): $(app_KOKKOS_TEST_OBJECTS)
+	@mkdir -p $(curr_dir)/lib
+	@echo "Linking Kokkos Test Library "$@"..."
+	@$(KOKKOS_CXX) --shared -o $@ $(curr_objs) $(KOKKOS_LDFLAGS) $(KOKKOS_LIBS)
+
+endif
+
+endif
+
+ifeq ($(KOKKOS_COMPILER),NVCC)
+
+KOKKOS_DEVICE_LINK_OBJECT := $(APPLICATION_DIR)/lib/dlink.o
+
+# Device link step
+
+$(KOKKOS_DEVICE_LINK_OBJECT): curr_dir := $(APPLICATION_DIR)
+$(KOKKOS_DEVICE_LINK_OBJECT): $(KOKKOS_OBJECTS)
+	@mkdir -p $(curr_dir)/lib
+	@echo "Device Linking Kokkos Objects..."
+	@$(KOKKOS_CXX) -dlink -o $@ $(KOKKOS_LDFLAGS) $(KOKKOS_OBJECTS) $(KOKKOS_LIBS)
+
+endif
+
+endif
 
 # Target-specific Variable Values (See GNU-make manual)
 $(app_LIB): curr_objs := $(app_objects)
@@ -374,8 +495,8 @@ $(app_LIB): curr_additional_depend_libs := $(ADDITIONAL_DEPEND_LIBS)
 $(app_LIB): curr_additional_libs := $(ADDITIONAL_LIBS)
 $(app_LIB): $(app_HEADER) $(app_plugin_deps) $(depend_libs) $(app_objects) $(ADDITIONAL_DEPEND_LIBS)
 	@echo "Linking Library "$@"..."
-	@$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
-	  $(libmesh_CXX) $(CXXFLAGS) $(libmesh_CXXFLAGS) -o $@ $(curr_objs) $(libmesh_LDFLAGS) $(EXTERNAL_FLAGS) $(curr_additional_libs) -rpath $(curr_dir)/lib $(curr_libs)
+	@bash -c '$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
+	  $(libmesh_CXX) $(libmesh_CXXFLAGS) -o $@ $(curr_objs) $(LDFLAGS) $(libmesh_LDFLAGS) $(EXTERNAL_FLAGS) $(curr_additional_libs) -rpath $(curr_dir)/lib $(curr_libs) ${SILENCE_SOME_WARNINGS}'
 	@$(libmesh_LIBTOOL) --mode=install --quiet install -c $@ $(curr_dir)/lib
 
 ifeq ($(BUILD_TEST_OBJECTS_LIB),no)
@@ -391,10 +512,10 @@ $(app_test_LIB): curr_deps := $(depend_libs)
 $(app_test_LIB): curr_libs := $(depend_libs_flags)
 $(app_test_LIB): curr_additional_depend_libs := $(ADDITIONAL_DEPEND_LIBS)
 $(app_test_LIB): curr_additional_libs := $(ADDITIONAL_LIBS)
-$(app_test_LIB): $(app_HEADER) $(app_plugin_deps) $(depend_libs) $(app_test_objects) $(ADDITIONAL_DEPEND_LIBS)
+$(app_test_LIB): $(app_HEADER) $(app_plugin_deps) $(depend_libs) $(gtest_LIB) $(app_test_objects) $(ADDITIONAL_DEPEND_LIBS)
 	@echo "Linking Test Library "$@"..."
-	@$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
-	  $(libmesh_CXX) $(CXXFLAGS) $(libmesh_CXXFLAGS) -o $@ $(curr_objs) $(libmesh_LDFLAGS) $(EXTERNAL_FLAGS) $(curr_additional_libs) -rpath $(curr_dir)/lib $(curr_libs)
+	@bash -c '$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
+	  $(libmesh_CXX) $(libmesh_CXXFLAGS) -o $@ $(curr_objs) $(LDFLAGS) $(libmesh_LDFLAGS) $(EXTERNAL_FLAGS) $(curr_additional_libs) -rpath $(curr_dir)/lib $(curr_libs) ${SILENCE_SOME_WARNINGS}'
 	@$(libmesh_LIBTOOL) --mode=install --quiet install -c $@ $(curr_dir)/lib
 endif
 
@@ -424,7 +545,7 @@ ifneq (,$(findstring mpicxx,$(CXX)))
 endif
 endif
 endif
-applibs :=  $(app_test_LIB) $(app_LIBS) $(depend_test_libs) $(ADDITIONAL_DEPEND_LIBS)
+applibs :=  $(app_test_LIB) $(app_LIBS) $(MOOSE_KOKKOS_LIB) $(app_KOKKOS_TEST_LIB) $(app_KOKKOS_LIBS) $(depend_test_libs) $(ADDITIONAL_DEPEND_LIBS)
 applibs := $(call uniq,$(applibs))
 
 ifeq ($(libmesh_static),yes)
@@ -436,22 +557,6 @@ ifeq ($(libmesh_static),yes)
   endif
 endif
 
-# Write resource file
-$(app_resource): | prebuild
-	@echo "Creating Resource file $@"
-	@$(shell $(FRAMEWORK_DIR)/scripts/write_appresource_file.py $(app_resource) $(APPLICATION_NAME) \
-     $(libmesh_CXXFLAGS) \
-     compiler_type=$(compilertype) \
-     documentation=$(DOCUMENTATION) \
-     installation_type=in_tree)
-
-# Update and Copy resource file to prefix/bin
-install_$(APPLICATION_NAME)_resource:
-	@echo "Installing $(APPLICATION_NAME).yaml Resource file"
-	@$(shell $(FRAMEWORK_DIR)/scripts/write_appresource_file.py $(app_resource) $(APPLICATION_NAME) installation_type=relocated)
-	@mkdir -p $(bin_install_dir)
-	@cp $(app_resource) $(bin_install_dir)
-
 # Codesign command (OS X Only)
 codesign :=
 ifneq (,$(findstring darwin,$(libmesh_HOST)))
@@ -461,10 +566,24 @@ ifneq (,$(findstring darwin,$(libmesh_HOST)))
   endif
 endif
 
-$(app_EXEC): $(app_LIBS) $(mesh_library) $(main_object) $(app_test_LIB) $(depend_test_libs) $(app_resource)
+# The $(NO_AS_NEEDED_FLAG) below must come before $(applibs) (which carries the
+# Kokkos shared libraries). Toolchains that default to --as-needed (e.g. GCC 15)
+# only keep a library that, at the point it is seen on the link line, satisfies
+# an undefined reference from something already processed. libtool further
+# rearranges the line: bare .so inputs (the GPU-mode Kokkos libs, which cannot be
+# libtool .la archives because libtool cannot drive nvcc) and -Wl flags are
+# emitted into the command in the order parsed, while .la libraries (libmoose,
+# etc.) are siphoned into deplibs and emitted *after* them. So libmoose.so ends
+# up after the Kokkos .so even though it precedes it in $(applibs). The Kokkos
+# symbols are referenced only by libmoose.so (another shared lib, seen later),
+# never by $(main_object), so under --as-needed the Kokkos libs would be dropped
+# and their symbols left undefined. Placing --no-as-needed right after
+# $(main_object) forces them to be retained regardless of this ordering; the flag
+# is parse-order-stable in libtool so a bare .so cannot be hoisted ahead of it.
+$(app_EXEC): $(app_LIBS) $(MOOSE_KOKKOS_LIB) $(app_KOKKOS_LIBS) $(app_KOKKOS_TEST_LIB) $(KOKKOS_DEVICE_LINK_OBJECT) $(mesh_library) $(main_object) $(app_test_LIB) $(depend_test_libs) $(ADDITIONAL_EXEC_OBJECTS)
 	@echo "Linking Executable "$@"..."
-	@$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
-	  $(libmesh_CXX) $(CXXFLAGS) $(libmesh_CXXFLAGS) -o $@ $(main_object) $(depend_test_libs_flags) $(applibs) $(ADDITIONAL_LIBS) $(libmesh_LDFLAGS) $(libmesh_LIBS) $(EXTERNAL_FLAGS)
+	@bash -c '$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
+	  $(libmesh_CXX) $(libmesh_CXXFLAGS) -o $@ $(main_object) $(if $(filter yes,$(HAVE_NO_AS_NEEDED)),$(NO_AS_NEEDED_FLAG)) $(depend_test_libs_flags) $(applibs) $(KOKKOS_DEVICE_LINK_OBJECT) $(ADDITIONAL_LIBS) $(ADDITIONAL_EXEC_OBJECTS) $(LDFLAGS) $(libmesh_LDFLAGS) $(libmesh_LIBS) $(EXTERNAL_FLAGS) ${SILENCE_SOME_WARNINGS}'
 	@$(codesign)
 
 ###### install stuff #############
@@ -487,14 +606,25 @@ endif
 # Top level install target for all libraries (.so/.dylib, .la)
 install_all_libs: $(lib_archive_install_targets) $(lib_install_targets)
 
+# Install application data directory if it exists
 ifneq ($(wildcard $(APPLICATION_DIR)/data/.),)
 install_data_$(APPLICATION_NAME)_src := $(APPLICATION_DIR)/data
 install_data_$(APPLICATION_NAME)_dst := $(share_install_dir)
 install_data:: install_data_$(APPLICATION_NAME)
 endif
-
 install_data_%:
 	@echo "Installing data "$($@_dst)"..."
+	@mkdir -p $($@_dst)
+	@cp -r $($@_src) $($@_dst)
+
+# Install application python directory if it exists
+ifneq ($(wildcard $(APPLICATION_DIR)/python/.),)
+install_python_$(APPLICATION_NAME)_src := $(APPLICATION_DIR)/python
+install_python_$(APPLICATION_NAME)_dst := $(share_install_dir)
+install_python:: install_python_$(APPLICATION_NAME)
+endif
+install_python_%:
+	@echo "Installing python "$($@_dst)"..."
 	@mkdir -p $($@_dst)
 	@cp -r $($@_src) $($@_dst)
 
@@ -535,7 +665,7 @@ install_lib_from_archive_%: %
 	@cp $(lib_build) $(lib_installed)
 # Patch to add additional installed rpaths to the application libs
 # for dependencies-of-dependencies installed in a different folder
-	@if [ "$(notdir $<)" == "$(notdir $(app_LIB))" ] || [ "$(notdir $<)" == "$(notdir $(app_test_LIB))" ]; then \
+	@if [ "$(notdir $<)" = "$(notdir $(app_LIB))" ] || [ "$(notdir $<)" = "$(notdir $(app_test_LIB))" ]; then \
 	for lib_dir in $(ADDITIONAL_APP_INSTALL_RPATHS); do $(call patch_rpath,$(lib_installed),$(abspath $(lib_install_dir)/../$$lib_dir)); done \
 	fi
 # Patch to add libraries in the installed folder
@@ -545,8 +675,6 @@ install_lib_from_archive_%: %
 	@echo "Installing library archive $(lib_archive_installed)"
 	@cp $< $(lib_archive_installed)
 	@$(call patch_la,$(lib_archive_installed),$(lib_install_dir))
-	@$(call patch_relink,$(lib_installed),$(libpath_pcre),$(libname_pcre))
-	@$(call patch_relink,$(lib_installed),$(libpath_framework),$(libname_framework))
 # These lines are critical in that they are a catch-all for nested applications. (e.g. These will properly remap MOOSE and the modules
 # in an application library to the installed locations) - DO NOT REMOVE! Yes, this can probably be done better
 	@$(eval libnames := $(foreach lib,$(filter %.la, $(applibs)),$(call lib_from_archive,$(lib))))
@@ -573,7 +701,7 @@ else
 	@echo "Skipping docs installation."
 endif
 
-$(installed_app_binary): $(app_EXEC) $(copy_input_targets) install_$(APPLICATION_NAME)_docs install_$(APPLICATION_NAME)_resource $(binlink)
+$(installed_app_binary): $(app_EXEC) $(copy_input_targets) install_$(APPLICATION_NAME)_docs $(binlink)
 	@echo "Installing binary $@"
 	@mkdir -p $(bin_install_dir)
 	@cp $< $@
@@ -593,3 +721,4 @@ endif
 sa: $(app_analyzer)
 
 compile_commands_all_srcfiles += $(srcfiles)
+compile_commands_all_kokkos_srcfiles += $(app_KOKKOS_SRC_FILES)

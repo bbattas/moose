@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -36,7 +36,6 @@
 #include "ConsoleUtils.h"
 #include "JsonSyntaxTree.h"
 #include "JsonInputFileFormatter.h"
-#include "SONDefinitionFormatter.h"
 #include "RelationshipManager.h"
 #include "ProxyRelationshipManager.h"
 #include "Registry.h"
@@ -54,6 +53,10 @@
 #include "RestartableDataWriter.h"
 #include "StringInputStream.h"
 #include "MooseMain.h"
+#include "FEProblemBase.h"
+#include "Parser.h"
+#include "CSGBase.h"
+#include "Capabilities.h"
 
 // Regular expression includes
 #include "pcrecpp.h"
@@ -71,6 +74,11 @@
 #include <sys/utsname.h> // utsname
 #endif
 
+#if __has_include(<torch/xpu.h>)
+#include <torch/xpu.h>
+#define MOOSE_HAVE_XPU 1
+#endif
+
 // C++ includes
 #include <numeric> // std::accumulate
 #include <fstream>
@@ -82,8 +90,6 @@
 #include <filesystem>
 
 using namespace libMesh;
-
-#define QUOTE(macro) stringifyName(macro)
 
 void
 MooseApp::addAppParam(InputParameters & params)
@@ -102,7 +108,7 @@ MooseApp::addInputParam(InputParameters & params)
 InputParameters
 MooseApp::validParams()
 {
-  InputParameters params = emptyInputParameters();
+  InputParameters params = MooseBase::validParams();
 
   MooseApp::addAppParam(params);
   MooseApp::addInputParam(params);
@@ -114,7 +120,12 @@ MooseApp::validParams()
       "--mesh-only <optional path>",
       "",
       "Build and output the mesh only (Default: \"<input_file_name>_in.e\")");
-
+  params.addOptionalValuedCommandLineParam<std::string>(
+      "csg_only",
+      "--csg-only <optional path>",
+      "",
+      "Setup and output the input mesh in CSG format only (Default: "
+      "\"<input_file_name>_out_csg.json\")");
   params.addCommandLineParam<bool>(
       "show_input", "--show-input", "Shows the parsed input file before running the simulation");
   params.setGlobalCommandLineParam("show_input");
@@ -145,8 +156,6 @@ MooseApp::validParams()
       "--language-server",
       "Starts a process to communicate with development tools using the language server protocol");
 
-  params.addCommandLineParam<bool>(
-      "definition", "--definition", "Shows a SON style input definition dump for input validation");
   params.addCommandLineParam<bool>("dump", "--dump", "Shows a dump of available input file syntax");
   params.addCommandLineParam<std::string>(
       "dump_search",
@@ -170,6 +179,23 @@ MooseApp::validParams()
       "syntax", "--syntax", "Dumps the associated Action syntax paths ONLY");
   params.addCommandLineParam<bool>(
       "show_docs", "--docs", "Print url/path to the documentation website");
+  params.addCommandLineParam<bool>(
+      "show_capabilities", "--show-capabilities", "Dumps the capability registry in JSON format.");
+  params.addCommandLineParam<std::string>(
+      "required_capabilities",
+      "--required-capabilities",
+      "A list of conditions that is checked against the registered capabilities (see "
+      "--show-capabilities). The executable will terminate early if the conditions are not met.");
+  params.addCommandLineParam<std::string>(
+      "testharness_capabilities",
+      "--testharness-capabilities",
+      "Path to JSON from the TestHarness that contains capabilities to be appended.");
+
+  params.addCommandLineParam<std::string>(
+      "check_capabilities",
+      "--check-capabilities",
+      "A list of conditions that is checked against the registered capabilities. Will exit based "
+      "on whether or not the capaiblities are fulfilled. Does not check dynamically loaded apps.");
   params.addCommandLineParam<bool>("check_input",
                                    "--check-input",
                                    "Check the input file (i.e. requires -i <filename>) and quit");
@@ -246,12 +272,27 @@ MooseApp::validParams()
       "",
       "Continue the calculation. Without <file base>, the most recent recovery file will be used");
   params.setGlobalCommandLineParam("recover");
+  params.addCommandLineParam<bool>(
+      "force_restart",
+      "--force-restart",
+      "Forcefully load checkpoints despite possible incompatibilities");
+  params.setGlobalCommandLineParam("force_restart");
+
+  params.addCommandLineParam<bool>("suppress_header",
+                                   "--suppress-header",
+                                   false,
+                                   "Disables the output of the application header.");
+  params.setGlobalCommandLineParam("suppress_header");
 
   params.addCommandLineParam<bool>(
       "test_checkpoint_half_transient",
       "--test-checkpoint-half-transient",
       "Run half of a transient with checkpoints enabled; used by the TestHarness");
   params.setGlobalCommandLineParam("test_checkpoint_half_transient");
+
+  params.addCommandLineParam<bool>("test_restep",
+                                   "--test-restep",
+                                   "Test re-running the middle timestep; used by the TestHarness");
 
   params.addCommandLineParam<bool>(
       "trap_fpe",
@@ -336,11 +377,12 @@ MooseApp::validParams()
   params.addParam<bool>(
       "automatic_automatic_scaling", false, "Whether to turn on automatic scaling by default");
 
-  MooseEnum libtorch_device_type("cpu cuda mps", "cpu");
-  params.addCommandLineParam<MooseEnum>("libtorch_device",
-                                        "--libtorch-device",
-                                        libtorch_device_type,
-                                        "The device type we want to run libtorch on.");
+  const MooseEnum compute_device_type("cpu cuda mps hip ceed-cpu ceed-cuda ceed-hip xpu", "cpu");
+  params.addCommandLineParam<MooseEnum>(
+      "compute_device",
+      "--compute-device",
+      compute_device_type,
+      "The device type we want to run accelerated (libtorch, MFEM) computations on.");
 
 #ifdef HAVE_GPERFTOOLS
   params.addCommandLineParam<std::string>(
@@ -359,18 +401,19 @@ MooseApp::validParams()
                                    false,
                                    "Show registered data paths for searching in the header");
 
-  params.addPrivateParam<std::string>("_app_name"); // the name passed to AppFactory::create
-  params.addPrivateParam<std::string>("_type");
-  params.addPrivateParam<int>("_argc");
-  params.addPrivateParam<char **>("_argv");
   params.addPrivateParam<std::shared_ptr<CommandLine>>("_command_line");
   params.addPrivateParam<std::shared_ptr<Parallel::Communicator>>("_comm");
   params.addPrivateParam<unsigned int>("_multiapp_level");
   params.addPrivateParam<unsigned int>("_multiapp_number");
+  params.addPrivateParam<bool>("_use_master_mesh", false);
   params.addPrivateParam<const MooseMesh *>("_master_mesh");
   params.addPrivateParam<const MooseMesh *>("_master_displaced_mesh");
   params.addPrivateParam<std::unique_ptr<Backup> *>("_initial_backup", nullptr);
   params.addPrivateParam<std::shared_ptr<Parser>>("_parser");
+#ifdef MOOSE_MFEM_ENABLED
+  params.addPrivateParam<std::shared_ptr<mfem::Device>>("_mfem_device");
+  params.addPrivateParam<std::set<std::string>>("_mfem_devices");
+#endif
 
   params.addParam<bool>(
       "use_legacy_material_output",
@@ -389,21 +432,29 @@ MooseApp::validParams()
       false,
       "Set true to enable data-driven mesh generation, which is an experimental feature");
 
+  params.addCommandLineParam<bool>(
+      "parse_neml2_only",
+      "--parse-neml2-only",
+      "Executes the [NEML2] block to parse the input file and terminate.");
+
   MooseApp::addAppParam(params);
+
+  params.registerBase("Application");
 
   return params;
 }
 
-MooseApp::MooseApp(InputParameters parameters)
-  : ConsoleStreamInterface(*this),
-    PerfGraphInterface(*this, "MooseApp"),
+MooseApp::MooseApp(const InputParameters & parameters)
+  : PerfGraphInterface(*this, "MooseApp"),
     ParallelObject(*parameters.get<std::shared_ptr<Parallel::Communicator>>(
         "_comm")), // Can't call getParam() before pars is set
-    MooseBase(parameters.get<std::string>("_type"),
-              parameters.get<std::string>("_app_name"),
-              *this,
-              _pars),
-    _pars(parameters),
+    // The use of AppFactory::getAppParams() is atrocious. However, a long time ago
+    // we decided to copy construct parameters in each derived application...
+    // which means that the "parameters" we get if someone derives from MooseApp are
+    // actually a copy of the ones built by the factory. Because we have unique
+    // application names, this allows us to reference (using _pars and MooseBase)
+    // the actual const parameters that the AppFactory made for this application
+    MooseBase(*this, AppFactory::instance().getAppParams(parameters)),
     _comm(getParam<std::shared_ptr<Parallel::Communicator>>("_comm")),
     _file_base_set_by_user(false),
     _output_position_set(false),
@@ -414,19 +465,21 @@ MooseApp::MooseApp(InputParameters parameters)
     _action_factory(*this),
     _action_warehouse(*this, _syntax, _action_factory),
     _output_warehouse(*this),
-    _parser(parameters.get<std::shared_ptr<Parser>>("_parser")),
-    _builder(*this, _action_warehouse, _parser),
+    _parser(getCheckedPointerParam<std::shared_ptr<Parser>>("_parser")),
+    _command_line(getCheckedPointerParam<std::shared_ptr<CommandLine>>("_command_line")),
+    _builder(*this, _action_warehouse, *_parser),
     _restartable_data(libMesh::n_threads()),
     _perf_graph(createRecoverablePerfGraph()),
     _solution_invalidity(createRecoverableSolutionInvalidity()),
     _rank_map(*_comm, _perf_graph),
-    _use_executor(parameters.get<bool>("use_executor")),
+    _use_executor(getParam<bool>("use_executor")),
     _null_executor(NULL),
     _use_nonlinear(true),
     _use_eigen_value(false),
     _enable_unused_check(ERROR_UNUSED),
     _factory(*this),
     _error_overridden(false),
+    _early_exit_param(""),
     _ready_to_exit(false),
     _exit_code(0),
     _initial_from_file(false),
@@ -434,37 +487,80 @@ MooseApp::MooseApp(InputParameters parameters)
     _recover(false),
     _restart(false),
     _split_mesh(false),
-    _use_split(parameters.get<bool>("use_split")),
+    _use_split(getParam<bool>("use_split")),
+    _force_restart(getParam<bool>("force_restart")),
 #ifdef DEBUG
     _trap_fpe(true),
 #else
     _trap_fpe(false),
 #endif
-    _test_checkpoint_half_transient(false),
+    _test_checkpoint_half_transient(parameters.get<bool>("test_checkpoint_half_transient")),
+    _test_restep(parameters.get<bool>("test_restep")),
     _check_input(getParam<bool>("check_input")),
-    _multiapp_level(
-        isParamValid("_multiapp_level") ? parameters.get<unsigned int>("_multiapp_level") : 0),
-    _multiapp_number(
-        isParamValid("_multiapp_number") ? parameters.get<unsigned int>("_multiapp_number") : 0),
-    _master_mesh(isParamValid("_master_mesh") ? parameters.get<const MooseMesh *>("_master_mesh")
+    _multiapp_level(isParamValid("_multiapp_level") ? getParam<unsigned int>("_multiapp_level")
+                                                    : 0),
+    _multiapp_number(isParamValid("_multiapp_number") ? getParam<unsigned int>("_multiapp_number")
+                                                      : 0),
+    _use_master_mesh(getParam<bool>("_use_master_mesh")),
+    _master_mesh(isParamValid("_master_mesh") ? getParam<const MooseMesh *>("_master_mesh")
                                               : nullptr),
     _master_displaced_mesh(isParamValid("_master_displaced_mesh")
-                               ? parameters.get<const MooseMesh *>("_master_displaced_mesh")
+                               ? getParam<const MooseMesh *>("_master_displaced_mesh")
                                : nullptr),
     _mesh_generator_system(*this),
     _chain_control_system(*this),
-    _rd_reader(*this, _restartable_data),
+    _rd_reader(*this, _restartable_data, forceRestart()),
     _execute_flags(moose::internal::ExecFlagRegistry::getExecFlagRegistry().getFlags()),
     _output_buffer_cache(nullptr),
     _automatic_automatic_scaling(getParam<bool>("automatic_automatic_scaling")),
     _initial_backup(getParam<std::unique_ptr<Backup> *>("_initial_backup"))
-#ifdef LIBTORCH_ENABLED
+#ifdef MOOSE_LIBTORCH_ENABLED
     ,
-    _libtorch_device(determineLibtorchDeviceType(getParam<MooseEnum>("libtorch_device")))
+    _libtorch_device(determineLibtorchDeviceType(getParam<MooseEnum>("compute_device")))
+#endif
+#ifdef MOOSE_MFEM_ENABLED
+    ,
+    _mfem_device(isParamValid("_mfem_device")
+                     ? getParam<std::shared_ptr<mfem::Device>>("_mfem_device")
+                     : nullptr),
+    _mfem_devices(isParamValid("_mfem_devices") ? getParam<std::set<std::string>>("_mfem_devices")
+                                                : std::set<std::string>{})
 #endif
 {
+  if (&parameters != &_pars)
+  {
+    const std::string bad_params = "(InputParameters parameters)";
+    const std::string good_params = "(const InputParameters & parameters)";
+    const std::string source_constructor = type() + "::" + type();
+    mooseDoOnce(
+        mooseDeprecatedNoTrace(type(),
+                               " copy-constructs its input parameters.\n\n",
+                               "This is deprecated and will not be allowed in the future.\n\n",
+                               "In ",
+                               type(),
+                               ".C, change:\n  ",
+                               source_constructor,
+                               bad_params,
+                               " -> ",
+                               source_constructor,
+                               good_params,
+                               "\n\n",
+                               "In ",
+                               type(),
+                               ".h, change:\n  ",
+                               type(),
+                               bad_params,
+                               "; -> ",
+                               type(),
+                               good_params,
+                               ";"));
+  }
+
+  mooseAssert(_command_line->hasParsed(), "Command line has not parsed");
+  mooseAssert(_parser->queryRoot(), "Parser has not parsed");
+
   // Set the TIMPI sync type via --timpi-sync
-  const auto & timpi_sync = parameters.get<std::string>("timpi_sync");
+  const auto & timpi_sync = getParam<std::string>("timpi_sync");
   const_cast<Parallel::Communicator &>(comm()).sync_type(timpi_sync);
 
 #ifdef HAVE_GPERFTOOLS
@@ -579,18 +675,6 @@ MooseApp::MooseApp(InputParameters parameters)
 
   _perf_graph.enableLivePrint();
 
-  if (isParamValid("_argc") && isParamValid("_argv"))
-  {
-    int argc = getParam<int>("_argc");
-    char ** argv = getParam<char **>("_argv");
-
-    _sys_info = std::make_unique<SystemInfo>(argc, argv);
-  }
-  if (isParamValid("_command_line"))
-    _command_line = getParam<std::shared_ptr<CommandLine>>("_command_line");
-  else
-    mooseError("Valid CommandLine object required");
-
   if (_check_input && isParamSetByUser("recover"))
     mooseError("Cannot run --check-input with --recover. Recover files might not exist");
 
@@ -618,9 +702,7 @@ MooseApp::MooseApp(InputParameters parameters)
                  "about adding your debugger.");
 
     // Finish up the command
-    command_stream << "\""
-                   << " & ";
-
+    command_stream << "\"" << " & ";
     std::string command_string = command_stream.str();
     Moose::out << "Running: " << command_string << std::endl;
 
@@ -653,11 +735,22 @@ MooseApp::MooseApp(InputParameters parameters)
     std::this_thread::sleep_for(std::chrono::seconds(getParam<unsigned int>("stop_for_debugger")));
   }
 
-  if (_master_mesh && _multiapp_level == 0)
+  if (_master_mesh && isUltimateMaster())
     mooseError("Mesh can be passed in only for sub-apps");
 
   if (_master_displaced_mesh && !_master_mesh)
     mooseError("_master_mesh should have been set when _master_displaced_mesh is set");
+
+#ifdef MOOSE_MFEM_ENABLED
+  if (_mfem_device)
+  {
+    mooseAssert(!isUltimateMaster(),
+                "The MFEM device should only be auto-set for sub-applications");
+    mooseAssert(!_mfem_devices.empty(),
+                "If we are a sub-application and we have an MFEM device object, then we must know "
+                "its configuration string");
+  }
+#endif
 
   // Data specifically associated with the mesh (meta-data) that will read from the restart
   // file early during the simulation setup so that they are available to Actions and other objects
@@ -665,14 +758,31 @@ MooseApp::MooseApp(InputParameters parameters)
   // until all objects have been created and all Actions have been executed (i.e. initialSetup).
   registerRestartableDataMapName(MooseApp::MESH_META_DATA, MooseApp::MESH_META_DATA_SUFFIX);
 
-  if (parameters.have_parameter<bool>("use_legacy_dirichlet_bc"))
+  if (_pars.have_parameter<bool>("use_legacy_dirichlet_bc"))
     mooseDeprecated("The parameter 'use_legacy_dirichlet_bc' is no longer valid.\n\n",
                     "All Dirichlet boundary conditions are preset by default.\n\n",
                     "Remove said parameter in ",
                     name(),
                     " to remove this deprecation warning.");
 
+  if (_test_restep && _test_checkpoint_half_transient)
+    mooseError("Cannot use --test-restep and --test-checkpoint-half-transient together");
+
   Moose::out << std::flush;
+
+#ifdef MOOSE_KOKKOS_ENABLED
+#ifdef MOOSE_ENABLE_KOKKOS_GPU
+  queryKokkosGPUs();
+#endif
+#endif
+}
+
+std::optional<MooseEnum>
+MooseApp::getComputeDevice() const
+{
+  if (isParamSetByUser("compute_device"))
+    return getParam<MooseEnum>("compute_device");
+  return {};
 }
 
 MooseApp::~MooseApp()
@@ -686,8 +796,8 @@ MooseApp::~MooseApp()
     HeapProfilerStop();
 #endif
   _action_warehouse.clear();
-  _executioner.reset();
   _the_warehouse.reset();
+  _executioner.reset();
 
   // Don't wait for implicit destruction of input parameter storage
   _input_parameter_warehouse.reset();
@@ -699,10 +809,19 @@ MooseApp::~MooseApp()
   // dlclose an option
   _restartable_data.clear();
 
+  // Remove this app's parameters from the AppFactory. This allows
+  // for creating an app with this name again in the same execution,
+  // which needs to be done when resetting applications in MultiApp
+  AppFactory::instance().clearAppParams(parameters(), {});
+
 #ifdef LIBMESH_HAVE_DLOPEN
   // Close any open dynamic libraries
   for (const auto & lib_pair : _lib_handles)
     dlclose(lib_pair.second.library_handle);
+#endif
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  deallocateKokkosMemoryPool();
 #endif
 }
 
@@ -730,13 +849,8 @@ MooseApp::setupOptions()
   TIME_SECTION("setupOptions", 5, "Setting Up Options");
 
   // Print the header, this is as early as possible
-  auto hdr = header();
-  if (hdr.length() != 0)
-  {
-    if (multiAppLevel() > 0)
-      MooseUtils::indentMessage(_name, hdr);
-    Moose::out << hdr << std::endl;
-  }
+  if (header().length() && !getParam<bool>("suppress_header"))
+    _console << header() << std::endl;
 
   if (getParam<bool>("error_unused"))
     setCheckUnusedFlag(true);
@@ -747,12 +861,6 @@ MooseApp::setupOptions()
     setErrorOverridden();
 
   _distributed_mesh_on_command_line = getParam<bool>("distributed_mesh");
-
-  _test_checkpoint_half_transient = getParam<bool>("test_checkpoint_half_transient");
-
-  // The no_timing flag takes precedence over the timing flag.
-  if (getParam<bool>("no_timing"))
-    _pars.set<bool>("timing") = false;
 
   if (getParam<bool>("trap_fpe"))
   {
@@ -774,13 +882,19 @@ MooseApp::setupOptions()
   {
     // Set from command line
     auto color = getParam<MooseEnum>("color");
-    // Set from environment
-    char * c_color = std::getenv("MOOSE_COLOR");
-    if (c_color)
-      color.assign(std::string(c_color), "While assigning environment variable MOOSE_COLOR");
-    // Set from deprecated --no-color
-    if (getParam<bool>("no_color"))
-      color = "off";
+    if (!isParamSetByUser("color"))
+    {
+      // Set from deprecated --no-color
+      if (getParam<bool>("no_color"))
+        color = "off";
+      // Set from environment
+      else
+      {
+        char * c_color = std::getenv("MOOSE_COLOR");
+        if (c_color)
+          color.assign(std::string(c_color), "While assigning environment variable MOOSE_COLOR");
+      }
+    }
 
     if (color == "auto")
       Moose::setColorConsole(true);
@@ -807,6 +921,81 @@ MooseApp::setupOptions()
     mooseError("You specified --n-threads > 1, but there is no threading model active!");
 #endif
 
+  // Capability checking
+  {
+    // Augment capabilities from the TestHarness
+    std::optional<std::set<std::string>> ignore_capabilities;
+    if (isParamValid("testharness_capabilities"))
+    {
+      if (!isParamValid("required_capabilities"))
+        mooseError(
+            "--testharness-capabilities: Should not be specified without --required-capabilities");
+
+      const auto file_path = std::filesystem::absolute(
+          std::filesystem::path(getParam<std::string>("testharness_capabilities")));
+
+      std::ifstream file(file_path);
+      if (!file)
+        mooseError("--testharness-capabilities: Could not open ", file_path);
+
+      nlohmann::json root;
+      try
+      {
+        file >> root;
+        if (const auto it = root.find("capabilities"); it != root.end())
+          Moose::internal::Capabilities::getCapabilities({}).augment(*it, {});
+        if (const auto it = root.find("ignore_capabilities"); it != root.end())
+          ignore_capabilities = it->get<std::set<std::string>>();
+      }
+      catch (const std::exception & e)
+      {
+        mooseError(
+            "--testharness-capabilities: Failed to load capabilities ", file_path, ":\n", e.what());
+      }
+    }
+
+    if (isParamValid("required_capabilities"))
+    {
+      using Moose::internal::CapabilityRegistry;
+
+      const auto & required_capabilities = getParam<std::string>("required_capabilities");
+
+      CapabilityRegistry::CheckOptions options;
+      // Allowed to be unknown
+      options.certain = false;
+      // Add ignored capabilities, if any
+      if (ignore_capabilities)
+        options.ignore_capabilities = *ignore_capabilities;
+
+      CapabilityRegistry::CheckResult result;
+      try
+      {
+        result = Moose::internal::Capabilities::getCapabilities({}).check(required_capabilities,
+                                                                          options);
+      }
+      catch (const std::exception & e)
+      {
+        mooseError("--required-capablities: ", e.what());
+      }
+
+      if (result.state < CapabilityRegistry::CheckState::UNKNOWN)
+      {
+        mooseInfo("Required capabilities '", required_capabilities, "' not fulfilled.");
+        _ready_to_exit = true;
+        // we use code 77 as "skip" in the Testharness
+        _exit_code = 77;
+        return;
+      }
+      if (result.state == CapabilityRegistry::CheckState::UNKNOWN)
+        mooseError("Required capabilities '",
+                   required_capabilities,
+                   "' are not specific enough. A comparison test is performed on an undefined "
+                   "capability. Disambiguate this requirement by adding an existence/non-existence "
+                   "requirement. Example: 'unknown<1.2.3' should become 'unknown & unknown<1.2.3' "
+                   "or '!unknown | unknown<1.2.3'");
+    }
+  }
+
   // Build a minimal running application, ignoring the input file.
   if (getParam<bool>("minimal"))
     createMinimalApp();
@@ -814,12 +1003,14 @@ MooseApp::setupOptions()
   else if (getParam<bool>("display_version"))
   {
     Moose::out << getPrintableVersion() << std::endl;
+    _early_exit_param = "--version";
     _ready_to_exit = true;
     return;
   }
   else if (getParam<bool>("help"))
   {
     _command_line->printUsage();
+    _early_exit_param = "--help";
     _ready_to_exit = true;
   }
   else if (getParam<bool>("dump") || isParamSetByUser("dump_search"))
@@ -843,6 +1034,7 @@ MooseApp::setupOptions()
       JsonInputFileFormatter formatter;
       Moose::out << "\n### START DUMP DATA ###\n"
                  << formatter.toString(tree.getRoot()) << "\n### END DUMP DATA ###" << std::endl;
+      _early_exit_param = "--dump";
       _ready_to_exit = true;
     }
     else
@@ -867,7 +1059,7 @@ MooseApp::setupOptions()
         Moose::out << entry.first << "\taction\t" << act->_name << "\t" << act->_classname << "\t"
                    << act->_file << "\n";
     }
-
+    _early_exit_param = "--registry";
     _ready_to_exit = true;
   }
   else if (getParam<bool>("registry_hit"))
@@ -913,17 +1105,7 @@ MooseApp::setupOptions()
     Moose::out << root.render();
 
     Moose::out << "\n### END REGISTRY DATA ###\n";
-    _ready_to_exit = true;
-  }
-  else if (getParam<bool>("definition"))
-  {
-    _perf_graph.disableLivePrint();
-
-    JsonSyntaxTree tree("");
-    _builder.buildJsonSyntaxTree(tree);
-    SONDefinitionFormatter formatter;
-    Moose::out << "%-START-SON-DEFINITION-%\n"
-               << formatter.toString(tree.getRoot()) << "\n%-END-SON-DEFINITION-%\n";
+    _early_exit_param = "--registry_hit";
     _ready_to_exit = true;
   }
   else if (getParam<bool>("yaml") || isParamSetByUser("yaml_search"))
@@ -935,6 +1117,7 @@ MooseApp::setupOptions()
     _builder.initSyntaxFormatter(Moose::Builder::YAML, true);
     _builder.buildFullTree(search);
 
+    _early_exit_param = "--yaml";
     _ready_to_exit = true;
   }
   else if (getParam<bool>("json") || isParamSetByUser("json_search"))
@@ -946,7 +1129,9 @@ MooseApp::setupOptions()
     JsonSyntaxTree tree(search);
     _builder.buildJsonSyntaxTree(tree);
 
-    Moose::out << "**START JSON DATA**\n" << tree.getRoot().dump(2) << "\n**END JSON DATA**\n";
+    outputMachineReadableData(
+        "json", "**START JSON DATA**\n", "\n**END JSON DATA**", tree.getRoot().dump(2));
+    _early_exit_param = "--json";
     _ready_to_exit = true;
   }
   else if (getParam<bool>("syntax"))
@@ -954,10 +1139,11 @@ MooseApp::setupOptions()
     _perf_graph.disableLivePrint();
 
     std::multimap<std::string, Syntax::ActionInfo> syntax = _syntax.getAssociatedActions();
-    Moose::out << "**START SYNTAX DATA**\n";
+    std::stringstream ss;
     for (const auto & it : syntax)
-      Moose::out << it.first << "\n";
-    Moose::out << "**END SYNTAX DATA**\n" << std::endl;
+      ss << it.first << "\n";
+    outputMachineReadableData("syntax", "**START SYNTAX DATA**\n", "**END SYNTAX DATA**", ss.str());
+    _early_exit_param = "--syntax";
     _ready_to_exit = true;
   }
   else if (getParam<bool>("show_type"))
@@ -965,9 +1151,44 @@ MooseApp::setupOptions()
     _perf_graph.disableLivePrint();
 
     Moose::out << "MooseApp Type: " << type() << std::endl;
+    _early_exit_param = "--show-type";
     _ready_to_exit = true;
   }
-  else if (getInputFileNames().size())
+  else if (getParam<bool>("show_capabilities"))
+  {
+    _perf_graph.disableLivePrint();
+    outputMachineReadableData("show_capabilities",
+                              "**START JSON DATA**\n",
+                              "\n**END JSON DATA**",
+                              Moose::internal::Capabilities::getCapabilities({}).dump());
+    _ready_to_exit = true;
+  }
+  else if (isParamValid("check_capabilities"))
+  {
+    using Moose::internal::CapabilityRegistry;
+
+    _perf_graph.disableLivePrint();
+    const auto & capabilities = getParam<std::string>("check_capabilities");
+
+    CapabilityRegistry::CheckResult result;
+    try
+    {
+      result = Moose::internal::Capabilities::getCapabilities({}).check(capabilities);
+    }
+    catch (const std::exception & e)
+    {
+      mooseError("--check-capablities: ", e.what());
+    }
+
+    const bool pass = result.state == CapabilityRegistry::CheckState::CERTAIN_PASS;
+    _console << "Capabilities '" << capabilities << "' are " << (pass ? "" : "not ") << "fulfilled."
+             << std::endl;
+    _ready_to_exit = true;
+    if (!pass)
+      _exit_code = 77;
+    return;
+  }
+  else if (!getInputFileNames().empty())
   {
     if (isParamSetByUser("recover"))
     {
@@ -979,27 +1200,75 @@ MooseApp::setupOptions()
         _restart_recover_base = recover;
     }
 
-    // In the event that we've parsed once before already in MooseMain, we
-    // won't need to parse again
-    if (!_parser->root())
-      _parser->parse();
-
     _builder.build();
 
-    if (isParamSetByUser("mesh_only"))
+    // Lambda to check for mutually exclusive parameters
+    auto isExclusiveParamSetByUser =
+        [this](const std::vector<std::string> & group, const std::string & param)
     {
-      _syntax.registerTaskName("mesh_only", true);
-      _syntax.addDependency("mesh_only", "setup_mesh_complete");
-      _syntax.addDependency("determine_system_type", "mesh_only");
-      _action_warehouse.setFinalTask("mesh_only");
+      auto is_set = isParamSetByUser(param);
+      if (is_set)
+        for (const auto & p : group)
+          if (p != param && isParamSetByUser(p))
+            mooseError("Parameters '" + p + "' and '" + param +
+                       "' are mutually exclusive. Please choose only one of them.");
+      return is_set;
+    };
+
+    // The following parameters set the final task and so are mutually exclusive.
+    const std::vector<std::string> final_task_params = {
+        "csg_only", "mesh_only", "split_mesh", "parse_neml2_only"};
+    if (isExclusiveParamSetByUser(final_task_params, "csg_only"))
+    {
+      // Error checking on incompatible command line options
+      if (_distributed_mesh_on_command_line)
+        mooseError("--csg-only cannot be used in conjunction with --distributed-mesh");
+      const bool has_mesh_split = isParamSetByUser("split_file") || _use_split;
+      if (has_mesh_split)
+        mooseError("--csg-only is not compatible with any mesh splitting options");
+      if (isParamSetByUser("refinements"))
+        mooseError("--csg-only cannot be used in conjunction with -r refinements option");
+      if (!isUltimateMaster())
+        mooseError("--csg-only option cannot be used as a Subapp");
+      if (_recover)
+        mooseError("--csg-only option cannot be used in recovery mode");
+
+      _syntax.registerTaskName("execute_csg_generators", true);
+      _syntax.addDependency("execute_csg_generators", "execute_mesh_generators");
+      _syntax.addDependency("recover_meta_data", "execute_csg_generators");
+
+      _syntax.registerTaskName("csg_only", true);
+      _syntax.addDependency("csg_only", "recover_meta_data");
+      _syntax.addDependency("set_mesh_base", "csg_only");
+      _action_warehouse.setFinalTask("csg_only");
     }
-    else if (isParamSetByUser("split_mesh"))
+    else if (isExclusiveParamSetByUser(final_task_params, "mesh_only"))
+    {
+      // If we are looking to just check the input, there is no need to
+      // call MeshOnlyAction and generate a mesh
+      if (_check_input)
+        _action_warehouse.setFinalTask("setup_mesh_complete");
+      else
+      {
+        _syntax.registerTaskName("mesh_only", true);
+        _syntax.addDependency("mesh_only", "setup_mesh_complete");
+        _syntax.addDependency("determine_system_type", "mesh_only");
+        _action_warehouse.setFinalTask("mesh_only");
+      }
+    }
+    else if (isExclusiveParamSetByUser(final_task_params, "split_mesh"))
     {
       _split_mesh = true;
       _syntax.registerTaskName("split_mesh", true);
       _syntax.addDependency("split_mesh", "setup_mesh_complete");
       _syntax.addDependency("determine_system_type", "split_mesh");
       _action_warehouse.setFinalTask("split_mesh");
+    }
+    else if (isExclusiveParamSetByUser(final_task_params, "parse_neml2_only"))
+    {
+      _syntax.registerTaskName("parse_neml2");
+      _syntax.addDependency("determine_system_type", "parse_neml2");
+      _action_warehouse.setFinalTask("parse_neml2");
     }
     _action_warehouse.build();
 
@@ -1054,12 +1323,14 @@ MooseApp::setupOptions()
 
     moose_server.run();
 
+    _early_exit_param = "--language-server";
     _ready_to_exit = true;
   }
 
   else /* The catch-all case for bad options or missing options, etc. */
   {
     _command_line->printUsage();
+    _early_exit_param = "bad or missing";
     _ready_to_exit = true;
     _exit_code = 1;
   }
@@ -1111,23 +1382,42 @@ MooseApp::runInputFile()
 {
   TIME_SECTION("runInputFile", 3);
 
-  // If ready to exit has been set, then just return
+  // If early exit param has been set, then just return
   if (_ready_to_exit)
     return;
 
   _action_warehouse.executeAllActions();
 
-  if (isParamSetByUser("mesh_only") || isParamSetByUser("split_mesh"))
+  if (isParamSetByUser("csg_only"))
+  {
+    _early_exit_param = "--csg-only";
     _ready_to_exit = true;
+  }
+  else if (isParamSetByUser("mesh_only"))
+  {
+    _early_exit_param = "--mesh-only";
+    _ready_to_exit = true;
+  }
+  else if (isParamSetByUser("split_mesh"))
+  {
+    _early_exit_param = "--split-mesh";
+    _ready_to_exit = true;
+  }
+  else if (isParamSetByUser("parse_neml2_only"))
+  {
+    _early_exit_param = "--parse-neml2-only";
+    _ready_to_exit = true;
+  }
   else if (getParam<bool>("list_constructed_objects"))
   {
     // TODO: ask multiapps for their constructed objects
+    _early_exit_param = "--list-constructed-objects";
     _ready_to_exit = true;
-    std::vector<std::string> obj_list = _factory.getConstructedObjects();
-    Moose::out << "**START OBJECT DATA**\n";
-    for (const auto & name : obj_list)
-      Moose::out << name << "\n";
-    Moose::out << "**END OBJECT DATA**\n" << std::endl;
+    std::stringstream ss;
+    for (const auto & obj : _factory.getConstructedObjects())
+      ss << obj << '\n';
+    outputMachineReadableData(
+        "list_constructed_objects", "**START OBJECT DATA**\n", "\n**END OBJECT DATA**", ss.str());
   }
 }
 
@@ -1138,6 +1428,28 @@ MooseApp::errorCheck()
   bool err = _enable_unused_check == ERROR_UNUSED;
 
   _builder.errorCheck(*_comm, warn, err);
+
+  // Return early for mesh only mode, since we want error checking to run even though
+  // an executor is not created for this case
+  if (isParamSetByUser("mesh_only"))
+    return;
+
+  if (!_executor.get() && !_executioner.get())
+  {
+    if (!_early_exit_param.empty())
+    {
+      mooseAssert(_check_input,
+                  "Something went wrong, we should only get here if _check_input is true.");
+      mooseError(
+          "Incompatible command line arguments provided. --check-input cannot be called with ",
+          _early_exit_param,
+          ".");
+    }
+    // We should never get here
+    mooseError("The Executor is being called without being initialized. This is likely "
+               "caused by "
+               "incompatible command line arguments");
+  }
 
   auto apps = feProblem().getMultiAppWarehouse().getObjects();
   for (auto app : apps)
@@ -1170,6 +1482,8 @@ MooseApp::executeExecutioner()
     _executioner->init();
     errorCheck();
     _executioner->execute();
+    if (!_executioner->lastSolveConverged())
+      setExitCode(1);
   }
   else
     mooseError("No executioner was specified (go fix your input file)");
@@ -1269,7 +1583,7 @@ MooseApp::restore(std::unique_ptr<Backup> backup, const bool for_restart)
   const DataNames filter_names = for_restart ? getRecoverableData() : DataNames{};
 
   if (!backup)
-    mooseError("MooseApp::resore(): Provided backup is not initialized");
+    mooseError("MooseApp::restore(): Provided backup is not initialized");
 
   auto header = std::move(backup->header);
   mooseAssert(header, "Header not available");
@@ -1337,6 +1651,7 @@ MooseApp::disableCheckUnusedFlag()
 FEProblemBase &
 MooseApp::feProblem() const
 {
+  mooseAssert(_executor.get() || _executioner.get(), "No executioner yet, calling too early!");
   return _executor.get() ? _executor->feProblem() : _executioner->feProblem();
 }
 
@@ -1360,11 +1675,17 @@ MooseApp::addExecutorParams(const std::string & type,
   _executor_params[name] = std::make_pair(type, std::make_unique<InputParameters>(params));
 }
 
-Parser &
-MooseApp::parser()
+const Parser &
+MooseApp::parser() const
 {
   mooseAssert(_parser, "Not set");
   return *_parser;
+}
+
+Parser &
+MooseApp::parser()
+{
+  return const_cast<Parser &>(std::as_const(*this).parser());
 }
 
 void
@@ -1527,12 +1848,14 @@ MooseApp::run()
     }
 
     Moose::out << docmsg << "\n";
+    _early_exit_param = "--docs";
     _ready_to_exit = true;
     return;
   }
 
   if (showInputs() || copyInputs() || runInputs())
   {
+    _early_exit_param = "--show-input, --copy-inputs, or --run";
     _ready_to_exit = true;
     return;
   }
@@ -1542,6 +1865,16 @@ MooseApp::run()
     TIME_SECTION("setup", 2, "Setting Up");
     setupOptions();
     runInputFile();
+  }
+  catch (Parser::Error & err)
+  {
+    mooseAssert(_parser->getThrowOnError(), "Should be true");
+    throw;
+  }
+  catch (MooseRuntimeError & err)
+  {
+    mooseAssert(Moose::_throw_on_error, "Should be true");
+    throw;
   }
   catch (std::exception & err)
   {
@@ -1719,6 +2052,21 @@ MooseApp::runInputs()
   }
 
   return false;
+}
+
+Moose::Capability &
+MooseApp::addCapabilityInternal(const std::string_view capability,
+                                const Moose::Capability::Value & value,
+                                const std::string_view doc)
+{
+  try
+  {
+    return Moose::internal::Capabilities::getCapabilities({}).add(capability, value, doc);
+  }
+  catch (const std::exception & e)
+  {
+    ::mooseError(e.what());
+  }
 }
 
 void
@@ -1913,7 +2261,7 @@ MooseApp::possiblyLoadRestartableMetaData(const RestartableDataMapName & name,
   const auto meta_data_folder_base = metaDataFolderBase(folder_base, map_name);
   if (RestartableDataReader::isAvailable(meta_data_folder_base))
   {
-    RestartableDataReader reader(*this, getRestartableDataMap(name));
+    RestartableDataReader reader(*this, getRestartableDataMap(name), forceRestart());
     reader.setErrorOnLoadWithDifferentNumberOfProcessors(false);
     reader.setInput(meta_data_folder_base);
     reader.restore();
@@ -2554,7 +2902,10 @@ MooseApp::attachRelationshipManagers(MeshBase & mesh, MooseMesh & moose_mesh)
     if (rm->isType(Moose::RelationshipManagerType::GEOMETRIC))
     {
       if (rm->attachGeometricEarly())
+      {
         mesh.add_ghosting_functor(createRMFromTemplateAndInit(*rm, moose_mesh, mesh));
+        _attached_relationship_managers[Moose::RelationshipManagerType::GEOMETRIC].insert(rm.get());
+      }
       else
       {
         // If we have a geometric ghosting functor that can't be attached early, then we have to
@@ -2873,32 +3224,149 @@ MooseApp::constructingMeshGenerators() const
          _mesh_generator_system.appendingMeshGenerators();
 }
 
-#ifdef LIBTORCH_ENABLED
+#ifdef MOOSE_LIBTORCH_ENABLED
 torch::DeviceType
 MooseApp::determineLibtorchDeviceType(const MooseEnum & device_enum) const
 {
+  const auto pname = "--compute-device";
   if (device_enum == "cuda")
   {
 #ifdef __linux__
     if (!torch::cuda::is_available())
-      mooseError("--libtorch-device=cuda: CUDA is not available");
+      mooseError(pname, "=cuda: CUDA support is not available in the linked libtorch library");
     return torch::kCUDA;
 #else
-    mooseError("--libtorch-device=cuda: CUDA is not supported on your platform");
+    mooseError(pname, "=cuda: CUDA is not supported on your platform");
 #endif
   }
   else if (device_enum == "mps")
   {
 #ifdef __APPLE__
     if (!torch::mps::is_available())
-      mooseError("--libtorch-device=mps: MPS is not available");
+      mooseError(pname, "=mps: MPS support is not available in the linked libtorch library");
     return torch::kMPS;
 #else
-    mooseError("--libtorch-device=mps: MPS is not supported on your platform");
+    mooseError(pname, "=mps: MPS is not supported on your platform");
 #endif
   }
-
-  mooseAssert(device_enum == "cpu", "Should be cpu");
+  else if (device_enum == "xpu")
+  {
+#ifdef MOOSE_HAVE_XPU
+    if (!torch::xpu::is_available())
+      mooseError(pname, "=xpu: XPU support is not available in the linked libtorch library");
+    return torch::kXPU;
+#else
+    mooseError(pname, "=xpu: XPU is not supported in the current application");
+#endif
+  }
+  else if (device_enum != "cpu")
+    mooseError("The device '",
+               device_enum,
+               "' is not currently supported by the MOOSE libtorch integration.");
   return torch::kCPU;
+}
+#endif
+
+void
+MooseApp::outputMachineReadableData(const std::string & param,
+                                    const std::string & start_marker,
+                                    const std::string & end_marker,
+                                    const std::string & data) const
+{
+  // Bool parameter, just to screen
+  if (_pars.have_parameter<bool>(param))
+  {
+    Moose::out << start_marker << data << end_marker << std::endl;
+    return;
+  }
+
+  // String parameter, to file
+  const auto & filename = getParam<std::string>(param);
+  // write to file
+  std::ofstream out(filename.c_str());
+  if (out.is_open())
+  {
+    std::ofstream out(filename.c_str());
+    out << data << std::flush;
+    out.close();
+  }
+  else
+    mooseError("Unable to open file `", filename, "` for writing ", param, " data to it.");
+}
+
+Moose::Capability &
+MooseApp::addBoolCapability(const std::string_view capability,
+                            const bool value,
+                            const std::string_view doc)
+{
+  return addCapabilityInternal(capability, value, doc);
+}
+
+Moose::Capability &
+MooseApp::addIntCapability(const std::string_view capability,
+                           const int value,
+                           const std::string_view doc)
+{
+  return addCapabilityInternal(capability, value, doc);
+}
+
+Moose::Capability &
+MooseApp::addStringCapability(const std::string_view capability,
+                              const std::string_view value,
+                              const std::string_view doc)
+{
+  return addCapabilityInternal(capability, std::string(value), doc);
+}
+
+Moose::Capability &
+MooseApp::addCapability(const std::string_view capability,
+                        const Moose::Capability::Value & value,
+                        const std::string_view doc)
+{
+
+  // Warn deprecation on the first time this is added so that we
+  // don't get multiple warnings if the app is registered more
+  // than once
+  if (!Moose::internal::Capabilities::getCapabilities({}).query(std::string(capability)))
+    ::mooseDeprecated("MooseApp::addCapability() is deprecated (adding capability '",
+                      capability,
+                      "'); use one of MooseApp::add[Bool,Int,String]Capability instead.");
+
+  return addCapabilityInternal(capability, value, doc);
+}
+
+bool
+MooseApp::isRelocated()
+{
+  return Moose::internal::Capabilities::getCapabilities({}).isRelocated();
+}
+
+bool
+MooseApp::isInTree()
+{
+  return Moose::internal::Capabilities::getCapabilities({}).isInTree();
+}
+
+#ifdef MOOSE_MFEM_ENABLED
+void
+MooseApp::setMFEMDevice(const std::string & device_string, Moose::PassKey<MFEMProblemSolve>)
+{
+  const auto string_vec = MooseUtils::split(device_string, ",");
+  auto string_set = std::set<std::string>(string_vec.begin(), string_vec.end());
+  if (!_mfem_device)
+  {
+    _mfem_device = std::make_shared<mfem::Device>(device_string);
+    _mfem_devices = std::move(string_set);
+    _mfem_device->Print(Moose::out);
+  }
+  else if (!device_string.empty() && string_set != _mfem_devices)
+    mooseError("Attempted to configure with "
+               "MFEM devices '",
+               MooseUtils::join(string_set, " "),
+               "', but we have already "
+               "configured the MFEM device "
+               "object with the devices '",
+               MooseUtils::join(_mfem_devices, " "),
+               "'");
 }
 #endif

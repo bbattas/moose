@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -21,13 +21,10 @@
 void
 to_json(nlohmann::json & json, const MooseApp & app)
 {
-  if (!app.getSystemInfo())
-    return;
-
   json["app_name"] = app.name();
-  json["current_time"] = app.getSystemInfo()->getTimeStamp();
-  json["executable"] = app.getSystemInfo()->getExecutable();
-  json["executable_time"] = app.getSystemInfo()->getExecutableTimeStamp(json["executable"]);
+  json["current_time"] = app.getSystemInfo().getTimeStamp();
+  json["executable"] = app.getSystemInfo().getExecutable();
+  json["executable_time"] = app.getSystemInfo().getExecutableTimeStamp(json["executable"]);
 
   json["moose_version"] = MOOSE_REVISION;
   json["libmesh_version"] = LIBMESH_BUILD_VERSION;

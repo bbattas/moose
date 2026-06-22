@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -19,5 +19,5 @@ public:
   void executeSetUp() override;
 
 protected:
-  const dof_id_type _increment_rows;
+  dof_id_type _increment_rows = 0;
 };

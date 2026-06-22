@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -425,7 +425,7 @@ MooseVariableDataFV<OutputType>::computeValues()
   unsigned int num_dofs = _dof_indices.size();
 
   if (num_dofs > 0)
-    fetchDoFValues();
+    fetchDofValues();
   else
     // We don't have any dofs. There's nothing to do
     return;
@@ -468,28 +468,28 @@ MooseVariableDataFV<OutputType>::computeValues()
     if (second_required)
     {
       if (_need_second)
-        _second_u[qp] = 0;
+        _second_u[qp] = 0.;
 
       if (_need_second_previous_nl)
-        _second_u_previous_nl[qp] = 0;
+        _second_u_previous_nl[qp] = 0.;
 
       if (is_transient)
       {
         if (_need_second_old)
-          _second_u_old[qp] = 0;
+          _second_u_old[qp] = 0.;
 
         if (_need_second_older)
-          _second_u_older[qp] = 0;
+          _second_u_older[qp] = 0.;
       }
     }
 
     if (curl_required)
     {
       if (_need_curl)
-        _curl_u[qp] = 0;
+        _curl_u[qp] = 0.;
 
       if (is_transient && _need_curl_old)
-        _curl_u_old[qp] = 0;
+        _curl_u_old[qp] = 0.;
     }
 
     for (auto tag : _required_vector_tags)
@@ -665,7 +665,7 @@ MooseVariableDataFV<OutputType>::getDofIndices(const Elem * elem,
 }
 
 template <typename OutputType>
-const typename MooseVariableDataFV<OutputType>::DoFValue &
+const typename MooseVariableDataFV<OutputType>::DofValue &
 MooseVariableDataFV<OutputType>::dofValuesDot() const
 {
   if (_sys.solutionUDot())
@@ -680,7 +680,7 @@ MooseVariableDataFV<OutputType>::dofValuesDot() const
 }
 
 template <typename OutputType>
-const typename MooseVariableDataFV<OutputType>::DoFValue &
+const typename MooseVariableDataFV<OutputType>::DofValue &
 MooseVariableDataFV<OutputType>::dofValuesDotDot() const
 {
   if (_sys.solutionUDotDot())
@@ -696,7 +696,7 @@ MooseVariableDataFV<OutputType>::dofValuesDotDot() const
 }
 
 template <typename OutputType>
-const typename MooseVariableDataFV<OutputType>::DoFValue &
+const typename MooseVariableDataFV<OutputType>::DofValue &
 MooseVariableDataFV<OutputType>::dofValuesDotOld() const
 {
   if (_sys.solutionUDotOld())
@@ -711,7 +711,7 @@ MooseVariableDataFV<OutputType>::dofValuesDotOld() const
 }
 
 template <typename OutputType>
-const typename MooseVariableDataFV<OutputType>::DoFValue &
+const typename MooseVariableDataFV<OutputType>::DofValue &
 MooseVariableDataFV<OutputType>::dofValuesDotDotOld() const
 {
   if (_sys.solutionUDotDotOld())
@@ -744,7 +744,7 @@ MooseVariableDataFV<OutputType>::dofValuesDuDotDotDu() const
 
 template <typename OutputType>
 void
-MooseVariableDataFV<OutputType>::fetchADDoFValues()
+MooseVariableDataFV<OutputType>::fetchADDofValues()
 {
   auto n = _dof_indices.size();
   libmesh_assert(n);

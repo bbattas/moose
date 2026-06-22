@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -14,8 +14,6 @@
 #include "PetscSupport.h"
 #include "Factory.h"
 #include "ParallelUniqueId.h"
-#include "ComputeLinearFVGreenGaussGradientFaceThread.h"
-#include "ComputeLinearFVGreenGaussGradientVolumeThread.h"
 #include "ComputeLinearFVElementalThread.h"
 #include "ComputeLinearFVFaceThread.h"
 #include "DisplacedProblem.h"
@@ -29,11 +27,16 @@
 #include "Moose.h"
 #include "ConsoleStream.h"
 #include "MooseError.h"
-#include "LinearFVKernel.h"
+#include "LinearFVElementalKernel.h"
+#include "LinearFVFluxKernel.h"
 #include "UserObject.h"
 #include "SolutionInvalidity.h"
 #include "MooseLinearVariableFV.h"
 #include "LinearFVTimeDerivative.h"
+#include "LinearFVFluxKernel.h"
+#include "LinearFVElementalKernel.h"
+#include "LinearFVBoundaryCondition.h"
+#include "GradientLimiterType.h"
 
 // libMesh
 #include "libmesh/linear_solver.h"
@@ -75,6 +78,7 @@ compute_linear_system(libMesh::EquationSystems & es, const std::string & system_
 LinearSystem::LinearSystem(FEProblemBase & fe_problem, const std::string & name)
   : SolverSystem(fe_problem, fe_problem, name, Moose::VAR_SOLVER),
     PerfGraphInterface(fe_problem.getMooseApp().perfGraph(), "LinearSystem"),
+    LinearFVGradientInterface(static_cast<SystemBase &>(*this)),
     _sys(fe_problem.es().add_system<LinearImplicitSystem>(name)),
     _rhs_time_tag(-1),
     _rhs_time(NULL),
@@ -85,11 +89,14 @@ LinearSystem::LinearSystem(FEProblemBase & fe_problem, const std::string & name)
     _linear_implicit_system(fe_problem.es().get_system<LinearImplicitSystem>(name))
 {
   getRightHandSideNonTimeVector();
-  // Don't need to add the matrix - it already exists (for now)
+  // Don't need to add the matrix - it already exists. Well, technically it will exist
+  // after the initialization. Right now it is just a nullpointer. We will just make sure
+  // we associate the tag with the system matrix for now.
   _system_matrix_tag = _fe_problem.addMatrixTag("SYSTEM");
 
   // We create a tag for the right hand side, the vector is already in the libmesh system
   _rhs_tag = _fe_problem.addVectorTag("RHS");
+  associateVectorToTag(*_linear_implicit_system.rhs, _rhs_tag);
 
   _linear_implicit_system.attach_assemble_function(Moose::compute_linear_system);
 }
@@ -100,6 +107,7 @@ void
 LinearSystem::initialSetup()
 {
   SystemBase::initialSetup();
+  _current_solution = system().current_local_solution.get();
   // Checking if somebody accidentally assigned nonlinear variables to this system
   const auto & var_names = _vars[0].names();
   for (const auto & name : var_names)
@@ -107,6 +115,49 @@ LinearSystem::initialSetup()
       mooseError("You are trying to add a nonlinear variable to a linear system! The variable "
                  "which is assigned to the wrong system: ",
                  name);
+
+  LinearFVGradientInterface::rebuildLinearFVGradientStorage();
+
+  // Calling initial setup for the linear kernels
+  for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
+  {
+    std::vector<LinearFVElementalKernel *> fv_elemental_kernels;
+    _fe_problem.theWarehouse()
+        .query()
+        .template condition<AttribSystem>("LinearFVElementalKernel")
+        .template condition<AttribThread>(tid)
+        .queryInto(fv_elemental_kernels);
+
+    for (auto * fv_kernel : fv_elemental_kernels)
+      fv_kernel->initialSetup();
+
+    std::vector<LinearFVFluxKernel *> fv_flux_kernels;
+    _fe_problem.theWarehouse()
+        .query()
+        .template condition<AttribSystem>("LinearFVFluxKernel")
+        .template condition<AttribThread>(tid)
+        .queryInto(fv_flux_kernels);
+
+    for (auto * fv_kernel : fv_flux_kernels)
+      fv_kernel->initialSetup();
+
+    std::vector<LinearFVBoundaryCondition *> fv_bcs;
+    _fe_problem.theWarehouse()
+        .query()
+        .template condition<AttribSystem>("LinearFVBoundaryCondition")
+        .template condition<AttribThread>(tid)
+        .queryInto(fv_bcs);
+
+    for (auto * fv_bc : fv_bcs)
+      fv_bc->initialSetup();
+  }
+}
+
+void
+LinearSystem::reinit()
+{
+  _current_solution = system().current_local_solution.get();
+  LinearFVGradientInterface::rebuildLinearFVGradientStorage();
 }
 
 void
@@ -128,52 +179,10 @@ LinearSystem::computeLinearSystemTags(const std::set<TagID> & vector_tags,
   }
   catch (MooseException & e)
   {
+    _console << "Exception detected " << e.what() << std::endl;
     // The buck stops here, we have already handled the exception by
     // calling stopSolve(), it is now up to PETSc to return a
     // "diverged" reason during the next solve.
-  }
-}
-
-void
-LinearSystem::computeGradients()
-{
-  _new_gradient.clear();
-  for (auto & vec : _raw_grad_container)
-    _new_gradient.push_back(vec->zero_clone());
-
-  TIME_SECTION("LinearVariableFV_Gradients", 3 /*, "Computing Linear FV variable gradients"*/);
-
-  PARALLEL_TRY
-  {
-    using FaceInfoRange = StoredRange<MooseMesh::const_face_info_iterator, const FaceInfo *>;
-    FaceInfoRange face_info_range(_fe_problem.mesh().ownedFaceInfoBegin(),
-                                  _fe_problem.mesh().ownedFaceInfoEnd());
-
-    ComputeLinearFVGreenGaussGradientFaceThread gradient_face_thread(
-        _fe_problem, _fe_problem.linearSysNum(name()));
-    Threads::parallel_reduce(face_info_range, gradient_face_thread);
-  }
-  PARALLEL_CATCH;
-
-  for (auto & vec : _new_gradient)
-    vec->close();
-
-  PARALLEL_TRY
-  {
-    using ElemInfoRange = StoredRange<MooseMesh::const_elem_info_iterator, const ElemInfo *>;
-    ElemInfoRange elem_info_range(_fe_problem.mesh().ownedElemInfoBegin(),
-                                  _fe_problem.mesh().ownedElemInfoEnd());
-
-    ComputeLinearFVGreenGaussGradientVolumeThread gradient_volume_thread(
-        _fe_problem, _fe_problem.linearSysNum(name()));
-    Threads::parallel_reduce(elem_info_range, gradient_volume_thread);
-  }
-  PARALLEL_CATCH;
-
-  for (const auto i : index_range(_raw_grad_container))
-  {
-    _raw_grad_container[i] = std::move(_new_gradient[i]);
-    _raw_grad_container[i]->close();
   }
 }
 
@@ -189,7 +198,7 @@ LinearSystem::computeLinearSystemInternal(const std::set<TagID> & vector_tags,
   _linear_implicit_system.rhs->zero();
 
   // Make matrix ready to use
-  activeAllMatrixTags();
+  activateAllMatrixTags();
 
   for (auto tag : matrix_tags)
   {
@@ -222,16 +231,15 @@ LinearSystem::computeLinearSystemInternal(const std::set<TagID> & vector_tags,
     FaceInfoRange face_info_range(_fe_problem.mesh().ownedFaceInfoBegin(),
                                   _fe_problem.mesh().ownedFaceInfoEnd());
 
-    ComputeLinearFVElementalThread elem_thread(_fe_problem,
-                                               _fe_problem.linearSysNum(name()),
-                                               Moose::FV::LinearFVComputationMode::FullSystem,
-                                               vector_tags);
+    ComputeLinearFVElementalThread elem_thread(
+        _fe_problem, this->number(), vector_tags, matrix_tags);
     Threads::parallel_reduce(elem_info_range, elem_thread);
 
     ComputeLinearFVFaceThread face_thread(_fe_problem,
-                                          _fe_problem.linearSysNum(name()),
+                                          this->number(),
                                           Moose::FV::LinearFVComputationMode::FullSystem,
-                                          vector_tags);
+                                          vector_tags,
+                                          matrix_tags);
     Threads::parallel_reduce(face_info_range, face_thread);
   }
   PARALLEL_CATCH;
@@ -243,7 +251,8 @@ LinearSystem::computeLinearSystemInternal(const std::set<TagID> & vector_tags,
 
   // Accumulate the occurrence of solution invalid warnings for the current iteration cumulative
   // counters
-  _app.solutionInvalidity().solutionInvalidAccumulation();
+  _app.solutionInvalidity().syncIteration();
+  _app.solutionInvalidity().accumulateIterationIntoTimeStepOccurences();
 }
 
 NumericVector<Number> &
@@ -322,4 +331,15 @@ LinearSystem::containsTimeKernel()
   }
 
   return contains_time_kernel;
+}
+
+void
+LinearSystem::compute(const ExecFlagType type)
+{
+  // - Linear system assembly is associated with EXEC_NONLINEAR
+  // - Avoid division by 0 dt
+  if (type == EXEC_NONLINEAR && _fe_problem.dt() > 0.)
+    for (auto & ti : _time_integrators)
+      // Do things like compute integration weights
+      ti->preStep();
 }

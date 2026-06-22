@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -88,7 +88,6 @@ FlowChannelBase::validParams()
       "pipe_pars_transferred",
       false,
       "Set to true if Dh, P_hf and A are going to be transferred in from an external source");
-  params.addParam<bool>("lump_mass_matrix", false, "Lump the mass matrix");
   params.addParam<std::vector<std::string>>(
       "closures",
       {},
@@ -99,6 +98,8 @@ FlowChannelBase::validParams()
                         "If true, when there are multiple heat transfer components connected to "
                         "this flow channel, use their index for naming related quantities; "
                         "otherwise, use the name of the heat transfer component.");
+  params.addParam<std::vector<VariableName>>(
+      "vpp_vars", {}, "Variables to add in an ElementValueSampler");
 
   params.setDocString(
       "orientation",
@@ -106,8 +107,6 @@ FlowChannelBase::validParams()
       "curved flow channels, it is the (tangent) direction at the start position.");
 
   params.addPrivateParam<std::string>("component_type", "pipe");
-  params.declareControllable("A f");
-  params.addParamNamesToGroup("lump_mass_matrix", "Numerical scheme");
 
   return params;
 }
@@ -171,9 +170,6 @@ FlowChannelBase::init()
     const auto & closures_names = getParam<std::vector<std::string>>("closures");
     for (const auto & closures_name : closures_names)
       _closures_objects.push_back(getTHMProblem().getClosures(closures_name));
-    // _closures should be removed after transition:
-    if (_closures_objects.size() >= 1)
-      _closures = _closures_objects[0];
   }
 }
 
@@ -264,7 +260,6 @@ FlowChannelBase::addCommonObjects()
       params.set<ExecFlagEnum>("execute_on") = ts_execute_on;
       const std::string aux_kernel_name = genName(name(), "area_linear_aux");
       getTHMProblem().addAuxKernel(class_name, aux_kernel_name, params);
-      makeFunctionControllableIfConstant(_area_function, "Area");
     }
     {
       const std::string class_name = "ProjectionAux";
@@ -275,7 +270,6 @@ FlowChannelBase::addCommonObjects()
       params.set<ExecFlagEnum>("execute_on") = ts_execute_on;
       const std::string aux_kernel_name = genName(name(), "area_aux");
       getTHMProblem().addAuxKernel(class_name, aux_kernel_name, params);
-      makeFunctionControllableIfConstant(_area_function, "Area");
     }
   }
 }
@@ -324,6 +318,18 @@ FlowChannelBase::addMooseObjects()
       getTHMProblem().addMaterial(
           class_name, genName(name(), FlowModel::HEAT_FLUX_WALL, "zero_mat"), params);
     }
+  }
+
+  const auto & vpp_vars = getParam<std::vector<VariableName>>("vpp_vars");
+  if (vpp_vars.size() > 0)
+  {
+    const std::string class_name = "ElementValueSampler";
+    InputParameters params = _factory.getValidParams(class_name);
+    params.set<std::vector<SubdomainName>>("block") = getSubdomainNames();
+    params.set<std::vector<VariableName>>("variable") = vpp_vars;
+    params.set<std::string>("sort_by") = sortBy();
+    params.set<ExecFlagEnum>("execute_on") = {EXEC_INITIAL, EXEC_TIMESTEP_END};
+    getTHMProblem().addVectorPostprocessor(class_name, name() + "_vars_vpp", params);
   }
 
   _flow_model->addMooseObjects();

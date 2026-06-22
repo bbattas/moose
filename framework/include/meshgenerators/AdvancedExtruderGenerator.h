@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -63,11 +63,21 @@ protected:
   /// The direction of the extrusion
   Point _direction;
 
-  bool _has_top_boundary;
-  boundary_id_type _top_boundary;
+  // Attributes for extruding along a curve mesh of edges
+  /// Curve mesh to extrude along
+  std::unique_ptr<MeshBase> & _extrusion_curve;
+  /// Extrusion direction to follow at the start (first layer) of the extrusion
+  const RealVectorValue _start_extrusion_direction;
+  /// Extrusion direction for the final layer of the extrusion
+  const RealVectorValue _end_extrusion_direction;
+  /// Whether we are extruding along a curve
+  bool _extrude_along_curve;
 
-  bool _has_bottom_boundary;
-  boundary_id_type _bottom_boundary;
+  const bool _has_top_boundary;
+  const BoundaryName _top_boundary;
+
+  const bool _has_bottom_boundary;
+  const BoundaryName _bottom_boundary;
 
   /// The list of input mesh's blocks that need to be assigned upward boundary interfaces for each layer of elevation
   const std::vector<std::vector<subdomain_id_type>> _upward_boundary_source_blocks;
@@ -83,4 +93,19 @@ protected:
 
   /// Axial pitch for a full rotation
   const Real _twist_pitch;
+
+  // Radial transformation attributes
+  /// Radial extent of the extruded geometry at the end  of the extrusion
+  const Real _end_radial_extent;
+  /// Function type for modifying the radial extent of the extruded shape
+  const MooseEnum _radial_expansion_method;
+  /// Derivative of the radial expansion function at the beginning of the extrusion
+  const Real _start_radial_growth_rate;
+  /// Derivative of the radial expansion function at the end of the extrusion
+  const Real _end_radial_growth_rate;
+
+  /// Calculate the share of the radial expansion to apply at the local node
+  /// This share goes from 0 at the beginning of the extrusion to 1 at the end
+  /// @param t coordinate along the curve (in the axial direction of extrusion)
+  Real radialExpansionRatio(const Real t) const;
 };

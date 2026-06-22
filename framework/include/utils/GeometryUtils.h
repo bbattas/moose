@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -167,4 +167,54 @@ bool pointOnEdge(const libMesh::Point & point,
  */
 std::vector<libMesh::Point> boxCorners(const libMesh::BoundingBox & box,
                                        const libMesh::Real factor);
+
+/**
+ * Check if three points are colinear.
+ * @param p1 First point
+ * @param p2 Second point
+ * @param p3 Third point
+ * @return true if the three points are colinear, false otherwise
+ */
+bool arePointsColinear(const Point & p1, const Point & p2, const Point & p3);
+
+/**
+ * Check if the line segment p1-p2 intersects with line segment p3-p4 (only working in 2D (x-y
+ * plane)).
+ * @param p1 First point of first line segment
+ * @param p2 Second point of first line segment
+ * @param p3 First point of second line segment
+ * @param p4 Second point of second line segment
+ * @return true if the two line segments intersect, false otherwise
+ */
+bool segmentsIntersect(const Point & p1, const Point & p2, const Point & p3, const Point & p4);
+
+/**
+ * Compute the squared distance from a point to a 3-D line segment.
+ * @param[in] point point of interest
+ * @param[in] a first segment endpoint
+ * @param[in] b second segment endpoint
+ * @return squared distance from the point to the segment
+ */
+Real pointSegmentDistanceSq(const Point & point, const Point & a, const Point & b);
+
+/**
+ * Compute the squared distance from a point to a 3-D triangle.
+ * @param[in] point point of interest
+ * @param[in] v0 first triangle vertex
+ * @param[in] v1 second triangle vertex
+ * @param[in] v2 third triangle vertex
+ * @return squared distance from the point to the triangle
+ */
+Real
+pointTriangleDistanceSq(const Point & point, const Point & v0, const Point & v1, const Point & v2);
+
+/**
+ * Compute the signed solid angle subtended by one oriented triangle at the query point.
+ * @param[in] point query point
+ * @param[in] v0 first triangle vertex
+ * @param[in] v1 second triangle vertex
+ * @param[in] v2 third triangle vertex
+ * @return signed solid angle in steradians
+ */
+Real solidAngle(const Point & point, const Point & v0, const Point & v1, const Point & v2);
 } // end of namespace geom_utils

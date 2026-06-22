@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,6 +27,12 @@ public:
   SamplerFullSolveMultiApp(const InputParameters & parameters);
   virtual bool solveStep(Real dt, Real target_time, bool auto_advance = true) override;
   virtual void preTransfer(Real dt, Real target_time) override;
+
+  /**
+   * This method is overridden so that we only store the initial state and not on any other
+   * timestep when doing batch-restore.
+   */
+  virtual void backup() override;
 
   /**
    * Helper for inserting row data into commandline arguments

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -33,10 +33,12 @@ protected:
    * Gets the solution vector in the ghost cell
    *
    * @param[in] U1  solution vector in the boundary (interior) cell
+   * @param[in] point  Side centroid
    *
    * @returns solution vector in the ghost cell
    */
-  virtual std::vector<ADReal> getGhostCellSolution(const std::vector<ADReal> & U1) const = 0;
+  virtual std::vector<ADReal> getGhostCellSolution(const std::vector<ADReal> & U1,
+                                                   const Point & point) const = 0;
 
   /// Numerical flux user object
   const ADNumericalFlux3EqnBase & _numerical_flux;

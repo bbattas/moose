@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -17,6 +17,8 @@
 #include "libmesh/elem.h"
 #include "libmesh/point.h"
 #include "libmesh/quadrature.h"
+
+#include <set>
 
 namespace Moose
 {
@@ -131,6 +133,11 @@ struct StateArg
   {
   }
 
+  bool operator==(const StateArg & other) const
+  {
+    return state == other.state && iteration_type == other.iteration_type;
+  }
+
   /// The state. Zero represents the most recent state, so for any kind of iteration type, a zero
   /// state represents the current state, e.g. current solution
   /// One may represent the 'old' value (one before, in the iteration_type specified), and two an 'older' or two steps away state
@@ -161,6 +168,12 @@ inline StateArg
 previousNonlinearState()
 {
   return {(unsigned int)1, SolutionIterationType::Nonlinear};
+}
+
+inline StateArg
+previousFixedPointState()
+{
+  return {(unsigned int)1, SolutionIterationType::FixedPoint};
 }
 
 /**
@@ -226,11 +239,31 @@ struct NodeArg
 {
   /// The node which defines our location in space
   const libMesh::Node * node;
-  /// Indicates what subdomain this argument should be associated with. This removes ambiguity when
-  /// this argument is used to evaluate functors at the intersection of different blocks
-  SubdomainID subdomain_id;
+
+  /**
+   * Indicates what subdomains this argument should be associated with. If a single subdomain is
+   * given, then there is no ambiguity when this argument is used to evaluate functors at the
+   * intersection of different blocks. If multiple subdomains are given at such an intersection
+   * point, it is up to the functor whether it can be evaluated unambiguously, perform an average,
+   * or error
+   */
+  const std::set<SubdomainID> * subdomain_ids;
 
   libMesh::Point getPoint() const { return *node; }
+
+  /// A static member that can be used when the connection of a node to subdomains is unknown.
+  /// Functors may still be able to evaluate a NodeArg with this as the provided \p subdomain_ids
+  /// if the functor has no "sidedness", e.g. like a H1 finite element family variable
+  static const std::set<SubdomainID> undefined_subdomain_connection;
+
+  /**
+   * Friend function that allows this structure to be used as keys in ordered containers like sets
+   * and maps
+   */
+  friend bool operator<(const NodeArg & l, const NodeArg & r)
+  {
+    return std::make_tuple(l.node, l.subdomain_ids) < std::make_tuple(r.node, r.subdomain_ids);
+  }
 };
 
 /**
@@ -259,5 +292,15 @@ struct ElemQpArg
    * @returns The conceptual physical location of this data structure
    */
   libMesh::Point getPoint() const { return point; }
+
+  /**
+   * Friend function that allows this structure to be used as keys in ordered containers like sets
+   * and maps
+   */
+  friend bool operator<(const ElemQpArg & l, const ElemQpArg & r)
+  {
+    return std::make_tuple(l.elem, l.qp, l.qrule, l.point) <
+           std::make_tuple(r.elem, r.qp, r.qrule, r.point);
+  }
 };
 }

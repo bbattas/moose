@@ -47,6 +47,21 @@ The diffusion coefficient parameter ([!param](/LinearFVKernels/LinearFVDiffusion
 accepts anything that supports functor-based evaluations. For more information on functors in
 MOOSE, see [Functors/index.md].
 
+!alert warning
+When using non-zero flux boundary condition, only a single `LinearFVFluxKernel` may be used, as otherwise
+the boundary conditions may be applied multiple times. This warning applies to all `LinearFVFluxKernel`-derived classes.
+
+### Interpolating material coefficients
+
+By default the diffusion coefficient functor is evaluated directly on each face. You can instead
+select an interpolation method through the [!param](/LinearFVKernels/LinearFVDiffusion/coeff_interp_method)
+parameter and an object declared in the `[FVInterpolationMethods]` block described in
+[FVInterpolationMethod.md].
+
+!listing test/tests/linearfvkernels/diffusion/diffusion-1d.i block=harm
+
+!listing test/tests/linearfvkernels/diffusion/diffusion-1d.i block=diffusion replace=['diffusion_coeff = coeff_func','diffusion_coeff = coeff_pos_func\n    coeff_interp_method = harm']
+
 ## Example input syntax
 
 The input file below shows a pure diffusion problem on a two-dimensional domain.

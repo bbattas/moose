@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -47,6 +47,9 @@ protected:
    */
   virtual void outputMesh() = 0;
 
+  /// Return the file extension
+  virtual std::string fileExtension() const = 0;
+
   /// The RayTracingStudy
   const RayTracingStudy & _study;
 
@@ -64,7 +67,7 @@ protected:
   /// The mesh that contains the segments
   std::unique_ptr<MeshBase> _segment_mesh;
   /// The EquationSystems
-  std::unique_ptr<EquationSystems> _es;
+  std::unique_ptr<libMesh::EquationSystems> _es;
   /// The system that stores the field data
   libMesh::ExplicitSystem * _sys;
 

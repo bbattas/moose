@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -19,11 +19,14 @@ InputParameters
 NumNonlinearIterations::validParams()
 {
   InputParameters params = GeneralPostprocessor::validParams();
-  params.addParam<bool>(
-      "accumulate_over_step",
-      false,
-      "When set to true, accumulates to count the total over all Picard iterations for each step");
+  params.addParam<bool>("accumulate_over_step",
+                        false,
+                        "When set to true, accumulates to count the total over all fixed point "
+                        "iterations for each step");
   params.addClassDescription("Outputs the number of nonlinear iterations");
+
+  // Not supported
+  params.suppressParameter<bool>("use_displaced_mesh");
   return params;
 }
 

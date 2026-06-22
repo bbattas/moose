@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -24,6 +24,14 @@ SamplerInterface::SamplerInterface(const MooseObject * moose_object)
     _si_tid(_si_params.have_parameter<THREAD_ID>("_tid") ? _si_params.get<THREAD_ID>("_tid") : 0)
 {
 }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+SamplerInterface::SamplerInterface(const SamplerInterface & object,
+                                   const Moose::Kokkos::FunctorCopy &)
+  : _si_params(object._si_params), _si_feproblem(object._si_feproblem), _si_tid(object._si_tid)
+{
+}
+#endif
 
 template <>
 Sampler &

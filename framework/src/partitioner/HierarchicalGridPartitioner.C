@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -150,7 +150,8 @@ HierarchicalGridPartitioner::_do_partition(MeshBase & mesh, const unsigned int /
     total_nodes *= _ny_nodes;
   if (mesh.spatial_dimension() == 3)
     total_nodes *= _nz_nodes;
-  if (isParamValid("number_nodes") && total_nodes != getParam<unsigned int>("number_nodes"))
+  if (isParamValid("number_nodes") && total_nodes != getParam<unsigned int>("number_nodes") &&
+      processor_id() == 0)
     paramError("number_nodes",
                "Computed number of nodes (" + std::to_string(total_nodes) + ") does not match");
 
@@ -160,12 +161,12 @@ HierarchicalGridPartitioner::_do_partition(MeshBase & mesh, const unsigned int /
   if (mesh.spatial_dimension() == 3)
     procs_per_node *= _nz_procs;
   if (isParamValid("number_procs_per_node") &&
-      procs_per_node != getParam<unsigned int>("number_procs_per_node"))
+      procs_per_node != getParam<unsigned int>("number_procs_per_node") && processor_id() == 0)
     paramError("number_procs_per_node",
                "Computed number of processors per node (" + std::to_string(procs_per_node) +
                    ") does not match");
 
-  if (procs_per_node * total_nodes != mesh.n_partitions())
+  if (procs_per_node * total_nodes != mesh.n_partitions() && processor_id() == 0)
     mooseError("Partitioning creates ",
                procs_per_node * total_nodes,
                " partitions, which does not add up to the total number of processors: ",

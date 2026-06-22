@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -252,6 +252,7 @@ public:
   /// Extends the range of possible values the variable can be set to
   void addValidName(const std::string & name);
   void addValidName(const std::initializer_list<std::string> & names);
+  void addValidName(const MultiMooseEnum & names);
 
 protected:
   /// Check whether any of the current values are deprecated when called

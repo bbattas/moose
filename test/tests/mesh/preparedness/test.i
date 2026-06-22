@@ -173,7 +173,7 @@
   [stitch_1_2_6_5]
       type = StitchedMeshGenerator
       inputs = 'rename_boundary_stitch_1_2_6 rename_boundary_region_5'
-      stitch_boundaries_pairs = '2     3;'
+      stitch_boundaries_pairs = '2     3'
       merge_boundaries_with_same_name = false
   []
   [region_7_gen]
@@ -322,7 +322,7 @@
 [Executioner]
   type = Transient
   solve_type = NEWTON
-  petsc_options_iname = '-pc_type -ksp_gmres_restart -sub_pc_factor_shift_type'
+  petsc_options_iname = '-pc_type -ksp_gmres_restart -pc_factor_shift_type'
   petsc_options_value = 'lu        100                NONZERO'
 
   # Tolerances.

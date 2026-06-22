@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -74,4 +74,7 @@ protected:
                                           bool compute_full_tangent_operator,
                                           const std::vector<std::vector<Real>> & dvar_dtrial,
                                           RankFourTensor & cto) override;
+
+private:
+  std::vector<Real> _eigvals_scratch; // used as temporary storage to avoid heap allocation
 };

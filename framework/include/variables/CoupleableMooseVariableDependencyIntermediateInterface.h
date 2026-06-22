@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,6 +26,15 @@ public:
   CoupleableMooseVariableDependencyIntermediateInterface(const MooseObject * moose_object,
                                                          bool nodal,
                                                          bool is_fv = false);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  CoupleableMooseVariableDependencyIntermediateInterface(
+      const CoupleableMooseVariableDependencyIntermediateInterface & object,
+      const Moose::Kokkos::FunctorCopy & key);
+#endif
 
   /**
    * Returns value of a coupled variable give the variable name

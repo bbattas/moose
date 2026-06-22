@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -42,7 +42,10 @@ ElementDeletionGeneratorBase::generate()
 {
   std::unique_ptr<MeshBase> mesh = std::move(_input);
 
-  // Make sure that the mesh is prepared
+  // Make sure that the mesh is prepared.  We'll just do a full
+  // prepare_for_use() here, since we expect to be able to use
+  // neighbor pointers, multiple caches, *and* on distributed meshes a
+  // load-balanced partitioning.
   if (!mesh->is_prepared())
     mesh->prepare_for_use();
 

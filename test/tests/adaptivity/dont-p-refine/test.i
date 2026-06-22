@@ -12,10 +12,9 @@
 []
 
 [Adaptivity]
-  switch_h_to_p_refinement = true
+  adaptivity_type = p
   initial_marker = uniform
   initial_steps = 1
-  disable_p_refinement_for_families = 'lagrange'
   [Markers/uniform]
     type = UniformMarker
     mark = REFINE

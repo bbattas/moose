@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -20,6 +20,14 @@ MeshMetaDataInterface::MeshMetaDataInterface(MooseApp & moose_app)
   : _meta_data_app(moose_app), _meta_data_object(nullptr)
 {
 }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+MeshMetaDataInterface::MeshMetaDataInterface(const MeshMetaDataInterface & object,
+                                             const Moose::Kokkos::FunctorCopy &)
+  : _meta_data_app(object._meta_data_app), _meta_data_object(object._meta_data_object)
+{
+}
+#endif
 
 bool
 MeshMetaDataInterface::hasMeshProperty(const std::string & data_name,

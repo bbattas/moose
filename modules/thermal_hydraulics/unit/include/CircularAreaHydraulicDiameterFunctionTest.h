@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -29,7 +29,7 @@ protected:
     {
       const std::string class_name = "ParsedFunction";
       InputParameters params = _factory.getValidParams(class_name);
-      params.set<std::string>("value") = "1 + x";
+      params.set<std::string>("expression") = "1 + x";
       _fe_problem->addFunction(class_name, A_name, params);
     }
 

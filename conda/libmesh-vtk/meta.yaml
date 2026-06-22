@@ -3,10 +3,10 @@
 #   libmesh/*
 #
 # As well as any directions pertaining to modifying those files.
-{% set build = 5 %}
-{% set vtk_version = "9.3.0" %}
-{% set vtk_friendly_version = "9.3" %}
-{% set sha256 = "fdc7b9295225b34e4fdddc49cd06e66e94260cb00efee456e0f66568c9681be9" %}
+{% set build = 0 %}
+{% set vtk_version = "9.6.2" %}
+{% set vtk_friendly_version = vtk_version.split('.')[:2] | join('.') %}
+{% set sha256 = "aed12cec12a9609179bf66329070266627ca64244a10856a452b2a17ffb04a1d" %}
 
 package:
   name: moose-libmesh-vtk
@@ -28,20 +28,26 @@ build:
     - REQUESTS_CA_BUNDLE
     - SSL_CERT_FILE
     - CURL_CA_BUNDLE
+    - NODE_EXTRA_CA_CERTS
 
 requirements:
   build:
-    - {{ mpi }}
-    - {{ moose_mpi }}
+    - {{ compiler("cxx") }}
+    - {{ stdlib("c") }}
+    - cmake
     - ninja
-  run:
-    - {{ mpi }}
-    - {{ moose_mpi }}
+  host:
+    - {{ mpi }} {{ mpi_version }}
 
 test:
   commands:
-    - test -f $PREFIX/libmesh-vtk/lib/libvtkCommonCore-{{ vtk_friendly_version }}.dylib   # [osx]
-    - test -f $PREFIX/libmesh-vtk/lib/libvtkCommonCore-{{ vtk_friendly_version }}.so      # [linux]
+    - test $VTK_VERSION == {{ vtk_friendly_version }}
+    - test -d $VTKLIB_DIR
+    - test $VTKLIB_DIR == ${PREFIX}/lib
+    - test -d $VTKINCLUDE_DIR
+    - test $VTKINCLUDE_DIR == ${PREFIX}/include/vtk-${VTK_VERSION}
+    - test -f ${VTKLIB_DIR}/libvtkCommonCore-${VTK_VERSION}.dylib # [osx]
+    - test -f ${VTKLIB_DIR}/libvtkCommonCore-${VTK_VERSION}.so    # [linux]
 
 about:
   home: http://www.vtk.org/
@@ -54,5 +60,5 @@ about:
 
 extra:
   recipe-maintainers:
-    - milljm
     - cticenhour
+    - loganharbour

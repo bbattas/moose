@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,14 +10,14 @@
 #pragma once
 
 #include "NavierStokesPhysicsBase.h"
-#include "WCNSFVTurbulencePhysics.h"
+#include "WCNSFVTurbulencePhysicsBase.h"
 
 #define registerWCNSFVFlowPhysicsBaseTasks(app_name, derived_name)                                 \
   registerPhysicsBaseTasks(app_name, derived_name);                                                \
   registerMooseAction(app_name, derived_name, "add_geometric_rm");                                 \
-  registerMooseAction(app_name, derived_name, "add_variable");                                     \
-  registerMooseAction(app_name, derived_name, "add_ic");                                           \
-  registerMooseAction(app_name, derived_name, "add_material");                                     \
+  registerMooseAction(app_name, derived_name, "add_variables_physics");                            \
+  registerMooseAction(app_name, derived_name, "add_ics_physics");                                  \
+  registerMooseAction(app_name, derived_name, "add_materials_physics");                            \
   registerMooseAction(app_name, derived_name, "add_user_object");                                  \
   registerMooseAction(app_name, derived_name, "add_postprocessor");                                \
   registerMooseAction(app_name, derived_name, "add_corrector");                                    \
@@ -35,6 +35,12 @@ public:
 
   /// Whether the physics is actually creating the flow equations
   bool hasFlowEquations() const { return _has_flow_equations; }
+  /// Whether the cylindrical viscous source helper is enabled
+  bool addAxisymmetricViscousSourceEnabled() const { return _add_rz_viscous_source; }
+  /// Whether to include the symmetrized contribution in the viscous stress
+  bool includeSymmetrizedViscousStress() const { return _include_symmetrized_viscous_stress; }
+  /// Whether to include the isotropic viscous stress contribution
+  bool includeIsotropicStress() const { return _include_isotropic_viscous_stress; }
 
   /// To interface with other Physics
   const std::vector<std::string> & getVelocityNames() const { return _velocity_names; }
@@ -56,9 +62,14 @@ public:
   /// Get the face interpolation method for velocity
   const MooseEnum & getVelocityFaceInterpolationMethod() const { return _velocity_interpolation; }
   /// Get the face interpolation method for momentum in the advection term
-  const MooseEnum & getMomentumFaceInterpolationMethod() const
+  const MooseEnum & getMomentumAdvectionFaceInterpolationMethod() const
   {
     return _momentum_advection_interpolation;
+  }
+  /// Get the face interpolation method for momentum (mostly used in the stress terms)
+  const MooseEnum & getMomentumFaceInterpolationMethod() const
+  {
+    return _momentum_face_interpolation;
   }
   /// Get the inlet boundaries
   const std::vector<BoundaryName> & getInletBoundaries() const { return _inlet_boundaries; }
@@ -66,6 +77,14 @@ public:
   const std::vector<BoundaryName> & getOutletBoundaries() const { return _outlet_boundaries; }
   /// Get the wall boundaries
   const std::vector<BoundaryName> & getWallBoundaries() const { return _wall_boundaries; }
+  /// Get the hydraulic separator boundaries
+  const std::vector<BoundaryName> & getHydraulicSeparators() const { return _hydraulic_separators; }
+  /// Get the type of the inlet BC
+  NS::MomentumInletTypes inletBoundaryType(const BoundaryName & boundary_name) const
+  {
+    return NS::MomentumInletTypes(
+        static_cast<int>(libmesh_map_find(_momentum_inlet_types, boundary_name)));
+  }
   /// Get the inlet direction if using a flux inlet
   const std::vector<Point> & getFluxInletDirections() const { return _flux_inlet_directions; }
   /// Get the inlet flux postprocessor if using a flux inlet
@@ -73,7 +92,7 @@ public:
   /// Get the name of the linear friction coefficient. Returns an empty string if no friction.
   virtual MooseFunctorName getLinearFrictionCoefName() const = 0;
   /// Return the name of the Rhie Chow user object
-  virtual UserObjectName rhieChowUOName() const = 0;
+  const UserObjectName & rhieChowUOName() const;
   /// Return the number of algebraic ghosting layers needed
   unsigned short getNumberAlgebraicGhostingLayersNeeded() const override;
 
@@ -89,19 +108,33 @@ protected:
   virtual void addPostprocessors() override;
 
   /**
-   * Functions adding kernels for the incompressible momentum equation
+   * Functions adding kernels for the flow momentum equations
    * If the material properties are not constant, these can be used for
    * weakly-compressible simulations (except the Boussinesq kernel) as well.
    */
-  virtual void addINSMomentumPressureKernels() = 0;
-  virtual void addINSMomentumGravityKernels() = 0;
-  virtual void addINSMomentumBoussinesqKernels() = 0;
+  virtual void addMomentumTimeKernels() = 0;
+  virtual void addMomentumPressureKernels() = 0;
+  virtual void addMomentumGravityKernels() = 0;
+  virtual void addMomentumFrictionKernels() = 0;
+  virtual void addMomentumBoussinesqKernels() = 0;
+  /// Adds the cylindrical source kernel for the radial momentum equation when requested and valid
+  void addAxisymmetricViscousSource();
+  /**
+   * Derived classes must override this hook to add the actual object that implements the
+   * axisymmetric viscous source term for their formulation once the helper has determined the
+   * relevant blocks and radial component.
+   */
+  virtual void addAxisymmetricViscousSourceKernel(const std::vector<SubdomainName> & /*rz_blocks*/,
+                                                  unsigned int /*radial_index*/)
+  {
+  }
 
-  /// Functions adding boundary conditions for the incompressible simulation.
+  /// Functions adding boundary conditions for the flow simulation.
   /// These are used for weakly-compressible simulations as well.
-  virtual void addINSInletBC() = 0;
-  virtual void addINSOutletBC() = 0;
-  virtual void addINSWallsBC() = 0;
+  virtual void addInletBC() = 0;
+  virtual void addOutletBC() = 0;
+  virtual void addWallsBC() = 0;
+  virtual void addSeparatorBC() = 0;
 
   /// Return whether a Forchheimer friction model is in use
   virtual bool hasForchheimerFriction() const = 0;
@@ -110,6 +143,8 @@ protected:
   void addPorousMediumSpeedMaterial();
   /// Add material to define the local speed with no porous medium treatment
   void addNonPorousMediumSpeedMaterial();
+  /// Function which adds the general functor fluid properties functor material to define fluid functor material property
+  void addFluidPropertiesFunctorMaterial();
 
   /// Function which adds the RhieChow interpolator user objects for weakly and incompressible formulations
   virtual void addRhieChowUserObjects() = 0;
@@ -127,13 +162,18 @@ protected:
   }
 
   /// Find the turbulence physics
-  const WCNSFVTurbulencePhysics * getCoupledTurbulencePhysics() const;
+  const WCNSFVTurbulencePhysicsBase * getCoupledTurbulencePhysics() const;
+
+  /// Return the set of blocks restricted to an RZ coordinate system
+  std::vector<SubdomainName> getAxisymmetricRZBlocks() const;
 
   /// Name of the vector to hold pressure momentum equation contributions
   const TagName _pressure_tag = "p_tag";
 
   /// Boolean to keep track of whether the flow equations should be created
   const bool _has_flow_equations;
+  /// Whether to automatically add the cylindrical viscous source term
+  const bool _add_rz_viscous_source;
 
   /// Compressibility type, can be compressible, incompressible or weakly-compressible
   const MooseEnum _compressibility;
@@ -160,14 +200,29 @@ protected:
   const MooseFunctorName _density_gravity_name;
   /// Name of the dynamic viscosity material property
   const MooseFunctorName _dynamic_viscosity_name;
+  /// Whether to include the symmetrized viscous stress contribution
+  const bool _include_symmetrized_viscous_stress;
+  /// Whether to include the isotropic viscous stress contribution
+  const bool _include_isotropic_viscous_stress;
 
+  /// name of the Rhie Chow user object
+  UserObjectName _rc_uo_name;
   /// The velocity face interpolation method for advecting other quantities
   const MooseEnum _velocity_interpolation;
   /// The momentum face interpolation method for being advected
   const MooseEnum _momentum_advection_interpolation;
+  /// The momentum face interpolation method for stress terms
+  const MooseEnum _momentum_face_interpolation;
 
   /// Can be set to a coupled turbulence physics
-  const WCNSFVTurbulencePhysics * _turbulence_physics;
+  const WCNSFVTurbulencePhysicsBase * _turbulence_physics;
+
+  /// Subdomains where we want to have volumetric friction
+  std::vector<std::vector<SubdomainName>> _friction_blocks;
+  /// The friction correlation types used for each block
+  std::vector<std::vector<std::string>> _friction_types;
+  /// The coefficients used for each item if friction type
+  std::vector<std::vector<std::string>> _friction_coeffs;
 
   /// Boundaries with a flow inlet specified on them
   const std::vector<BoundaryName> _inlet_boundaries;
@@ -175,6 +230,8 @@ protected:
   const std::vector<BoundaryName> _outlet_boundaries;
   /// Boundaries which define a wall (slip/noslip/etc.)
   const std::vector<BoundaryName> _wall_boundaries;
+  /// Hydraulic separator boundaries
+  const std::vector<BoundaryName> _hydraulic_separators;
 
   /// Momentum inlet boundary types
   std::map<BoundaryName, MooseEnum> _momentum_inlet_types;
@@ -194,4 +251,6 @@ protected:
   std::map<BoundaryName, MooseFunctorName> _pressure_functors;
   /// Functors describing the momentum for each wall boundary
   std::map<BoundaryName, std::vector<MooseFunctorName>> _momentum_wall_functors;
+
+  friend class WCNSFVTurbulencePhysics;
 };

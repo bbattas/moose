@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -30,6 +30,11 @@ ExodusTimeSequenceStepper::validParams()
 
 ExodusTimeSequenceStepper::ExodusTimeSequenceStepper(const InputParameters & parameters)
   : TimeSequenceStepperBase(parameters), _mesh_file(getParam<MeshFileName>("mesh"))
+{
+}
+
+void
+ExodusTimeSequenceStepper::init()
 {
   // Read the Exodus file on processor 0
   std::vector<Real> times;

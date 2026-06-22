@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -99,6 +99,9 @@ static constexpr boundary_id_type ASSEMBLY_BOUNDARY_ID_START = 2000;
 const BoundaryName PIN_BOUNDARY_NAME_PREFIX = "outer_pin_";
 const BoundaryName ASSEMBLY_BOUNDARY_NAME_PREFIX = "outer_assembly_";
 const BoundaryName CORE_BOUNDARY_NAME = "outer_core";
+
+// Default values for setting names of CSG surfaces
+static const std::string CSG_AXIAL_PLANE_PREFIX = "rgmb_axial_plane_";
 }
 
 /**
@@ -200,7 +203,18 @@ protected:
    * that requests them. In our case, we move it into this MeshGenerator and then
    * release (delete) it.
    */
-  void freeReactorMeshParams();
+  void freeReactorParamsMesh();
+
+  /**
+   * Releases the CSG base object obtained in _reactor_params_csg.
+   *
+   * This _must_ be called in any object that derives from this one, because
+   * the MeshGenerator system requires that all meshes that are requested from
+   * the system are moved out of the MeshGenerator system and into the MeshGenerator
+   * that requests them. In our case, we move it into this MeshGenerator and then
+   * release (delete) it.
+   */
+  void freeReactorParamsCSG();
 
   /**
    * Checks whether parameter is defined in ReactorMeshParams metadata
@@ -267,9 +281,41 @@ protected:
                       const DepletionIDGenerationLevel generation_level,
                       const bool extrude);
 
+  /**
+   * Get CSGSurfaces corresponding to hexagonal or square region with given halfpitch and centered
+   * around (0, 0, 0)
+   * @param radial_index Radial index of hex / square region, for surface naming
+   * @param halfpitch Halfpitch of square or hexagon
+   * @param csg_obj Reference to CSGBase object for adding defined surfaces to
+   * @return vector of surfaces that correspond to hexagonal or square region
+   */
+  std::vector<std::reference_wrapper<const CSG::CSGSurface>> getOuterRadialSurfacesForUnitCell(
+      unsigned int radial_index, Real halfpitch, CSG::CSGBase & csg_obj);
+
+  /**
+   * Get CSGSurfaces corresponding to axial planes of the extruded RGMB mesh
+   * @param csg_obj Reference to CSGBase object for adding defined surfaces to
+   * @return vector of surfaces that correspond to axial planes of extruded RGMB mesh
+   */
+  std::vector<std::reference_wrapper<const CSG::CSGSurface>>
+  getAxialPlaneSurfaces(CSG::CSGBase & csg_obj);
+
+  /**
+   * Create CSG lattice for assembly and core lattices. This method does not set the outer universe
+   * of the lattice
+   * @param pitch lattice pitch
+   * @param pattern pattern of universes in the lattice
+   * @param csg_obj reference to CSGBase object
+   */
+  const CSG::CSGLattice & createRGMBLattice(
+      const Real pitch,
+      const std::vector<std::vector<std::reference_wrapper<const CSG::CSGUniverse>>> pattern,
+      CSG::CSGBase & csg_obj);
+
 private:
   /// The dummy param mesh that we need to clear once we've generated (in freeReactorMeshParams)
   std::unique_ptr<MeshBase> * _reactor_params_mesh;
+  std::unique_ptr<CSG::CSGBase> * _reactor_params_csg;
 };
 
 template <typename T>

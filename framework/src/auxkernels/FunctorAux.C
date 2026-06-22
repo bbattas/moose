@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -37,6 +37,12 @@ FunctorAux::FunctorAux(const InputParameters & parameters)
     paramError(
         "variable",
         "The variable must be a non-vector, non-array finite-volume/finite-element variable.");
+
+  const auto & functor_name = getParam<MooseFunctorName>("functor");
+
+  // Add user object to dependency
+  if (hasUserObjectByName(functor_name))
+    getUserObjectBaseByName(functor_name);
 }
 
 Real
@@ -45,7 +51,8 @@ FunctorAux::computeValue()
   const auto state = determineState();
   if (isNodal())
   {
-    const Moose::NodeArg node_arg = {_current_node, Moose::INVALID_BLOCK_ID};
+    const Moose::NodeArg node_arg = {_current_node,
+                                     &Moose::NodeArg::undefined_subdomain_connection};
     return _factor(node_arg, state) * _functor(node_arg, state);
   }
   else if (_is_standard_fe)

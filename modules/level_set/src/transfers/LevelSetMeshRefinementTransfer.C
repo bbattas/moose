@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -55,7 +55,8 @@ LevelSetMeshRefinementTransfer::initialSetup()
       Adaptivity & adapt = to_problem.adaptivity();
       adapt.setMarkerVariableName(to_var.name());
       adapt.setCyclesPerStep(from_problem.adaptivity().getCyclesPerStep());
-      adapt.init(1, 0);
+      MooseEnum adaptivity_type("h p hp", "h");
+      adapt.init(1, 0, adaptivity_type.getEnum<AdaptivityType>());
       adapt.setUseNewSystem();
       adapt.setMaxHLevel(from_problem.adaptivity().getMaxHLevel());
       adapt.setAdaptivityOn(false);

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,8 +10,6 @@
 #pragma once
 
 #include "ViewFactorBase.h"
-
-// Forward Declarations
 
 /**
  * Computes the view factors for planar faces in unobstructed radiative heat transfer

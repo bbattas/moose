@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -24,6 +24,10 @@ WCNSLinearFVScalarTransportPhysics::validParams()
                         true,
                         "If the nonorthogonal correction should be used when computing the normal "
                         "gradient, notably in the diffusion term.");
+
+  // Not supported
+  params.suppressParameter<MooseEnum>("preconditioning");
+
   return params;
 }
 
@@ -31,6 +35,9 @@ WCNSLinearFVScalarTransportPhysics::WCNSLinearFVScalarTransportPhysics(
     const InputParameters & parameters)
   : WCNSFVScalarTransportPhysicsBase(parameters)
 {
+  if (_porous_medium_treatment)
+    _flow_equations_physics->paramError("porous_medium_treatment",
+                                        "Porous media scalar advection is currently unimplemented");
 }
 
 void
@@ -46,11 +53,10 @@ WCNSLinearFVScalarTransportPhysics::addSolverVariables()
   for (const auto name_i : index_range(_passive_scalar_names))
   {
     // Dont add if the user already defined the variable
-    if (variableExists(_passive_scalar_names[name_i], /*error_if_aux=*/true))
+    if (!shouldCreateVariable(_passive_scalar_names[name_i], _blocks, /*error if aux*/ true))
     {
-      checkBlockRestrictionIdentical(
-          _passive_scalar_names[name_i],
-          getProblem().getVariable(0, _passive_scalar_names[name_i]).blocks());
+      reportPotentiallyMissedParameters({"system_names", "passive_scalar_scaling"},
+                                        "MooseLinearVariableFVReal");
       continue;
     }
 
@@ -66,7 +72,16 @@ WCNSLinearFVScalarTransportPhysics::addSolverVariables()
 void
 WCNSLinearFVScalarTransportPhysics::addScalarTimeKernels()
 {
-  paramError("transient", "Transient simulations are not supported at this time");
+  std::string kernel_type = "LinearFVTimeDerivative";
+  InputParameters params = getFactory().getValidParams(kernel_type);
+  assignBlocks(params, _blocks);
+
+  for (const auto & vname : _passive_scalar_names)
+  {
+    params.set<LinearVariableName>("variable") = vname;
+    if (shouldCreateTimeDerivative(vname, _blocks, /*error if already defined */ false))
+      getProblem().addLinearFVKernel(kernel_type, prefix() + "ins_" + vname + "_time", params);
+  }
 }
 
 void
@@ -105,7 +120,8 @@ WCNSLinearFVScalarTransportPhysics::addScalarDiffusionKernels()
     for (const auto name_i : index_range(_passive_scalar_names))
     {
       params.set<LinearVariableName>("variable") = _passive_scalar_names[name_i];
-      params.set<MooseFunctorName>("diffusion_coeff") = passive_scalar_diffusivities[name_i];
+      params.set<MooseFunctorName>("diffusion_coeff") =
+          passive_scalar_diffusivities[name_i] + (_has_turbulence_model ? "_plus_mut/Sc_t" : "");
       getProblem().addLinearFVKernel(
           kernel_type, prefix() + "ins_" + _passive_scalar_names[name_i] + "_diffusion", params);
     }
@@ -127,7 +143,7 @@ WCNSLinearFVScalarTransportPhysics::addScalarSourceKernels()
     {
       // Added for backward compatibility with former Modules/NavierStokesFV syntax
       params.set<MooseFunctorName>("source_density") = _passive_scalar_sources[scalar_i];
-      getProblem().addFVKernel(
+      getProblem().addLinearFVKernel(
           kernel_type, prefix() + "ins_" + _passive_scalar_names[scalar_i] + "_source", params);
     }
 

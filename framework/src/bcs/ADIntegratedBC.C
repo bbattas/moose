@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -99,14 +99,13 @@ ADIntegratedBCTempl<T>::computeResidual()
   for (auto & r : _residuals)
     r = 0;
 
-  if (_use_displaced_mesh)
-    for (_qp = 0; _qp < _qrule->n_points(); _qp++)
-      for (_i = 0; _i < _test.size(); _i++)
-        _residuals[_i] += raw_value(_ad_JxW[_qp] * _ad_coord[_qp] * computeQpResidual());
-  else
-    for (_qp = 0; _qp < _qrule->n_points(); _qp++)
-      for (_i = 0; _i < _test.size(); _i++)
-        _residuals[_i] += raw_value(_JxW[_qp] * _coord[_qp] * computeQpResidual());
+  precalculateResidual();
+  for (_qp = 0; _qp < _qrule->n_points(); _qp++)
+  {
+    const auto jxw_c = _JxW[_qp] * _coord[_qp];
+    for (_i = 0; _i < _test.size(); _i++)
+      _residuals[_i] += jxw_c * raw_value(computeQpResidual());
+  }
 
   addResiduals(_assembly, _residuals, _var.dofIndices(), _var.scalingFactor());
 
@@ -124,6 +123,7 @@ ADIntegratedBCTempl<T>::computeResidualsForJacobian()
   for (auto & r : _residuals_and_jacobians)
     r = 0;
 
+  precalculateResidual();
   if (_use_displaced_mesh)
     for (_qp = 0; _qp < _qrule->n_points(); _qp++)
     {
@@ -134,8 +134,11 @@ ADIntegratedBCTempl<T>::computeResidualsForJacobian()
     }
   else
     for (_qp = 0; _qp < _qrule->n_points(); _qp++)
+    {
+      const auto jxw_c = _JxW[_qp] * _coord[_qp];
       for (_i = 0; _i < _test.size(); _i++)
-        _residuals_and_jacobians[_i] += _JxW[_qp] * _coord[_qp] * computeQpResidual();
+        _residuals_and_jacobians[_i] += jxw_c * computeQpResidual();
+    }
 }
 
 template <typename T>

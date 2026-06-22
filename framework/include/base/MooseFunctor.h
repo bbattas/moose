@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -153,10 +153,16 @@ public:
   FunctorBase(const MooseFunctorName & name,
               const std::set<ExecFlagType> & clearance_schedule = {EXEC_ALWAYS})
     : _always_evaluate(true), _functor_name(name)
-
   {
     setCacheClearanceSchedule(clearance_schedule);
   }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  FunctorBase(const FunctorBase<T> &, const Moose::Kokkos::FunctorCopy &) {}
+#endif
 
   /**
    * Perform a generic evaluation based on the supplied template argument \p FET and supplied
@@ -723,6 +729,7 @@ template <typename T>
 typename FunctorBase<T>::ValueType
 FunctorBase<T>::operator()(const NodeArg & node, const StateArg & state) const
 {
+  mooseAssert(node.subdomain_ids, "Subdomain IDs must be supplied to the node argument");
   return evaluate(node, state);
 }
 

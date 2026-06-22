@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -138,9 +138,6 @@ protected:
 
   /// The velocity variable numbers
   std::vector<unsigned int> _var_numbers;
-
-  /// The nonlinear system
-  SystemBase & _sys;
 
   /// The interpolation method to use for the velocity
   Moose::FV::InterpMethod _velocity_interp_method;

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -50,6 +50,8 @@ template <typename T, bool is_ad>
 void
 ProjectedStatefulMaterialAuxTempl<T, is_ad>::initialSetup()
 {
+  AuxKernel::initialSetup();
+
   // get all material classes that provide properties for this object
   _required_materials = buildRequiredMaterials();
 }

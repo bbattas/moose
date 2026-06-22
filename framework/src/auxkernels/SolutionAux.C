@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -49,6 +49,8 @@ SolutionAux::SolutionAux(const InputParameters & parameters)
 void
 SolutionAux::initialSetup()
 {
+  AuxKernel::initialSetup();
+
   // If 'from_variable' is supplied, use the value
   if (isParamValid("from_variable"))
     _var_name = getParam<std::string>("from_variable");

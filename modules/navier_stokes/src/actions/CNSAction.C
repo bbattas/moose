@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -383,11 +383,11 @@ CNSAction::addSpecificVolumeComputation()
   params.set<AuxVariableName>("variable") = NS::specific_volume;
 
   // arguments
-  params.set<CoupledName>("args") = {NS::density};
+  params.set<CoupledName>("coupled_variables") = {NS::density};
 
   // expression
   std::string function = "if(" + NS::density + " = 0, 1e10, 1 / " + NS::density + ")";
-  params.set<std::string>("function") = function;
+  params.set<std::string>("expression") = function;
 
   _problem->addAuxKernel(kernel_type, "specific_volume_auxkernel", params);
 }

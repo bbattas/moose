@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -20,7 +20,6 @@ ShaftConnectedMotor::validParams()
   params.addRequiredParam<FunctionName>("torque", "Driving torque supplied by the motor [kg-m^2]");
   params.addRequiredParam<FunctionName>("inertia", "Moment of inertia from the motor [N-m]");
   params.addParam<bool>("ad", true, "Use AD version or not");
-  params.declareControllable("torque inertia");
   params.addClassDescription("Motor to drive a shaft component");
   return params;
 }
@@ -47,9 +46,6 @@ ShaftConnectedMotor::addVariables()
 void
 ShaftConnectedMotor::addMooseObjects()
 {
-  makeFunctionControllableIfConstant(_torque_fn_name, "torque");
-  makeFunctionControllableIfConstant(_inertia_fn_name, "inertia");
-
   const Shaft & shaft = getComponentByName<Shaft>(_shaft_name);
   const VariableName shaft_speed_var_name = shaft.getOmegaVariableName();
 

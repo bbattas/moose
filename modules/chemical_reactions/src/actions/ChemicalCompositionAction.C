@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -433,6 +433,7 @@ ChemicalCompositionAction::act()
         /* is_fv = */ getParam<bool>("is_fv"),
         /* is_array = */ false);
     auto params = _factory.getValidParams(aux_var_type);
+    params.applySpecificParameters(parameters(), {"block"});
 
     for (const auto i : index_range(_elements))
       _problem->addAuxVariable(aux_var_type, _elements[i], params);
@@ -472,6 +473,7 @@ ChemicalCompositionAction::act()
       auto params = _factory.getValidParams(class_name);
       params.set<VariableName>("variable") = it.first;
       params.set<Real>("value") = it.second;
+      params.applySpecificParameters(parameters(), {"block"});
       _problem->addInitialCondition(class_name, it.first + "_ic", params);
     }
   }

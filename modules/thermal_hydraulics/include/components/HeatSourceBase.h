@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -21,6 +21,7 @@ public:
 
 protected:
   virtual void check() const override;
+  virtual Convergence * getNonlinearConvergence() const override { return nullptr; }
 
   /// Heat structure name
   const std::string & _hs_name;

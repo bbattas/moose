@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -11,6 +11,7 @@
 #include "Moose.h"
 #include "AppFactory.h"
 #include "MooseSyntax.h"
+#include "MiscApp.h"
 
 #ifdef AIR_FP_ENABLED
 #include "AirApp.h"
@@ -42,7 +43,7 @@ FluidPropertiesApp::validParams()
 
 registerKnownLabel("FluidPropertiesApp");
 
-FluidPropertiesApp::FluidPropertiesApp(InputParameters parameters) : MooseApp(parameters)
+FluidPropertiesApp::FluidPropertiesApp(const InputParameters & parameters) : MooseApp(parameters)
 {
   FluidPropertiesApp::registerAll(_factory, _action_factory, _syntax);
 }
@@ -52,12 +53,62 @@ FluidPropertiesApp::~FluidPropertiesApp() {}
 void
 FluidPropertiesApp::registerApps()
 {
+  const std::string doc = "Saline thermophysical fluid properties ";
+#ifdef SALINE_ENABLED
+  addBoolCapability("saline", true, doc + "are available.");
+#else
+  addBoolCapability("saline", false, doc + "are not available.");
+#endif
+
   registerApp(FluidPropertiesApp);
+  MiscApp::registerApps();
+#ifdef AIR_FP_ENABLED
+  registerApp(AirApp);
+#endif
+#ifdef CARBON_DIOXIDE_FP_ENABLED
+  registerApp(CarbonDioxideApp);
+#endif
+#ifdef HELIUM_FP_ENABLED
+  registerApp(HeliumApp);
+#endif
+#ifdef NITROGEN_FP_ENABLED
+  registerApp(NitrogenApp);
+#endif
+#ifdef POTASSIUM_FP_ENABLED
+  registerApp(PotassiumApp);
+#endif
+#ifdef SODIUM_FP_ENABLED
+  registerApp(SodiumApp);
+#endif
 }
 
-static void
-associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
+void
+FluidPropertiesApp::registerAll(Factory & f, ActionFactory & af, Syntax & syntax)
 {
+#ifdef AIR_FP_ENABLED
+  AirApp::registerAll(f, af, syntax);
+#endif
+#ifdef CARBON_DIOXIDE_FP_ENABLED
+  CarbonDioxideApp::registerAll(f, af, syntax);
+#endif
+#ifdef HELIUM_FP_ENABLED
+  HeliumApp::registerAll(f, af, syntax);
+#endif
+#ifdef NITROGEN_FP_ENABLED
+  NitrogenApp::registerAll(f, af, syntax);
+#endif
+#ifdef POTASSIUM_FP_ENABLED
+  PotassiumApp::registerAll(f, af, syntax);
+#endif
+#ifdef SODIUM_FP_ENABLED
+  SodiumApp::registerAll(f, af, syntax);
+#endif
+
+  MiscApp::registerAll(f, af, syntax);
+
+  Registry::registerObjectsTo(f, {"FluidPropertiesApp"});
+  Registry::registerActionsTo(af, {"FluidPropertiesApp"});
+
   registerSyntaxTask(
       "AddFluidPropertiesDeprecatedAction", "Modules/FluidProperties/*", "add_fluid_properties");
   registerSyntaxTask("AddFluidPropertiesAction", "FluidProperties/*", "add_fluid_properties");
@@ -74,54 +125,6 @@ associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
 
   syntax.registerActionSyntax("AddFluidPropertiesInterrogatorAction",
                               "FluidPropertiesInterrogator");
-}
-
-void
-FluidPropertiesApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
-{
-#ifdef AIR_FP_ENABLED
-  AirApp::registerAll(f, af, s);
-#endif
-#ifdef CARBON_DIOXIDE_FP_ENABLED
-  CarbonDioxideApp::registerAll(f, af, s);
-#endif
-#ifdef HELIUM_FP_ENABLED
-  HeliumApp::registerAll(f, af, s);
-#endif
-#ifdef NITROGEN_FP_ENABLED
-  NitrogenApp::registerAll(f, af, s);
-#endif
-#ifdef POTASSIUM_FP_ENABLED
-  PotassiumApp::registerAll(f, af, s);
-#endif
-#ifdef SODIUM_FP_ENABLED
-  SodiumApp::registerAll(f, af, s);
-#endif
-
-  Registry::registerObjectsTo(f, {"FluidPropertiesApp"});
-  Registry::registerActionsTo(af, {"FluidPropertiesApp"});
-  associateSyntaxInner(s, af);
-}
-
-void
-FluidPropertiesApp::registerObjects(Factory & factory)
-{
-  mooseDeprecated("use registerAll instead of registerObjects");
-  Registry::registerObjectsTo(factory, {"FluidPropertiesApp"});
-}
-
-void
-FluidPropertiesApp::associateSyntax(Syntax & syntax, ActionFactory & action_factory)
-{
-  mooseDeprecated("use registerAll instead of associateSyntax");
-  Registry::registerActionsTo(action_factory, {"FluidPropertiesApp"});
-  associateSyntaxInner(syntax, action_factory);
-}
-
-void
-FluidPropertiesApp::registerExecFlags(Factory & /*factory*/)
-{
-  mooseDeprecated("Do not use registerExecFlags, apps no longer require flag registration");
 }
 
 extern "C" void

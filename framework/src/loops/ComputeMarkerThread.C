@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -79,11 +79,8 @@ ComputeMarkerThread::onElement(const Elem * elem)
       marker->computeMarker();
   }
 
-  {
-    Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
-    for (auto * var : _aux_sys._elem_vars[_tid])
-      var->insert(_aux_sys.solution());
-  }
+  for (auto * var : _aux_sys._elem_vars[_tid])
+    var->insert(_aux_sys.solution());
 }
 
 void

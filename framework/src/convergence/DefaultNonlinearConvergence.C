@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,6 +12,7 @@
 #include "FEProblemBase.h"
 #include "PetscSupport.h"
 #include "NonlinearSystemBase.h"
+#include "ConvergenceIterationTypes.h"
 
 #include "libmesh/equation_systems.h"
 
@@ -25,7 +26,7 @@ registerMooseObject("MooseApp", DefaultNonlinearConvergence);
 InputParameters
 DefaultNonlinearConvergence::validParams()
 {
-  InputParameters params = Convergence::validParams();
+  InputParameters params = DefaultConvergenceBase::validParams();
   params += FEProblemSolve::feProblemDefaultConvergenceParams();
 
   params.addPrivateParam<bool>("added_as_default", false);
@@ -36,8 +37,7 @@ DefaultNonlinearConvergence::validParams()
 }
 
 DefaultNonlinearConvergence::DefaultNonlinearConvergence(const InputParameters & parameters)
-  : Convergence(parameters),
-    _added_as_default(getParam<bool>("added_as_default")),
+  : DefaultConvergenceBase(parameters),
     _fe_problem(*getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
     _nl_abs_div_tol(getSharedExecutionerParam<Real>("nl_abs_div_tol")),
     _nl_rel_div_tol(getSharedExecutionerParam<Real>("nl_div_tol")),
@@ -65,11 +65,12 @@ DefaultNonlinearConvergence::DefaultNonlinearConvergence(const InputParameters &
 }
 
 void
-DefaultNonlinearConvergence::initialSetup()
+DefaultNonlinearConvergence::checkIterationType(IterationType it_type) const
 {
-  Convergence::initialSetup();
+  DefaultConvergenceBase::checkIterationType(it_type);
 
-  checkDuplicateSetSharedExecutionerParams();
+  if (it_type != ConvergenceIterationTypes::NONLINEAR)
+    mooseError("DefaultNonlinearConvergence can only be used with nonlinear solves.");
 }
 
 bool
@@ -82,8 +83,8 @@ DefaultNonlinearConvergence::checkRelativeConvergence(const unsigned int /*it*/,
 {
   if (fnorm <= ref_norm * rel_tol)
   {
-    oss << "Converged due to residual norm " << fnorm << " < relative tolerance (" << rel_tol
-        << ")\n";
+    oss << "Converged due to relative/normalized residual norm " << fnorm / ref_norm
+        << " < relative tolerance (" << rel_tol << ")\n";
     return true;
   }
   else
@@ -141,13 +142,20 @@ DefaultNonlinearConvergence::checkConvergence(unsigned int iter)
   }
 #endif
 
-  // See if SNESSetFunctionDomainError() has been called.  Note:
-  // SNESSetFunctionDomainError() and SNESGetFunctionDomainError()
-  // were added in different releases of PETSc.
+  // See if SNESSetFunctionDomainError() has been called.
+  // Note: SNESSetFunctionDomainError() and SNESGetFunctionDomainError() were added
+  // in different releases of PETSc. The latter was removed in PETSc 3.25.0.
+#if PETSC_VERSION_LESS_THAN(3, 25, 0)
   PetscBool domainerror;
   LibmeshPetscCallA(_fe_problem.comm().get(), SNESGetFunctionDomainError(snes, &domainerror));
   if (domainerror)
     status = MooseConvergenceStatus::DIVERGED;
+#else
+  SNESConvergedReason reason;
+  LibmeshPetscCallA(_fe_problem.comm().get(), SNESGetConvergedReason(snes, &reason));
+  if (reason == SNES_DIVERGED_FUNCTION_DOMAIN)
+    status = MooseConvergenceStatus::DIVERGED;
+#endif
 
   Real fnorm_old;
   // This is the first residual before any iterations have been done, but after
@@ -240,18 +248,4 @@ DefaultNonlinearConvergence::checkConvergence(unsigned int iter)
   verboseOutput(oss);
 
   return status;
-}
-
-void
-DefaultNonlinearConvergence::checkDuplicateSetSharedExecutionerParams() const
-{
-  if (_duplicate_shared_executioner_params.size() > 0 && !_added_as_default)
-  {
-    std::ostringstream oss;
-    oss << "The following parameters were set in both this Convergence object and the "
-           "executioner:\n";
-    for (const auto & param : _duplicate_shared_executioner_params)
-      oss << "  " << param << "\n";
-    mooseError(oss.str());
-  }
 }

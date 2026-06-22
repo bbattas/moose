@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,7 +26,8 @@ TaggingInterface::validParams()
   MultiMooseEnum vtags("nontime time", "nontime", true);
   MultiMooseEnum mtags("nontime system", "system", true);
 
-  params.addPrivateParam<bool>("matrix_only", false);
+  params.addParam<bool>(
+      "matrix_only", false, "Whether this object is only doing assembly to matrices (no vectors)");
 
   params.addParam<MultiMooseEnum>(
       "vector_tags", vtags, "The tag for the vectors this Kernel should fill");
@@ -45,9 +46,9 @@ TaggingInterface::validParams()
   params.addParam<std::vector<TagName>>("extra_matrix_tags",
                                         "The extra tags for the matrices this Kernel should fill");
 
-  params.addParamNamesToGroup(
-      "vector_tags matrix_tags extra_vector_tags extra_matrix_tags absolute_value_vector_tags",
-      "Tagging");
+  params.addParamNamesToGroup("vector_tags matrix_tags extra_vector_tags extra_matrix_tags "
+                              "absolute_value_vector_tags matrix_only",
+                              "Contribution to tagged field data");
 
   return params;
 }
@@ -154,6 +155,16 @@ TaggingInterface::TaggingInterface(const MooseObject * moose_object)
     }
   }
 }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+TaggingInterface::TaggingInterface(const TaggingInterface & object,
+                                   const Moose::Kokkos::FunctorCopy &)
+  : _subproblem(object._subproblem),
+    _moose_object(object._moose_object),
+    _tag_params(object._tag_params)
+{
+}
+#endif
 
 void
 TaggingInterface::useVectorTag(const TagName & tag_name, VectorTagsKey)
@@ -365,6 +376,11 @@ TaggingInterface::prepareMatrixTagLower(Assembly & assembly,
 void
 TaggingInterface::accumulateTaggedLocalResidual()
 {
+#ifndef NDEBUG
+  if (_subproblem.checkResidualForNans())
+    checkForNans();
+#endif
+
   for (auto & re : _re_blocks)
     *re += _local_re;
   for (auto & absre : _absre_blocks)
@@ -375,6 +391,11 @@ TaggingInterface::accumulateTaggedLocalResidual()
 void
 TaggingInterface::assignTaggedLocalResidual()
 {
+#ifndef NDEBUG
+  if (_subproblem.checkResidualForNans())
+    checkForNans();
+#endif
+
   for (auto & re : _re_blocks)
     *re = _local_re;
   for (auto & absre : _absre_blocks)
@@ -438,5 +459,46 @@ TaggingInterface::assignTaggedLocalMatrix()
   for (auto & ke : _ke_blocks)
     *ke = _local_ke;
 }
+
+void
+TaggingInterface::addResiduals(Assembly & assembly, const ADResidualsPacket & packet)
+{
+  addResiduals(assembly, packet.residuals, packet.dof_indices, packet.scaling_factor);
+}
+
+void
+TaggingInterface::addResidualsAndJacobian(Assembly & assembly, const ADResidualsPacket & packet)
+{
+  addResidualsAndJacobian(assembly, packet.residuals, packet.dof_indices, packet.scaling_factor);
+}
+
+void
+TaggingInterface::addJacobian(Assembly & assembly, const ADResidualsPacket & packet)
+{
+  addJacobian(assembly, packet.residuals, packet.dof_indices, packet.scaling_factor);
+}
+
+#ifndef NDEBUG
+void
+TaggingInterface::checkForNans() const
+{
+  for (const auto i : index_range(_local_re))
+    if (!std::isfinite(_local_re(i)))
+    {
+      std::stringstream ss;
+      ss << "NaN or Inf detected in '" << _moose_object.name() << "'.\n";
+      ss << "To further troubleshoot this value in this residual object, add the following lines "
+            "before returning the value in the computeQpResidual() (or similar) method in the "
+            "source file for the class of '"
+         << _moose_object.name() << "':\n\n";
+      ss << "  if (!std::isfinite(<return value>))\n";
+      ss << "    mooseError(\"Found NaN or Inf\");\n\n";
+      ss << "Then you can use a breakpoint in a debugger to troubleshoot the origin of the NaN or "
+            "Inf value.";
+
+      mooseError(ss.str());
+    }
+}
+#endif
 
 TaggingInterface::~TaggingInterface() {}

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -30,6 +30,8 @@ public:
   EulerAngles();
   // Quaternions to Euler Angles
   EulerAngles(const Eigen::Quaternion<Real> & q);
+  // Components to Euler Angles
+  EulerAngles(const Real & v0, const Real & v1, const Real & v2);
 
   operator RealVectorValue() const { return RealVectorValue(phi1, Phi, phi2); }
 

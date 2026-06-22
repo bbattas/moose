@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,59 +10,61 @@
 #include "FlowBoundary1Phase.h"
 #include "FlowChannel1Phase.h"
 #include "FlowModelSinglePhase.h"
+#include "THMNames.h"
 
 InputParameters
 FlowBoundary1Phase::validParams()
 {
-  InputParameters params = FlowBoundary::validParams();
+  InputParameters params = FlowBoundary1PhaseBase::validParams();
   return params;
 }
 
 FlowBoundary1Phase::FlowBoundary1Phase(const InputParameters & params)
-  : FlowBoundary(params), _boundary_uo_name(genName(name(), "boundary_uo"))
+  : FlowBoundary1PhaseBase(params)
 {
 }
 
 void
 FlowBoundary1Phase::init()
 {
-  FlowBoundary::init();
+  FlowBoundary1PhaseBase::init();
 
   if (hasComponentByName<FlowChannel1Phase>(_connected_component_name))
   {
-    const FlowChannel1Phase & comp =
-        getTHMProblem().getComponentByName<FlowChannel1Phase>(_connected_component_name);
-
-    _numerical_flux_name = comp.getNumericalFluxUserObjectName();
+    auto flow_model_1phase = dynamic_cast<const FlowModelSinglePhase *>(_flow_model.get());
+    mooseAssert(flow_model_1phase, "Incompatible flow model");
+    _passives_times_area = flow_model_1phase->passiveTransportSolutionVariableNames();
   }
 }
 
 void
 FlowBoundary1Phase::check() const
 {
-  FlowBoundary::check();
+  FlowBoundary1PhaseBase::check();
 
   checkComponentOfTypeExistsByName<FlowChannel1Phase>(_connected_component_name);
+
+  if (_passives_times_area.size() > 0 && !supportsPassiveTransport())
+    logError("Passive transport has not been implemented for this Component type.");
 }
 
 void
-FlowBoundary1Phase::addWeakBC3Eqn()
+FlowBoundary1Phase::addWeakBCs()
 {
   const std::string class_name = "ADBoundaryFlux3EqnBC";
   InputParameters params = _factory.getValidParams(class_name);
   params.set<std::vector<BoundaryName>>("boundary") = getBoundaryNames();
   params.set<Real>("normal") = _normal;
   params.set<UserObjectName>("boundary_flux") = _boundary_uo_name;
-  params.set<std::vector<VariableName>>("A_linear") = {FlowModel::AREA_LINEAR};
-  params.set<std::vector<VariableName>>("rhoA") = {FlowModelSinglePhase::RHOA};
-  params.set<std::vector<VariableName>>("rhouA") = {FlowModelSinglePhase::RHOUA};
-  params.set<std::vector<VariableName>>("rhoEA") = {FlowModelSinglePhase::RHOEA};
+  params.set<std::vector<VariableName>>("A_linear") = {THM::AREA_LINEAR};
+  params.set<std::vector<VariableName>>("rhoA") = {THM::RHOA};
+  params.set<std::vector<VariableName>>("rhouA") = {THM::RHOUA};
+  params.set<std::vector<VariableName>>("rhoEA") = {THM::RHOEA};
+  params.set<std::vector<VariableName>>("passives_times_area") = _passives_times_area;
   params.set<bool>("implicit") = getTHMProblem().getImplicitTimeIntegrationFlag();
 
-  const std::vector<NonlinearVariableName> variables{
-      FlowModelSinglePhase::RHOA, FlowModelSinglePhase::RHOUA, FlowModelSinglePhase::RHOEA};
-
-  for (const auto & var : variables)
+  auto flow_model_1phase = dynamic_cast<const FlowModelSinglePhase *>(_flow_model.get());
+  for (const auto & var : flow_model_1phase->solutionVariableNames())
   {
     params.set<NonlinearVariableName>("variable") = var;
     getTHMProblem().addBoundaryCondition(

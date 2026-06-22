@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -197,6 +197,12 @@ public:
   /// Print the rank four tensor
   void print(std::ostream & stm = Moose::out) const;
 
+  friend std::ostream & operator<<(std::ostream & os, const RankFourTensorTempl<T> & t)
+  {
+    t.print(os);
+    return os;
+  }
+
   /// Print the values of the rank four tensor
   void printReal(std::ostream & stm = Moose::out) const;
 
@@ -209,8 +215,7 @@ public:
    * \returns A reference to *this.
    */
   template <typename Scalar>
-  typename libMesh::boostcopy::enable_if_c<libMesh::ScalarTraits<Scalar>::value,
-                                           RankFourTensorTempl &>::type
+  typename std::enable_if<libMesh::ScalarTraits<Scalar>::value, RankFourTensorTempl &>::type
   operator=(const Scalar & libmesh_dbg_var(p))
   {
     libmesh_assert_equal_to(p, Scalar(0));

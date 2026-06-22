@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -118,8 +118,8 @@ LinearFVAnisotropicDiffusion::computeFluxRHSContribution()
     const auto state_arg = determineState();
 
     // Get the gradients from the adjacent cells
-    const auto grad_elem = _var.gradSln(*_current_face_info->elemInfo());
-    const auto grad_neighbor = _var.gradSln(*_current_face_info->neighborInfo());
+    const auto grad_elem = _var.gradSln(*_current_face_info->elemInfo(), state_arg);
+    const auto grad_neighbor = _var.gradSln(*_current_face_info->neighborInfo(), state_arg);
 
     // Interpolate the two gradients to the face
     const auto interp_coeffs =
@@ -192,35 +192,46 @@ LinearFVAnisotropicDiffusion::computeBoundaryRHSContribution(const LinearFVBound
   mooseAssert(diff_bc, "This should be a valid BC!");
 
   const auto face_arg = singleSidedFaceArg(_current_face_info);
+  const auto state_arg = determineState();
   auto grad_contrib = diff_bc->computeBoundaryGradientRHSContribution();
 
-  auto scaled_diff_tensor = _diffusion_tensor(face_arg, determineState());
+  auto scaled_diff_tensor = _diffusion_tensor(face_arg, state_arg);
 
   for (const auto i : make_range(Moose::dim))
     scaled_diff_tensor(i) = _current_face_info->normal()(i) * scaled_diff_tensor(i);
 
   auto normal_scaled_diff_tensor = scaled_diff_tensor * _current_face_info->normal();
-  auto boundary_grad = _var.gradSln(*_current_face_info->elemInfo());
+  const auto elem_info = (_current_face_type == FaceInfo::VarFaceNeighbors::ELEM)
+                             ? _current_face_info->elemInfo()
+                             : _current_face_info->neighborInfo();
+  mooseAssert(elem_info, "We should always have an element info for the current face");
+
+  auto boundary_grad = _var.gradSln(*elem_info, state_arg);
 
   // If the boundary condition does not include the diffusivity contribution then
   // add it here.
   if (!diff_bc->includesMaterialPropertyMultiplier())
-  {
     grad_contrib *= normal_scaled_diff_tensor;
-  }
 
-  grad_contrib += (scaled_diff_tensor - normal_scaled_diff_tensor * _current_face_info->normal()) *
+  // We allow internal boundaries as well, in that case we have to make sure the normals point in
+  // the right direction
+  const Real boundary_normal_multiplier =
+      (_current_face_type == FaceInfo::VarFaceNeighbors::ELEM) ? 1.0 : -1.0;
+
+  grad_contrib += (scaled_diff_tensor - normal_scaled_diff_tensor * boundary_normal_multiplier *
+                                            _current_face_info->normal()) *
                   boundary_grad;
 
   // We add the nonorthogonal corrector for the face here. Potential idea: we could do
   // this in the boundary condition too. For now, however, we keep it like this.
-  if (_use_nonorthogonal_correction_on_boundary)
+  if (diff_bc->useBoundaryGradientExtrapolation() && _use_nonorthogonal_correction_on_boundary)
   {
+    const auto e_Cf = _current_face_info->faceCentroid() - elem_info->centroid();
     const auto correction_vector =
-        _current_face_info->normal() -
-        1 / (_current_face_info->normal() * _current_face_info->eCN()) * _current_face_info->eCN();
+        _current_face_info->normal() - 1 / (_current_face_info->normal() * e_Cf) * e_Cf;
 
-    grad_contrib += normal_scaled_diff_tensor * boundary_grad * correction_vector;
+    grad_contrib +=
+        normal_scaled_diff_tensor * boundary_grad * boundary_normal_multiplier * correction_vector;
   }
 
   return grad_contrib * _current_face_area;

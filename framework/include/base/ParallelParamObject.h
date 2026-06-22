@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -11,26 +11,31 @@
 
 // MOOSE includes
 #include "MooseBase.h"
-#include "MooseBaseParameterInterface.h"
-#include "MooseBaseErrorInterface.h"
 #include "DataFileInterface.h"
 
 #include "libmesh/parallel_object.h"
+
+class Factory;
+class ActionFactory;
 
 /**
  * Base class shared by both Action and MooseObject.
  */
 class ParallelParamObject : public MooseBase,
-                            public MooseBaseParameterInterface,
-                            public MooseBaseErrorInterface,
                             public libMesh::ParallelObject,
                             public DataFileInterface
 {
 public:
-  ParallelParamObject(const std::string & type,
-                      const std::string & name,
-                      MooseApp & app,
-                      const InputParameters & params);
+  static InputParameters validParams();
+
+  ParallelParamObject(const InputParameters & params);
 
   virtual ~ParallelParamObject() = default;
+
+protected:
+  /// The Factory associated with the MooseApp
+  Factory & _factory;
+
+  /// Builds Actions
+  ActionFactory & _action_factory;
 };

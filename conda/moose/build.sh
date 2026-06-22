@@ -1,39 +1,50 @@
 #!/bin/bash
 set -eu
 
+MOOSE_JOBS=${MOOSE_JOBS:-2}
+
 function do_build(){
-    rm -rf "${PREFIX:?}/moose"
+    # shellcheck disable=SC2086  # we want word spliting when dealing with passing arguments
+    ./configure --prefix="${PREFIX:?}" ${MOOSE_OPTIONS:-''} || return 1
+
+    # moose_test-opt; docs will come from combined so explicitly
+    # don't build them here
+    cd test
+    make -j "$MOOSE_JOBS" || return $?
+    MOOSE_SKIP_DOCS=1 make install -j "$MOOSE_JOBS" || return $?
+
+    # Check if docs should be skipped, which only affects the combined build
     if [[ "$(echo "${SKIP_DOCS}" | tr '[:lower:]' '[:upper:]')" == "TRUE" ]]; then
         export MOOSE_SKIP_DOCS=True
     fi
-    # shellcheck disable=SC2086  # we want word spliting when dealing with passing arguments
-    ./configure --prefix="${PREFIX:?}/moose" ${MOOSE_OPTIONS:-''} || return 1
-    CORES="${MOOSE_JOBS:-2}"
-
-    # moose_test-opt
-    cd test
-    make -j "${CORES:?}"
-    make install -j "${CORES:?}"
 
     # combined-opt
     cd ../modules/combined
-    make -j "${CORES:?}" || return 1
-    make install -j "${CORES:?}" || return 1
+    make -j "$MOOSE_JOBS" || return $?
+    make install -j "$MOOSE_JOBS" || return $?
 }
 
 # shellcheck disable=SC1091  # made available through meta.yaml src path
 source "${SRC_DIR:?}/retry_build.sh"
 
+# Conda on mac sets "-Wl,-dead_strip_dylibs" in LDFLAGS, which is picked up
+# during the application executable linking. Unfortunately, we end up with
+# intermediate dead dylibs during our build/install (which we do fix later!).
+# So... remove that flag on macs? Good, try conda.
+if [[ "$(uname)" == "Darwin" ]]; then
+  export LDFLAGS="${LDFLAGS//-Wl,-dead_strip_dylibs/}"
+fi
+
 # Sets up retry functions and calls do_build. Blocking until success
 # or 3 failed attempts, or 1 unknown/unhandled failure
 retry_build
 
-cd "${PREFIX:?}/moose/bin"
+cd "${PREFIX:?}/bin"
 ln -s combined-opt moose-opt
 ln -s combined-opt moose
 
 # Fix (hack) for moose -> moose symlink collision binary/copy inputs
-cd "${PREFIX:?}/moose/share/moose"
+cd "${PREFIX:?}/share/moose"
 for f in ../combined/*; do
   [[ -e ${f} ]] || break  # handle the case of no *.wav files
   if [[ -d ../combined/${f} ]] && [[ ! -d ${f} ]] && [[ -f ${f} ]] && [[ ! -L ${f} ]]; then
@@ -43,12 +54,31 @@ done
 
 mkdir -p "${PREFIX:?}/etc/conda/activate.d" "${PREFIX:?}/etc/conda/deactivate.d"
 cat <<EOF > "${PREFIX}/etc/conda/activate.d/activate_${PKG_NAME}.sh"
-export PATH=\${PATH}:${PREFIX}/moose/bin
-export MOOSE_BIN=${PREFIX}/moose/bin/moose
-export MOOSE_ADFPARSER_JIT_INCLUDE=${PREFIX}/moose/include/moose/ADRealMonolithic.h
+export MOOSE_ADFPARSER_JIT_INCLUDE=${PREFIX}/include/moose/ADRealMonolithic.h
 EOF
+
+if [[ "${mpi:?}" == "mpich" ]]; then
+  cat <<EOF >> "${PREFIX}/etc/conda/activate.d/activate_${PKG_NAME}.sh"
+export FI_PROVIDER=tcp
+export MPICH_CH4_NETMOD=ofi
+EOF
+elif [ "${mpi:?}" == "openmpi" ]; then
+  cat <<EOF >> "${PREFIX}/etc/conda/activate.d/activate_${PKG_NAME}.sh"
+export OMPI_MCA_mca_base_component_show_load_errors=0
+EOF
+fi
+
 cat <<EOF > "${PREFIX}/etc/conda/deactivate.d/deactivate_${PKG_NAME}.sh"
-export PATH=\${PATH%":${PREFIX}/moose/bin"}
-unset MOOSE_BIN
 unset MOOSE_ADFPARSER_JIT_INCLUDE
 EOF
+
+if [[ "${mpi:?}" == "mpich" ]]; then
+  cat <<EOF >> "${PREFIX}/etc/conda/deactivate.d/deactivate_${PKG_NAME}.sh"
+unset FI_PROVIDER
+unset MPICH_CH4_NETMOD
+EOF
+elif [ "${mpi:?}" == "openmpi" ]; then
+  cat <<EOF >> "${PREFIX}/etc/conda/deactivate.d/deactivate_${PKG_NAME}.sh"
+unset OMPI_MCA_mca_base_component_show_load_errors
+EOF
+fi

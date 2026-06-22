@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,19 +26,6 @@ EulerAngleFileReader::EulerAngleFileReader(const InputParameters & params)
   : EulerAngleProvider(params), _file_name(getParam<FileName>("file_name"))
 {
   readFile();
-}
-
-unsigned int
-EulerAngleFileReader::getGrainNum() const
-{
-  return _angles.size();
-}
-
-const EulerAngles &
-EulerAngleFileReader::getEulerAngles(unsigned int i) const
-{
-  mooseAssert(i < getGrainNum(), "Requesting Euler angles for an invalid grain id");
-  return _angles[i];
 }
 
 void

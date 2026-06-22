@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -19,7 +19,7 @@ PiecewiseConstant::validParams()
   MooseEnum direction("LEFT RIGHT LEFT_INCLUSIVE RIGHT_INCLUSIVE", "LEFT");
   params.addParam<MooseEnum>(
       "direction", direction, "Direction to look to find value: " + direction.getRawNames());
-  params.addClassDescription("Defines data using a set of x-y data pairs");
+  params.addClassDescription("Defines piece-wise constant data using a set of x-y data pairs");
   return params;
 }
 

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -62,8 +62,8 @@ ImageSampler::ImageSampler(const InputParameters & parameters)
     _algorithm(nullptr),
 #endif
     _is_pars(parameters),
-    _is_console(
-        (parameters.getCheckedPointerParam<MooseApp *>("_moose_app"))->getOutputWarehouse()),
+    _is_console((parameters.getCheckedPointerParam<MooseApp *>(MooseBase::app_param))
+                    ->getOutputWarehouse()),
     _flip({{_is_pars.get<bool>("flip_x"),
             _is_pars.get<bool>("flip_y"),
             _is_pars.get<bool>("flip_z")}})

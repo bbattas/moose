@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -19,9 +19,9 @@ class MassFreeConstraint : public NodalConstraint
 public:
   MassFreeConstraint(const InputParameters & parameters);
 
-  virtual void computeResidual(NumericVector<Number> & residual) override;
+  virtual void computeResidual(const NumericVector<Number> & residual) override;
   using NodalConstraint::computeResidual;
-  virtual void computeJacobian(SparseMatrix<Number> & jacobian) override;
+  virtual void computeJacobian(const SparseMatrix<Number> & jacobian) override;
   using NodalConstraint::computeJacobian;
 
 protected:

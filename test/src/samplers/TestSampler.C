@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -75,7 +75,7 @@ TestSampler::computeSample(dof_id_type row_index, dof_id_type col_index)
     setNumberOfRandomSeeds(1980);
 
   if (_use_rand)
-    return getRand();
+    return getRand(row_index * getNumberOfCols() + col_index);
   else
     return ((row_index + 1) * 10) + col_index;
 }

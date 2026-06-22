@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -45,6 +45,14 @@ protected:
    * storage as well as a system name must be passed in along with the thread ID explicitly.
    */
   MeshMetaDataInterface(MooseApp & moose_app);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  MeshMetaDataInterface(const MeshMetaDataInterface & object,
+                        const Moose::Kokkos::FunctorCopy & key);
+#endif
 
   /**
    * Method for retrieving a property with the given type and name exists in the mesh meta-data

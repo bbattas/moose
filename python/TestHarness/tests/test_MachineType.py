@@ -1,45 +1,80 @@
-#* This file is part of the MOOSE framework
-#* https://www.mooseframework.org
-#*
-#* All rights reserved, see COPYRIGHT for full restrictions
-#* https://github.com/idaholab/moose/blob/master/COPYRIGHT
-#*
-#* Licensed under LGPL 2.1, please see LICENSE for details
-#* https://www.gnu.org/licenses/lgpl-2.1.html
+# This file is part of the MOOSE framework
+# https://mooseframework.inl.gov
+#
+# All rights reserved, see COPYRIGHT for full restrictions
+# https://github.com/idaholab/moose/blob/master/COPYRIGHT
+#
+# Licensed under LGPL 2.1, please see LICENSE for details
+# https://www.gnu.org/licenses/lgpl-2.1.html
 
-import os, io
-import unittest
-import mock
-import TestHarness
-from contextlib import redirect_stdout
+"""Test machine capability."""
 
-class TestHarnessTester(unittest.TestCase):
-    @mock.patch.object(TestHarness.util, 'getMachine')
-    def mocked_output(self, mocked, expect_fail, mocked_return):
-        MOOSE_DIR = os.getenv('MOOSE_DIR')
-        os.chdir(f'{MOOSE_DIR}/test')
-        out = io.StringIO()
-        with redirect_stdout(out):
-            mocked_return.return_value=mocked
-            cmd = ['', '-i', 'always_ok', '-c', '--term-format', 'njCst']
-            with self.assertRaises(SystemExit) as e:
-                TestHarness.TestHarness.buildAndRun(cmd, None, MOOSE_DIR)
-            if expect_fail:
-                self.assertNotEqual(e.exception.code, 0)
-            else:
-                self.assertEqual(e.exception.code, 0)
-        return out.getvalue()
+from unittest import main
 
-    def testNotSkipped(self):
-        """
-        Test should not be skipped, as it is set to run on any arch (ALL)
-        """
-        out = self.mocked_output(set(['ALL']), False)
-        self.assertRegex(out, r'tests\/test_harness\.always_ok[\s.]+OK')
+from TestHarnessTestCase import TestHarnessTestCase
 
-    def testSkipped(self):
-        """
-        Test that a non existing machine type is skipped (remove default of ALL)
-        """
-        out = self.mocked_output(set(['']), False)
-        self.assertRegex(out, r'tests\/test_harness\.always_ok[\s.]+\[MACHINE!=ALL\]\s+SKIP')
+from TestHarness.util import getMachine
+
+THIS_MACHINE = getMachine()
+BAD_MACHINE = "arm64" if THIS_MACHINE == "x86_64" else "x86_64"
+
+
+def buildTestSpecs(**kwargs) -> dict:
+    """Build a dummy test spec."""
+    return {
+        "test": {"type": "RunApp", "input": "unused", "should_execute": False, **kwargs}
+    }
+
+
+class TestHarnessTester(TestHarnessTestCase):
+    """Test machine capability."""
+
+    def testNotSetMinimal(self):
+        """No machine set with minimal capabilities; should not skip."""
+        out = self.runTests(
+            "-c", tests=buildTestSpecs(), minimal_capabilities=True
+        ).output
+        self.assertRegex(out, r"test\.test[\s.]+OK")
+
+    def testNotSetFull(self):
+        """No machine set with full capabilities; should not skip."""
+        out = self.runTests(
+            "-c", tests=buildTestSpecs(), minimal_capabilities=False
+        ).output
+        self.assertRegex(out, r"test\.test[\s.]+OK")
+
+    def testEqualMinimal(self):
+        """Correct machine set with minimal capabilities; should not skip."""
+        test_specs = buildTestSpecs(capabilities=f"machine={THIS_MACHINE}")
+        out = self.runTests("-c", tests=test_specs, minimal_capabilities=True).output
+        self.assertRegex(out, r"test\.test[\s.]+OK")
+
+    def testEqualFull(self):
+        """Correct machine set with full capabilities; should not skip."""
+        test_specs = buildTestSpecs(capabilities=f"machine={THIS_MACHINE}")
+        out = self.runTests("-c", tests=test_specs, minimal_capabilities=True).output
+        self.assertRegex(out, r"test\.test[\s.]+OK")
+
+    def testSkippedMinimal(self):
+        """Machine with minimal capabilities and a different machine; should skip."""
+        test_specs = buildTestSpecs(capabilities=f"machine={BAD_MACHINE}")
+        out = self.runTests(
+            "-c",
+            tests=test_specs,
+            minimal_capabilities=True,
+        ).output
+        self.assertRegex(
+            out, rf"test\.test[\s.]+\[NEED MACHINE={BAD_MACHINE.upper()}\]\s+SKIP"
+        )
+
+    def testSkippedFull(self):
+        """Machine with capabilities and a different machine should be skipped."""
+        test_specs = buildTestSpecs(capabilities=f"machine={BAD_MACHINE}")
+        out = self.runTests("-c", tests=test_specs, minimal_capabilities=False).output
+        self.assertRegex(
+            out, rf"test\.test[\s.]+\[NEED MACHINE={BAD_MACHINE.upper()}\]\s+SKIP"
+        )
+
+
+if __name__ == "__main__":
+    main()

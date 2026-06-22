@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -21,6 +21,10 @@
 
 #ifdef LIBMESH_HAVE_OPENMP
 #include <omp.h>
+#endif
+
+#ifdef MOOSE_LIBTORCH_ENABLED
+#include <ATen/Parallel.h>
 #endif
 
 #include <unistd.h>
@@ -49,10 +53,19 @@ MooseInit::MooseInit(int argc, char * argv[], MPI_Comm COMM_WORLD_IN)
   omp_set_num_threads(libMesh::n_threads());
 #endif
 
+#ifdef MOOSE_LIBTORCH_ENABLED
+  at::set_num_threads(libMesh::n_threads());
+  at::set_num_interop_threads(libMesh::n_threads());
+#endif
+
   ParallelUniqueId::initialize();
 
   // Make sure that any calls to the global random number generator are consistent among processes
   MooseRandom::seed(0);
 
   RegisterSigHandler();
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  initKokkos();
+#endif
 }

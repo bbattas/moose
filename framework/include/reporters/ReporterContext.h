@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -76,6 +76,9 @@ public:
 
   /// Called by FEProblemBase::advanceState via ReporterData
   virtual void copyValuesBack() = 0;
+
+  /// Called by FEProblemBase::restoreSolutions via ReporterData
+  virtual bool restoreState() = 0;
 
   /// Called by JSONOutput::outputReporters to output meta data independent of calculated
   /// values
@@ -316,6 +319,9 @@ protected:
   // The following are called by the ReporterData and are not indented for external use
   virtual void copyValuesBack() override;
 
+  /// Restore state to its old values. @see ReporterState::restoreState
+  virtual bool restoreState() override { return _state.restoreState(); }
+
   /// The state on which this context object operates
   ReporterState<T> & _state;
 };
@@ -369,7 +375,7 @@ ReporterContext<T>::finalize()
 
     // Perform broadcast in the case
     //            ROOT -> REPLICATED
-    if (producer == REPORTER_MODE_ROOT && consumer == REPORTER_MODE_REPLICATED)
+    if (static_cast<int>(producer) == REPORTER_MODE_ROOT && consumer == REPORTER_MODE_REPLICATED)
       auto_operation = ReporterContext::AutoOperation::BROADCAST;
 
     // The following are not support and create an error
@@ -377,10 +383,14 @@ ReporterContext<T>::finalize()
     //      REPLICATED -> DISTRIBUTED
     //     DISTRIBUTED -> ROOT
     //     DISTRIBUTED -> REPLICATED
-    else if ((producer == REPORTER_MODE_ROOT && consumer == REPORTER_MODE_DISTRIBUTED) ||
-             (producer == REPORTER_MODE_REPLICATED && consumer == REPORTER_MODE_DISTRIBUTED) ||
-             (producer == REPORTER_MODE_DISTRIBUTED && consumer == REPORTER_MODE_ROOT) ||
-             (producer == REPORTER_MODE_DISTRIBUTED && consumer == REPORTER_MODE_REPLICATED))
+    else if ((static_cast<int>(producer) == REPORTER_MODE_ROOT &&
+              consumer == REPORTER_MODE_DISTRIBUTED) ||
+             (static_cast<int>(producer) == REPORTER_MODE_REPLICATED &&
+              consumer == REPORTER_MODE_DISTRIBUTED) ||
+             (static_cast<int>(producer) == REPORTER_MODE_DISTRIBUTED &&
+              consumer == REPORTER_MODE_ROOT) ||
+             (static_cast<int>(producer) == REPORTER_MODE_DISTRIBUTED &&
+              consumer == REPORTER_MODE_REPLICATED))
       mooseError("The Reporter value \"",
                  name(),
                  "\" is being produced in ",

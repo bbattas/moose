@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -17,12 +17,22 @@ ActionComponent::validParams()
   InputParameters params = Action::validParams();
   params.addClassDescription("Base class for components that are defined using actions.");
   params.addParam<bool>("verbose", false, "Whether the component setup should be verbose");
+
+  // These parameters should not appear. Let's suppress them for now
+  params.suppressParameter<std::vector<std::string>>("active");
+  params.suppressParameter<std::vector<std::string>>("inactive");
+
   return params;
 }
 
 ActionComponent::ActionComponent(const InputParameters & params)
-  : Action(params), _dimension(libMesh::invalid_uint), _verbose(getParam<bool>("verbose"))
+  : Action(params),
+    InputParametersChecksUtils<ActionComponent>(this),
+    _dimension(libMesh::invalid_uint),
+    _verbose(getParam<bool>("verbose")),
+    _connected_components(std::make_shared<std::set<ActionComponent *>>())
 {
+  _connected_components->insert(this);
 }
 
 void
@@ -49,6 +59,12 @@ ActionComponent::act()
   // sense to include the physics than to split it off into its own block
   else if (_current_task == "add_variable")
     addSolverVariables();
+  // Useful for declaring materials on a component, which helps keep the input of local material
+  // properties on the component
+  else if (_current_task == "add_material")
+    addMaterials();
+  else if (_current_task == "check_integrity")
+    checkIntegrity();
   else
     // For a new task that isn't registered to ActionComponent in the framework
     actOnAdditionalTasks();
@@ -69,4 +85,20 @@ ActionComponent::checkRequiredTasks() const
           "' but this task is not registered to the derived class. Registered tasks for "
           "this Component are: " +
           Moose::stringify(registered_tasks));
+}
+
+void
+ActionComponent::addConnectedComponent(ActionComponent & component)
+{
+  // Already in the same group
+  if (_connected_components == component._connected_components)
+    return;
+
+  // Hold a reference to the other group before we re-point its members
+  auto other_group = component._connected_components;
+  _connected_components->insert(other_group->begin(), other_group->end());
+
+  // Every former member of the other group now shares this group's set
+  for (auto * member : *other_group)
+    member->_connected_components = _connected_components;
 }

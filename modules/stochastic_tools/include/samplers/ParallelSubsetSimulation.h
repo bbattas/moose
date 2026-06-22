@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -37,7 +37,7 @@ public:
   virtual bool isAdaptiveSamplingCompleted() const override { return _is_sampling_completed; }
 
 protected:
-  virtual void sampleSetUp(const Sampler::SampleMode mode) override;
+  virtual void executeSetUp() override;
   virtual Real computeSample(dof_id_type row_index, dof_id_type col_index) override;
 
   /// Number of samples per subset
@@ -66,9 +66,6 @@ protected:
 
   /// Maximum length of markov chains based on subset probability
   const unsigned int _count_max;
-
-  /// Ensure that the MCMC algorithm proceeds in a sequential fashion
-  int _check_step;
 
   /// Track the current subset index
   unsigned int _subset;

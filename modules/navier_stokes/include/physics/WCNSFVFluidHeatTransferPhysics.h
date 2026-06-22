@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -25,22 +25,23 @@ public:
 protected:
 private:
   virtual void addSolverVariables() override;
+  virtual void addMaterials() override;
 
   /**
    * Functions adding kernels for the incompressible / weakly compressible energy equation
    * If the material properties are not constant, some of these can be used for
    * weakly-compressible simulations as well.
    */
-  void addINSEnergyTimeKernels() override;
-  void addWCNSEnergyTimeKernels() override;
-  void addINSEnergyHeatConductionKernels() override;
-  void addINSEnergyAdvectionKernels() override;
-  void addINSEnergyAmbientConvection() override;
-  void addINSEnergyExternalHeatSource() override;
+  void addEnergyTimeKernels() override;
+  void addEnergyHeatConductionKernels() override;
+  void addEnergyAdvectionKernels() override;
+  void addEnergyAmbientConvection() override;
+  void addEnergyExternalHeatSource() override;
 
   /// Functions adding boundary conditions for the incompressible simulation.
   /// These are used for weakly-compressible simulations as well.
-  void addINSEnergyInletBC() override;
-  void addINSEnergyWallBC() override;
-  void addINSEnergyOutletBC() override {}
+  void addEnergyInletBC() override;
+  void addEnergyWallBC() override;
+  void addEnergyOutletBC() override {}
+  void addEnergySeparatorBC() override;
 };

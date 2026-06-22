@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -133,4 +133,19 @@ to_json(nlohmann::json & json, const RestartableDataReporter::Value & value)
 {
   mooseAssert(value.value, "Not set");
   value.value->store(json, value.params);
+}
+
+template <>
+void
+dataStore(std::ostream & stream, RestartableDataReporter::Value & v, void * context)
+{
+  dataStore(stream, v.params, context);
+}
+
+template <>
+void
+dataLoad(std::istream & stream, RestartableDataReporter::Value & v, void * context)
+{
+  v.value = nullptr;
+  dataLoad(stream, v.params, context);
 }

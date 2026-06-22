@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -23,13 +23,19 @@ DiffusionFV::validParams()
   params.addClassDescription("Add diffusion physics discretized with cell-centered finite volume");
   // No kernel implemented in the framework for a material property diffusivity
   params.suppressParameter<MaterialPropertyName>("diffusivity_matprop");
+  params.addRequiredParam<MooseFunctorName>("diffusivity_functor",
+                                            "Functor specifying the diffusivity");
+
   params.addParam<unsigned short>(
       "ghost_layers", 2, "Number of ghosting layers for distributed memory parallel calculations");
   params.addParamNamesToGroup("ghost_layers", "Advanced");
   return params;
 }
 
-DiffusionFV::DiffusionFV(const InputParameters & parameters) : DiffusionPhysicsBase(parameters) {}
+DiffusionFV::DiffusionFV(const InputParameters & parameters)
+  : PhysicsBase(parameters), PhysicsComponentInterface(parameters), DiffusionPhysicsBase(parameters)
+{
+}
 
 void
 DiffusionFV::initializePhysicsAdditional()
@@ -46,9 +52,7 @@ DiffusionFV::addFVKernels()
     InputParameters params = getFactory().getValidParams(kernel_type);
     assignBlocks(params, _blocks);
     params.set<NonlinearVariableName>("variable") = _var_name;
-    params.set<MooseFunctorName>("coeff") = isParamValid("diffusivity_functor")
-                                                ? getParam<MooseFunctorName>("diffusivity_functor")
-                                                : "1";
+    params.set<MooseFunctorName>("coeff") = getParam<MooseFunctorName>("diffusivity_functor");
     getProblem().addFVKernel(kernel_type, prefix() + _var_name + "_diffusion", params);
   }
   // Source term
@@ -96,7 +100,7 @@ DiffusionFV::addFVKernels()
     getProblem().addFVKernel(kernel_type, prefix() + _var_name + "_source", params);
   }
   // Time derivative
-  if (isTransient())
+  if (shouldCreateTimeDerivative(_var_name, _blocks, false))
   {
     const std::string kernel_type = "FVTimeKernel";
     InputParameters params = getFactory().getValidParams(kernel_type);
@@ -177,16 +181,16 @@ DiffusionFV::addFVBCs()
 void
 DiffusionFV::addSolverVariables()
 {
-  if (variableExists(_var_name, true))
+  if (!shouldCreateVariable(_var_name, _blocks, true))
+  {
+    reportPotentiallyMissedParameters({"system_names"}, "MooseVariableFVReal");
     return;
+  }
 
   const std::string variable_type = "MooseVariableFVReal";
   InputParameters params = getFactory().getValidParams(variable_type);
   assignBlocks(params, _blocks);
   params.set<SolverSystemName>("solver_sys") = getSolverSystem(_var_name);
-
-  // TODO: Do we need to use a different variable name maybe?
-  // Or add API to extend block definition of a boundary
   getProblem().addVariable(variable_type, _var_name, params);
 }
 

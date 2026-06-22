@@ -70,7 +70,7 @@ of time on systems that have several active variables.
 - Shape Functions are the functions that get multiplied by coefficients and summed to form the solution.
 - Individual shape functions are restrictions of the global basis functions to individual elements.
 - They are analogous to the $x^n$ functions from polynomial fitting (in fact, you can use those as shape functions).
-- Typical shape function families: Lagrange, Hermite, Hierarchic, Monomial, Clough-Toucher
+- Typical shape function families: Lagrange, Hermite, Hierarchic, Monomial, Clough-Tocher
     - MOOSE has support for all of these.
 - Lagrange shape functions are the most common.
     -  They are interpolary at the nodes, i.e., the coefficients correspond to the values of the functions at the nodes.
@@ -79,21 +79,25 @@ of time on systems that have several active variables.
 
 !media media/problems/linear-lagrange-graph.jpg
        style=width:50%;
+       alt=First order (linear) 1D Lagrange shape functions.
 
 Linear Lagrange
 
 !media media/problems/quadratic-lagrange-graph.jpg
        style=width:50%;
+       alt=Second order (quadratic) 1D Lagrange shape functions.
 
 Quadratic Lagrange
 
 !media media/problems/cubic-lagrange-graph.jpg
        style=width:50%;
+       alt=Third order (cubic) 1D Lagrange shape functions.
 
 Cubic Lagrange
 
 !media media/problems/cubic-hermite-graph.jpg
        style=width:50%;
+       alt=Third order (cubic) 1D Hermite shape functions.
 
 Cubic Hermite
 
@@ -107,16 +111,19 @@ Example bi-quadratic basis functions defined on the Quad9 element:
 
 !media media/problems/quad9-corner.jpg
        style=width:50%;
+       alt=One of the 2D quadratic Lagrange shape functions, associated with a corner node.
 
 $\psi_0$
 
 !media media/problems/quad9-edge.png
        style=width:50%;
+       alt=One of the 2D quadratic Lagrange shape functions, associated with a mid-edge node.
 
 $\psi_4$
 
 !media media/problems/quad9-center.jpg
        style=width:50%;
+       alt=One of the 2D quadratic Lagrange shape functions, associated with the center node.
 
 $\psi_8$
 

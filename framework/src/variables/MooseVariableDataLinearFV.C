@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -22,6 +22,7 @@
 #include "SubProblem.h"
 #include "FVKernel.h"
 #include "ADUtils.h"
+#include "MooseLinearVariableFV.h"
 
 #include "libmesh/quadrature.h"
 #include "libmesh/fe_base.h"
@@ -111,7 +112,7 @@ MooseVariableDataLinearFV<OutputType>::computeValues()
   unsigned int num_dofs = _dof_indices.size();
 
   if (num_dofs > 0)
-    fetchDoFValues();
+    fetchDofValues();
   else
     // We don't have any dofs. There's nothing to do
     return;
@@ -137,7 +138,7 @@ MooseVariableDataLinearFV<OutputType>::computeValues()
 
 template <typename OutputType>
 void
-MooseVariableDataLinearFV<OutputType>::setDofValue(const OutputData & value, unsigned int index)
+MooseVariableDataLinearFV<OutputType>::setDofValue(const DofValue & value, unsigned int index)
 {
   mooseAssert(index == 0, "We only ever have one dof value locally");
   _vector_tags_dof_u[_solution_tag][index] = value;
@@ -151,7 +152,7 @@ MooseVariableDataLinearFV<OutputType>::setDofValue(const OutputData & value, uns
 
 template <typename OutputType>
 void
-MooseVariableDataLinearFV<OutputType>::setDofValues(const DenseVector<OutputData> & values)
+MooseVariableDataLinearFV<OutputType>::setDofValues(const DenseVector<DofValue> & values)
 {
   auto & dof_values = _vector_tags_dof_u[_solution_tag];
   for (unsigned int i = 0; i < values.size(); i++)
@@ -165,6 +166,13 @@ MooseVariableDataLinearFV<OutputType>::getDofIndices(const Elem * elem,
                                                      std::vector<dof_id_type> & dof_indices) const
 {
   _dof_map.dof_indices(elem, dof_indices, _var_num);
+}
+
+template <typename OutputType>
+const MooseLinearVariableFV<OutputType> &
+MooseVariableDataLinearFV<OutputType>::var() const
+{
+  return _var;
 }
 
 template class MooseVariableDataLinearFV<Real>;

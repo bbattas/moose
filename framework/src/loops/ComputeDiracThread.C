@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -148,7 +148,6 @@ ComputeDiracThread::onElement(const Elem * elem)
 void
 ComputeDiracThread::postElement(const Elem * /*elem*/)
 {
-  Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
   if (!_is_jacobian)
     _fe_problem.addResidual(_tid);
   else

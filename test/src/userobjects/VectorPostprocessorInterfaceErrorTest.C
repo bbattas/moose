@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -33,6 +33,10 @@ VectorPostprocessorInterfaceErrorTest::validParams()
   params.addParam<bool>("has_early", false, "Test the error for seeing if a vpp exists too early");
   params.addParam<bool>(
       "has_early_by_name", false, "Test the error for seeing if a vpp exists by name too early");
+
+  params.addParam<bool>("call_getter_too_early",
+                        false,
+                        "Test the error for querying a VPP from the problem too early");
 
   params.addParam<bool>(
       "missing_vpp",
@@ -70,6 +74,8 @@ VectorPostprocessorInterfaceErrorTest::VectorPostprocessorInterfaceErrorTest(
     hasVectorPostprocessor("vpp");
   if (getParam<bool>("has_early_by_name"))
     hasVectorPostprocessorByName("vpp");
+  if (getParam<bool>("call_getter_too_early"))
+    isVectorPostprocessorDistributed("vpp");
 }
 
 void

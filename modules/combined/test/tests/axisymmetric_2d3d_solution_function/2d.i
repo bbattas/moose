@@ -4,12 +4,9 @@
   displacements = 'disp_x disp_y'
 []
 
-[Problem]
-  coord_type = RZ
-[]
-
 [Mesh]
   file = 2d.e
+  coord_type = RZ
 []
 
 [Variables]
@@ -155,7 +152,7 @@
   type = Transient
   solve_type = 'PJFNK'
 
-  petsc_options = '-ksp_snes_ew'
+  petsc_options = '-snes_ksp_ew'
   petsc_options_iname = '-ksp_gmres_restart -pc_type -pc_hypre_type -pc_hypre_boomeramg_max_iter'
   petsc_options_value = ' 201                hypre    boomeramg      4'
   line_search = 'none'

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -11,6 +11,7 @@
 
 #include "ComputeElasticityTensorBase.h"
 #include "GrainDataTracker.h"
+#include "EulerAngleProvider.h"
 
 // Forward Declarations
 class EulerAngleProvider;
@@ -39,6 +40,12 @@ protected:
 
   /// Order parameters
   const std::vector<const VariableValue *> _vals;
+
+  /// object providing the Euler angles
+  const EulerAngleProvider * const _euler;
+
+  /// Crystal Rotation Matrix used to rotate the slip system direction and normal
+  MaterialProperty<RankTwoTensor> * _crysrot;
 
   /// vector of elasticity tensor material properties
   std::vector<MaterialProperty<RankFourTensor> *> _D_elastic_tensor;

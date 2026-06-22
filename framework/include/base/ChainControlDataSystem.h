@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -80,6 +80,9 @@ public:
    */
   const std::map<std::string, std::unique_ptr<ChainControlDataBase>> &
   getChainControlDataMap() const;
+
+  /// Output the chain control map to a string
+  std::string outputChainControlMap() const;
 
 private:
   /// The MooseApp that owns this system

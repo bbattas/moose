@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -22,6 +22,8 @@ public:
   static InputParameters validParams();
 
   static const std::set<std::string> & mooseLineSearches();
+
+  virtual void initialSetup() override;
 
   /**
    * Picard solve the FEProblem.
@@ -65,4 +67,14 @@ protected:
   const bool _using_multi_sys_fp_iterations;
   /// Convergence object to assess the convergence of the multi-system fixed point iteration
   Convergence * _multi_sys_fp_convergence;
+  /// Per-system relaxation factors for multi-system fixed point iterations (expanded to
+  /// match the number/order of systems being solved)
+  std::vector<Real> _multi_sys_fp_relax_factors;
+
+private:
+  /// Performs setup related to Convergence objects
+  void convergenceSetup();
+
+  /// Initializes/expands the multi-system fixed point relaxation factors
+  void setupMultiSystemFixedPointRelaxationFactors();
 };

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -18,6 +18,10 @@
 class MooseApp;
 class MeshGeneratorMesh;
 class MeshGenerator;
+namespace CSG
+{
+class CSGBase;
+}
 
 /**
  * System that manages MeshGenerators.
@@ -121,6 +125,22 @@ public:
   std::vector<std::string> getSavedMeshNames() const;
 
   /**
+   * Set whether mesh generator system is running in CSG-only mode to true
+   */
+  void setCSGOnly();
+
+  /**
+   * Get whether mesh generator system is running in CSG-only mode
+   */
+  bool getCSGOnly() const { return _csg_only; }
+
+  const std::vector<std::vector<MeshGenerator *>> & getOrderedMeshGenerators() const
+  {
+    mooseAssert(_ordered_mesh_generators.size(), "Mesh generator order has not been set");
+    return _ordered_mesh_generators;
+  }
+
+  /**
    * @returns Whether or not a mesh generator exists with the name \p name.
    */
   bool hasMeshGenerator(const MeshGeneratorName & name) const;
@@ -152,11 +172,6 @@ public:
   static std::string mainMeshGeneratorName() { return "main"; };
 
   /**
-   * @return Whether any of our mesh generators were of type \p BreakMeshByBlockGenerator
-   */
-  bool hasBreakMeshByBlockGenerator() const { return _has_bmbb; }
-
-  /**
    * @return Whether or not data driven generation is enabled in the app
    */
   bool hasDataDrivenAllowed() const;
@@ -171,6 +186,28 @@ public:
 
   /// Get the name of the final mesh generator
   MeshGeneratorName getFinalMeshGeneratorName() const { return _final_generator_name; }
+
+  /// Set the verbose flag
+  void setVerbose(const bool verbose) { _verbose = verbose; }
+
+  /**
+   * Saves the CSGBase object to the global map storage, _csg_base_output, for a particular mesh
+   * generator.
+   * Note that this moves the memory ownership of the CSGBase to the MeshGeneratorSystem.
+   *
+   * @param generator_name Name of mesh generator
+   * @param csg_base Pointer to CSGBase object created by mesh generator
+   */
+  void saveOutputCSGBase(const MeshGeneratorName generator_name,
+                         std::unique_ptr<CSG::CSGBase> & csg_base);
+
+  /**
+   * Returns the output CSGBase object associated with a particular mesh generator name
+   *
+   * @param name Name of mesh generator
+   * @return Pointer to CSGBase object associated with mesh generator name
+   */
+  std::unique_ptr<CSG::CSGBase> & getCSGBaseGeneratorOutput(const MeshGeneratorName & name);
 
 private:
   /**
@@ -239,6 +276,12 @@ private:
   /// The name of the data driven generator, if any
   std::optional<std::string> _data_driven_generator_name;
 
-  /// Whether any of the mesh generators are a \p BreakMeshByBlockGenerator
-  bool _has_bmbb;
+  /// Whether to print the names of the mesh generators being executed or not
+  bool _verbose;
+
+  /// Whether mesh generator system is running in CSG-only mode
+  bool _csg_only;
+
+  /// Holds the output CSGBase object for each mesh generator - including duplicates when needed by multiple downstream generators (key is MG name, value list is duplicates)
+  std::map<std::string, std::list<std::unique_ptr<CSG::CSGBase>>> _csg_base_outputs;
 };

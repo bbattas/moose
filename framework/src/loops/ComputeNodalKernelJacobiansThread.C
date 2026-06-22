@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -78,7 +78,7 @@ ComputeNodalKernelJacobiansThread::onNode(ConstNodeRange::const_iterator & node_
     // The NodalKernels that are active and are coupled to the jvar in question
     std::vector<std::shared_ptr<NodalKernelBase>> active_involved_kernels;
 
-    const std::set<SubdomainID> & block_ids = _aux_sys.mesh().getNodeBlockIds(*node);
+    const auto & block_ids = _aux_sys.mesh().getNodeBlockIds(*node);
     for (const auto & block : block_ids)
     {
       if (_nkernel_warehouse->hasActiveBlockObjects(block, _tid))
@@ -121,15 +121,16 @@ ComputeNodalKernelJacobiansThread::onNode(ConstNodeRange::const_iterator & node_
       _fe_problem.reinitNode(node, _tid);
 
       for (const auto & nodal_kernel : active_involved_kernels)
+      {
+        nodal_kernel->setSubdomains(block_ids);
         nodal_kernel->computeOffDiagJacobian(jvar);
+      }
 
       _num_cached++;
 
       if (_num_cached == 20) // Cache 20 nodes worth before adding into the residual
       {
         _num_cached = 0;
-        // vectors are thread-safe, but matrices are not yet
-        Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
         _fe_problem.addCachedJacobian(_tid);
       }
     }

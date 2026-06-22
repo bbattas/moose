@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -99,8 +99,6 @@ Closures1PhaseSimple::addMooseObjectsHeatTransfer(const HeatTransferBase & heat_
     _sim.addMaterial(
         class_name, genName(heat_transfer.name(), "Hw_material", flow_channel.name()), params);
   }
-
-  heat_transfer.makeFunctionControllableIfConstant(Hw_fn_name, "Hw");
 }
 
 void

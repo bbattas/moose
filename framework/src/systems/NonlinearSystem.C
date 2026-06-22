@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -18,9 +18,6 @@
 #include "ComputeFDResidualFunctor.h"
 #include "MooseVariableScalar.h"
 #include "MooseTypes.h"
-#include "SolutionInvalidity.h"
-#include "HDGPrimalSolutionUpdateThread.h"
-#include "HDGKernel.h"
 #include "AuxiliarySystem.h"
 #include "Console.h"
 
@@ -111,7 +108,6 @@ NonlinearSystem::NonlinearSystem(FEProblemBase & fe_problem, const std::string &
   nonlinearSolver()->nullspace = Moose::compute_nullspace;
   nonlinearSolver()->transpose_nullspace = Moose::compute_transpose_nullspace;
   nonlinearSolver()->nearnullspace = Moose::compute_nearnullspace;
-  nonlinearSolver()->precheck_object = this;
 
   PetscNonlinearSolver<Real> * petsc_solver =
       static_cast<PetscNonlinearSolver<Real> *>(_nl_implicit_sys.nonlinear_solver.get());
@@ -124,19 +120,6 @@ NonlinearSystem::NonlinearSystem(FEProblemBase & fe_problem, const std::string &
 }
 
 NonlinearSystem::~NonlinearSystem() {}
-
-void
-NonlinearSystem::preInit()
-{
-  NonlinearSystemBase::preInit();
-
-  if (_automatic_scaling && _resid_vs_jac_scaling_param < 1. - TOLERANCE)
-    // Add diagonal matrix that will be used for computing scaling factors
-    _nl_implicit_sys.add_matrix<DiagonalMatrix>("scaling_matrix");
-
-  if (_hybridized_kernels.hasObjects())
-    addVector(HDGKernel::lm_increment_vector_name, true, GHOSTED);
-}
 
 void
 NonlinearSystem::potentiallySetupFiniteDifferencing()
@@ -164,10 +147,6 @@ NonlinearSystem::solve()
   if (_fe_problem.hasDampers() || _fe_problem.shouldUpdateSolution() ||
       _fe_problem.needsPreviousNewtonIteration())
     _nl_implicit_sys.nonlinear_solver->postcheck = Moose::compute_postcheck;
-
-  // reset solution invalid counter for the time step
-  if (!_time_integrators.empty())
-    _app.solutionInvalidity().resetSolutionInvalidTimeStep();
 
   if (shouldEvaluatePreSMOResidual())
   {
@@ -222,9 +201,6 @@ NonlinearSystem::solve()
 
   // store info about the solve
   _final_residual = _nl_implicit_sys.final_nonlinear_residual();
-
-  // Accumulate only the occurence of solution invalid warnings
-  _app.solutionInvalidity().solutionInvalidAccumulationTimeStep();
 
   // determine whether solution invalid occurs in the converged solution
   checkInvalidSolution();
@@ -331,10 +307,19 @@ NonlinearSystem::setupColoringFiniteDifferencedPreconditioner()
                     MatFDColoringCreate(petsc_mat->mat(), iscoloring, &_fdcoloring));
   LibmeshPetscCallA(_communicator.get(), MatFDColoringSetFromOptions(_fdcoloring));
   // clang-format off
-  LibmeshPetscCallA(_communicator.get(), MatFDColoringSetFunction(_fdcoloring,
-                                                                  (PetscErrorCode(*)(void))(void (*)(void)) &
-                                                                      libMesh::libmesh_petsc_snes_fd_residual,
-                                                                  &petsc_nonlinear_solver));
+#if PETSC_VERSION_LESS_THAN(3, 24, 0)
+  LibmeshPetscCallA(_communicator.get(),
+                    MatFDColoringSetFunction(_fdcoloring,
+                                             (PetscErrorCode(*)(void))(void (*)(void))
+                                             &libMesh::libmesh_petsc_snes_fd_residual,
+                                             &petsc_nonlinear_solver));
+#else
+  LibmeshPetscCallA(_communicator.get(),
+                    MatFDColoringSetFunction(_fdcoloring,
+                                             (MatFDColoringFn*)
+                                             &libMesh::libmesh_petsc_snes_fd_residual,
+                                             &petsc_nonlinear_solver));
+#endif
   // clang-format on
   LibmeshPetscCallA(_communicator.get(),
                     MatFDColoringSetUp(petsc_mat->mat(), iscoloring, _fdcoloring));
@@ -353,7 +338,11 @@ NonlinearSystem::converged()
 {
   if (_fe_problem.hasException() || _fe_problem.getFailNextNonlinearConvergenceCheck())
     return false;
-  if (!_fe_problem.acceptInvalidSolution())
+  // When not computing the residual (for example at the beginning of a time step),
+  // we may be in the process of counting invalid solution warnings, so the call to
+  // acceptInvalidSolution() would fail due to lack of parallel synchronization
+  // TODO: think of a better solution
+  if (_app.solutionInvalidity().hasSynced() && !_fe_problem.acceptInvalidSolution())
   {
     mooseWarning("The solution is not converged due to the solution being invalid.");
     return false;
@@ -386,7 +375,16 @@ NonlinearSystem::getSNES()
       dynamic_cast<PetscNonlinearSolver<Number> *>(nonlinearSolver());
 
   if (petsc_solver)
-    return petsc_solver->snes();
+  {
+    const char * snes_prefix = nullptr;
+    std::string snes_prefix_str;
+    if (system().prefix_with_name())
+    {
+      snes_prefix_str = system().prefix();
+      snes_prefix = snes_prefix_str.c_str();
+    }
+    return petsc_solver->snes(snes_prefix);
+  }
   else
     mooseError("It is not a petsc nonlinear solver");
 }
@@ -394,7 +392,7 @@ NonlinearSystem::getSNES()
 void
 NonlinearSystem::residualAndJacobianTogether()
 {
-  if (_fe_problem.solverParams()._type == Moose::ST_JFNK)
+  if (_fe_problem.solverParams(number())._type == Moose::ST_JFNK)
     mooseError(
         "Evaluting the residual and Jacobian together does not make sense for a JFNK solve type in "
         "which only function evaluations are required, e.g. there is no need to form a matrix");
@@ -402,34 +400,4 @@ NonlinearSystem::residualAndJacobianTogether()
   nonlinearSolver()->residual_object = nullptr;
   nonlinearSolver()->jacobian = nullptr;
   nonlinearSolver()->residual_and_jacobian_object = &_resid_and_jac_functor;
-}
-
-void
-NonlinearSystem::precheck(const NumericVector<Number> & /*precheck_soln*/,
-                          NumericVector<Number> & search_direction,
-                          bool & /*changed*/,
-                          NonlinearImplicitSystem & /*S*/)
-{
-  if (!_hybridized_kernels.hasActiveObjects())
-    return;
-
-  auto & ghosted_increment = getVector(HDGKernel::lm_increment_vector_name);
-  ghosted_increment.zero();
-  // The search direction coming from PETSc is the negative of the solution update
-  ghosted_increment -= search_direction;
-
-  PARALLEL_TRY
-  {
-    TIME_SECTION("HDG kernel primal solution update",
-                 3 /*, "Computing hybridized kernel primal solution update"*/);
-    ConstElemRange & elem_range = *_mesh.getActiveLocalElementRange();
-    HDGPrimalSolutionUpdateThread pre_thread(_fe_problem, _hybridized_kernels);
-    Threads::parallel_reduce(elem_range, pre_thread);
-  }
-  PARALLEL_CATCH;
-  // The primal variables live in the aux system
-  auto & aux = _fe_problem.getAuxiliarySystem();
-  aux.solution().close();
-  // scatter into ghosted current local solution
-  aux.update();
 }

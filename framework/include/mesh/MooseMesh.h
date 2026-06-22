@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,6 +8,10 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #pragma once
+
+#ifdef MOOSE_KOKKOS_ENABLED
+#include "KokkosMesh.h"
+#endif
 
 #include "MooseObject.h"
 #include "BndNode.h"
@@ -61,7 +65,8 @@ const std::string LIST_GEOM_ELEM = "EDGE EDGE2 EDGE3 EDGE4 "
                                    "HEX HEX8 HEX20 HEX27 "
                                    "TET TET4 TET10 TET14 "
                                    "PRISM PRISM6 PRISM15 PRISM18 "
-                                   "PYRAMID PYRAMID5 PYRAMID13 PYRAMID14";
+                                   "PYRAMID PYRAMID5 PYRAMID13 PYRAMID14 "
+                                   "C0POLYGON C0POLYHEDRON";
 
 /**
  * Helper object for holding qp mapping info.
@@ -92,6 +97,13 @@ public:
    * Typical "Moose-style" constructor and copy constructor.
    */
   static InputParameters validParams();
+
+  /**
+   * Default value for the automatically detected paired boundaries for
+   * each unit dimension, in which the value for each unit dimension is
+   * false (not detected).
+   */
+  static const std::array<bool, 3> periodic_dim_default;
 
   MooseMesh(const InputParameters & parameters);
   MooseMesh(const MooseMesh & other_mesh);
@@ -177,6 +189,11 @@ public:
   virtual unsigned int dimension() const;
 
   /**
+   * Returns MeshBase::spatial_dimension
+   */
+  virtual unsigned int spatialDimension() const { return _mesh->spatial_dimension(); }
+
+  /**
    * Returns the effective spatial dimension determined by the coordinates actually used by the
    * mesh. This means that a 1D mesh that has non-zero z or y coordinates is actually a 2D or 3D
    * mesh, respectively. Likewise a 2D mesh that has non-zero z coordinates is actually 3D mesh.
@@ -194,6 +211,11 @@ public:
    */
   std::vector<BoundaryID> getBoundaryIDs(const Elem * const elem,
                                          const unsigned short int side) const;
+
+  /**
+   * Returns a vector of vector of boundary IDs for the requested element on each of its sides
+   */
+  std::vector<std::vector<BoundaryID>> getBoundaryIDs(const Elem * const elem) const;
 
   /**
    * Returns a const pointer to a lower dimensional element that
@@ -269,16 +291,8 @@ public:
   void buildNodeListFromSideList();
 
   /**
-   * Calls BoundaryInfo::build_side_list().
-   * Fills in the three passed vectors with list logical (element, side, id) tuples.
-   * This function will eventually be deprecated in favor of the one below, which
-   * returns a single std::vector of (elem-id, side-id, bc-id) tuples instead.
-   */
-  void buildSideList(std::vector<dof_id_type> & el,
-                     std::vector<unsigned short int> & sl,
-                     std::vector<boundary_id_type> & il);
-  /**
-   * As above, but uses the non-deprecated std::tuple interface.
+   * Calls BoundaryInfo::build_side_list(), returns a std::vector of
+   * (elem-id, side-id, bc-id) tuples.
    */
   std::vector<std::tuple<dof_id_type, unsigned short int, boundary_id_type>> buildSideList();
 
@@ -315,6 +329,15 @@ public:
    */
   virtual dof_id_type nNodes() const;
   virtual dof_id_type nElem() const;
+
+  virtual dof_id_type nLocalNodes() const { return _mesh->n_local_nodes(); }
+  virtual dof_id_type nActiveElem() const { return _mesh->n_active_elem(); }
+  virtual dof_id_type nActiveLocalElem() const { return _mesh->n_active_local_elem(); }
+  // NOTE: Expensive operation (iterates through all elements to gather subdomains)
+  virtual SubdomainID nSubdomains() const { return _mesh->n_subdomains(); }
+  virtual unsigned int nPartitions() const { return _mesh->n_partitions(); }
+  virtual bool skipPartitioning() const { return _mesh->skip_partitioning(); }
+  virtual bool skipNoncriticalPartitioning() const;
 
   /**
    * Calls max_node/elem_id() on the underlying libMesh mesh object.
@@ -651,6 +674,14 @@ public:
   const MeshBase * getMeshPtr() const;
 
   /**
+   * Accessor for Kokkos mesh object.
+   */
+#ifdef MOOSE_KOKKOS_ENABLED
+  Moose::Kokkos::Mesh * getKokkosMesh() { return _kokkos_mesh.get(); }
+  const Moose::Kokkos::Mesh * getKokkosMesh() const { return _kokkos_mesh.get(); }
+#endif
+
+  /**
    * Calls print_info() on the underlying Mesh.
    */
   void printInfo(std::ostream & os = libMesh::out, const unsigned int verbosity = 0) const;
@@ -710,7 +741,7 @@ public:
   /**
    * Get the associated BoundaryID for the boundary name.
    *
-   * @return param boundary_name The name of the boundary.
+   * @param boundary_name The name of the boundary.
    * @return the boundary id from the passed boundary name.
    */
   BoundaryID getBoundaryID(const BoundaryName & boundary_name) const;
@@ -718,7 +749,7 @@ public:
   /**
    * Get the associated BoundaryID for the boundary names that are passed in.
    *
-   * @return param boundary_name The names of the boundaries.
+   * @param boundary_name The names of the boundaries.
    * @return the boundary ids from the passed boundary names.
    */
   std::vector<BoundaryID> getBoundaryIDs(const std::vector<BoundaryName> & boundary_name,
@@ -735,10 +766,12 @@ public:
   /**
    * Get the associated subdomainIDs for the subdomain names that are passed in.
    *
-   * @param subdomain_name The names of the subdomains
+   * @param subdomain_names The names of the subdomains
    * @return The subdomain ids from the passed subdomain names.
    */
-  std::vector<SubdomainID> getSubdomainIDs(const std::vector<SubdomainName> & subdomain_name) const;
+  std::vector<SubdomainID>
+  getSubdomainIDs(const std::vector<SubdomainName> & subdomain_names) const;
+  std::set<SubdomainID> getSubdomainIDs(const std::set<SubdomainName> & subdomain_names) const;
 
   /**
    * This method sets the name for \p subdomain_id to \p name
@@ -773,7 +806,13 @@ public:
   /**
    * Return the name of the boundary given the id.
    */
-  const std::string & getBoundaryName(BoundaryID boundary_id);
+  const std::string & getBoundaryName(const BoundaryID boundary_id) const;
+
+  /**
+   * Return the name of the boundary given the id, if it exists. Otherwise, return
+   * the id as a string.
+   */
+  std::string getBoundaryString(const BoundaryID boundary_id) const;
 
   /**
    * This routine builds a multimap of boundary ids to matching boundary ids across all periodic
@@ -820,40 +859,154 @@ public:
    * For "regular orthogonal" meshes, determine if variable var_num is periodic with respect to the
    * primary and secondary BoundaryIDs, record this fact in the _periodic_dim data structure.
    */
-  void addPeriodicVariable(unsigned int var_num, BoundaryID primary, BoundaryID secondary);
+  void addPeriodicVariable(const unsigned int sys_num,
+                           const unsigned int var_num,
+                           const BoundaryID primary,
+                           const BoundaryID secondary);
+
+  /**
+   * Query the translated periodic dimension flags for the given variable on the given system.
+   *
+   * Query here means that it will not error if a variable isn't found to be periodic, instead
+   * the default value is returned (false for each dimension)
+   *
+   * @param sys_num - The number of the system the variable is on
+   * @param var_num - The variable number
+   */
+  const std::array<bool, 3> & queryPeriodicDimensions(const unsigned int sys_num,
+                                                      const unsigned int var_num) const;
+  /**
+   * Query the translated periodic dimension flags for the given variable.\
+   *
+   * Query here means that it will not error if a variable isn't found to be periodic, instead
+   * the default value is returned (false for each dimension)
+   *
+   * @param var - The variable
+   */
+  const std::array<bool, 3> & queryPeriodicDimensions(const MooseVariableBase & var) const;
+
+  /**
+   * Returns whether this generated mesh is periodic in the given dimension for the given variable
+   * on the given system.
+   * @param sys_num - The number of the system the variable is on
+   * @param var_num - The variable number
+   * @param component - An integer representing the desired component (dimension)
+   */
+  bool isTranslatedPeriodic(const unsigned int sys_num,
+                            const unsigned int var_num,
+                            const unsigned int component) const;
 
   /**
    * Returns whether this generated mesh is periodic in the given dimension for the given variable.
-   * @param nonlinear_var_num - The nonlinear variable number
+   * @param var - The variable
    * @param component - An integer representing the desired component (dimension)
    */
-  bool isTranslatedPeriodic(unsigned int nonlinear_var_num, unsigned int component) const;
+  bool isTranslatedPeriodic(const MooseVariableBase & var, const unsigned int component) const;
 
   /**
-   * This function returns the minimum vector between two points on the mesh taking into account
-   * periodicity for the given variable number.
-   * @param nonlinear_var_num - The nonlinear variable number
+   * Returns whether this generated mesh is periodic in the given dimension for the given variable.
+   *
+   * Deprecated method; assumes the system number is 0. Use the method that
+   * additionally takes the system number or the MooseVariableBase instead.
+   *
+   * @param var_num - The variable number
+   * @param component - An integer representing the desired component (dimension)
+   */
+  bool isTranslatedPeriodic(const unsigned int var_num, const unsigned int component) const;
+
+  /**
+   * Returns the minimum vector between two points on the mesh taking into account
+   * periodicity for the given variable on the given system.
+   * @param sys_num - The number of the system the variable is on
+   * @param var_num - The variable number
    * @param p, q - The points between which to compute a minimum vector
    * @return RealVectorValue - The vector pointing from p to q
    */
-  RealVectorValue minPeriodicVector(unsigned int nonlinear_var_num, Point p, Point q) const;
+  RealVectorValue
+  minPeriodicVector(const unsigned int sys_num, const unsigned int var_num, Point p, Point q) const;
 
   /**
-   * This function returns the distance between two points on the mesh taking into account
-   * periodicity for the given variable number.
-   * @param nonlinear_var_num - The nonlinear variable number
+   * Returns the minimum vector between two points on the mesh taking into account
+   * periodicity for the given variable.
+   * @param var - The variable
+   * @param p, q - The points between which to compute a minimum vector
+   * @return RealVectorValue - The vector pointing from p to q
+   */
+  RealVectorValue
+  minPeriodicVector(const MooseVariableBase & var, const Point & p, const Point & q) const;
+
+  /**
+   * Returns the minimum vector between two points on the mesh taking into account
+   * periodicity for the given variable on the given system.
+   *
+   * Deprecated method; assumes the system number is 0. Use the method that
+   * additionally takes the system number or the MooseVariableBase instead.
+   *
+   * @param var_num - The variable number
+   * @param p, q - The points between which to compute a minimum vector
+   * @return RealVectorValue - The vector pointing from p to q
+   */
+  RealVectorValue
+  minPeriodicVector(const unsigned int var_num, const Point & p, const Point & q) const;
+
+  /**
+   * Returns the distance between two points on the mesh taking into account
+   * periodicity for the given variable on the given system.
+   * @param sys_num - The number of the system the variable is on
+   * @param var_num - The variable number
    * @param p, q - The points for which to compute a minimum distance
    * @return Real - The L2 distance between p and q
    */
-  Real minPeriodicDistance(unsigned int nonlinear_var_num, Point p, Point q) const;
+  Real minPeriodicDistance(const unsigned int sys_num,
+                           const unsigned int var_num,
+                           const Point & p,
+                           const Point & q) const;
+
+  /**
+   * Returns the distance between two points on the mesh taking into account
+   * periodicity for the given variable.
+   * @param var - The variable
+   * @param p, q - The points for which to compute a minimum distance
+   * @return Real - The L2 distance between p and q
+   */
+  Real minPeriodicDistance(const MooseVariableBase & var, const Point & p, const Point & q) const;
+
+  /**
+   * Returns the distance between two points on the mesh taking into account
+   * periodicity for the given variable.
+   *
+   * Deprecated method; assumes the system number is 0. Use the method that
+   * additionally takes the system number or the MooseVariableBase instead.
+   *
+   * @param var_num - The variable number
+   * @param p, q - The points for which to compute a minimum distance
+   * @return Real - The L2 distance between p and q
+   */
+  Real minPeriodicDistance(const unsigned int var_num, const Point & p, const Point & q) const;
+
+  /**
+   * This routine detects paired sidesets of a regular orthogonal mesh (.i.e. parallel sidesets
+   * "across" from one and other).
+   *
+   * The _paired_boundary datastructure is populated with this information.
+   */
+  void detectPairedSidesets();
+
+  /**
+   * Whether or not detectedPairedSidesets() has been called.
+   */
+  bool hasDetectedPairedSidesets() const { return _paired_boundary.has_value(); }
 
   /**
    * This function attempts to return the paired boundary ids for the given component.  For example,
    * in a generated 2D mesh, passing 0 for the "x" component will return (3, 1).
+   *
+   * Must have called detectPairedSidesets() prior to using.
+   *
    * @param component - An integer representing the desired component (dimension)
    * @return std::pair pointer - The matching boundary pairs for the passed component
    */
-  const std::pair<BoundaryID, BoundaryID> * getPairedBoundaryMapping(unsigned int component);
+  const std::pair<BoundaryID, BoundaryID> * getPairedBoundaryMapping(unsigned int component) const;
 
   /**
    * Create the refinement and coarsening maps necessary for projection of stateful material
@@ -983,7 +1136,7 @@ public:
   /**
    * Returns the final Mesh distribution type.
    */
-  bool isDistributedMesh() const { return _use_distributed_mesh; }
+  virtual bool isDistributedMesh() const { return _use_distributed_mesh; }
 
   /**
    * Tell the user if the distribution was overriden for any reason
@@ -1125,6 +1278,21 @@ public:
   std::set<dof_id_type> getElemIDsOnBlocks(unsigned int elem_id_index,
                                            const std::set<SubdomainID> & blks) const;
 
+  /**
+   * Get the maximum number of sides per element
+   */
+  unsigned int getMaxSidesPerElem() const { return _max_sides_per_elem; }
+
+  /**
+   * Get the maximum number of nodes per element
+   */
+  unsigned int getMaxNodesPerElem() const { return _max_nodes_per_elem; }
+
+  /**
+   * Get the maximum number of nodes per side
+   */
+  unsigned int getMaxNodesPerSide() const { return _max_nodes_per_side; }
+
   std::unordered_map<dof_id_type, std::set<dof_id_type>>
   getElemIDMapping(const std::string & from_id_name, const std::string & to_id_name) const;
 
@@ -1188,12 +1356,12 @@ public:
   void computeFiniteVolumeCoords() const;
 
   /**
-   * Set whether this mesh is displaced
+   * Set whether this mesh is a displaced mesh
    */
   void isDisplaced(bool is_displaced) { _is_displaced = is_displaced; }
 
   /**
-   * whether this mesh is displaced
+   * whether this mesh is a displaced mesh
    */
   bool isDisplaced() const { return _is_displaced; }
 
@@ -1327,14 +1495,24 @@ public:
   void setupFiniteVolumeMeshData() const;
 
   /**
-   * Indicate whether the kind of adaptivity we're doing is p-refinement
+   * Indicate whether the kind of adaptivity we're doing includes p-refinement
    */
   void doingPRefinement(bool doing_p_refinement) { _doing_p_refinement = doing_p_refinement; }
 
   /**
-   * Query whether we have p-refinement
+   * Query whether the kind of adaptivity we're doing includes p-refinement
    */
   [[nodiscard]] bool doingPRefinement() const { return _doing_p_refinement; }
+
+  /**
+   * Returns the maximum p-refinement level of all elements
+   */
+  unsigned int maxPLevel() const { return _max_p_level; }
+
+  /**
+   * Returns the maximum h-refinement level of all elements
+   */
+  unsigned int maxHLevel() const { return _max_h_level; }
 
   /**
    * Get the map describing for each volumetric quadrature point (qp) on the refined level which qp
@@ -1360,17 +1538,9 @@ public:
   void buildPRefinementAndCoarseningMaps(Assembly * assembly);
 
   /**
-   * @return Whether the subdomain indicated by \p subdomain_id is a lower-dimensional manifold of
-   * some higher-dimensional subdomain, or in implementation speak, whether the elements of this
-   * subdomain have non-null interior parents
+   * @return Whether there are any lower-dimensional blocks
    */
-  bool isLowerD(const SubdomainID subdomain_id) const;
-
-  /**
-   * @return Whether there are any lower-dimensional blocks that are manifolds of higher-dimensional
-   * block faces
-   */
-  bool hasLowerD() const { return _has_lower_d; }
+  bool hasLowerD() const { return getMesh().elem_dimensions().size() > 1; }
 
   /**
    * @return The set of lower-dimensional blocks for interior sides
@@ -1380,6 +1550,12 @@ public:
    * @return The set of lower-dimensional blocks for boundary sides
    */
   const std::set<SubdomainID> & boundaryLowerDBlocks() const { return _lower_d_boundary_blocks; }
+
+  /// Return construct node list from side list boolean
+  bool getConstructNodeListFromSideList() { return _construct_node_list_from_side_list; }
+
+  /// Return displace node list by side list boolean
+  bool getDisplaceNodeListBySideList() { return _displace_node_list_by_side_list; }
 
 protected:
   /// Deprecated (DO NOT USE)
@@ -1404,6 +1580,11 @@ protected:
 
   /// Pointer to underlying libMesh mesh object
   std::unique_ptr<libMesh::MeshBase> _mesh;
+
+  /// Pointer to Kokkos mesh object
+#ifdef MOOSE_KOKKOS_ENABLED
+  std::unique_ptr<Moose::Kokkos::Mesh> _kokkos_mesh;
+#endif
 
   /// The partitioner used on this mesh
   MooseEnum _partitioner_name;
@@ -1483,8 +1664,8 @@ protected:
   bool _node_to_active_semilocal_elem_map_built;
 
   /**
-   * A set of subdomain IDs currently present in the mesh. For parallel meshes, includes subdomains
-   * defined on other processors as well.
+   * A set of subdomain IDs currently present in the mesh. For parallel meshes, includes
+   * subdomains defined on other processors as well.
    */
   std::set<SubdomainID> _mesh_subdomains;
 
@@ -1553,7 +1734,7 @@ protected:
   std::vector<std::vector<Real>> _bounds;
 
   /// A vector holding the paired boundaries for a regular orthogonal mesh
-  std::vector<std::pair<BoundaryID, BoundaryID>> _paired_boundary;
+  std::optional<std::vector<std::pair<BoundaryID, BoundaryID>>> _paired_boundary;
 
   /// Whether or not we are using a (pre-)split mesh (automatically DistributedMesh)
   const bool _is_split;
@@ -1593,10 +1774,12 @@ private:
   mutable bool _linear_finite_volume_dofs_cached = false;
 
   /**
-   * A map of vectors indicating which dimensions are periodic in a regular orthogonal mesh for
-   * the specified variable numbers.  This data structure is populated by addPeriodicVariable.
+   * A map from (system number, vector number) to which dimensions are periodic in a regular
+   * orthogonal mesh.
+   *
+   * This data structure is populated by addPeriodicVariable.
    */
-  std::map<unsigned int, std::vector<bool>> _periodic_dim;
+  std::map<std::pair<unsigned int, unsigned int>, std::array<bool, 3>> _periodic_dim;
 
   /**
    * A convenience vector used to hold values in each dimension representing half of the range.
@@ -1605,13 +1788,6 @@ private:
 
   /// A vector containing the nodes at the corners of a regular orthogonal mesh
   std::vector<Node *> _extreme_nodes;
-
-  /**
-   * This routine detects paired sidesets of a regular orthogonal mesh (.i.e. parallel sidesets
-   * "across" from one and other).
-   * The _paired_boundary datastructure is populated with this information.
-   */
-  void detectPairedSidesets();
 
   /**
    * Build the refinement map for a given element type.  This will tell you what quadrature points
@@ -1764,9 +1940,6 @@ private:
     /// The boundary ids that are attached. This set will include any sideset boundary ID that
     /// is a side of any part of the subdomain
     std::set<BoundaryID> boundary_ids;
-
-    /// Whether this subdomain is a lower-dimensional manifold of a higher-dimensional subdomain
-    bool is_lower_d;
   };
 
   /// Holds a map from subdomain ids to associated data
@@ -1784,15 +1957,15 @@ private:
       _higher_d_elem_side_to_lower_d_elem;
   std::unordered_map<const Elem *, unsigned short int> _lower_d_elem_to_higher_d_elem_side;
 
-  /// Whether there are any lower-dimensional blocks that are manifolds of higher-dimensional block
-  /// faces
-  bool _has_lower_d;
-
   /// Whether or not this Mesh is allowed to read a recovery file
   bool _allow_recovery;
 
   /// Whether or not to allow generation of nodesets from sidesets
   bool _construct_node_list_from_side_list;
+
+  /// Whether or not to displace unrelated nodesets by nodesets
+  /// constructed from sidesets
+  bool _displace_node_list_by_side_list;
 
   /// Whether we need to delete remote elements after init'ing the EquationSystems
   bool _need_delete;
@@ -1817,6 +1990,18 @@ private:
   std::vector<dof_id_type> _min_ids;
   /// Flags to indicate whether or not any two extra element integers are the same
   std::vector<std::vector<bool>> _id_identical_flag;
+
+  /// The maximum number of sides per element
+  unsigned int _max_sides_per_elem;
+
+  /// The maximum number of nodes per element
+  unsigned int _max_nodes_per_elem;
+
+  /// The maximum number of nodes per side
+  unsigned int _max_nodes_per_side;
+
+  /// Compute the maximum numbers per element and side
+  void computeMaxPerElemAndSide();
 
   /// Whether this mesh is displaced
   bool _is_displaced;
@@ -1846,8 +2031,12 @@ private:
   /// Set for holding user-provided coordinate system type block names
   std::vector<SubdomainName> _provided_coord_blocks;
 
-  /// Whether we have p-refinement (as opposed to h-refinement)
+  /// Whether we have p-refinement (whether exclusively p- or hp-refinement)
   bool _doing_p_refinement;
+  /// Maximum p-refinement level of all elements
+  unsigned int _max_p_level;
+  /// Maximum h-refinement level of all elements
+  unsigned int _max_h_level;
 
   template <typename T>
   struct MeshType;
@@ -2071,7 +2260,13 @@ MooseMesh::buildTypedMesh(unsigned int dim)
   }
 
   if (dim == libMesh::invalid_uint)
-    dim = getParam<MooseEnum>("dim");
+  {
+    if (isParamValid("dim"))
+      dim = getParam<MooseEnum>("dim");
+    else
+      // Legacy selection of the default for the 'dim' parameter
+      dim = 1;
+  }
 
   auto mesh = std::make_unique<T>(_communicator, dim);
 
@@ -2154,10 +2349,4 @@ inline const std::unordered_map<std::pair<const Elem *, unsigned short int>, con
 MooseMesh::getLowerDElemMap() const
 {
   return _higher_d_elem_side_to_lower_d_elem;
-}
-
-inline bool
-MooseMesh::isLowerD(const SubdomainID subdomain_id) const
-{
-  return libmesh_map_find(_sub_to_data, subdomain_id).is_lower_d;
 }

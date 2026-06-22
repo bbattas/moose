@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,7 +26,6 @@
 #include "libmesh/quadrature_gauss.h"
 #include "libmesh/sparse_matrix.h"
 #include "libmesh/string_to_enum.h"
-#include "libmesh/default_coupling.h"
 
 // TIMPI includes
 #include "timpi/parallel_sync.h"
@@ -102,10 +101,6 @@ MultiAppProjectionTransfer::initialSetup()
                          .feType();
 
     LinearImplicitSystem & proj_sys = to_es.add_system<LinearImplicitSystem>("proj-sys-" + name());
-
-    proj_sys.get_dof_map().add_coupling_functor(
-        proj_sys.get_dof_map().default_coupling(),
-        false); // The false keeps it from getting added to the mesh
 
     _proj_var_num = proj_sys.add_variable("var", fe_type);
     proj_sys.attach_assemble_function(assemble_l2);
@@ -380,12 +375,10 @@ MultiAppProjectionTransfer::execute()
       {
         if (local_bboxes[i_from].contains_point(qpt))
         {
-          const auto from_global_num =
-              _current_direction == TO_MULTIAPP ? 0 : _from_local2global_map[i_from];
-          outgoing_evals_ids[pid][qp].first =
-              (local_meshfuns[i_from])(_from_transforms[from_global_num]->mapBack(qpt));
+          outgoing_evals_ids[pid][qp].first = (local_meshfuns[i_from])(
+              getPointInSourceAppFrame(qpt, i_from, "Projection transfer evaluation"));
           if (_current_direction == FROM_MULTIAPP)
-            outgoing_evals_ids[pid][qp].second = from_global_num;
+            outgoing_evals_ids[pid][qp].second = getGlobalSourceAppIndex(i_from);
         }
       }
     }
@@ -425,7 +418,7 @@ MultiAppProjectionTransfer::execute()
 
     for (const auto & elem : to_mesh.active_local_element_ptr_range())
     {
-      qrule.init(elem->type(), elem->p_level());
+      qrule.init(*elem);
 
       bool element_is_evaled = false;
       std::vector<Real> evals(qrule.n_points(), 0.);

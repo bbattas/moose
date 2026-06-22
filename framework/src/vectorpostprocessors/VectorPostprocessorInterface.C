@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,6 +13,8 @@
 #include "VectorPostprocessor.h"
 #include "MooseTypes.h"
 #include "UserObject.h"
+
+#include <algorithm>
 
 InputParameters
 VectorPostprocessorInterface::validParams()
@@ -31,6 +33,17 @@ VectorPostprocessorInterface::VectorPostprocessorInterface(const MooseObject * m
                  : 0)
 {
 }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+VectorPostprocessorInterface::VectorPostprocessorInterface(
+    const VectorPostprocessorInterface & object, const Moose::Kokkos::FunctorCopy &)
+  : _broadcast_by_default(object._broadcast_by_default),
+    _vpi_moose_object(object._vpi_moose_object),
+    _vpi_feproblem(object._vpi_feproblem),
+    _vpi_tid(object._vpi_tid)
+{
+}
+#endif
 
 const VectorPostprocessorValue &
 VectorPostprocessorInterface::getVectorPostprocessorValue(const std::string & param_name,
@@ -153,15 +166,9 @@ VectorPostprocessorInterface::hasVectorPostprocessorByName(const VectorPostproce
     _vpi_feproblem.mooseError("Cannot call hasVectorPostprocessorByName() until all "
                               "VectorPostprocessors have been constructed.");
 
-  const bool has_vpp = _vpi_feproblem.getReporterData().hasReporterValue<VectorPostprocessorValue>(
-      VectorPostprocessorReporterName(name, vector_name));
-
-  if (has_vpp)
-    mooseAssert(_vpi_feproblem.hasUserObject(name) && dynamic_cast<const VectorPostprocessor *>(
-                                                          &_vpi_feproblem.getUserObjectBase(name)),
-                "Has reporter VectorPostprocessor Reporter value but not VectorPostprocessor UO");
-
-  return has_vpp;
+  return _vpi_feproblem.getReporterData().hasReporterValue<VectorPostprocessorValue>(
+             VectorPostprocessorReporterName(name, vector_name)) &&
+         hasVectorPostprocessorByName(name);
 }
 
 bool
@@ -182,8 +189,14 @@ VectorPostprocessorInterface::hasVectorPostprocessorByName(
     _vpi_feproblem.mooseError("Cannot call hasVectorPostprocessorByName() until all "
                               "VectorPostprocessors have been constructed.");
 
-  return _vpi_feproblem.hasUserObject(name) &&
-         dynamic_cast<const VectorPostprocessor *>(&_vpi_feproblem.getUserObjectBase(name));
+  std::vector<VectorPostprocessor *> objs;
+  _vpi_feproblem.theWarehouse()
+      .query()
+      .condition<AttribInterfaces>(Interfaces::VectorPostprocessor)
+      .condition<AttribThread>(0)
+      .condition<AttribName>(name)
+      .queryInto(objs);
+  return !objs.empty();
 }
 
 bool

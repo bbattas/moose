@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -155,6 +155,9 @@ PeripheralRingMeshGenerator::generate()
   auto input_mesh = dynamic_cast<ReplicatedMesh *>(_input.get());
   if (!input_mesh)
     paramError("input", "Input is not a replicated mesh, which is required.");
+
+  if (!input_mesh->preparation().has_cached_elem_data)
+    input_mesh->cache_elem_data();
   if (*(input_mesh->elem_dimensions().begin()) != 2 ||
       *(input_mesh->elem_dimensions().rbegin()) != 2)
     paramError("input", "Only 2D meshes are supported.");
@@ -425,22 +428,26 @@ PeripheralRingMeshGenerator::generate()
       if (order == 2)
       {
         new_elem = std::make_unique<Quad9>();
-        new_elem->set_node(4) = nodes[node_id_array[i * order + 1][j * order + index_shift]];
-        new_elem->set_node(5) = nodes[node_id_array[(i + 1) * order][(j * order + 1 + index_shift) %
-                                                                     input_ext_node_num]];
-        new_elem->set_node(6) = nodes[node_id_array[i * order + 1][((j + 1) * order + index_shift) %
-                                                                   input_ext_node_num]];
-        new_elem->set_node(7) =
-            nodes[node_id_array[i * order][(j * order + 1 + index_shift) % input_ext_node_num]];
-        new_elem->set_node(8) =
-            nodes[node_id_array[i * order + 1][(j * order + 1 + index_shift) % input_ext_node_num]];
+        new_elem->set_node(4, nodes[node_id_array[i * order + 1][j * order + index_shift]]);
+        new_elem->set_node(5,
+                           nodes[node_id_array[(i + 1) * order][(j * order + 1 + index_shift) %
+                                                                input_ext_node_num]]);
+        new_elem->set_node(6,
+                           nodes[node_id_array[i * order + 1][((j + 1) * order + index_shift) %
+                                                              input_ext_node_num]]);
+        new_elem->set_node(
+            7, nodes[node_id_array[i * order][(j * order + 1 + index_shift) % input_ext_node_num]]);
+        new_elem->set_node(8,
+                           nodes[node_id_array[i * order + 1][(j * order + 1 + index_shift) %
+                                                              input_ext_node_num]]);
       }
-      new_elem->set_node(0) = nodes[node_id_array[i * order][j * order + index_shift]];
-      new_elem->set_node(1) = nodes[node_id_array[(i + 1) * order][j * order + index_shift]];
-      new_elem->set_node(2) = nodes[node_id_array[(i + 1) * order][((j + 1) * order + index_shift) %
-                                                                   input_ext_node_num]];
-      new_elem->set_node(3) =
-          nodes[node_id_array[i * order][((j + 1) * order + index_shift) % input_ext_node_num]];
+      new_elem->set_node(0, nodes[node_id_array[i * order][j * order + index_shift]]);
+      new_elem->set_node(1, nodes[node_id_array[(i + 1) * order][j * order + index_shift]]);
+      new_elem->set_node(2,
+                         nodes[node_id_array[(i + 1) * order][((j + 1) * order + index_shift) %
+                                                              input_ext_node_num]]);
+      new_elem->set_node(
+          3, nodes[node_id_array[i * order][((j + 1) * order + index_shift) % input_ext_node_num]]);
       new_elem->subdomain_id() = _peripheral_ring_block_id;
 
       Elem * added_elem = mesh->add_elem(std::move(new_elem));
@@ -456,7 +463,7 @@ PeripheralRingMeshGenerator::generate()
     MooseMesh::changeBoundaryId(*input_mesh, _input_mesh_external_bid, OUTER_SIDESET_ID, false);
   mesh->prepare_for_use();
   // Use input_mesh here to retain the subdomain name map
-  input_mesh->stitch_meshes(*mesh, OUTER_SIDESET_ID, OUTER_SIDESET_ID_ALT, TOLERANCE, true);
+  input_mesh->stitch_meshes(*mesh, OUTER_SIDESET_ID, OUTER_SIDESET_ID_ALT, TOLERANCE, true, false);
 
   // Assign subdomain name to the new block if applicable
   if (isParamValid("peripheral_ring_block_name"))
@@ -475,7 +482,7 @@ PeripheralRingMeshGenerator::generate()
         _external_boundary_name;
   }
 
-  _input->set_isnt_prepared();
+  _input->unset_is_prepared();
   return dynamic_pointer_cast<MeshBase>(_input);
 }
 

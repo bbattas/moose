@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -16,7 +16,7 @@ registerMooseObject("MooseApp", LineValueSampler);
 InputParameters
 LineValueSampler::validParams()
 {
-  InputParameters params = PointVariableSamplerBase::validParams();
+  InputParameters params = SpatialUserObjectFunctor<PointVariableSamplerBase>::validParams();
 
   params.addRequiredParam<Point>("start_point", "The beginning of the line");
   params.addRequiredParam<Point>("end_point", "The ending of the line");
@@ -30,7 +30,7 @@ LineValueSampler::validParams()
 }
 
 LineValueSampler::LineValueSampler(const InputParameters & parameters)
-  : PointVariableSamplerBase(parameters),
+  : SpatialUserObjectFunctor<PointVariableSamplerBase>(parameters),
     _start_point(getParam<Point>("start_point")),
     _end_point(getParam<Point>("end_point")),
     _num_points(
@@ -82,7 +82,7 @@ LineValueSampler::getValue(const Point & p) const
                "only one variable can be provided as input to LineValueSampler.");
 
   // Check if vectors are sorted by id
-  if (_sort_by != 3)
+  if (_sort_by_index != 3) /*id*/
     mooseError("LineValueSampler: When calling getValue() on LineValueSampler, "
                "`sort_by` should be set to `id`.");
 

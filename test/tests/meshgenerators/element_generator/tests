@@ -1,30 +1,75 @@
 [Tests]
-  issues = '#11640'
   design = 'meshgenerators/ElementGenerator.md'
 
   [generate]
     requirement = 'The system shall support the ability to create a mesh element-wise by specifying '
                   'points, element types, and connectivity,'
+    issues = '#11640 #30158 '
 
-    [single_element]
+    [single_element_no_ss]
       type = 'Exodiff'
       input = 'element_generator.i'
       cli_args = '--mesh-only'
       exodiff = 'element_generator_in.e'
       recover = false
 
-      detail = 'resulting in a single element mesh, or'
+      detail = 'resulting in a single element mesh without sidesets assigned, or'
+    []
+    [single_element_ss]
+      type = 'Exodiff'
+      input = 'element_generator.i'
+      cli_args = '--mesh-only element_generator_ss_in.e
+                  Mesh/eg/create_sidesets=true'
+      exodiff = 'element_generator_ss_in.e'
+      exodiff_opts = '-pedantic'
+      recover = false
 
+      detail = 'resulting in a single element mesh with separate sidesets assigned to each side, or'
     []
 
     [multi_elem_multi_gen]
       type = 'Exodiff'
-      input = 'eg2.i'
+      input = 'chained.i'
       cli_args = '--mesh-only'
-      exodiff = 'eg2_in.e'
+      exodiff = 'chained_in.e'
       recover = false
 
       detail = 'resulting in a mesh with multiple disconnected elements.'
+    []
+  []
+  [polys]
+    issues = '#32159'
+    requirement = 'The system shall be able to generate'
+    [polygon]
+      type = CSVDiff
+      input = 'polygon.i'
+      csvdiff= 'polygon_out.csv'
+      recover = false
+      detail = 'a polygon from user-specified nodes,'
+    []
+    [polyhedra_prisms]
+      type = Exodiff
+      input = 'polyhedra_prisms.i'
+      cli_args = 'Mesh/final_generator=convert --mesh-only'
+      exodiff= 'polyhedra_prisms_in.e'
+      recover = false
+      detail = 'polygonal prisms, represented as polyhedra, from user-specified nodes and faces,'
+    []
+    [polyhedra_platonic]
+      type = Exodiff
+      input = 'polyhedra_platonic.i'
+      cli_args = 'Mesh/final_generator=convert --mesh-only'
+      exodiff= 'polyhedra_platonic_in.e'
+      recover = false
+      detail = 'the platonic polyhedra from user-specified nodes and faces,'
+    []
+    [polyhedra_archimedean]
+      type = Exodiff
+      input = 'polyhedra_archimedean.i'
+      cli_args = 'Mesh/final_generator=convert --mesh-only'
+      exodiff= 'polyhedra_archimedean_in.e'
+      recover = false
+      detail = 'the archimedean polyhedra from user-specified nodes and faces.'
     []
   []
 []

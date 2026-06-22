@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,7 +26,7 @@ public:
 
   virtual void init() override;
 
-  virtual Real relativeSolutionDifferenceNorm() override;
+  virtual Real relativeSolutionDifferenceNorm(bool check_aux) const override;
 
 protected:
   virtual std::set<TimeIntegrator *> getTimeIntegrators() const override;

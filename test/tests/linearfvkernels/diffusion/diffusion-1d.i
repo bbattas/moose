@@ -18,6 +18,15 @@
   []
 []
 
+[FVInterpolationMethods]
+  [geom]
+    type = FVGeometricAverage
+  []
+  [harm]
+    type = FVHarmonicAverage
+  []
+[]
+
 [LinearFVKernels]
   [diffusion]
     type = LinearFVDiffusion
@@ -45,6 +54,10 @@
     type = ParsedFunction
     expression = '0.5*x'
   []
+  [coeff_pos_func]
+    type = ParsedFunction
+    expression = '1+0.5*x'
+  []
   [source_func]
     type = ParsedFunction
     expression = '2*x'
@@ -71,7 +84,7 @@
 [Executioner]
   type = Steady
   system_names = u_sys
-  l_abs_tol = 1e-10
+  l_tol = 1e-10
   petsc_options_iname = '-pc_type -pc_hypre_type'
   petsc_options_value = 'hypre boomeramg'
 []

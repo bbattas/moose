@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,7 +12,7 @@
 #include "SinglePhaseFluidProperties.h"
 
 /**
- *  Fluid properties for 2LiF-BeF2 (LeadBismuth) \cite richard.
+ *  Fluid properties for LeadBismuth \cite richard.
  */
 class LeadBismuthFluidProperties : public SinglePhaseFluidProperties
 {

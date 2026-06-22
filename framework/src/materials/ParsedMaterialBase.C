@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -15,8 +15,7 @@ InputParameters
 ParsedMaterialBase::validParams()
 {
   InputParameters params = emptyInputParameters();
-  params.addCoupledVar("args", "Vector of variables used in the parsed function");
-  params.deprecateCoupledVar("args", "coupled_variables", "02/07/2024");
+  params.addCoupledVar("coupled_variables", "Vector of variables used in the parsed function");
 
   // Constants and their values
   params.addParam<std::vector<std::string>>(
@@ -74,13 +73,10 @@ ParsedMaterialBase::validParams()
   return params;
 }
 
-ParsedMaterialBase::ParsedMaterialBase(const InputParameters & parameters, const MooseObject * obj)
-  : _derived_object(obj)
+ParsedMaterialBase::ParsedMaterialBase(const InputParameters & parameters)
+  : _function_param(parameters.isParamValid("function") ? "function" : "expression"),
+    _function(parameters.get<std::string>(_function_param))
 {
-  // get function expression
-  _function = parameters.isParamValid("function") ? parameters.get<std::string>("function")
-                                                  : parameters.get<std::string>("expression");
-
   // get constant vectors
   _constant_names = parameters.get<std::vector<std::string>>("constant_names");
   _constant_expressions = parameters.get<std::vector<std::string>>("constant_expressions");
@@ -103,8 +99,8 @@ ParsedMaterialBase::validateVectorNames(const std::set<std::string> & reserved_n
   // helper method to raise an paramError
   auto raiseErr = [this](std::string param_name, std::string msg)
   {
-    if (_derived_object != nullptr)
-      _derived_object->paramError(param_name, msg);
+    if (auto derived_object = dynamic_cast<MooseObject *>(this))
+      derived_object->paramError(param_name, msg);
     else
       mooseException(msg);
   };

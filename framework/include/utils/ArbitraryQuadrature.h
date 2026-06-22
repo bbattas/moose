@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -53,13 +53,20 @@ public:
 private:
   /**
    * These functions must be defined to fulfill the interface expected
-   * by the quadrature initialization routines.  Please do not
-   * modify the function names or signatures.
+   * by the quadrature initialization routines.  The names and
+   * signatures depend on what version of libMesh we are compiled
+   * against.
    */
+#ifdef LIBMESH_QBASE_INIT_ARGUMENTS_REMOVED
+  void init_1D() override;
+  void init_2D() override;
+  void init_3D() override;
+#else
   void init_1D(const libMesh::ElemType _type = libMesh::INVALID_ELEM,
                unsigned int p_level = 0) override;
   void init_2D(const libMesh::ElemType _type = libMesh::INVALID_ELEM,
                unsigned int p_level = 0) override;
   void init_3D(const libMesh::ElemType _type = libMesh::INVALID_ELEM,
                unsigned int p_level = 0) override;
+#endif // LIBMESH_QBASE_INIT_ARGUMENTS_REMOVED
 };

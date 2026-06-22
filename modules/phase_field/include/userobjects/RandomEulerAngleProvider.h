@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -29,12 +29,8 @@ public:
   virtual void execute() override {}
   virtual void finalize() override {}
 
-  virtual const EulerAngles & getEulerAngles(unsigned int) const override;
-  virtual unsigned int getGrainNum() const override;
-
 protected:
   const GrainTrackerInterface & _grain_tracker;
-  std::vector<EulerAngles> _angles;
 
   MooseRandom _random;
 };

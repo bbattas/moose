@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -96,4 +96,29 @@ TEST(RotationMatrix, rotV2DtoX)
   rotV2DtoX(RealVectorValue(-0.6195038399590516, 0.24354357871534127, 0));
   rotV2DtoX(RealVectorValue(0.6418447552756121, 0.9825056348051839, 0));
   rotV2DtoX(RealVectorValue(0.9115348224777013, -0.1785871095274909, 0));
+}
+
+TEST(RotationMatrix, rodriguesRotationMatrix)
+{
+  std::vector<RealVectorValue> start_vectors = {RealVectorValue(1, 0, 0),
+                                                RealVectorValue(1, 0, 0),
+                                                RealVectorValue(1, 0, 0),
+                                                RealVectorValue(1, 1, 1)};
+  std::vector<RealVectorValue> end_vectors = {RealVectorValue(1, 0, 0),
+                                              RealVectorValue(0, 1, 0),
+                                              RealVectorValue(0, 0, 1),
+                                              RealVectorValue(-5, 2, 3)};
+
+  const unsigned int num_iterators = start_vectors.size();
+
+  for (const auto i : make_range(num_iterators))
+  {
+    auto end_vec = end_vectors[i];
+    auto start_vec = start_vectors[i];
+    auto rotation_matrix = RotationMatrix::rodriguesRotationMatrix(start_vec, end_vec);
+    auto result_vec = rotation_matrix * start_vectors[i];
+    EXPECT_NEAR((result_vec / result_vec.norm() - end_vec / end_vec.norm()).norm(),
+                0.0,
+                libMesh::TOLERANCE);
+  }
 }

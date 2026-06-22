@@ -41,7 +41,7 @@
     type = MultiAppSamplerControl
     multi_app = runner
     sampler = hypercube
-    param_names = 'Materials/diff_coeff/constant_expressions Functions/src_func/vals Variables/T/initial_condition'
+    param_names = 'Materials/diff_coeff/constant_expressions Functions/src_func/symbol_values Variables/T/initial_condition'
   []
 []
 
@@ -67,7 +67,7 @@
     vectorpostprocessors = results
     compute = 'mean stddev'
     ci_method = 'percentile'
-    ci_levels = '0.05'
+    ci_levels = '0.05 0.95'
   []
 []
 

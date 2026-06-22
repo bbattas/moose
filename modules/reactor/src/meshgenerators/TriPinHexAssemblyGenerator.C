@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -319,7 +319,7 @@ TriPinHexAssemblyGenerator::generate()
         _external_boundary_id > 0 ? _external_boundary_id : (boundary_id_type)OUTER_SIDESET_ID) =
         _external_boundary_name;
   }
-  meshes[0]->set_isnt_prepared();
+  meshes[0]->unset_is_prepared();
   return dynamic_pointer_cast<MeshBase>(meshes[0]);
 }
 
@@ -500,6 +500,7 @@ TriPinHexAssemblyGenerator::buildSinglePinSection(
 
   for (const auto & elem : mesh0->element_ptr_range())
     elem->subdomain_id() = block_ids_new[elem->subdomain_id() - 1];
+  mesh0->unset_has_cached_elem_data();
 
   return mesh0;
 }

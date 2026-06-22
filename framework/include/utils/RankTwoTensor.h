@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -44,6 +44,14 @@ template <typename>
 class TypeTensor;
 template <typename>
 class TensorValue;
+namespace TensorTools
+{
+template <>
+struct IncrementRank<RankTwoTensor>
+{
+  typedef RankThreeTensor type;
+};
+}
 }
 
 namespace MathUtils
@@ -541,8 +549,7 @@ public:
    * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    */
   template <typename Scalar>
-  typename libMesh::boostcopy::enable_if_c<libMesh::ScalarTraits<Scalar>::value,
-                                           RankTwoTensorTempl &>::type
+  typename std::enable_if<libMesh::ScalarTraits<Scalar>::value, RankTwoTensorTempl &>::type
   operator=(const Scalar & libmesh_dbg_var(p))
   {
     libmesh_assert_equal_to(p, Scalar(0));
@@ -1448,6 +1455,7 @@ RankFourTensorTempl<T>
 RankTwoTensorTempl<T>::positiveProjectionEigenDecomposition(std::vector<T> & eigval,
                                                             RankTwoTensorTempl<T> & eigvec) const
 {
+  using std::abs;
   if constexpr (MooseUtils::IsLikeReal<T>::value)
   {
     // Compute eigenvectors and eigenvalues of this tensor
@@ -1458,7 +1466,7 @@ RankTwoTensorTempl<T>::positiveProjectionEigenDecomposition(std::vector<T> & eig
     std::array<T, N> d;
     for (auto i : libMesh::make_range(N))
     {
-      epos[i] = (std::abs(eigval[i]) + eigval[i]) / 2.0;
+      epos[i] = (abs(eigval[i]) + eigval[i]) / 2.0;
       d[i] = 0 < eigval[i] ? 1.0 : 0.0;
     }
 
@@ -1501,6 +1509,7 @@ template <typename T>
 T
 RankTwoTensorTempl<T>::sin3Lode(const T & r0, const T & r0_value) const
 {
+  using std::pow, std::max, std::sqrt, std::min;
   if constexpr (MooseUtils::IsLikeReal<T>::value)
   {
     T bar = secondInvariant();
@@ -1509,8 +1518,7 @@ RankTwoTensorTempl<T>::sin3Lode(const T & r0, const T & r0_value) const
       return r0_value;
     else
       // the min and max here gaurd against precision-loss when bar is tiny but nonzero.
-      return std::max(std::min(-1.5 * std::sqrt(3.0) * thirdInvariant() / std::pow(bar, 1.5), 1.0),
-                      -1.0);
+      return max(min(-1.5 * sqrt(3.0) * thirdInvariant() / pow(bar, 1.5), 1.0), -1.0);
   }
   else
     mooseError("sin3Lode is only available for ordered tensor component types");
@@ -1520,15 +1528,16 @@ template <typename T>
 RankTwoTensorTempl<T>
 RankTwoTensorTempl<T>::dsin3Lode(const T & r0) const
 {
+  using std::sqrt, std::pow;
   if constexpr (MooseUtils::IsLikeReal<T>::value)
   {
     T bar = secondInvariant();
     if (bar <= r0)
       return RankTwoTensorTempl<T>();
     else
-      return -1.5 * std::sqrt(3.0) *
-             (dthirdInvariant() / std::pow(bar, 1.5) -
-              1.5 * dsecondInvariant() * thirdInvariant() / std::pow(bar, 2.5));
+      return -1.5 * sqrt(3.0) *
+             (dthirdInvariant() / pow(bar, 1.5) -
+              1.5 * dsecondInvariant() * thirdInvariant() / pow(bar, 2.5));
   }
   else
     mooseError("dsin3Lode is only available for ordered tensor component types");
@@ -1538,6 +1547,7 @@ template <typename T>
 RankFourTensorTempl<T>
 RankTwoTensorTempl<T>::d2sin3Lode(const T & r0) const
 {
+  using std::pow, std::sqrt;
   if constexpr (MooseUtils::IsLikeReal<T>::value)
   {
     T bar = secondInvariant();
@@ -1547,18 +1557,18 @@ RankTwoTensorTempl<T>::d2sin3Lode(const T & r0) const
     T J3 = thirdInvariant();
     RankTwoTensorTempl<T> dII = dsecondInvariant();
     RankTwoTensorTempl<T> dIII = dthirdInvariant();
-    RankFourTensorTempl<T> deriv = d2thirdInvariant() / std::pow(bar, 1.5) -
-                                   1.5 * d2secondInvariant() * J3 / std::pow(bar, 2.5);
+    RankFourTensorTempl<T> deriv =
+        d2thirdInvariant() / pow(bar, 1.5) - 1.5 * d2secondInvariant() * J3 / pow(bar, 2.5);
 
     for (unsigned i = 0; i < N; ++i)
       for (unsigned j = 0; j < N; ++j)
         for (unsigned k = 0; k < N; ++k)
           for (unsigned l = 0; l < N; ++l)
-            deriv(i, j, k, l) += (-1.5 * dII(i, j) * dIII(k, l) - 1.5 * dIII(i, j) * dII(k, l)) /
-                                     std::pow(bar, 2.5) +
-                                 1.5 * 2.5 * dII(i, j) * dII(k, l) * J3 / std::pow(bar, 3.5);
+            deriv(i, j, k, l) +=
+                (-1.5 * dII(i, j) * dIII(k, l) - 1.5 * dIII(i, j) * dII(k, l)) / pow(bar, 2.5) +
+                1.5 * 2.5 * dII(i, j) * dII(k, l) * J3 / pow(bar, 3.5);
 
-    deriv *= -1.5 * std::sqrt(3.0);
+    deriv *= -1.5 * sqrt(3.0);
     return deriv;
   }
   else

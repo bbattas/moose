@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -18,6 +18,7 @@
 #include "MooseVariableField.h"
 #include "MooseVariableInterface.h"
 #include "BlockRestrictable.h"
+#include "MooseEnum.h"
 
 /**
  * DiracKernelBase is the base class for all DiracKernel type classes.
@@ -32,11 +33,6 @@ public:
   static InputParameters validParams();
 
   DiracKernelBase(const InputParameters & parameters);
-
-  /**
-   * This gets called by computeOffDiagJacobian() at each quadrature point.
-   */
-  virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 
   /**
    * Computes the off-diagonal Jacobian for variable jvar.
@@ -81,16 +77,23 @@ protected:
   /**
    * Add the physical x,y,z point located in the element "elem" to the list of points
    * this DiracKernel will be asked to evaluate a value at.
+   * @param elem Pointer to the element in which the point is located
+   * @param p The (x,y,z) location of the Dirac point
+   * @param id Optional user-assigned ID for caching the point/element association
+   * @param value The source value at this point; accumulated when points coincide
    */
-  void addPoint(const Elem * elem, Point p, unsigned id = libMesh::invalid_uint);
+  void addPoint(const Elem * elem, Point p, unsigned id = libMesh::invalid_uint, Real value = 1.0);
 
   /**
    * This is a highly inefficient way to add a point where this DiracKernel needs to be
    * evaluated.
    *
    * This spawns a search for the element containing that point!
+   * @param p The (x,y,z) location of the Dirac point
+   * @param id Optional user-assigned ID for caching the point/element association
+   * @param value The source value at this point; accumulated when points coincide
    */
-  const Elem * addPoint(Point p, unsigned id = libMesh::invalid_uint);
+  const Elem * addPoint(Point p, unsigned id = libMesh::invalid_uint, Real value = 1.0);
 
   /**
    * Returns the user-assigned ID of the current Dirac point if it
@@ -100,7 +103,7 @@ protected:
    */
   unsigned currentPointCachedID();
 
-  ///< Current element
+  /// Current element
   const Elem * const & _current_elem;
 
   /// Coordinate system
@@ -133,15 +136,8 @@ protected:
   /// drop duplicate points or consider them in residual and Jacobian
   const bool _drop_duplicate_points;
 
-  // @{ Point-not-found behavior
-  enum class PointNotFoundBehavior
-  {
-    ERROR,
-    WARNING,
-    IGNORE
-  };
-  const PointNotFoundBehavior _point_not_found_behavior;
-  // @}
+  /// What to do if the point is not found. See DiracKernelInfo for definition
+  const DiracKernelInfo::PointNotFoundBehavior _point_not_found_behavior;
 
   /// Whether Dirac sources can move during the simulation
   const bool _allow_moving_sources;
@@ -167,5 +163,5 @@ private:
 
   /// A helper function for addPoint(Point, id) for when
   /// id != invalid_uint.
-  const Elem * addPointWithValidId(Point p, unsigned id);
+  const Elem * addPointWithValidId(Point p, unsigned id, Real value);
 };

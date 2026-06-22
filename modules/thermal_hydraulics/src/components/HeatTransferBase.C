@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -17,14 +17,11 @@ InputParameters
 HeatTransferBase::validParams()
 {
   InputParameters params = ConnectorBase::validParams();
-  params.addDeprecatedParam<std::string>(
-      "pipe", "Name of pipe component to connect", "Use 'flow_channel' parameter instead.");
   params.addRequiredParam<std::string>("flow_channel",
                                        "Name of flow channel component to connect to");
   params.addParam<bool>(
       "P_hf_transferred", false, "Is heat flux perimeter transferred from an external source?");
   params.addParam<FunctionName>("P_hf", "Heat flux perimeter [m]");
-  params.declareControllable("P_hf");
   return params;
 }
 
@@ -56,7 +53,6 @@ HeatTransferBase::init()
     _model_type = flow_channel.getFlowModelID();
     _fp_name = flow_channel.getFluidPropertiesName();
     _A_fn_name = flow_channel.getAreaFunctionName();
-    _closures = flow_channel.getClosures();
     _closures_objects = flow_channel.getClosuresObjects();
   }
 }
@@ -136,8 +132,6 @@ HeatTransferBase::addHeatedPerimeter()
       InputParameters params = _factory.getValidParams(class_name);
       params.set<FunctionName>("area_function") = _A_fn_name;
       getTHMProblem().addFunction(class_name, _P_hf_fn_name, params);
-
-      makeFunctionControllableIfConstant(_P_hf_fn_name, "P_hf");
     }
 
     if (!_app.isRestarting())

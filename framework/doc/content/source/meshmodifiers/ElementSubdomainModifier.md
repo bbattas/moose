@@ -31,9 +31,9 @@ If the boundaries provided through `moving_boundaries` already exist, the modifi
 
 !listing test/tests/meshmodifiers/element_subdomain_modifier/moving_boundary.i start=[moving_circle] end=[] include-end=true
 
-!media large_media/mesh_modifiers/element_subdomain_modifier/nodeset.png style=float:center;width:100%; caption=The evolving nodeset (green) between subdomains 1 and 2, as created by the modifier without an existing boundary. 
+!media large_media/mesh_modifiers/element_subdomain_modifier/nodeset.png style=float:center;width:100%; caption=The evolving nodeset (green) between subdomains 1 and 2, as created by the modifier without an existing boundary.
 
-The modifier only creates and modifies boundaries over elements that change subdomain, so the vertical boundary between subdomains 1 and 2 at $x=0.25$ is not added to the created boundary. 
+The modifier only creates and modifies boundaries over elements that change subdomain, so the vertical boundary between subdomains 1 and 2 at $x=0.25$ is not added to the created boundary.
 
 If only one boundary is provided but multiple pairs of subdomains are specified, then all the pairs are applied to the one boundary. Element sides on a subdomain's external boundary can also be added by specifying only one subdomain.
 
@@ -46,7 +46,6 @@ Since the update of the moving boundary only occurs over elements that change su
 !listing test/tests/meshmodifiers/element_subdomain_modifier/partial_moving_boundary.i start=[moving_circle] end=[] include-end=true
 
 !media large_media/mesh_modifiers/element_subdomain_modifier/partial.png style=float:center;width:100%; caption=The evolving sideset (green) around subdomain 1, including the external element sides, from an existing boundary.
- 
 
 Even though the `moving_boundary_subdomain_pairs` defines the moving boundary to be between subdomains 1 and 2 only, the right side of subdomain 2 remains throughout, as no element sides belong to elements that change subdomain.
 
@@ -97,3 +96,86 @@ Reinitialization can be further restricted by setting the parameter `old_subdoma
 !listing test/tests/meshmodifiers/element_subdomain_modifier/reinitialization_from_into.i start=[MeshModifiers] end=[AuxVariables]
 
 !media large_media/mesh_modifiers/element_subdomain_modifier/from_into.png style=float:center;width:100%; caption=Reinitialization of only the elements which change subdomain ID from 3, to subdomain IDs 1 or 2
+
+## Variable (re)initialization on the updated active domain
+
+In element activation simulations (e.g., for additive manufacturing), the degrees of freedom (DoFs) on the *updated active* domain have no prior solution information when they are incorporated into the solution process. In moving interface problems, the DoFs on the *updated active* domain already exist but may need to be re-initialized depending on the physics. As a result, it is necessary to selectively impose appropriate initial conditions for these DoFs.
+
+There are two strategies for (re)initializing variables on the *updated active* domain. The first, arguably the simplest, strategy is to project the initial condition of the variable onto the *updated active* domain.
+
+However, directly imposing such initial conditions often poses significant challenges for the solution procedure. For nonlinear material models, a suboptimal initial guess could hinder convergence of the material model and/or that of the global solve. For evaluations on the deformed mesh, e.g., when geometric nonlinearity or mechanical contact is enabled, a bad initial condition of displacement could lead to ill-conditioned elements, and in extreme cases, could lead to highly skewed elements with inverted Jacobians.
+
+The second strategy aims to address these challenges. The key idea is to initialize the solution on the *updated active* domain leveraging the solution information from the *stationary active* domain. In the current implementation, we adopt the Zienkiewicz–Zhu patch recovery technique to initialize the solution field for the DoFs on *updated active* elements.
+
+The initialization algorithm starts with constructing a patch of elements from the *stationary active* domain. By definition, a solution to the variable of interest already exists on the patch. The solution is first interpolated onto the quadrature points on the *stationary active* domain, and a polynomial is fitted against the interpolated variable values using a least-squares fit. A complete set of monomials $P_{\boldsymbol\alpha}$ up to a given order $p$ is used as the basis of the polynomial. Let $\boldsymbol\alpha$ be a multi-index of dimension $d$, where
+
+!equation id=def-multiindex
+\boldsymbol{\alpha}=(\alpha_1,\dots,\alpha_d),\quad
+\alpha_i\in\mathbb{N}_{\ge 0},\quad
+|\boldsymbol{\alpha}|=\sum_{i=1}^d \alpha_i .
+
+The monomial basis for degree $m$ can be written as:
+
+!equation id=monomial-degree-m
+\mathcal{P}_{m}
+=\Bigl\{\mathbf{x}^{\boldsymbol{\alpha}}
+:\boldsymbol{\alpha}\in\mathbb{N}_{\ge 0}^{\,d},\
+|\boldsymbol{\alpha}|=m\Bigr\},\qquad
+\mathbf{x}^{\boldsymbol{\alpha}}
+:=x_1^{\alpha_1}\cdots x_d^{\alpha_d}.
+
+For example, in 2D ($d = 2$) with $p = 2$, the complete monomial basis can be written as
+$\boldsymbol P = [1, x, y, x^2, xy, y^2]$.
+
+!alert note
+The monomial generation can be implemented recursively. Define $P(0) = C$ as the constant term.
+Higher-order monomials are then constructed by augmenting $P(n-1)$ with all combinations of
+$(\alpha_1, \alpha_2, \alpha_3)$ such that $\alpha_1 + \alpha_2 + \alpha_3 = n$.
+
+That is,
+
+!equation id=poly-basis-recursive
+\boldsymbol{P}(n)=\boldsymbol{P}(n-1)\cup\mathcal{M}_n
+
+!equation id=Mn-def
+\mathcal{M}_n=\{x^{\alpha_1}y^{\alpha_2}z^{\alpha_3}\}_{\alpha_1+\alpha_2+\alpha_3=n}
+
+The fitting process solves a least-squares problem. In matrix form, it can be expressed as
+
+!equation id=least-squares
+\boldsymbol{A}\,\boldsymbol{c} = \boldsymbol{b}
+
+where $\boldsymbol A$ is the patch interpolation matrix, $\boldsymbol b$ is the patch interpolation vector,
+and $\boldsymbol c$ contains the fitted polynomial coefficients. These matrices are assembled over $n$ quadrature points on the patch:
+
+!equation id=patch-assembly
+\begin{aligned}
+\boldsymbol{A} &= \sum_{i=1}^{n} \boldsymbol{P}^{T}(\boldsymbol{x}_i)\,\boldsymbol{P}(\boldsymbol{x}_i), \\
+\boldsymbol{b} &= \sum_{i=1}^{n} \boldsymbol{P}^{T}(\boldsymbol{x}_i)\,u(\boldsymbol{x}_i).
+\end{aligned}
+
+where $u(\boldsymbol x_i)$ is the interpolated variable value at the quadrature point $\boldsymbol x_i$.
+
+!alert note
+For least-squares fitting with the same patch of elements, the computed coefficients $\boldsymbol c$ can be cached and reused to reduce computational overhead.
+
+Once the least-squares problem is solved, the fitted polynomial is used to extrapolate the solution onto the *updated active* domain by projecting the polynomial.
+
+To apply different (re)initialization strategies, the user must set the `reinitialize_variables` parameter. This requires a one-to-one mapping with `reinitialization_strategy` (or a single `reinitialization_strategy`) to determine the specific approach for each variable. If no strategy is explicitly defined, the default behavior is to reinitialize each variable to its initial condition as provided in the input file.
+
+There are five available (re)initialization strategies:
+
+- `NONE`: No (re)initialization is performed.
+- `IC`: Performs (re)initialization based on the initial conditions defined by the user in the input file.
+- `POLYNOMIAL_NEIGHBOR`: Constructs a recovery patch using the direct element neighbors of the updated subdomain, fits a polynomial to this patch, and projects the result onto the newly activated DoFs.
+- `POLYNOMIAL_NEARBY`: Performs a geometric search to include all elements within a specified distance to form the patch, fits the polynomial, and projects it onto the newly activated DoFs.
+- `POLYNOMIAL_WHOLE`: Uses the entire mesh as the recovery patch to fit the polynomial and perform a projection onto the newly activated DoFs.
+
+Depending on the chosen `reinitialization_strategy`, additional parameters must be defined:
+
+- For `POLYNOMIAL_NEIGHBOR`, `POLYNOMIAL_NEARBY`, or `POLYNOMIAL_WHOLE`, the user must provide the corresponding `polynomial_fitters`, which are generated by `NodalPatchRecoveryVariable` UserObjects.
+- For the `POLYNOMIAL_NEARBY` strategy, the user must also specify the `nearby_distance_threshold` to define the search radius for the recovery patch.
+
+An example demonstrating how to apply different (re)initialization strategies to multiple variables is shown below:
+
+!listing test/tests/meshmodifiers/esm_reinitialization/external_moving_boundary_three_vars_three_strategies_none_strategy.i start=[UserObjects] end=[AuxVariables]

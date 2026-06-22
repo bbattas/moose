@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -83,8 +83,21 @@ SamplerFullSolveMultiApp::SamplerFullSolveMultiApp(const InputParameters & param
 }
 
 void
+SamplerFullSolveMultiApp::backup()
+{
+  if (_mode != StochasticTools::MultiAppMode::BATCH_RESTORE)
+    FullSolveMultiApp::backup();
+}
+
+void
 SamplerFullSolveMultiApp::preTransfer(Real /*dt*/, Real /*target_time*/)
 {
+  // Logic for calling initial setup again:
+  //    1) If and only if not doing batch-reset (solveStepBatch does this at each local row)
+  //    2) If the number of rows have changed since the communicator is re-split.
+  //    3) If we have already solved and doing "normal" execution, effectively resetting the apps
+  bool initial_setup_required = false;
+
   // Reinitialize MultiApp size
   const auto num_rows = _sampler.getNumberOfRows();
   if (num_rows != _number_of_sampler_rows)
@@ -94,13 +107,20 @@ SamplerFullSolveMultiApp::preTransfer(Real /*dt*/, Real /*target_time*/)
                                 _mode == StochasticTools::MultiAppMode::BATCH_RESTORE));
     _number_of_sampler_rows = num_rows;
     _row_data.clear();
+    initial_setup_required = _mode != StochasticTools::MultiAppMode::BATCH_RESET;
   }
+  else if (_solved_once)
+    initial_setup_required = _mode == StochasticTools::MultiAppMode::NORMAL;
 
-  // Reinitialize app to original state prior to solve, if a solve has occured.
-  // Since the app is reinitialized in the solve step either way, we skip this
-  // for batch-reset mode.
-  if (_solved_once && _mode != StochasticTools::MultiAppMode::BATCH_RESET)
+  // Call initial setup based on the logic above
+  if (initial_setup_required)
+  {
     initialSetup();
+    _solved_once = false;
+  }
+  // Otherwise we need to restore for batch-restore
+  else if (_solved_once && _mode == StochasticTools::MultiAppMode::BATCH_RESTORE)
+    restore();
 
   if (isParamValid("should_run_reporter"))
     _should_run = &getReporterValue<std::vector<bool>>("should_run_reporter");
@@ -161,8 +181,8 @@ SamplerFullSolveMultiApp::solveStepBatch(Real dt, Real target_time, bool auto_ad
     transfer->initializeFromMultiapp();
   }
 
-  if (_mode == StochasticTools::MultiAppMode::BATCH_RESTORE)
-    backup();
+  if (!_solved_once && _mode == StochasticTools::MultiAppMode::BATCH_RESTORE)
+    FullSolveMultiApp::backup();
 
   // Perform batch MultiApp solves
   _local_batch_app_index = 0;
@@ -339,6 +359,9 @@ SamplerFullSolveMultiApp::getActiveStochasticToolsTransfers(Transfer::DIRECTION 
 std::vector<std::string>
 SamplerFullSolveMultiApp::getCommandLineArgs(const unsigned int local_app)
 {
+  if (_mode == StochasticTools::MultiAppMode::BATCH_RESTORE)
+    return FullSolveMultiApp::getCommandLineArgs(local_app);
+
   std::vector<std::string> args;
 
   // With multiple processors per app, there are no local rows for non-root processors
@@ -448,7 +471,11 @@ SamplerFullSolveMultiApp::sampledCommandLineArgs(const std::vector<Real> & row,
         values.push_back(Moose::stringifyExact(value));
       }
 
-      args.push_back(vector_param[0] + "='" + MooseUtils::stringJoin(values) + "'");
+      // If there is only one value, do not put quotes around it
+      if (values.size() == 1)
+        args.push_back(vector_param[0] + "=" + values[0]);
+      else
+        args.push_back(vector_param[0] + "='" + MooseUtils::stringJoin(values) + "'");
     }
     // Assign scalar parameters
     else

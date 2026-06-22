@@ -62,6 +62,18 @@ as a suffix like: `something-$METHOD`. The valid options are:
 - `oprof`: Not normally used.  Can be used for "code profiling": running your code with a utility
   like `oprof`, `gprof`, `vtune`, etc.
 
+!alert! note
+When developing your own application, it is generally advised to start from the `devel` build, as it
+offers a reasonable balance between speed and debugging checks. When an error cannot be easily addressed
+with the information provided by the `devel` build, a `dbg` executable can be built for use in debuggers.
+See [this page](application_development/debugging.md optional=True) for instructions on running the `dbg` executable
+with a debugger. When performance issues are encountered, and the information provided by the [PerfGraph.md]
+system is insufficient, an `oprof` executable can be used together with profiling tools to gather more
+diagnostics. See [this page](application_development/profiling.md optional=True) for instructions on using gperftools
+for CPU and heap profiling. Finally, build your application in `opt` mode when you are ready to release
+your application for production use.
+!alert-end!
+
 `METHODS` is used to specify the full set (space separated) of the above options that you will
  _ever_ want to used.  It is used in the build of `libMesh` to build a `libMesh` library for each of
  the `METHODS`, so that a rebuild of `libMesh` is not required for every rebuild of MOOSE.
@@ -227,7 +239,7 @@ running "configure" is an optional step when building MOOSE or a MOOSE-based app
 
 - `framework/include/base/MooseConfig.h.in` - This file is auto-generated from running `autoheader`.
 
-- `framework/conf_var.mk.in` - This file is where you put your new expansion expressions. Typically
+- `framework/conf_vars.mk.in` - This file is where you put your new expansion expressions. Typically
   these are in the form of "@VARIABLE@".
 
 ### Make Install

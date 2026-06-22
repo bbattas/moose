@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -79,7 +79,7 @@ PINSFVSpeedFunctorMaterial::PINSFVSpeedFunctorMaterial(const InputParameters & p
   // This is needed to compute the Reynolds number
   addFunctorProperty<ADReal>(getParam<MooseFunctorName>(NS::speed),
                              [&interstitial_velocity](const auto & r, const auto & t) -> ADReal
-                             { return NS::computeSpeed(interstitial_velocity(r, t)); });
+                             { return NS::computeSpeed<ADReal>(interstitial_velocity(r, t)); });
 
   // This is not needed for non-porous media, but they can use the 'speed' functor for some friction
   // models

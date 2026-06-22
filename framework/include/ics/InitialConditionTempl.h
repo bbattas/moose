@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -154,7 +154,7 @@ protected:
   libMesh::FEContinuity _cont;
 
   /// The global DOF indices
-  std::vector<dof_id_type> _dof_indices;
+  const std::vector<dof_id_type> & _dof_indices;
   /// Side/edge DOF indices
   std::vector<unsigned int> _side_dofs;
 

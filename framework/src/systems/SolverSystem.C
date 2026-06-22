@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -11,6 +11,7 @@
 #include "SolutionInvalidity.h"
 #include "FEProblemBase.h"
 #include "TimeIntegrator.h"
+#include "MooseUtils.h"
 
 using namespace libMesh;
 
@@ -21,8 +22,7 @@ SolverSystem::SolverSystem(SubProblem & subproblem,
   : SystemBase(subproblem, fe_problem, name, var_kind),
     _current_solution(nullptr),
     _pc_side(Moose::PCS_DEFAULT),
-    _ksp_norm(Moose::KSPN_UNPRECONDITIONED),
-    _solution_is_invalid(false)
+    _ksp_norm(Moose::KSPN_UNPRECONDITIONED)
 {
 }
 
@@ -76,6 +76,60 @@ SolverSystem::setSolution(const NumericVector<Number> & soln)
 }
 
 void
+SolverSystem::setFixedPointRelaxationFactor(const Real relaxation_factor)
+{
+  _fixed_point_relaxation_factor = relaxation_factor;
+}
+
+void
+SolverSystem::clearFixedPointRelaxation()
+{
+  _fixed_point_relaxation_factor = 1.0;
+}
+
+void
+SolverSystem::saveOldSolutionForFixedPointRelaxation()
+{
+  if (MooseUtils::absoluteFuzzyEqual(_fixed_point_relaxation_factor, 1.0))
+    return;
+
+  if (!hasSolutionState(1, Moose::SolutionIterationType::FixedPoint))
+    needSolutionState(1, Moose::SolutionIterationType::FixedPoint, solution().type());
+
+  // Just in case checking if someone already allocated one which does not match
+  mooseAssert(solutionStateParallelType(1, Moose::SolutionIterationType::FixedPoint) ==
+                  solution().type(),
+              "Fixed point relaxation requires the previous fixed point solution state to have "
+              "the same parallel type as the system solution.");
+
+  solutionState(1, Moose::SolutionIterationType::FixedPoint) = solution();
+}
+
+void
+SolverSystem::applyFixedPointRelaxation()
+{
+  if (MooseUtils::absoluteFuzzyEqual(_fixed_point_relaxation_factor, 1.0))
+    return;
+
+  mooseAssert(hasSolutionState(1, Moose::SolutionIterationType::FixedPoint),
+              "Fixed point relaxation was requested but the old fixed point solution was not "
+              "saved.");
+
+  // This might be paranoid but who knows, maybe someone requests nonghosted
+  mooseAssert(solutionStateParallelType(1, Moose::SolutionIterationType::FixedPoint) ==
+                  solution().type(),
+              "Fixed point relaxation requires the previous fixed point solution state to have "
+              "the same parallel type as the system solution.");
+
+  auto & sol = solution();
+  sol.scale(_fixed_point_relaxation_factor);
+  sol.add(1.0 - _fixed_point_relaxation_factor,
+          solutionState(1, Moose::SolutionIterationType::FixedPoint));
+  sol.close();
+  update();
+}
+
+void
 SolverSystem::setPCSide(MooseEnum pcs)
 {
   if (pcs == "left")
@@ -113,7 +167,7 @@ SolverSystem::checkInvalidSolution()
   auto & solution_invalidity = _app.solutionInvalidity();
 
   // sync all solution invalid counts to rank 0 process
-  solution_invalidity.sync();
+  solution_invalidity.syncIteration();
 
   if (solution_invalidity.hasInvalidSolution())
   {
@@ -144,16 +198,17 @@ SolverSystem::compute(const ExecFlagType type)
   }
   else if ((type == EXEC_TIMESTEP_END) || (type == EXEC_FINAL))
   {
-    if (_fe_problem.solverParams()._type == Moose::ST_LINEAR)
+    if (_fe_problem.solverParams(number())._type == Moose::ST_LINEAR)
       // We likely don't have a final residual evaluation upon which we compute the time derivatives
       // so we need to do so now
       compute_tds = true;
   }
 
+  // avoid division by dt which might be zero.
   if (compute_tds && _fe_problem.dt() > 0.)
     for (auto & ti : _time_integrators)
     {
-      // avoid division by dt which might be zero.
+      // Do things like compute integration weights
       ti->preStep();
       ti->computeTimeDerivatives();
     }

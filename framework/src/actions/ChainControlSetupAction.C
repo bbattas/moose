@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -37,7 +37,10 @@ ChainControlSetupAction::act()
   // Check that all chain control data that was retrieved was declared somewhere
   for (const auto & item : chain_control_data_map)
     if (!item.second->getDeclared())
-      mooseError("The chain control data '", item.first, "' was requested but never declared.");
+      mooseError("The chain control data '",
+                 item.first,
+                 "' was requested but never declared.\nChain control data:\n",
+                 getMooseApp().getChainControlDataSystem().outputChainControlMap());
 
   // Get the ChainControls
   auto & control_warehouse = _problem->getControlWarehouse();

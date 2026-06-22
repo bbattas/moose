@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -29,7 +29,7 @@ public:
   const std::vector<Real> & getAffineStepSize() const;
 
 protected:
-  virtual void proposeSamples(const unsigned int seed_value) override;
+  virtual void proposeSamples() override;
 
   /// The step size for the stretch sampler
   const Real _step_size;

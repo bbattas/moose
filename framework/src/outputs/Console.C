@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -39,6 +39,10 @@ Console::validParams()
   params.addClassDescription("Object for screen output.");
 
   params += TableOutput::enableOutputTypes("system_information scalar postprocessor input");
+
+  addMultiAppFixedPointIterationEndExecFlag(params, "execute_on");
+  addMultiAppFixedPointIterationEndExecFlag(params, "execute_postprocessors_on");
+  addMultiAppFixedPointIterationEndExecFlag(params, "execute_scalars_on");
 
   // Screen and file output toggles
   params.addParam<bool>("output_screen", true, "Output to the screen");
@@ -127,8 +131,8 @@ Console::validParams()
                                      "the average residual it is colored yellow.");
 
   // System information controls
-  MultiMooseEnum info("framework mesh aux nonlinear relationship execution output",
-                      "framework mesh aux nonlinear execution");
+  MultiMooseEnum info("framework mesh aux nonlinear linear relationship execution output",
+                      "framework mesh aux nonlinear linear execution");
   params.addParam<MultiMooseEnum>("system_info",
                                   info,
                                   "List of information types to display "
@@ -163,8 +167,12 @@ Console::validParams()
 
   // Change the default behavior of 'execute_on' to included nonlinear iterations and failed
   // timesteps
-  params.set<ExecFlagEnum>("execute_on", /*quiet_mode=*/true) = {
-      EXEC_INITIAL, EXEC_TIMESTEP_BEGIN, EXEC_LINEAR, EXEC_NONLINEAR, EXEC_FAILED};
+  params.set<ExecFlagEnum>("execute_on", /*quiet_mode=*/true) = {EXEC_INITIAL,
+                                                                 EXEC_TIMESTEP_BEGIN,
+                                                                 EXEC_LINEAR,
+                                                                 EXEC_NONLINEAR,
+                                                                 EXEC_FAILED,
+                                                                 EXEC_TIMESTEP_END};
 
   // By default postprocessors and scalar are only output at the end of a timestep
   params.set<ExecFlagEnum>("execute_postprocessors_on", /*quiet_mode=*/true) = {EXEC_INITIAL,
@@ -231,15 +239,6 @@ Console::Console(const InputParameters & parameters)
     _solve_log = true;
   }
 
-  // Append the common 'execute_on' to the setting for this object
-  // This is unique to the Console object, all other objects inherit from the common options
-  if (common)
-  {
-    const ExecFlagEnum & common_execute_on = common->getParam<ExecFlagEnum>("execute_on");
-    for (auto & mme : common_execute_on)
-      _execute_on.setAdditionalValue(mme);
-  }
-
   // If --show-outputs is used, enable it
   if (_app.getParam<bool>("show_outputs"))
     _system_info_flags.setAdditionalValue("output");
@@ -288,17 +287,18 @@ Console::initialSetup()
       _app.getExecutioner()->getParam<bool>("verbose"))
     _verbose = true;
 
-  // If the user adds "final" to the execute on, append this to the postprocessors, scalars, etc.,
-  // but only
-  // if the parameter (e.g., postprocessor_execute_on) has not been modified by the user.
-  if (_execute_on.isValueSet("final"))
+  // If the user explicitly set execute_on but did not set a type-specific flag,
+  // replace that type's schedule with the user's execute_on so the two are consistent.
+  if (_pars.isParamSetByUser("execute_on"))
   {
-    if (!_pars.isParamSetByUser("postprocessor_execute_on"))
-      _advanced_execute_on["postprocessors"].setAdditionalValue("final");
-    if (!_pars.isParamSetByUser("scalars_execute_on"))
-      _advanced_execute_on["scalars"].setAdditionalValue("final");
-    if (!_pars.isParamSetByUser("vector_postprocessor_execute_on"))
-      _advanced_execute_on["vector_postprocessors"].setAdditionalValue("final");
+    if (!_pars.isParamSetByUser("execute_postprocessors_on"))
+      _advanced_execute_on["postprocessors"] = _execute_on;
+    if (!_pars.isParamSetByUser("execute_scalars_on"))
+      _advanced_execute_on["scalars"] = _execute_on;
+    if (!_pars.isParamSetByUser("execute_vector_postprocessors_on"))
+      _advanced_execute_on["vector_postprocessors"] = _execute_on;
+    if (!_pars.isParamSetByUser("execute_reporters_on"))
+      _advanced_execute_on["reporters"] = _execute_on;
   }
 }
 
@@ -712,14 +712,28 @@ Console::outputSystemInformation()
   {
     for (const auto i : make_range(_problem_ptr->numNonlinearSystems()))
     {
-      std::string output = ConsoleUtils::outputNonlinearSystemInformation(*_problem_ptr, i);
+      std::string output = ConsoleUtils::outputSolverSystemInformation(*_problem_ptr, i);
       if (!output.empty())
-        _console << "Nonlinear System" +
-                        (_problem_ptr->numNonlinearSystems() > 1 ? (" " + std::to_string(i)) : "") +
+      {
+        _console << "Nonlinear System";
+        if (_problem_ptr->numNonlinearSystems() > 1)
+          _console << " [" + _problem_ptr->getNonlinearSystemNames()[i] + "]";
+        _console << ":\n" << output;
+      }
+    }
+  }
+
+  if (_system_info_flags.isValueSet("linear"))
+    for (const auto i : make_range(_problem_ptr->numLinearSystems()))
+    {
+      std::string output = ConsoleUtils::outputSolverSystemInformation(
+          *_problem_ptr, _problem_ptr->numNonlinearSystems() + i);
+      if (!output.empty())
+        _console << "Linear System" +
+                        (_problem_ptr->numLinearSystems() > 1 ? (" " + std::to_string(i)) : "") +
                         ":\n"
                  << output;
     }
-  }
 
   if (_system_info_flags.isValueSet("aux"))
   {
@@ -771,10 +785,23 @@ Console::meshChanged()
     std::string output;
     for (const auto i : make_range(_problem_ptr->numNonlinearSystems()))
     {
-      output = ConsoleUtils::outputNonlinearSystemInformation(*_problem_ptr, i);
+      output = ConsoleUtils::outputSolverSystemInformation(*_problem_ptr, i);
       if (!output.empty())
-        _console << "Nonlinear System" +
-                        (_problem_ptr->numNonlinearSystems() > 1 ? (" " + std::to_string(i)) : "") +
+      {
+        _console << "Nonlinear System";
+        if (_problem_ptr->numNonlinearSystems() > 1)
+          _console << " [" + _problem_ptr->getNonlinearSystemNames()[i] + "]";
+        _console << ":\n" << output;
+      }
+    }
+
+    for (const auto i : make_range(_problem_ptr->numLinearSystems()))
+    {
+      output = ConsoleUtils::outputSolverSystemInformation(*_problem_ptr,
+                                                           _problem_ptr->numNonlinearSystems() + i);
+      if (!output.empty())
+        _console << "Linear System" +
+                        (_problem_ptr->numLinearSystems() > 1 ? (" " + std::to_string(i)) : "") +
                         ":\n"
                  << output;
     }

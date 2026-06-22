@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -131,7 +131,8 @@ ActivateElementsUserObjectBase::finalize()
   }
 
   // Reinit equation systems
-  _fe_problem.meshChanged();
+  _fe_problem.meshChanged(
+      /*intermediate_change=*/false, /*contract_mesh=*/false, /*clean_refinement_flags=*/false);
 
   // Get storage ranges for the newly activated elements and boundary nodes
   ConstElemRange & elem_range = *this->getNewlyActivatedElementRange();

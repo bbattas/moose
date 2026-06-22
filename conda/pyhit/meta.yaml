@@ -1,46 +1,56 @@
-{% set version = "2024.05.08" %}
-
 package:
   name: moose-pyhit
-  version: {{ version }}
+  version: 2026.06.16
 
 source:
-  git_url: https://github.com/milljm/moose-pyhit.git
+  - path: ../../python/moosetree
+    folder: pyhit/moosetree
+  - path: ../../python/mooseutils/message.py
+    folder: pyhit/mooseutils/message.py
+  - path: ../../python/mooseutils/mooseutils.py
+    folder: pyhit/mooseutils/mooseutils.py
+  - path: ../../framework/contrib/hit
+    folder: src
+  - path: ../../python/pyhit/pyhit.py
+    folder: pyhit
+  - path: ../functions/retry_build.sh
+  - path: pyhit/__init__.py
+    folder: pyhit
+  - path: pyhit/mooseutils/__init__.py
+    folder: pyhit/mooseutils
+  - patches:
+      - pyhit.patch
+      - message.patch
 
 build:
   number: 0
-  string: build_0
-  skip: true           # [win]
-  pin_depends: record
+  run_exports:
+    - moose-wasp 2026.06.15_d8777a8 build_0
 
 requirements:
   build:
     - {{ compiler('cxx') }}
-    - {{ moose_python }}
-    - {{ moose_wasp }}
-    - cython
-    - setuptools
-
-  host:
-    - {{ compiler('cxx') }}
-    - {{ moose_python }}
+    - moose-wasp 2026.06.15_d8777a8 build_0
     - make
-    - cython
-
+  host:
+    - python {{ python }}
+    - moose-wasp 2026.06.15_d8777a8 build_0
   run:
-    - {{ moose_wasp }}
-    - setuptools
-    - python
+    - python {{ python }}
+    - moose-wasp 2026.06.15_d8777a8 build_0
 
 test:
   imports:
     - pyhit
+  script: test_pyhit.py
 
 about:
-  home: https://mooseframework.org/
-  license: LGPL 2.1
-  summary: 'HIT Parser'
+  home: https://github.com/idaholab/moose
+  license: OPEN SOURCE LICENSE (Permissive)
+  summary: >
+    A python interface to the MOOSE Hierarchical Input Text (HIT) syntax.
 
 extra:
   recipe-maintainers:
-    - milljm
+    - cticenhour
+    - loganharbour

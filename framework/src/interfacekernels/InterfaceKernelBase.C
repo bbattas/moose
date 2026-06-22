@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -34,7 +34,8 @@ InterfaceKernelBase::validParams()
 
   params.declareControllable("enable");
   params.addRequiredCoupledVar("neighbor_var", "The variable on the other side of the interface.");
-  params.set<std::string>("_moose_base") = "InterfaceKernel";
+  params.registerBase("InterfaceKernel");
+  params.registerSystemAttributeName("InterfaceKernel");
   params.addParam<std::vector<AuxVariableName>>(
       "save_in",
       {},
@@ -71,10 +72,6 @@ InterfaceKernelBase::validParams()
                                     Moose::RelationshipManagerType::COUPLING);
   return params;
 }
-
-// Static mutex definitions
-Threads::spin_mutex InterfaceKernelBase::_resid_vars_mutex;
-Threads::spin_mutex InterfaceKernelBase::_jacoby_vars_mutex;
 
 InterfaceKernelBase::InterfaceKernelBase(const InputParameters & parameters)
   : NeighborResidualObject(parameters),

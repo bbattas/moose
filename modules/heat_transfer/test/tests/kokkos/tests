@@ -1,0 +1,87 @@
+[Tests]
+  issues = '#30655 #32179'
+
+  [conduction]
+    design = 'KokkosHeatConduction.md KokkosHeatConductionMaterial.md'
+    requirement = 'The Kokkos system shall compute temperature field through conduction'
+    [material]
+      type = 'Exodiff'
+      input = 'kokkos_conduction.i'
+      exodiff = 'kokkos_conduction_out.e'
+      detail = 'with thermal conductivity provided by material,'
+      capabilities = 'kokkos'
+      compute_devices = 'cpu cuda'
+    []
+    [default_property]
+      type = 'Exodiff'
+      input = 'kokkos_conduction.i'
+      exodiff = 'kokkos_conduction_out.e'
+      detail = 'with thermal conductivity provided as default material property.'
+      capabilities = 'kokkos'
+      compute_devices = 'cpu cuda'
+      prereq = 'conduction/material'
+    []
+  []
+
+  [transient]
+    design = 'KokkosHeatConductionTimeDerivative.md'
+    requirement = 'The Kokkos system shall compute temperature field through conduction with time-derivative terms'
+    [plain]
+      type = 'Exodiff'
+      input = 'kokkos_transient_conduction.i'
+      exodiff = 'kokkos_transient_conduction_out.e'
+      detail = 'without temperature-derivative material properties,'
+      capabilities = 'kokkos'
+      compute_devices = 'cpu cuda'
+    []
+    [derivatives]
+      type = 'Exodiff'
+      input = 'kokkos_transient_heat_derivatives.i'
+      exodiff = 'kokkos_transient_heat_derivatives_out.e'
+      detail = 'with temperature-derivative material properties,'
+      capabilities = 'kokkos'
+      compute_devices = 'cpu cuda'
+      allow_test_objects = true
+    []
+    [jacobian]
+      type = 'PetscJacobianTester'
+      input = 'kokkos_transient_heat_derivatives.i'
+      cli_args = 'Outputs/exodus=false'
+      detail = 'with perfect Jacobian assembled using temperature-derivative material properties'
+      capabilities = 'kokkos'
+      compute_devices = 'cpu cuda'
+      allow_test_objects = true
+    []
+  []
+
+  [convective]
+    design = 'KokkosConvectiveHeatFluxBC.md KokkosCoupledConvectiveHeatFluxBC.md'
+    requirement = 'The Kokkos system shall provide convective heat flux boundary condition where far-field temperature and convective heat transfer coefficient are given as'
+    [constant]
+      type = 'Exodiff'
+      input = 'kokkos_convective_heat_flux.i'
+      exodiff = 'kokkos_convective_heat_flux_out.e'
+      detail = 'constants,'
+      capabilities = 'kokkos'
+      compute_devices = 'cpu cuda'
+    []
+    [material]
+      type = 'Exodiff'
+      input = 'kokkos_convective_heat_flux.i'
+      cli_args = 'BCs/right/T_infinity=Tinf BCs/right/heat_transfer_coefficient=htc'
+      exodiff = 'kokkos_convective_heat_flux_out.e'
+      detail = 'material properties,'
+      capabilities = 'kokkos'
+      compute_devices = 'cpu cuda'
+      prereq = 'convective/constant'
+    []
+    [coupled]
+      type = 'Exodiff'
+      input = 'kokkos_coupled_convective_heat_flux.i'
+      exodiff = 'kokkos_coupled_convective_heat_flux_out.e'
+      detail = 'spatially varying variables.'
+      capabilities = 'kokkos'
+      compute_devices = 'cpu cuda'
+    []
+  []
+[]

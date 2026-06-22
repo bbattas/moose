@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -51,11 +51,20 @@ MooseVariableFV<OutputType>::validParams()
                                       "Switch that can select between face interpolation methods.");
   params.template addParam<bool>(
       "cache_cell_gradients", true, "Whether to cache cell gradients or re-compute them.");
-  // Just evaluating finite volume variables at an arbitrary location in a cell requires a layer of
-  // ghosting since we will use two term expansions
-  params.addRelationshipManager("ElementSideNeighborLayers",
-                                Moose::RelationshipManagerType::GEOMETRIC |
-                                    Moose::RelationshipManagerType::ALGEBRAIC);
+
+  // Depending on the face interpolation we might have to do more than one layer ghosting.
+  params.addRelationshipManager(
+      "ElementSideNeighborLayers",
+      Moose::RelationshipManagerType::GEOMETRIC | Moose::RelationshipManagerType::ALGEBRAIC |
+          Moose::RelationshipManagerType::COUPLING,
+      [](const InputParameters & obj_params, InputParameters & rm_params)
+      {
+        unsigned short layers = 1;
+        if (obj_params.get<MooseEnum>("face_interp_method") == "skewness-corrected")
+          layers = 2;
+
+        rm_params.set<unsigned short>("layers") = layers;
+      });
   return params;
 }
 
@@ -107,21 +116,21 @@ MooseVariableFV<OutputType>::clearDofIndices()
 }
 
 template <typename OutputType>
-typename MooseVariableFV<OutputType>::OutputData
+typename MooseVariableFV<OutputType>::DofValue
 MooseVariableFV<OutputType>::getElementalValue(const Elem * elem, unsigned int idx) const
 {
   return _element_data->getElementalValue(elem, Moose::Current, idx);
 }
 
 template <typename OutputType>
-typename MooseVariableFV<OutputType>::OutputData
+typename MooseVariableFV<OutputType>::DofValue
 MooseVariableFV<OutputType>::getElementalValueOld(const Elem * elem, unsigned int idx) const
 {
   return _element_data->getElementalValue(elem, Moose::Old, idx);
 }
 
 template <typename OutputType>
-typename MooseVariableFV<OutputType>::OutputData
+typename MooseVariableFV<OutputType>::DofValue
 MooseVariableFV<OutputType>::getElementalValueOlder(const Elem * elem, unsigned int idx) const
 {
   return _element_data->getElementalValue(elem, Moose::Older, idx);
@@ -149,112 +158,112 @@ MooseVariableFV<OutputType>::add(NumericVector<Number> & residual)
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValues() const
 {
   return _element_data->dofValues();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesOld() const
 {
   return _element_data->dofValuesOld();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesOlder() const
 {
   return _element_data->dofValuesOlder();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesPreviousNL() const
 {
   return _element_data->dofValuesPreviousNL();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesNeighbor() const
 {
   return _neighbor_data->dofValues();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesOldNeighbor() const
 {
   return _neighbor_data->dofValuesOld();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesOlderNeighbor() const
 {
   return _neighbor_data->dofValuesOlder();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesPreviousNLNeighbor() const
 {
   return _neighbor_data->dofValuesPreviousNL();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesDot() const
 {
   return _element_data->dofValuesDot();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesDotDot() const
 {
   return _element_data->dofValuesDotDot();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesDotOld() const
 {
   return _element_data->dofValuesDotOld();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesDotDotOld() const
 {
   return _element_data->dofValuesDotDotOld();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesDotNeighbor() const
 {
   return _neighbor_data->dofValuesDot();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesDotDotNeighbor() const
 {
   return _neighbor_data->dofValuesDotDot();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesDotOldNeighbor() const
 {
   return _neighbor_data->dofValuesDotOld();
 }
 
 template <typename OutputType>
-const typename MooseVariableFV<OutputType>::DoFValue &
+const typename MooseVariableFV<OutputType>::DofValues &
 MooseVariableFV<OutputType>::dofValuesDotDotOldNeighbor() const
 {
   return _neighbor_data->dofValuesDotDotOld();
@@ -376,21 +385,21 @@ MooseVariableFV<OutputType>::setNodalValue(const OutputType & /*value*/, unsigne
 
 template <typename OutputType>
 void
-MooseVariableFV<OutputType>::setDofValue(const OutputData & value, unsigned int index)
+MooseVariableFV<OutputType>::setDofValue(const DofValue & value, unsigned int index)
 {
   _element_data->setDofValue(value, index);
 }
 
 template <typename OutputType>
 void
-MooseVariableFV<OutputType>::setDofValues(const DenseVector<OutputData> & values)
+MooseVariableFV<OutputType>::setDofValues(const DenseVector<DofValue> & values)
 {
   _element_data->setDofValues(values);
 }
 
 template <typename OutputType>
 void
-MooseVariableFV<OutputType>::setLowerDofValues(const DenseVector<OutputData> &)
+MooseVariableFV<OutputType>::setLowerDofValues(const DenseVector<DofValue> &)
 {
   lowerDError();
 }
@@ -399,9 +408,6 @@ template <typename OutputType>
 std::pair<bool, const FVDirichletBCBase *>
 MooseVariableFV<OutputType>::getDirichletBC(const FaceInfo & fi) const
 {
-  if (!_dirichlet_map_setup)
-    const_cast<MooseVariableFV<OutputType> *>(this)->determineBoundaryToDirichletBCMap();
-
   for (const auto bnd_id : fi.boundaryIDs())
     if (auto it = _boundary_id_to_dirichlet_bc.find(bnd_id);
         it != _boundary_id_to_dirichlet_bc.end())
@@ -414,24 +420,11 @@ template <typename OutputType>
 std::pair<bool, std::vector<const FVFluxBC *>>
 MooseVariableFV<OutputType>::getFluxBCs(const FaceInfo & fi) const
 {
-  std::vector<const FVFluxBC *> bcs;
+  for (const auto bnd_id : fi.boundaryIDs())
+    if (auto it = _boundary_id_to_flux_bc.find(bnd_id); it != _boundary_id_to_flux_bc.end())
+      return {true, it->second};
 
-  this->_subproblem.getMooseApp()
-      .theWarehouse()
-      .query()
-      .template condition<AttribSystem>("FVFluxBC")
-      .template condition<AttribThread>(_tid)
-      .template condition<AttribBoundaries>(fi.boundaryIDs())
-      .template condition<AttribVar>(_var_num)
-      .template condition<AttribSysNum>(this->_sys.number())
-      .queryInto(bcs);
-
-  bool has_flux_bc = bcs.size() > 0;
-
-  if (has_flux_bc)
-    return std::make_pair(true, bcs);
-  else
-    return std::make_pair(false, std::vector<const FVFluxBC *>());
+  return std::make_pair(false, std::vector<const FVFluxBC *>());
 }
 
 template <typename OutputType>
@@ -624,7 +617,12 @@ MooseVariableFV<OutputType>::uncorrectedAdGradSln(const FaceInfo & fi,
                                                   const StateArg & state,
                                                   const bool correct_skewness) const
 {
-  const bool var_defined_on_elem = this->hasBlocks(fi.elem().subdomain_id());
+  const auto face_type = fi.faceType(std::make_pair(this->number(), this->sys().number()));
+  mooseAssert(face_type != FaceInfo::VarFaceNeighbors::NEITHER,
+              "Gradient requested on a face where the variable is defined on neither side.");
+
+  const bool var_defined_on_elem = (face_type == FaceInfo::VarFaceNeighbors::BOTH) ||
+                                   (face_type == FaceInfo::VarFaceNeighbors::ELEM);
   const Elem * const elem_one = var_defined_on_elem ? &fi.elem() : fi.neighborPtr();
   const Elem * const elem_two = var_defined_on_elem ? fi.neighborPtr() : &fi.elem();
 
@@ -633,8 +631,9 @@ MooseVariableFV<OutputType>::uncorrectedAdGradSln(const FaceInfo & fi,
   // If we have a neighbor then we interpolate between the two to the face. If we do not, then we
   // apply a zero Hessian assumption and use the element centroid gradient as the uncorrected face
   // gradient
-  if (elem_two && this->hasBlocks(elem_two->subdomain_id()))
+  if (face_type == FaceInfo::VarFaceNeighbors::BOTH)
   {
+    mooseAssert(elem_two, "Face type indicates BOTH but neighbor information is missing.");
     const VectorValue<ADReal> & elem_two_grad = adGradSln(elem_two, state, correct_skewness);
 
     // Uncorrected gradient value
@@ -690,6 +689,11 @@ template <typename OutputType>
 void
 MooseVariableFV<OutputType>::residualSetup()
 {
+  if (!_dirichlet_map_setup)
+    determineBoundaryToDirichletBCMap();
+  if (!_flux_map_setup)
+    determineBoundaryToFluxBCMap();
+
   clearCaches();
 }
 
@@ -860,6 +864,10 @@ template <typename OutputType>
 void
 MooseVariableFV<OutputType>::determineBoundaryToDirichletBCMap()
 {
+  mooseAssert(!Threads::in_threads,
+              "This routine has not been implemented for threads. Please query this routine before "
+              "a threaded region or contact a MOOSE developer to discuss.");
+
   _boundary_id_to_dirichlet_bc.clear();
   std::vector<FVDirichletBCBase *> bcs;
 
@@ -886,6 +894,49 @@ MooseVariableFV<OutputType>::determineBoundaryToDirichletBCMap()
   }
 
   _dirichlet_map_setup = true;
+}
+
+template <typename OutputType>
+void
+MooseVariableFV<OutputType>::determineBoundaryToFluxBCMap()
+{
+  mooseAssert(!Threads::in_threads,
+              "This routine has not been implemented for threads. Please query this routine before "
+              "a threaded region or contact a MOOSE developer to discuss.");
+
+  _boundary_id_to_flux_bc.clear();
+  std::vector<const FVFluxBC *> bcs;
+
+  // I believe because query() returns by value but condition returns by reference that binding to a
+  // const lvalue reference results in the query() getting destructed and us holding onto a dangling
+  // reference. I think that condition returned by value we would be able to bind to a const lvalue
+  // reference here. But as it is we'll bind to a regular lvalue
+  const auto base_query = this->_subproblem.getMooseApp()
+                              .theWarehouse()
+                              .query()
+                              .template condition<AttribSystem>("FVFluxBC")
+                              .template condition<AttribThread>(_tid)
+                              .template condition<AttribVar>(_var_num)
+                              .template condition<AttribSysNum>(this->_sys.number());
+
+  for (const auto bnd_id : this->_mesh.getBoundaryIDs())
+  {
+    auto base_query_copy = base_query;
+    base_query_copy.template condition<AttribBoundaries>(std::set<BoundaryID>({bnd_id}))
+        .queryInto(bcs);
+    if (!bcs.empty())
+      _boundary_id_to_flux_bc.emplace(bnd_id, bcs);
+  }
+
+  _flux_map_setup = true;
+}
+
+template <typename OutputType>
+void
+MooseVariableFV<OutputType>::sizeMatrixTagData()
+{
+  _element_data->sizeMatrixTagData();
+  _neighbor_data->sizeMatrixTagData();
 }
 
 template class MooseVariableFV<Real>;

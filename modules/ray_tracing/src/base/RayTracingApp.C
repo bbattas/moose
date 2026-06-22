@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,7 +27,7 @@ RayTracingApp::validParams()
 
 registerKnownLabel("RayTracingApp");
 
-RayTracingApp::RayTracingApp(InputParameters parameters) : MooseApp(parameters)
+RayTracingApp::RayTracingApp(const InputParameters & parameters) : MooseApp(parameters)
 {
   RayTracingApp::registerAll(_factory, _action_factory, _syntax);
 }
@@ -49,6 +49,7 @@ RayTracingApp::registerAll(Factory & f, ActionFactory & af, Syntax & syntax)
 
   // Adds [RayBCs] block
   registerSyntaxTask("AddRayBCAction", "RayBCs/*", "add_ray_boundary_condition");
+  registerSyntax("SetupPeriodicRayBCAction", "RayBCs/*");
   registerMooseObjectTask("add_ray_boundary_condition", RayBoundaryCondition, false);
   addTaskDependency("add_ray_boundary_condition", "add_kernel");
 }
@@ -57,26 +58,6 @@ void
 RayTracingApp::registerApps()
 {
   registerApp(RayTracingApp);
-}
-
-void
-RayTracingApp::registerObjects(Factory & factory)
-{
-  mooseDeprecated("use registerAll instead of registerObjects");
-  Registry::registerObjectsTo(factory, {"RayTracingApp"});
-}
-
-void
-RayTracingApp::associateSyntax(Syntax & /*syntax*/, ActionFactory & action_factory)
-{
-  mooseDeprecated("use registerAll instead of associateSyntax");
-  Registry::registerActionsTo(action_factory, {"RayTracingApp"});
-}
-
-void
-RayTracingApp::registerExecFlags(Factory & /*factory*/)
-{
-  mooseDeprecated("Do not use registerExecFlags, apps no longer require flag registration");
 }
 
 extern "C" void

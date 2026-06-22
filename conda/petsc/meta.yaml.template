@@ -1,0 +1,82 @@
+# Making a Change to this package?
+# REMEMBER TO UPDATE the .yaml files for the following packages:
+#   libmesh/*
+#
+#   And documentation:
+#   framework/doc/packages_config.yml
+#
+# As well as any directions pertaining to modifying those files.
+# ALSO: Follow the directions in scripts/tests/versioner_hashes.yaml
+{% set build = __VERSIONER_PETSC_BUILD_NUMBER__ %}
+{% set version = "__VERSIONER_PETSC_VERSION__" %}
+
+package:
+  name: moose-petsc
+  version: {{ version }}
+
+source:
+  - path: ../../petsc
+  - path: ../../scripts/configure_petsc.sh
+  - path: ../functions/retry_build.sh
+  - patches:
+      - no-cppflags-in-pkgconfig-cflags.patch
+
+build:
+  number: {{ build }}
+  string: {{ mpi }}_{{ build }}
+  script_env:
+    - MOOSE_JOBS
+    - REQUESTS_CA_BUNDLE
+    - SSL_CERT_FILE
+    - CURL_CA_BUNDLE
+    - NODE_EXTRA_CA_CERTS
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('fortran') }}
+    - {{ stdlib('c') }}
+    - bison
+    - diffutils
+    - make
+    - pkg-config
+    - python 3.12.*
+    - gnuconfig
+  host:
+    - {{ mpi }} {{ mpi_version }}
+    - _openmp_mutex # [linux]
+    - llvm-openmp   # [osx]
+    - bzip2
+    - cmake
+    - hdf5 {{ hdf5 }}
+    - hdf5 {{ hdf5 }} mpi_{{ mpi }}_*
+    {% if mpi == "mpich" %}
+    # see libfabric entry in conda/conda_build_config.yaml
+    - libfabric {{ libfabric }} # [linux]
+    {% endif %}
+    - xz
+    - zlib
+
+test:
+  requires:
+    - pkg-config
+    - make
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('fortran') }}
+  files:
+    - tests/ex1.c
+    - tests/makefile
+
+about:
+  home: https://petsc.org
+  summary: 'PETSc: Portable, Extensible Toolkit for Scientific Computation'
+  license: BSD 2-Clause
+  license_file: LICENSE
+  license_family: BSD
+
+extra:
+  recipe-maintainers:
+    - cticenhour
+    - loganharbour

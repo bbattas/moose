@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -37,6 +37,13 @@ public:
    * @param parameters Parameters that come from constructing the object
    */
   ScalarCoupleable(const MooseObject * moose_object);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  ScalarCoupleable(const ScalarCoupleable & object, const Moose::Kokkos::FunctorCopy & key);
+#endif
 
   /**
    * Get the list of coupled scalar variables

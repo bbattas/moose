@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -21,6 +21,11 @@ CSV::validParams()
   InputParameters params = TableOutput::validParams();
   params.addClassDescription("Output for postprocessors, vector postprocessors, and scalar "
                              "variables using comma seperated values (CSV).");
+
+  addMultiAppFixedPointIterationEndExecFlag(params, "execute_on");
+  addMultiAppFixedPointIterationEndExecFlag(params, "execute_postprocessors_on");
+  addMultiAppFixedPointIterationEndExecFlag(params, "execute_scalars_on");
+
   params.addParam<bool>("sort_columns", false, "Toggle the sorting of columns alphabetically.");
 
   // Options for aligning csv output with whitespace padding

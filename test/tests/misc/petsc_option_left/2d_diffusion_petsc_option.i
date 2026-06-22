@@ -8,41 +8,56 @@
 []
 
 [Variables]
-  [./u]
-    order = FIRST
-    family = LAGRANGE
-  [../]
+  [u]
+  []
+[]
+
+[AuxVariables]
+  [aux]
+  []
 []
 
 [Kernels]
-  [./diff]
+  [time]
+    type = TimeDerivative
+    variable = u
+  []
+  [diff]
     type = Diffusion
     variable = u
-  [../]
+  []
 []
 
 [BCs]
-  [./left]
+  [left]
     type = DirichletBC
     variable = u
     preset = false
     boundary = 1
     value = 0
-  [../]
+  []
 
-  [./right]
+  [right]
     type = DirichletBC
     variable = u
     preset = false
     boundary = 2
     value = 1
-  [../]
+  []
 []
 
 [Executioner]
-  type = Steady
+  type = Transient
 
-  solve_type = 'NEWTON'
+  solve_type = 'LINEAR'
+
+  start_time = 0.0
+  num_steps = 1
+  dt = 0.00005
+
+  [TimeIntegrator]
+    type = ActuallyExplicitEuler
+  []
 
   petsc_options_iname = "-pc_type"
   petsc_options_value = "hypre"

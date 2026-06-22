@@ -1,3 +1,7 @@
+[Problem]
+  use_hash_table_matrix_assembly = true
+[]
+
 [Mesh]
   type = GeneratedMesh
   dim = 2
@@ -89,6 +93,8 @@
 []
 
 [Outputs]
-  csv = true
-  execute_on = 'timestep_end'
+  [out]
+    type = CSV
+    execute_on = 'timestep_end'
+  []
 []

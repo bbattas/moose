@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -23,8 +23,8 @@ public:
   ADBoundaryFlux3EqnGhostDensityVelocity(const InputParameters & parameters);
 
 protected:
-  virtual std::vector<ADReal>
-  getGhostCellSolution(const std::vector<ADReal> & U_interior) const override;
+  virtual std::vector<ADReal> getGhostCellSolution(const std::vector<ADReal> & U_interior,
+                                                   const Point & point) const override;
 
   /// Specified density
   const Real & _rho;

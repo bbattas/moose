@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -7,9 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef LIBTORCH_ENABLED
+#ifdef MOOSE_LIBTORCH_ENABLED
 
 #pragma once
+
 #include <torch/types.h>
 #include "GeneralVectorPostprocessor.h"
 
@@ -24,19 +25,12 @@ public:
   LibtorchArtificialNeuralNetTest(const InputParameters & params);
 
   virtual void initialize(){};
-  virtual void execute(){};
+  virtual void execute();
   virtual void finalize(){};
 
 protected:
-  /// Function to determine the torch data type to be used based on
-  /// an input enum
-  torch::ScalarType determineTorchDataType(const MooseEnum & data_enum);
-
   /// We create a vector to store the output of the neural net
   VectorPostprocessorValue & _nn_values;
-
-  /// The data type for the neural net this
-  const torch::ScalarType _data_type;
 };
 
 #endif

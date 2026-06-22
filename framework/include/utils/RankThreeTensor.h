@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -118,6 +118,12 @@ public:
   /// Print the rank three tensor
   void print(std::ostream & stm = Moose::out) const;
 
+  friend std::ostream & operator<<(std::ostream & os, const RankThreeTensorTempl<T> & t)
+  {
+    t.print(os);
+    return os;
+  }
+
   /// copies values from "a" into this tensor
   RankThreeTensorTempl<T> & operator=(const RankThreeTensorTempl<T> & a);
 
@@ -126,6 +132,9 @@ public:
 
   /// b_i = r_ijk * a_jk
   libMesh::VectorValue<T> operator*(const RankTwoTensorTempl<T> & a) const;
+
+  /// b_ij = r_ijk * a_k
+  RankTwoTensorTempl<T> operator*(const libMesh::VectorValue<T> & a) const;
 
   /// r_ijk*a
   RankThreeTensorTempl<T> operator*(const T a) const;

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -126,6 +126,13 @@ public:
    * Returns whether the explicit solvers are used
    */
   virtual bool isExplicit() const { return false; }
+
+  /*
+   * Returns whether the time integrator controls its own state. Explicit
+   * methods require extra care for determing when to store old solutions and
+   * stateful material properties.
+   */
+  virtual bool advancesProblemState() const { return false; }
 
   /**
    * Return the number of states this requires in a linear

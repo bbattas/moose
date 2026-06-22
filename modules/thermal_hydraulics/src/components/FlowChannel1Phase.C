@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,151 +10,182 @@
 #include "FlowChannel1Phase.h"
 #include "FlowModelSinglePhase.h"
 #include "SinglePhaseFluidProperties.h"
-#include "HeatTransfer1PhaseBase.h"
-#include "Closures1PhaseBase.h"
-#include "ThermalHydraulicsApp.h"
-#include "SlopeReconstruction1DInterface.h"
+#include "THMNames.h"
+#include "MooseUtils.h"
+#include "ComponentsConvergence.h"
 
 registerMooseObject("ThermalHydraulicsApp", FlowChannel1Phase);
 
 InputParameters
 FlowChannel1Phase::validParams()
 {
-  InputParameters params = FlowChannelBase::validParams();
+  InputParameters params = FlowChannel1PhaseBase::validParams();
 
-  params.addParam<FunctionName>("initial_p", "Initial pressure in the flow channel [Pa]");
-  params.addParam<FunctionName>("initial_vel", "Initial velocity in the flow channel [m/s]");
-  params.addParam<FunctionName>("initial_T", "Initial temperature in the flow channel [K]");
-  params.addParam<FunctionName>("D_h", "Hydraulic diameter [m]");
+  params.addParam<std::vector<FunctionName>>(
+      "initial_passives",
+      {},
+      "Initial passive transport variable values in the flow channel, if any (units are "
+      "[amount/m^3], where 'amount' may be mass (kg) or a number (molecules, moles, etc.))");
+  params.addParam<std::vector<VariableName>>(
+      "passives_names",
+      {},
+      "Names for each passive transport variable [amount/m^3]. Note that the conserved (solution) "
+      "variables will be an amount per unit volume multiplied by the channel cross-sectional area, "
+      "yielding an amount per unit length; these solution variable names will append '_times_area' "
+      "to the names given in this parameter.");
+
+  MooseEnum wave_speed_formulation("einfeldt davis", "einfeldt");
   params.addParam<MooseEnum>(
-      "rdg_slope_reconstruction",
-      SlopeReconstruction1DInterface<true>::getSlopeReconstructionMooseEnum("None"),
-      "Slope reconstruction type for rDG spatial discretization");
+      "wave_speed_formulation", wave_speed_formulation, "Method for computing wave speeds");
+
   std::vector<Real> sf_1phase(3, 1.0);
   params.addParam<std::vector<Real>>(
       "scaling_factor_1phase",
       sf_1phase,
       "Scaling factors for each single phase variable (rhoA, rhouA, rhoEA)");
+  params.addParam<std::vector<Real>>("scaling_factor_passives",
+                                     "Scaling factor for each passive transport variable");
+  params.addParam<bool>(
+      "create_flux_vpp",
+      false,
+      "If true, create a VectorPostprocessor with the the mass, momentum, and energy side fluxes");
 
-  params.declareControllable("initial_p initial_T initial_vel D_h");
-  params.addParamNamesToGroup("initial_p initial_T initial_vel", "Variable initialization");
-  params.addParamNamesToGroup("rdg_slope_reconstruction scaling_factor_1phase", "Numerical scheme");
+  params.addParam<Real>("p_rel_step_tol", 1e-5, "Pressure relative step tolerance");
+  params.addParam<Real>("T_rel_step_tol", 1e-5, "Temperature relative step tolerance");
+  params.addParam<Real>("vel_rel_step_tol", 1e-5, "Velocity relative step tolerance");
+  params.addParam<Real>("mass_res_tol", 1e-5, "Mass equation normalized residual tolerance");
+  params.addParam<Real>(
+      "momentum_res_tol", 1e-5, "Momentum equation normalized residual tolerance");
+  params.addParam<Real>("energy_res_tol", 1e-5, "Energy equation normalized residual tolerance");
+
+  params.addParamNamesToGroup("scaling_factor_1phase", "Numerical scheme");
   params.addClassDescription("1-phase 1D flow channel");
 
   return params;
 }
 
-FlowChannel1Phase::FlowChannel1Phase(const InputParameters & params)
-  : FlowChannelBase(params),
-
-    _numerical_flux_name(genName(name(), "numerical_flux")),
-    _rdg_slope_reconstruction(getParam<MooseEnum>("rdg_slope_reconstruction"))
+FlowChannel1Phase::FlowChannel1Phase(const InputParameters & params) : FlowChannel1PhaseBase(params)
 {
-}
-
-void
-FlowChannel1Phase::init()
-{
-  FlowChannelBase::init();
-
-  const UserObject & fp = getTHMProblem().getUserObject<UserObject>(_fp_name);
-  if (dynamic_cast<const SinglePhaseFluidProperties *>(&fp) == nullptr)
-    logError("Supplied fluid properties must be for 1-phase fluids.");
-}
-
-std::shared_ptr<FlowModel>
-FlowChannel1Phase::buildFlowModel()
-{
-  const std::string class_name = "FlowModelSinglePhase";
-  InputParameters pars = _factory.getValidParams(class_name);
-  pars.set<THMProblem *>("_thm_problem") = &getTHMProblem();
-  pars.set<FlowChannelBase *>("_flow_channel") = this;
-  pars.set<UserObjectName>("numerical_flux") = _numerical_flux_name;
-  pars.set<bool>("output_vector_velocity") = getTHMProblem().getVectorValuedVelocity();
-  pars.applyParameters(parameters());
-  return _factory.create<FlowModel>(class_name, name(), pars, 0);
 }
 
 void
 FlowChannel1Phase::check() const
 {
-  FlowChannelBase::check();
+  FlowChannel1PhaseBase::check();
 
-  // only 1-phase flow compatible heat transfers are allowed
-  for (unsigned int i = 0; i < _heat_transfer_names.size(); i++)
-  {
-    if (!hasComponentByName<HeatTransfer1PhaseBase>(_heat_transfer_names[i]))
-      logError("Coupled heat source '",
-               _heat_transfer_names[i],
-               "' is not compatible with single phase flow channel. Use single phase heat transfer "
-               "component instead.");
-  }
+  checkEqualSize<VariableName, FunctionName>("passives_names", "initial_passives");
+  if (isParamValid("scaling_factor_passives"))
+    checkEqualSize<VariableName, Real>("passives_names", "scaling_factor_passives");
+}
 
-  bool ics_set =
-      getTHMProblem().hasInitialConditionsFromFile() ||
-      (isParamValid("initial_p") && isParamValid("initial_T") && isParamValid("initial_vel"));
+void
+FlowChannel1Phase::checkFluidProperties() const
+{
+  const UserObject & fp = getTHMProblem().getUserObject<UserObject>(_fp_name);
+  if (dynamic_cast<const SinglePhaseFluidProperties *>(&fp) == nullptr)
+    logError("Supplied fluid properties must be for 1-phase fluids.");
+}
 
-  if (!ics_set && !_app.isRestarting())
-  {
-    // create a list of the missing IC parameters
-    const std::vector<std::string> ic_params{"initial_p", "initial_T", "initial_vel"};
-    std::ostringstream oss;
-    for (const auto & ic_param : ic_params)
-      if (!isParamValid(ic_param))
-        oss << " " << ic_param;
+std::string
+FlowChannel1Phase::flowModelClassName() const
+{
+  return "FlowModelSinglePhase";
+}
 
-    logError("The following initial condition parameters are missing:", oss.str());
-  }
+std::vector<std::string>
+FlowChannel1Phase::ICParameters() const
+{
+  return {"initial_p", "initial_T", "initial_vel"};
 }
 
 void
 FlowChannel1Phase::addMooseObjects()
 {
-  FlowChannelBase::addMooseObjects();
+  FlowChannel1PhaseBase::addMooseObjects();
 
-  if (!_pipe_pars_transferred)
-    addHydraulicDiameterMaterial();
+  if (getParam<bool>("create_flux_vpp"))
+    addNumericalFluxVectorPostprocessor();
+
+  addFlowChannel1PhaseFunctorMaterial();
+
+  const std::vector<std::pair<std::string, Real>> var_norm_pairs{
+      {THM::PRESSURE, getParam<Real>("p_ref")},
+      {THM::TEMPERATURE, getParam<Real>("T_ref")},
+      {THM::VELOCITY, getParam<Real>("vel_ref")}};
+  for (const auto & [var, norm] : var_norm_pairs)
+  {
+    addNonlinearStepFunctorMaterial(
+        THM::functorMaterialPropertyName<false>(var), var + "_change", false);
+    addMaximumFunctorPostprocessor(
+        var + "_change", genName(name(), var + "_rel_step"), norm, getSubdomainNames());
+  }
+
+  const std::vector<std::pair<std::string, std::string>> var_eq_pairs{
+      {THM::RHOA, "mass"}, {THM::RHOUA, "momentum"}, {THM::RHOEA, "energy"}};
+  for (const auto & [var, eq] : var_eq_pairs)
+    addNormalized1PhaseResidualNorm(var, eq);
+
+  addMultiPostprocessorConvergence(
+      {genName(name(), "p_rel_step"),
+       genName(name(), "T_rel_step"),
+       genName(name(), "vel_rel_step"),
+       genName(name(), "mass_res"),
+       genName(name(), "momentum_res"),
+       genName(name(), "energy_res")},
+      {"step: p", "step: T", "step: vel", "res: mass", "res: momentum", "res: energy"},
+      {getParam<Real>("p_rel_step_tol"),
+       getParam<Real>("T_rel_step_tol"),
+       getParam<Real>("vel_rel_step_tol"),
+       getParam<Real>("mass_res_tol"),
+       getParam<Real>("momentum_res_tol"),
+       getParam<Real>("energy_res_tol")});
 }
 
 void
-FlowChannel1Phase::addHydraulicDiameterMaterial()
+FlowChannel1Phase::addNumericalFluxVectorPostprocessor()
 {
-  const std::string mat_name = genName(name(), "D_h_material");
-
-  if (isParamValid("D_h"))
-  {
-    const FunctionName & D_h_fn_name = getParam<FunctionName>("D_h");
-
-    const std::string class_name = "ADGenericFunctionMaterial";
-    InputParameters params = _factory.getValidParams(class_name);
-    params.set<std::vector<SubdomainName>>("block") = getSubdomainNames();
-    params.set<std::vector<std::string>>("prop_names") = {FlowModelSinglePhase::HYDRAULIC_DIAMETER};
-    params.set<std::vector<FunctionName>>("prop_values") = {D_h_fn_name};
-    getTHMProblem().addMaterial(class_name, mat_name, params);
-
-    makeFunctionControllableIfConstant(D_h_fn_name, "D_h");
-  }
-  else
-  {
-    const std::string class_name = "ADHydraulicDiameterCircularMaterial";
-    InputParameters params = _factory.getValidParams(class_name);
-    params.set<std::vector<SubdomainName>>("block") = getSubdomainNames();
-    params.set<MaterialPropertyName>("D_h_name") = FlowModelSinglePhase::HYDRAULIC_DIAMETER;
-    params.set<std::vector<VariableName>>("A") = {FlowModel::AREA};
-    getTHMProblem().addMaterial(class_name, mat_name, params);
-  }
+  const std::string class_name = "NumericalFlux3EqnInternalValues";
+  InputParameters params = _factory.getValidParams(class_name);
+  params.set<std::vector<SubdomainName>>("block") = getSubdomainNames();
+  params.set<UserObjectName>("numerical_flux") = _numerical_flux_name;
+  params.set<std::vector<VariableName>>("A_linear") = {THM::AREA_LINEAR};
+  params.set<std::string>("sort_by") = sortBy();
+  params.set<ExecFlagEnum>("execute_on") = {EXEC_INITIAL, EXEC_TIMESTEP_END};
+  getTHMProblem().addVectorPostprocessor(class_name, name() + "_flux_vpp", params);
 }
 
 void
-FlowChannel1Phase::getHeatTransferVariableNames()
+FlowChannel1Phase::addFlowChannel1PhaseFunctorMaterial()
 {
-  FlowChannelBase::getHeatTransferVariableNames();
+  const std::string class_name = "FlowModel1PhaseFunctorMaterial";
+  const std::string obj_name = genName(name(), "fm1phase_fmat");
+  InputParameters params = _factory.getValidParams(class_name);
+  params.set<std::vector<SubdomainName>>("block") = getSubdomainNames();
+  params.set<UserObjectName>("fluid_properties") = _fp_name;
+  getTHMProblem().addFunctorMaterial(class_name, obj_name, params);
+}
 
-  for (unsigned int i = 0; i < _n_heat_transfer_connections; i++)
-  {
-    const HeatTransfer1PhaseBase & heat_transfer =
-        getComponentByName<HeatTransfer1PhaseBase>(_heat_transfer_names[i]);
+void
+FlowChannel1Phase::addNormalized1PhaseResidualNorm(const VariableName & variable,
+                                                   const std::string & equation)
+{
+  const std::string class_name = "Normalized1PhaseResidualNorm";
+  InputParameters params = _factory.getValidParams(class_name);
+  params.applyParameters(parameters());
+  params.set<VariableName>("variable") = variable;
+  params.set<std::vector<SubdomainName>>("block") = getSubdomainNames();
+  params.set<MooseEnum>("norm_type") = "l_inf";
+  const Point mid_point = 0.5 * (getStartPoint() + getEndPoint());
+  params.set<Point>("point") = mid_point;
+  params.set<UserObjectName>("fluid_properties") = _fp_name;
+  params.set<Real>("min_elem_size") = getMinimumElemSize();
+  params.set<ExecFlagEnum>("execute_on") = EXEC_NONLINEAR_CONVERGENCE;
+  params.set<std::vector<OutputName>>("outputs") = {"none"};
+  getTHMProblem().addPostprocessor(class_name, genName(name(), equation + "_res"), params);
+}
 
-    _Hw_1phase_names.push_back(heat_transfer.getWallHeatTransferCoefficient1PhaseName());
-  }
+Convergence *
+FlowChannel1Phase::getNonlinearConvergence() const
+{
+  return &getTHMProblem().getConvergence(nonlinearConvergenceName());
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -102,7 +102,7 @@ TiledMesh::buildMesh()
   {
     std::string mesh_file(getParam<MeshFileName>("file"));
 
-    if (mesh_file.rfind(".exd") < mesh_file.size() || mesh_file.rfind(".e") < mesh_file.size())
+    if (mesh_file.rfind(".exo") < mesh_file.size() || mesh_file.rfind(".e") < mesh_file.size())
     {
       libMesh::ExodusII_IO ex(*this);
       ex.read(mesh_file);

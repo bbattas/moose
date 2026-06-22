@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -28,6 +28,10 @@ Convergence::validParams()
 
   params.registerBase("Convergence");
 
+  // This parameter is present because of SetupInterface, which is a requirement
+  // of MooseObjectWarehouse, but it should not be used.
+  params.suppressParameter<ExecFlagEnum>("execute_on");
+
   return params;
 }
 
@@ -52,5 +56,5 @@ Convergence::verboseOutput(std::ostringstream & oss)
     return;
 
   if (verbose())
-    _console << name() << ": " << MooseUtils::trim(str) << std::endl;
+    _console << name() << ": " << str << std::endl;
 }

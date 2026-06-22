@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -41,7 +41,7 @@ protected:
   MaterialProperty<Real> & _strain_energy_density;
   const MaterialProperty<Real> & _strain_energy_density_old;
 
-  ///{@ Current and old values of stress
+  ///@{ Current and old values of stress
   const GenericMaterialProperty<RankTwoTensor, is_ad> & _stress;
   const MaterialProperty<RankTwoTensor> & _stress_old;
   ///@}

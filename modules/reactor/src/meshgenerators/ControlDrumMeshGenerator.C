@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -374,7 +374,7 @@ std::unique_ptr<MeshBase>
 ControlDrumMeshGenerator::generate()
 {
   // Must be called to free the ReactorMeshParams mesh
-  freeReactorMeshParams();
+  freeReactorParamsMesh();
 
   // If bypass_mesh is true, return a null mesh. In this mode, an output mesh is not
   // generated and only metadata is defined on the generator, so logic related to
@@ -460,7 +460,7 @@ ControlDrumMeshGenerator::generate()
   }
 
   // Mark mesh as not prepared, as block ID's were re-assigned in this method
-  (*_build_mesh)->set_isnt_prepared();
+  (*_build_mesh)->unset_is_prepared();
 
   return std::move(*_build_mesh);
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -59,13 +59,17 @@ PeripheralTriangleMeshGenerator::validParams()
       "Polynomial power of the inverse distance interpolation algorithm for automatic area "
       "function calculation.");
 
-  params.addParam<SubdomainName>("peripheral_ring_block_name",
-                                 "The block name assigned to the created peripheral layer.");
-  params.addParam<BoundaryName>(
-      "external_boundary_name", "", "Optional customized external boundary name.");
+  params.addParam<SubdomainName>(
+      "peripheral_ring_block_name", "", "The block name assigned to the created peripheral layer.");
+  params.addParam<BoundaryName>("external_boundary_name",
+                                "Optional customized external boundary name.");
   MooseEnum tri_elem_type("TRI3 TRI6 TRI7 DEFAULT", "DEFAULT");
   params.addParam<MooseEnum>(
       "tri_element_type", tri_elem_type, "Type of the triangular elements to be generated.");
+  params.addParam<bool>(
+      "preserve_volumes",
+      false,
+      "Whether the volume of the peripheral region is preserved by fixing the radius.");
   params.addClassDescription("This PeripheralTriangleMeshGenerator object is designed to generate "
                              "a triangulated mesh between a generated outer circle boundary "
                              "and a provided inner mesh.");
@@ -83,10 +87,7 @@ PeripheralTriangleMeshGenerator::PeripheralTriangleMeshGenerator(const InputPara
     _peripheral_ring_num_segments(getParam<unsigned int>("peripheral_ring_num_segments")),
     _desired_area(getParam<Real>("desired_area")),
     _desired_area_func(getParam<std::string>("desired_area_func")),
-    _peripheral_ring_block_name(isParamValid("peripheral_ring_block_name")
-                                    ? getParam<SubdomainName>("peripheral_ring_block_name")
-                                    : (SubdomainName) ""),
-    _external_boundary_name(getParam<BoundaryName>("external_boundary_name"))
+    _preserve_volumes(getParam<bool>("preserve_volumes"))
 {
   // Calculate outer boundary points
 
@@ -95,11 +96,17 @@ PeripheralTriangleMeshGenerator::PeripheralTriangleMeshGenerator(const InputPara
   Real d_theta = 2.0 * M_PI / _peripheral_ring_num_segments;
   for (unsigned int i = 0; i < _peripheral_ring_num_segments; i++)
   {
+    // sqrt{2 * pi / Sigma_i [sin (azi_i)]}
+    const Real radius_correction_factor =
+        _preserve_volumes ? std::sqrt(2. * M_PI / _peripheral_ring_num_segments /
+                                      std::sin(2. * M_PI / _peripheral_ring_num_segments))
+                          : 1.0;
+
     // rotation angle
     Real theta = i * d_theta;
     // calculate (x, y) coords
-    Real x = _peripheral_ring_radius * std::cos(theta);
-    Real y = _peripheral_ring_radius * std::sin(theta);
+    Real x = _peripheral_ring_radius * std::cos(theta) * radius_correction_factor;
+    Real y = _peripheral_ring_radius * std::sin(theta) * radius_correction_factor;
 
     // add to outer boundary list
     outer_polyline.emplace_back(x, y, 0);
@@ -109,7 +116,7 @@ PeripheralTriangleMeshGenerator::PeripheralTriangleMeshGenerator(const InputPara
   {
     auto params = _app.getFactory().getValidParams("PolyLineMeshGenerator");
     params.set<std::vector<Point>>("points") = outer_polyline;
-    params.set<unsigned int>("num_edges_between_points") = 1;
+    params.set<std::vector<unsigned int>>("nums_edges_between_points") = {1};
     params.set<bool>("loop") = true;
     addMeshSubgenerator("PolyLineMeshGenerator", _input_name + "_periphery_polyline", params);
   }
@@ -140,9 +147,13 @@ PeripheralTriangleMeshGenerator::PeripheralTriangleMeshGenerator(const InputPara
     params.set<bool>("refine_boundary") = false;
     params.set<std::vector<bool>>("refine_holes") = std::vector<bool>{false};
     params.set<std::vector<bool>>("stitch_holes") = std::vector<bool>{true};
-    params.set<BoundaryName>("output_boundary") = _external_boundary_name;
-    params.set<SubdomainName>("output_subdomain_name") = _peripheral_ring_block_name;
+    if (isParamValid("external_boundary_name"))
+      params.set<BoundaryName>("output_boundary") =
+          getParam<BoundaryName>("external_boundary_name");
+    params.set<SubdomainName>("output_subdomain_name") =
+        getParam<SubdomainName>("peripheral_ring_block_name");
     params.set<MooseEnum>("tri_element_type") = getParam<MooseEnum>("tri_element_type");
+    params.set<bool>("verbose_stitching") = false;
     addMeshSubgenerator("XYDelaunayGenerator", _input_name + "_periphery", params);
     _build_mesh = &getMeshByName(_input_name + "_periphery");
   }

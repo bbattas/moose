@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -42,7 +42,7 @@ public:
   /**
    * Add materials used by this model
    */
-  virtual void addMaterials();
+  virtual void addMaterials() {}
 
   /**
    * Add heat conduction equation for cartesian coordinate system

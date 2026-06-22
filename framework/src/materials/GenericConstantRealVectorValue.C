@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,8 +9,8 @@
 
 #include "GenericConstantRealVectorValue.h"
 
-registerMooseObject("MooseApp", GenericConstantRealVectorValue);
-registerMooseObject("MooseApp", ADGenericConstantRealVectorValue);
+registerMooseObjectDeprecated("MooseApp", GenericConstantRealVectorValue, "12/31/2025 24:00");
+registerMooseObjectDeprecated("MooseApp", ADGenericConstantRealVectorValue, "12/31/2025 24:00");
 
 template <bool is_ad>
 InputParameters

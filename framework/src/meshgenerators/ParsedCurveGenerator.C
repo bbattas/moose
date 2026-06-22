@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -15,6 +15,8 @@
 
 #include "libmesh/fparser_ad.hh"
 #include "libmesh/edge_edge2.h"
+#include "libmesh/edge_edge3.h"
+#include "libmesh/edge_edge4.h"
 
 // C++ includes
 #include <cmath>
@@ -27,13 +29,15 @@ ParsedCurveGenerator::validParams()
   InputParameters params = MeshGenerator::validParams();
   params += FunctionParserUtils<false>::validParams();
 
+  MooseEnum edge_elem_type("EDGE2 EDGE3 EDGE4", "EDGE2");
+
   params.addRequiredParam<std::string>("x_formula", "Function expression of x(t)");
   params.addRequiredParam<std::string>("y_formula", "Function expression of y(t)");
   params.addParam<std::string>("z_formula", "0", "Function expression of z(t)");
   params.addRequiredRangeCheckedParam<std::vector<unsigned int>>(
       "nums_segments",
       "nums_segments>=1",
-      "Numbers of segments (EDGE2 elements) of each section of the curve to be generated. The "
+      "Numbers of segments (EDGE elements) of each section of the curve to be generated. The "
       "number of entries in this parameter should be equal to one less than the number of entries "
       "in 'section_bounding_t_values'");
   params.addRequiredParam<std::vector<Real>>(
@@ -55,7 +59,7 @@ ParsedCurveGenerator::validParams()
   params.addRangeCheckedParam<unsigned int>(
       "forced_closing_num_segments",
       "forced_closing_num_segments>1",
-      "Number of segments (EDGE2 elements) of the curve section that is generated to forcefully "
+      "Number of segments (EDGE elements) of the curve section that is generated to forcefully "
       "close the loop.");
   params.addRangeCheckedParam<Real>("oversample_factor",
                                     10.0,
@@ -69,8 +73,10 @@ ParsedCurveGenerator::validParams()
       "this factor and the number of nodes on the curve.");
   params.addParam<std::vector<BoundaryName>>(
       "edge_nodesets", std::vector<BoundaryName>(), "Nodesets on both edges of the parsed curves");
+  params.addParam<MooseEnum>(
+      "edge_element_type", edge_elem_type, "Type of the EDGE elements to be generated.");
   params.addClassDescription("This ParsedCurveGenerator object is designed to generate a mesh of a "
-                             "curve that consists of EDGE2 elements.");
+                             "curve that consists of EDGE2, EDGE3, or EDGE4 elements.");
 
   return params;
 }
@@ -90,7 +96,10 @@ ParsedCurveGenerator::ParsedCurveGenerator(const InputParameters & parameters)
                                      : 0),
     _oversample_factor(getParam<Real>("oversample_factor")),
     _max_oversample_number_factor(getParam<unsigned int>("max_oversample_number_factor")),
-    _node_set_boundaries(getParam<std::vector<BoundaryName>>("edge_nodesets"))
+    _node_set_boundaries(getParam<std::vector<BoundaryName>>("edge_nodesets")),
+    _order(getParam<MooseEnum>("edge_element_type") == "EDGE2"
+               ? 1
+               : (getParam<MooseEnum>("edge_element_type") == "EDGE3" ? 2 : 3))
 {
   if (std::adjacent_find(_section_bounding_t_values.begin(), _section_bounding_t_values.end()) !=
       _section_bounding_t_values.end())
@@ -174,7 +183,7 @@ ParsedCurveGenerator::generate()
                          _section_bounding_t_values[i + 1],
                          t_sect_space,
                          dis_sect_space,
-                         _nums_segments[i],
+                         _nums_segments[i] * _order,
                          _is_closed_loop && _nums_segments.size() == 1,
                          _oversample_factor);
     if (i > 0)
@@ -194,7 +203,8 @@ ParsedCurveGenerator::generate()
   std::unique_ptr<LinearInterpolation> linear_t;
   linear_t = std::make_unique<LinearInterpolation>(_dis_space, _t_space);
 
-  std::vector<Node *> nodes(std::accumulate(_nums_segments.begin(), _nums_segments.end(), 0) + 1);
+  std::vector<Node *> nodes(
+      std::accumulate(_nums_segments.begin(), _nums_segments.end(), 0) * _order + 1);
   for (unsigned int i = 0; i < nodes.size(); i++)
   {
     _func_params[0] = linear_t->sample((Real)i);
@@ -216,27 +226,41 @@ ParsedCurveGenerator::generate()
                    "this parameter is not needed if the first and last points of the curve to be "
                    "generated are overlapped.");
     }
-    else if (_forced_closing_num_segments > 1)
+    else if (_forced_closing_num_segments * _order > 1)
     {
       // Add extra nodes on the curve section used to forcefully close the loop
       const Point start_pt(*nodes.back());
       const Point end_pt(*nodes.front());
       const unsigned int num_nodes_0(nodes.size());
-      for (unsigned int i = 1; i < _forced_closing_num_segments; i++)
+      for (unsigned int i = 1; i < _forced_closing_num_segments * _order; i++)
       {
-        Point side_p =
-            start_pt + (end_pt - start_pt) * (Real)i / (Real)_forced_closing_num_segments;
+        Point side_p = start_pt + (end_pt - start_pt) * (Real)i /
+                                      (Real)(_forced_closing_num_segments * _order);
         nodes.push_back(mesh->add_point(side_p, num_nodes_0 + i - 1));
       }
     }
   }
 
-  for (unsigned int i = 0; i < nodes.size() - !_is_closed_loop; i++)
+  const unsigned int num_elems = (nodes.size() - !_is_closed_loop) / _order;
+  for (unsigned int i = 0; i < num_elems; i++)
   {
-    Elem * elem = mesh->add_elem(new Edge2);
-    elem->set_node(0) = nodes[i];
-    elem->set_node(1) = nodes[(i + 1) % nodes.size()];
-    elem->subdomain_id() = 1;
+    std::unique_ptr<Elem> new_elem;
+    new_elem = std::make_unique<Edge2>();
+    if (_order > 1)
+    {
+      new_elem = std::make_unique<Edge3>();
+      if (_order == 3)
+      {
+        new_elem = std::make_unique<Edge4>();
+        new_elem->set_node(3, nodes[i * _order + 2]);
+      }
+      new_elem->set_node(2, nodes[i * _order + 1]);
+    }
+    new_elem->set_node(0, nodes[i * _order]);
+    new_elem->set_node(1, nodes[((i + 1) * _order) % nodes.size()]);
+
+    new_elem->subdomain_id() = 1;
+    mesh->add_elem(std::move(new_elem));
   }
 
   if (_node_set_boundaries.size())
@@ -287,8 +311,9 @@ ParsedCurveGenerator::tSectionSpaceDefiner(const Real t_start,
   while (t_space_id + 1 < t_sect_space.size() && binary_search_counter <= max_binary_search)
   {
     binary_search_counter++;
-    if (euclideanDistance(pt_sect_space[t_space_id], pt_sect_space[t_space_id + 1]) >
-        target_fine_interval)
+    const auto distance_space_max =
+        euclideanDistance(pt_sect_space[t_space_id], pt_sect_space[t_space_id + 1]);
+    if (distance_space_max > target_fine_interval)
     {
       const Real new_t_value = (t_sect_space[t_space_id] + t_sect_space[t_space_id + 1]) / 2.0;
       t_sect_space.insert(t_sect_space.begin() + t_space_id + 1, new_t_value);
@@ -296,9 +321,17 @@ ParsedCurveGenerator::tSectionSpaceDefiner(const Real t_start,
     }
     else
     {
-      dis_sect_space.push_back(
-          dis_sect_space.back() +
-          euclideanDistance(pt_sect_space[t_space_id], pt_sect_space[t_space_id + 1]));
+      if (distance_space_max > 0)
+        dis_sect_space.push_back(dis_sect_space.back() + distance_space_max);
+      else if (is_closed_loop)
+        dis_sect_space.push_back(
+            dis_sect_space.back() +
+            euclideanDistance(pt_sect_space.front(), pointCalculator((t_start + t_end) / 2.0)));
+      else
+        mooseError("Error in distance calculation when spacing nodes in section from t=",
+                   t_start,
+                   " to t=",
+                   t_end);
       t_space_id++;
     }
   }
@@ -308,6 +341,8 @@ ParsedCurveGenerator::tSectionSpaceDefiner(const Real t_start,
         "Maximum oversampling points number has been exceeded. Please consider adding more t "
         "values into 'section_bounding_t_values' or increase 'max_oversample_number_factor'.");
   const Real total_dis_seg = dis_sect_space.back();
+  mooseAssert(total_dis_seg > 0, "Expected non zero distance");
+
   // Normalization to make the normalized length of the curve equals to number of segments
   for (auto & dist : dis_sect_space)
     dist = dist / total_dis_seg * (Real)num_segments;

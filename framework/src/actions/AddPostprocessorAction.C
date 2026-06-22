@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -29,5 +29,10 @@ AddPostprocessorAction::AddPostprocessorAction(const InputParameters & params)
 void
 AddPostprocessorAction::act()
 {
-  _problem->addPostprocessor(_type, _name, _moose_object_pars);
+#ifdef MOOSE_KOKKOS_ENABLED
+  if (_moose_object_pars.isKokkosObject())
+    _problem->addKokkosPostprocessor(_type, _name, _moose_object_pars);
+  else
+#endif
+    _problem->addPostprocessor(_type, _name, _moose_object_pars);
 }

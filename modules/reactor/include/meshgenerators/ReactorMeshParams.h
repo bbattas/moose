@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -23,6 +23,8 @@ public:
   ReactorMeshParams(const InputParameters & parameters);
 
   std::unique_ptr<MeshBase> generate() override;
+
+  std::unique_ptr<CSG::CSGBase> generateCSG() override;
 
   void generateData() override{};
 

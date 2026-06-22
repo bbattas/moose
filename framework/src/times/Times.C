@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,6 +26,16 @@ Times::validParams()
   params.addRequiredParam<bool>("auto_broadcast",
                                 "Wether Times should be broadcasted across all ranks");
   params.addParamNamesToGroup("auto_broadcast auto_sort unique_times unique_tolerance", "Advanced");
+
+  // Unlikely to ever be used as Times do not loop over the mesh and use material properties,
+  // let alone stateful
+  params.suppressParameter<MaterialPropertyName>("prop_getter_suffix");
+  params.suppressParameter<bool>("use_interpolated_state");
+
+  params.addParam<bool>("dynamic_time_sequence",
+                        true,
+                        "Whether the time sequence is dynamic and thus needs to be updated");
+
   params.registerBase("Times");
   return params;
 }
@@ -38,7 +48,8 @@ Times::Times(const InputParameters & parameters)
     _need_broadcast(getParam<bool>("auto_broadcast")),
     _need_sort(getParam<bool>("auto_sort")),
     _need_unique(getParam<bool>("unique_times")),
-    _unique_tol(getParam<Real>("unique_tolerance"))
+    _unique_tol(getParam<Real>("unique_tolerance")),
+    _dynamic_time_sequence(getParam<bool>("dynamic_time_sequence"))
 {
 }
 
@@ -98,7 +109,9 @@ Times::getTimes() const
   if (_times.size())
     return _times;
   else
+  {
     mooseError("Times vector has not been initialized.");
+  }
 }
 
 void

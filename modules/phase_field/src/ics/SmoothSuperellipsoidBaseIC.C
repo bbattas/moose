@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,6 +12,7 @@
 // MOOSE includes
 #include "MooseMesh.h"
 #include "MooseVariable.h"
+#include "FEProblemBase.h"
 
 InputParameters
 SmoothSuperellipsoidBaseIC::validParams()
@@ -116,7 +117,7 @@ SmoothSuperellipsoidBaseIC::computeSuperellipsoidValue(
   Point l_center = center;
   Point l_p = p;
   // Compute the distance between the current point and the center
-  Real dist = _mesh.minPeriodicDistance(_var.number(), l_p, l_center);
+  Real dist = _mesh.minPeriodicDistance(_var, l_p, l_center);
 
   // When dist is 0 we are exactly at the center of the superellipsoid so return _invalue
   // Handle this case independently because we cannot calculate polar angles at this point
@@ -127,7 +128,7 @@ SmoothSuperellipsoidBaseIC::computeSuperellipsoidValue(
   // along the vector from the center to the current point
   // This uses the equation for a superellipse in polar coordinates and substitutes
   // distances for sin, cos functions
-  Point dist_vec = _mesh.minPeriodicVector(_var.number(), center, p);
+  Point dist_vec = _mesh.minPeriodicVector(_var, center, p);
 
   // First calculate rmn = r^(-n), replacing sin, cos functions with distances
   Real rmn = (std::pow(std::abs(dist_vec(0) / dist / a), n) +
@@ -157,7 +158,7 @@ SmoothSuperellipsoidBaseIC::computeSuperellipsoidInverseValue(
   Point l_center = center;
   Point l_p = p;
   // Compute the distance between the current point and the center
-  Real dist = _mesh.minPeriodicDistance(_var.number(), l_p, l_center);
+  Real dist = _mesh.minPeriodicDistance(_var, l_p, l_center);
 
   // When dist is 0 we are exactly at the center of the superellipsoid so return _invalue
   // Handle this case independently because we cannot calculate polar angles at this point
@@ -168,7 +169,7 @@ SmoothSuperellipsoidBaseIC::computeSuperellipsoidInverseValue(
   // along the vector from the center to the current point
   // This uses the equation for a superellipse in polar coordinates and substitutes
   // distances for sin, cos functions
-  Point dist_vec = _mesh.minPeriodicVector(_var.number(), center, p);
+  Point dist_vec = _mesh.minPeriodicVector(_var, center, p);
 
   // First calculate rmn = r^(-n), replacing sin, cos functions with distances
   Real rmn = (std::pow(std::abs(dist_vec(0) / dist / a), n) +
@@ -197,7 +198,7 @@ SmoothSuperellipsoidBaseIC::computeSuperellipsoidGradient(
   Point l_center = center;
   Point l_p = p;
   // Compute the distance between the current point and the center
-  Real dist = _mesh.minPeriodicDistance(_var.number(), l_p, l_center);
+  Real dist = _mesh.minPeriodicDistance(_var, l_p, l_center);
 
   // When dist is 0 we are exactly at the center of the superellipsoid so return 0
   // Handle this case independently because we cannot calculate polar angles at this point
@@ -208,7 +209,7 @@ SmoothSuperellipsoidBaseIC::computeSuperellipsoidGradient(
   // along the vector from the center to the current point
   // This uses the equation for a superellipse in polar coordinates and substitutes
   // distances for sin, cos functions
-  Point dist_vec = _mesh.minPeriodicVector(_var.number(), center, p);
+  Point dist_vec = _mesh.minPeriodicVector(_var, center, p);
   // First calculate rmn = r^(-n)
   Real rmn = (std::pow(std::abs(dist_vec(0) / dist / a), n) +
               std::pow(std::abs(dist_vec(1) / dist / b), n) +

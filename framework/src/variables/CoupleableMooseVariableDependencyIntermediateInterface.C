@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -22,6 +22,18 @@ CoupleableMooseVariableDependencyIntermediateInterface::
   for (MooseVariableFEBase * coupled_var : getCoupledMooseVars())
     addMooseVariableDependency(coupled_var);
 }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+CoupleableMooseVariableDependencyIntermediateInterface::
+    CoupleableMooseVariableDependencyIntermediateInterface(
+        const CoupleableMooseVariableDependencyIntermediateInterface & object,
+        const Moose::Kokkos::FunctorCopy & key)
+  : Coupleable(object, key),
+    ScalarCoupleable(object, key),
+    MooseVariableDependencyInterface(object, key)
+{
+}
+#endif
 
 const VariableValue &
 CoupleableMooseVariableDependencyIntermediateInterface::coupledValueByName(

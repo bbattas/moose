@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -174,6 +174,13 @@ public:
    * Updates the time section_time and time for all currently running nodes
    */
   void update();
+
+  /**
+   * Get the maximum memory allocation in MB.
+   *
+   * This is thread safe.
+   */
+  std::size_t getMaxMemory() const { return _max_memory; }
 
   /**
    * @returns The MooseApp
@@ -380,6 +387,9 @@ protected:
   /// easier to sort
   std::vector<CumulativeSectionInfo *> _cumulative_section_info_ptrs;
 
+  /// Maximum memory encountered during push and pop
+  std::atomic<std::size_t> _max_memory;
+
   /// Whether or not timing is active
   bool _active;
 
@@ -428,6 +438,11 @@ private:
                            const unsigned int level,
                            const bool heaviest,
                            unsigned int current_depth) const;
+
+  /**
+   * Update _max_memory if current_memory > _max_memory.
+   */
+  void updateMaxMemory(const std::size_t current_memory);
 };
 
 template <typename Functor>

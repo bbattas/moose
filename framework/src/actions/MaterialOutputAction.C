@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -21,6 +21,7 @@
 #include "MooseEnum.h"
 #include "MooseVariableConstMonomial.h"
 #include "FunctorMaterial.h"
+#include "VariableSizeMaterialPropertiesInterface.h"
 
 #include "libmesh/utility.h"
 
@@ -33,10 +34,10 @@ MaterialOutputAction::validParams()
   InputParameters params = Action::validParams();
   params.addClassDescription("Outputs material properties to various Outputs objects, based on the "
                              "parameters set in each Material");
-  /// A flag to tell this action whether or not to print the unsupported properties
-  /// Note: A derived class can set this to false, override materialOutput and output
-  ///       a particular property that is not supported by this class.
-  params.addPrivateParam("print_unsupported_prop_names", true);
+  params.addParam<bool>(
+      "print_unsupported_prop_names",
+      true,
+      "Flag to tell this action whether or not to print the unsupported properties.");
   params.addParam<bool>("print_automatic_aux_variable_creation",
                         true,
                         "Flag to print list of aux variables created for automatic output by "
@@ -153,13 +154,33 @@ MaterialOutputAction::act()
           material_names.insert(curr_material_names.begin(), curr_material_names.end());
         }
       }
-      // If the material object has limited outputs, store the variables associated with the
-      // output objects
-      if (!outputs.empty())
-        for (const auto & output_name : outputs)
-          _material_variable_names_map[output_name].insert(_material_variable_names.begin(),
-                                                           _material_variable_names.end());
+      // If the material object has explicitly defined outputs, store the variables associated with
+      // the output objects
+      if (outputs.find("none") == outputs.end())
+      {
+        // Get all available output names from OutputWarehouse that support material output
+        const auto & all_output_names = _output_warehouse.getAllMaterialPropertyOutputNames();
+
+        // For reserved name "all", set outputs to match all available output names
+        if (outputs.find("all") != outputs.end())
+          outputs = all_output_names;
+
+        // Iterate through all available output names and update _material_variable_names_map
+        // based on which of these output names are found in 'outputs' parameter
+        for (const auto & output_name : all_output_names)
+        {
+          if (outputs.find(output_name) != outputs.end())
+            _material_variable_names_map[output_name].insert(_material_variable_names.begin(),
+                                                             _material_variable_names.end());
+          else
+            _material_variable_names_map[output_name].insert({});
+        }
+      }
     }
+    else if (output_properties.size())
+      mooseWarning("Material properties output specified is not created because 'outputs' is not "
+                   "set in the Material, and neither is output_material_properties in any of the "
+                   "outputs in the [Outputs] block");
   }
   if (unsupported_names.size() > 0 && get_names_only &&
       getParam<bool>("print_unsupported_prop_names"))
@@ -245,6 +266,20 @@ MaterialOutputAction::materialOutput(const std::string & property_name,
 
   else if (hasADProperty<RealVectorValue>(property_name))
     names = outputHelper({"ADMaterialRealVectorValueAux", "xyz", {"component"}},
+                         property_name,
+                         property_name + "_",
+                         material,
+                         get_names_only);
+
+  else if (hasProperty<std::vector<Real>>(property_name))
+    names = outputHelper({"MaterialStdVectorAux", "variable_size", {"index"}},
+                         property_name,
+                         property_name + "_",
+                         material,
+                         get_names_only);
+
+  else if (hasADProperty<std::vector<Real>>(property_name))
+    names = outputHelper({"ADMaterialStdVectorAux", "variable_size", {"index"}},
                          property_name,
                          property_name + "_",
                          material,
@@ -362,6 +397,31 @@ MaterialOutputAction::outputHelper(const MaterialOutputAction::OutputMetaData & 
   const auto & [kernel_name, index_symbols, param_names] = metadata;
   const auto dim = param_names.size();
   const auto size = index_symbols.size();
+  auto size_inner = size;
+
+  // Handle the case the material property is of a variable input-defined size
+  bool variable_size = false;
+  if (index_symbols == "variable_size")
+  {
+    variable_size = true;
+    size_inner = 0;
+    const auto * const vsmi =
+        dynamic_cast<const VariableSizeMaterialPropertiesInterface *>(&material);
+    if (vsmi)
+      size_inner = vsmi->getVectorPropertySize(property_name);
+
+    if (!size_inner)
+    {
+      mooseWarning("Vector material property '" + property_name + "' will not be output as we " +
+                   (vsmi ? "have a 0-size vector during the simulation setup."
+                         : "do not know the size of the vector at initialization. Add the "
+                           "'VariableSizeMaterialPropertiesInterface' as a base class of the "
+                           "Material defining the vector property and implement the "
+                           "get...Size(property_name) routine. Note that "
+                           "the size must be known during the simulation setup phase."));
+      return {};
+    }
+  }
 
   std::vector<std::string> names;
   // general 0 to 4 dimensional loop
@@ -369,11 +429,15 @@ MaterialOutputAction::outputHelper(const MaterialOutputAction::OutputMetaData & 
   for (i[3] = 0; i[3] < (dim < 4 ? 1 : size); ++i[3])
     for (i[2] = 0; i[2] < (dim < 3 ? 1 : size); ++i[2])
       for (i[1] = 0; i[1] < (dim < 2 ? 1 : size); ++i[1])
-        for (i[0] = 0; i[0] < (dim < 1 ? 1 : size); ++i[0])
+        for (i[0] = 0; i[0] < (dim < 1 ? 1 : size_inner); ++i[0])
         {
           std::string var_name = var_name_base;
           for (const auto j : make_range(dim))
-            var_name += Moose::stringify(index_symbols[i[j]]);
+            if (variable_size)
+              var_name += Moose::stringify(i[j]);
+            else
+              var_name += Moose::stringify(index_symbols[i[j]]);
+
           names.push_back(var_name);
 
           if (!get_names_only)
@@ -381,7 +445,7 @@ MaterialOutputAction::outputHelper(const MaterialOutputAction::OutputMetaData & 
             auto params = getParams(kernel_name, property_name, var_name, material);
             for (const auto j : make_range(dim))
               params.template set<unsigned int>(param_names[j]) = i[j];
-            _problem->addAuxKernel(kernel_name, material.name() + var_name, params);
+            _problem->addAuxKernel(kernel_name, material.name() + "_" + var_name, params);
           }
         }
   return names;

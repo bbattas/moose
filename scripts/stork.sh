@@ -1,6 +1,6 @@
 #!/bin/bash
 #* This file is part of the MOOSE framework
-#* https://www.mooseframework.org
+#* https://mooseframework.inl.gov
 #*
 #* All rights reserved, see COPYRIGHT for full restrictions
 #* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -125,9 +125,6 @@ if [[ "$kind" == "app" ]]; then
     mkdir -p $dir/scripts
     cp $MOOSE_DIR/.clang-format $dir/
     cp $MOOSE_DIR/.gitignore $dir/
-
-    # add application-specific generated resource file to end of gitignore file
-    echo "$dstnamelow.yaml" >> $dir/.gitignore
 
     dir="$PWD/$dir"
     (cd $dir && git init && git add * .clang-format .gitignore && git commit -m "Initial files" && git branch -m main)

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,7 +12,7 @@
 #include "Action.h"
 
 /**
- * Add a default Convergence object to the simulation.
+ * Adds default Convergence objects to the simulation.
  */
 class AddDefaultConvergenceAction : public Action
 {
@@ -24,9 +24,26 @@ public:
   virtual void act() override;
 
 protected:
+  /// Adds the default nonlinear Convergence object(s)
+  void addDefaultNonlinearConvergence();
+  /// Adds the default fixed point Convergence object
+  void addDefaultMultiAppFixedPointConvergence();
+  /// Adds the default steady-state Convergence object
+  void addDefaultSteadyStateConvergence();
+
   /**
    * Checks that nonlinear convergence parameters were not set in the executioner
    * if using a Convergence object that does not use them.
    */
   void checkUnusedNonlinearConvergenceParameters();
+  /**
+   * Checks that fixed point convergence parameters were not set in the executioner
+   * if using a Convergence object that does not use them.
+   */
+  void checkUnusedMultiAppFixedPointConvergenceParameters();
+  /**
+   * Checks that steady-state convergence parameters were not set in the executioner
+   * if using a Convergence object that does not use them.
+   */
+  void checkUnusedSteadyStateConvergenceParameters();
 };

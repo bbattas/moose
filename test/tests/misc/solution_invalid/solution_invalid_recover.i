@@ -57,18 +57,23 @@
 
 [Executioner]
   type = Transient
-  num_steps=3
-  error_on_dtmin=false
+  num_steps = 3
+  error_on_dtmin = false
   solve_type = 'NEWTON'
   petsc_options_iname = '-pc_type -pc_factor_mat_solver_type'
   petsc_options_value = 'lu superlu_dist'
 []
 
-[Reporters/solution_invalidity]
-  type = SolutionInvalidityReporter
+[Reporters]
+  [solution_invalidity]
+    type = SolutionInvalidityReporter
+  []
 []
 
 [Outputs]
   file_base = 'solution_invalid_recover'
-  json = true
+  [out]
+    type = JSON
+    execute_system_information_on = none
+  []
 []

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,6 +12,12 @@
 #include "NonlinearSystem.h"
 #include "FEProblem.h"
 #include "PetscSupport.h"
+#include "KernelBase.h"
+#include "DGKernelBase.h"
+#include "ScalarKernelBase.h"
+#include "FVElementalKernel.h"
+#include "FVFluxKernel.h"
+#include "NodalKernelBase.h"
 
 // libMesh includes
 #include "libmesh/enum_convergence_flags.h"
@@ -39,32 +45,117 @@ ExplicitTimeIntegrator::validParams()
 ExplicitTimeIntegrator::ExplicitTimeIntegrator(const InputParameters & parameters)
   : TimeIntegrator(parameters),
     MeshChangedInterface(parameters),
-
     _solve_type(getParam<MooseEnum>("solve_type")),
     _explicit_residual(addVector("explicit_residual", false, PARALLEL)),
     _solution_update(addVector("solution_update", true, PARALLEL)),
-    _mass_matrix_diag(addVector("mass_matrix_diag", false, PARALLEL))
+    _mass_matrix_diag_inverted(addVector("mass_matrix_diag_inverted", true, GHOSTED)),
+    _ones(nullptr)
 {
   _Ke_time_tag = _fe_problem.getMatrixTagID("TIME");
 
   // This effectively changes the default solve_type to LINEAR instead of PJFNK,
   // so that it is valid to not supply solve_type in the Executioner block:
-  _fe_problem.solverParams()._type = Moose::ST_LINEAR;
+  if (_nl)
+    _fe_problem.solverParams(_nl->number())._type = Moose::ST_LINEAR;
 
   if (_solve_type == LUMPED || _solve_type == LUMP_PRECONDITIONED)
-    _ones = addVector("ones", false, PARALLEL);
+    _ones = addVector("ones", true, PARALLEL);
+  // don't set any of the common SNES and KSP-related petsc options to prevent unused option
+  // warnings
+  Moose::PetscSupport::dontAddCommonSNESOptions(_fe_problem);
+  Moose::PetscSupport::dontAddCommonKSPOptions(_fe_problem);
 }
 
 void
 ExplicitTimeIntegrator::initialSetup()
 {
-  meshChanged();
+  setupSolver();
+
+  if (_nl)
+  {
+    std::unordered_set<unsigned int> vars_to_check;
+    if (!_vars.empty())
+      vars_to_check = _vars;
+    else
+      for (const auto i : make_range(_nl->nVariables()))
+        vars_to_check.insert(i);
+
+    const auto mass_matrix_tag_id = massMatrixTagID();
+    std::set<TagID> matrix_tags = {mass_matrix_tag_id};
+    auto fv_object_starting_query = _fe_problem.theWarehouse()
+                                        .query()
+                                        .template condition<AttribMatrixTags>(matrix_tags)
+                                        .template condition<AttribSysNum>(_nl->number());
+
+    for (const auto var_id : vars_to_check)
+    {
+      const auto & var_name = _nl->system().variable_name(var_id);
+      const bool field_var = _nl->hasVariable(var_name);
+      if (!field_var)
+        mooseAssert(_nl->hasScalarVariable(var_name),
+                    var_name << " should be either a field or scalar variable");
+      if (field_var)
+      {
+        const auto & field_var = _nl->getVariable(/*tid=*/0, var_name);
+        if (field_var.isFV())
+        {
+          std::vector<FVElementalKernel *> fv_elemental_kernels;
+          auto var_query = fv_object_starting_query.clone().template condition<AttribVar>(var_id);
+          auto var_query_clone = var_query.clone();
+          var_query.template condition<AttribSystem>("FVElementalKernel")
+              .queryInto(fv_elemental_kernels);
+          if (fv_elemental_kernels.size())
+            continue;
+
+          std::vector<FVFluxKernel *> fv_flux_kernels;
+          var_query_clone.template condition<AttribSystem>("FVFluxKernel")
+              .queryInto(fv_flux_kernels);
+          if (fv_flux_kernels.size())
+            continue;
+        }
+        else
+        {
+          // We are a finite element variable
+          if (_nl->getKernelWarehouse()
+                  .getMatrixTagObjectWarehouse(mass_matrix_tag_id, 0)
+                  .hasVariableObjects(var_id))
+            continue;
+          if (_nl->getDGKernelWarehouse()
+                  .getMatrixTagObjectWarehouse(mass_matrix_tag_id, 0)
+                  .hasVariableObjects(var_id))
+            continue;
+          if (_nl->getNodalKernelWarehouse()
+                  .getMatrixTagObjectWarehouse(mass_matrix_tag_id, 0)
+                  .hasVariableObjects(var_id))
+            continue;
+#ifdef MOOSE_KOKKOS_ENABLED
+          if (_nl->getKokkosKernelWarehouse()
+                  .getMatrixTagObjectWarehouse(mass_matrix_tag_id, 0)
+                  .hasVariableObjects(var_id))
+            continue;
+          if (_nl->getKokkosNodalKernelWarehouse()
+                  .getMatrixTagObjectWarehouse(mass_matrix_tag_id, 0)
+                  .hasVariableObjects(var_id))
+            continue;
+#endif
+        }
+      }
+      else if (_nl->getScalarKernelWarehouse()
+                   .getMatrixTagObjectWarehouse(mass_matrix_tag_id, 0)
+                   .hasVariableObjects(var_id))
+        continue;
+
+      mooseError("No objects contributing to the mass matrix were found for variable '",
+                 var_name,
+                 "'. Did you, e.g., forget a time derivative term?");
+    }
+  }
 }
 
 void
 ExplicitTimeIntegrator::init()
 {
-  if (_fe_problem.solverParams()._type != Moose::ST_LINEAR)
+  if (_nl && _fe_problem.solverParams(_nl->number())._type != Moose::ST_LINEAR)
     mooseError(
         "The chosen time integrator requires 'solve_type = LINEAR' in the Executioner block.");
 }
@@ -77,16 +168,25 @@ ExplicitTimeIntegrator::preSolve()
 void
 ExplicitTimeIntegrator::meshChanged()
 {
+  setupSolver();
+}
+
+void
+ExplicitTimeIntegrator::setupSolver()
+{
   // Can only be done after the system is initialized
-  if (_solve_type == LUMPED || _solve_type == LUMP_PRECONDITIONED)
-    *_ones = 1.;
+  if (_ones)
+  {
+    if (_solve_type == LUMPED || _solve_type == LUMP_PRECONDITIONED)
+      *_ones = 1.;
+  }
 
   if (_solve_type == CONSISTENT || _solve_type == LUMP_PRECONDITIONED)
     _linear_solver = LinearSolver<Number>::build(comm());
 
   if (_solve_type == LUMP_PRECONDITIONED)
   {
-    _preconditioner = std::make_unique<LumpedPreconditioner>(*_mass_matrix_diag);
+    _preconditioner = std::make_unique<LumpedPreconditioner>(*_mass_matrix_diag_inverted);
     _linear_solver->attach_preconditioner(_preconditioner.get());
     _linear_solver->init();
   }
@@ -113,13 +213,13 @@ ExplicitTimeIntegrator::performExplicitSolve(SparseMatrix<Number> & mass_matrix)
       // Computes the sum of each row (lumping)
       // Note: This is actually how PETSc does it
       // It's not "perfectly optimal" - but it will be fast (and universal)
-      mass_matrix.vector_mult(*_mass_matrix_diag, *_ones);
+      mass_matrix.vector_mult(*_mass_matrix_diag_inverted, *_ones);
 
       // "Invert" the diagonal mass matrix
-      _mass_matrix_diag->reciprocal();
+      _mass_matrix_diag_inverted->reciprocal();
 
       // Multiply the inversion by the RHS
-      _solution_update->pointwise_mult(*_mass_matrix_diag, *_explicit_residual);
+      _solution_update->pointwise_mult(*_mass_matrix_diag_inverted, *_explicit_residual);
 
       // Check for convergence by seeing if there is a nan or inf
       auto sum = _solution_update->sum();
@@ -132,8 +232,8 @@ ExplicitTimeIntegrator::performExplicitSolve(SparseMatrix<Number> & mass_matrix)
     }
     case LUMP_PRECONDITIONED:
     {
-      mass_matrix.vector_mult(*_mass_matrix_diag, *_ones);
-      _mass_matrix_diag->reciprocal();
+      mass_matrix.vector_mult(*_mass_matrix_diag_inverted, *_ones);
+      _mass_matrix_diag_inverted->reciprocal();
 
       converged = solveLinearSystem(mass_matrix);
 
