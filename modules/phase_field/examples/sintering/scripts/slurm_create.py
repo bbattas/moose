@@ -1,612 +1,411 @@
 #!/usr/bin/env python3
+"""
+slurm_create.py
+Generates (and optionally submits) SLURM batch scripts for MOOSE
+phase-field jobs on HPG. Finds .i input files in the current directory
+or one level of subdirectories and writes a corresponding .sh script.
+"""
+
 import os
 import glob
 import sys
 import argparse
 import logging
 import subprocess
-import json
-import copy
+from pathlib import Path
 
+# =============================================================================
+# EDITABLE CONSTANTS
+# =============================================================================
 
-pt = logging.warning
-verb = logging.info
+# Update this list when nodes are known to be problematic.
+# Used by --exclude to add '#SBATCH --exclude=...' to the script.
+BAD_NODES = "c0606a-s18,c0608a-s[6,22,24],c0609a-s10,c0610a-s10"
 
-# CL Argument Parser
-parser = argparse.ArgumentParser()
-parser.add_argument('--verbose','-v', action='store_true', help='Verbose output, default off')
-parser.add_argument('--subdirs','-s', action='store_true', help='Run in all direct subdirectories, default off')
-parser.add_argument('--overwrite','-o', action='store_true', help='Overwrite existing slurm scripts, default off')
-parser.add_argument('--input','-i', action='store_true', help='SLURM header manual inputs. Default=Off')
-parser.add_argument('--inl','--pbs','-p', action='store_true', help='PBS script for INL. Default=Off')
-parser.add_argument('--run','-r', action='store_true', help='SBATCH Submit all the slurm scripts also. Default=Off')
-parser.add_argument('--json','-j', action='store_true', help='Read SLURM header values from SLURM.json, Default=Off')
-parser.add_argument('--dest','-d', action='store_true', help='''DISABLED: Change the file_base in the MOOSE inputs to
-                    match the /blue equivalent with the input.i name as the output name still, Default=Off''')
-parser.add_argument('--force','-f', action='store_true', help='''Use mpirun with an exclude list instead of '''
-                    '''srun --mpi=pmix_v3 to work around some nodes just failing again/still''')
+# RH9/EL9 module stack (only supported environment)
+MODULES     = "ufrc mkl/2025.1.0 gcc/14.2.0 openmpi/5.0.10 python/3.12 cmake/3.30.5"
+MPI_FLAG    = "--mpi=pmix_v5"
+MPI_EXPORTS = "export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77"
 
-# Slurm Header Args
-parser.add_argument('--dir-names', action='store_false', help='''SLURM Job Name set to directory names, defaults to true.
-                    If false will use .i file names''')
-parser.add_argument('--nodes','-n', type=int, help='SLURM number of nodes to use. Default=1')
-parser.add_argument('--tasks', type=int, help='SLURM number of (mpi?) tasks. Default=30')
-parser.add_argument('--cpus-per-task', type=int, help='SLURM number of cpus per task to use. Default=1')
-parser.add_argument('--mem-per-cpu', type=str, help='''SLURM memory per cpu. The default is fairy safe.
-                    Default=7GB''')
-parser.add_argument('--partition', type=str, help='SLURM partition to use. Default=NONE')
-parser.add_argument('--burst','-b', action='store_true', help='SLURM run as a burst job, default off')
-parser.add_argument('--time','-t', type=int, help='''SLURM number of hours to run, on the default partitions
-                    of [hpg-default, hpg2-compute, bigmem] burst limit is 96, while regular limit is 744 (31 days).
-                    Default=72 hours''')
-parser.add_argument('--args','-c', type=str, help='Extra CL arguments at the end. Default=NONE')
-parser.add_argument('--recover', action='store_true', help='''Add the recovery flag to the executable, without a '''
-                    '''specified checkpoint file.''')
-cl_args = parser.parse_args()
+# =============================================================================
+# ARGUMENT PARSER
+# =============================================================================
 
-# Defaults for the variables
-class default_vals:
-    dir_names = True
-    nodes = 1
-    tasks = 30
-    cpus_per_task = 1
-    mem_per_cpu = '7GB'
-    time = 72
-    partition = None
-    burst = False
-# save the current input values of cl_args for reference
-input_vals = copy.copy(cl_args)
+parser = argparse.ArgumentParser(
+    description="Generate SLURM scripts for MOOSE phase-field jobs on HPG.",
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+)
 
+# --- Behavior / Control ---
+grp_ctrl = parser.add_argument_group("Behavior / Control")
+grp_ctrl.add_argument("--verbose",      "-v", action="store_true",
+    help="Enable verbose (INFO-level) output.")
+grp_ctrl.add_argument("--subdirs",      "-s", action="store_true",
+    help="Run in all direct subdirectories rather than only the current directory.")
+grp_ctrl.add_argument("--overwrite",    "-o", action="store_true",
+    help="Overwrite existing .sh scripts.")
+grp_ctrl.add_argument("--run",          "-r", action="store_true",
+    help="Submit all generated scripts via sbatch after writing.")
+grp_ctrl.add_argument("--yes",          "-y", action="store_true",
+    help="Skip the header preview confirmation prompt (non-interactive mode).")
+grp_ctrl.add_argument("--preview-full",       action="store_true",
+    help="Show the full script as the preview instead of just the header.")
 
-# Toggle verbose
-if cl_args.verbose == True:
-    logging.basicConfig(level=logging.INFO,format='%(message)s')
-elif cl_args.verbose == False:
-    logging.basicConfig(level=logging.WARNING,format='%(message)s')
-verb('Verbose Logging Enabled')
-verb(cl_args)
+# --- SLURM Header ---
+grp_hdr = parser.add_argument_group("SLURM Header")
+grp_hdr.add_argument("--nodes",         "-n", type=int,   default=1,
+    help="Number of nodes.")
+grp_hdr.add_argument("--tasks",               type=int,   default=30,
+    help="Number of MPI tasks per node (ntasks-per-node).")
+grp_hdr.add_argument("--cpus-per-task",       type=int,   default=1,
+    help="Number of CPUs per task.")
+grp_hdr.add_argument("--mem-per-cpu",         type=str,   default="7GB",
+    help="Memory per CPU.")
+grp_hdr.add_argument("--partition",           type=str,   default=None,
+    help="SLURM partition. Omitted from script if not specified.")
+grp_hdr.add_argument("--burst",         "-b", action="store_true",
+    help="Submit as a burst job (adds --qos=michael.tonks-b).")
+grp_hdr.add_argument("--time",          "-t", type=int,   default=72,
+    help="Wall time in hours. Burst cap: 96h. Regular cap: 744h (31 days).")
+grp_hdr.add_argument("--array",               type=str,   default=None,
+    help="Relative path to a .txt file for SLURM array submission.")
 
+# --- Job Configuration ---
+grp_job = parser.add_argument_group("Extras")
+grp_job.add_argument("--use-input-name",      action="store_true",
+    help="Name the SLURM job after the .i filename instead of the directory name.")
+grp_job.add_argument("--recover",             nargs="?",  const=True, default=None,
+    metavar="CHECKPOINT_PATH",
+    help="Add --recover to the MOOSE command. Optionally specify a checkpoint path "
+         "(e.g. --recover 02_inc_checkpoint_cp/0052).")
+grp_job.add_argument("--args",          "-c", type=str,   default=None,
+    help="Extra arguments appended to the MOOSE command line.")
+grp_job.add_argument("--no-email",            action="store_true",
+    help="Disable email notifications on begin/end/fail.")
+grp_job.add_argument("--exclude",             action="store_true",
+    help=f"Add '#SBATCH --exclude={BAD_NODES}' to the script.")
+grp_job.add_argument("--mpi",                 action="store_true",
+    help="Add 'export OMPI_MCA_coll_hcoll_enable=0' as an OpenMPI error workaround.")
 
-# Some Warnings
-if cl_args.subdirs:
-    verb('By default this script runs in 1 level of subdirectories')
-else:
-    verb('Only running in current directory, not in subdirectories.')
-if cl_args.overwrite:
-    pt('\x1b[31;1m'+'WARNING:'+'\x1b[0m'+' Overwriting existing .sh files')
-if cl_args.run:
-    pt('\x1b[31;1m'+'WARNING:'+'\x1b[0m'+' Running all relevant .sh files')
-if cl_args.json:
-    pt('\x1b[31;1m'+'WARNING:'+'\x1b[0m'+' command line flagged values will'
-       +' be overwritten by those in the json file')
-if cl_args.dest:
-    pt('\x1b[31;1m'+'ERROR:'+'\x1b[0m'+' NOT SET UP: Changing file_base in the input files to'
-       +' direct output to another loaction (/blue on HPG likely)')
-pt(' ')
+# # --- Environment ---
+# grp_env = parser.add_argument_group("Environment")
+# grp_env.add_argument("--mpi",                 action="store_true",
+#     help="Add 'export OMPI_MCA_coll_hcoll_enable=0' as an OpenMPI error workaround.")
 
+args = parser.parse_args()
 
-# Pathing
-# Find absolute path to phase_field-opt executable
-# pf_opt = os.path.expanduser('~/projects/moose/modules/phase_field/phase_field-opt')
+# =============================================================================
+# LOGGING SETUP
+# =============================================================================
+
+logging.basicConfig(
+    level=logging.INFO if args.verbose else logging.WARNING,
+    format="%(message)s",
+)
+
+# =============================================================================
+# PATHING
+# =============================================================================
+
 script_directory = os.path.dirname(os.path.abspath(sys.argv[0]))
-pf_opt = script_directory.rsplit('/',3)[0]+'/phase_field-opt'
-if os.path.exists(pf_opt):
-    verb('Found Phase_Field-opt')
-else:
-    pt('\x1b[31;1m'+'WARNING:'+'\x1b[0m'+' Cannot find phase_field-opt, may cause issues writing SLURM script')
-    confirm = input('Would you like to continue anyway? y/[n]: ')
-    if 'y' not in confirm.lower():
-        pt('\x1b[31;1m'+'WARNING:'+'\x1b[0m'+' Exiting Code')
-        sys.exit()
-if cl_args.json:
-    json_path = script_directory+'/slurm_header_template.json'
-    if os.path.exists(json_path):
-        verb('Found slurm_header_template.json')
-        write_json = False
-    else:
-        pt('\x1b[31;1m'+'ERROR:'+'\x1b[0m'+' Cannot find slurm_header_template.json,'+
-           ' will cause issues writing SLURM script')
-        pt('Script path should be: '+json_path)
-        confirm = input('Would you like to write the current output to a new json file? [y]/n: ')
-        if 'n' not in confirm.lower():
-            pt('\x1b[31;1m'+'WARNING:'+'\x1b[0m'+' Writing a new slurm_header_template.json')
-            write_json = True
-        else:
-            confirm = input('Would you like to continue anyway? y/[n]: ')
-            if 'y' not in confirm.lower():
-                pt('\x1b[31;1m'+'WARNING:'+'\x1b[0m'+' Exiting Code')
-                sys.exit()
-            else:
-                pt('\x1b[31;1m'+'WARNING:'+'\x1b[0m'+' Bad idea, good luck...')
-                write_json = False
-verb(' ')
+pf_opt = script_directory.rsplit("/", 3)[0] + "/phase_field-opt"
 
+# =============================================================================
+# FUNCTIONS
+# =============================================================================
 
-# ███████╗██╗   ██╗███╗   ██╗ ██████╗████████╗██╗ ██████╗ ███╗   ██╗███████╗
-# ██╔════╝██║   ██║████╗  ██║██╔════╝╚══██╔══╝██║██╔═══██╗████╗  ██║██╔════╝
-# █████╗  ██║   ██║██╔██╗ ██║██║        ██║   ██║██║   ██║██╔██╗ ██║███████╗
-# ██╔══╝  ██║   ██║██║╚██╗██║██║        ██║   ██║██║   ██║██║╚██╗██║╚════██║
-# ██║     ╚██████╔╝██║ ╚████║╚██████╗   ██║   ██║╚██████╔╝██║ ╚████║███████║
-# ╚═╝      ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
-
-# Check current directory for .sh script, true if it exists
-def checkForSlurm():
+def check_for_slurm():
+    """Return True if a .sh script already exists and --overwrite is not set."""
     if glob.glob("*.sh"):
-        if cl_args.overwrite:
-            verb('  Overwriting .sh script')
+        if args.overwrite:
+            logging.info("  Overwriting existing .sh script.")
             return False
         else:
-            verb('  Found .sh script')
+            logging.info("  Found existing .sh script, skipping.")
             return True
-    else:
-        return False
+    return False
 
 
-# Check current directory for .i and if it exists return the name - .i
-def checkForInput():
-    if glob.glob("*.i"):
-        for file in glob.glob("*.i"):
-            verb('  Input File is: ' + file)
-            inputName = file.rsplit('.',1)[0]
-        return True, inputName
-    else:
-        verb('  No Input File')
-        return False, False
+def check_for_input():
+    """
+    Return (True, inputName) if exactly one .i file is found.
+    Warns and returns the first found if multiple exist.
+    Returns (False, None) if none found.
+    """
+    matches = glob.glob("*.i")
+    if not matches:
+        logging.info("  No .i input file found.")
+        return False, None
+    if len(matches) > 1:
+        logging.warning(
+            f"  WARNING: Multiple .i files found {matches}. Using: {matches[0]}"
+        )
+    input_name = matches[0].rsplit(".", 1)[0]
+    logging.info(f"  Input file: {matches[0]}")
+    return True, input_name
 
 
-# Optional manual input mode for the first one
-def manualInput():
-    pt('Inputting SLURM header values manually')
-    pt('  An empty entry will use the default or current value')
-    # Job Name
-    tempVal = 'Input Name'
-    if cl_args.dir_names:
-        tempVal = 'Directory Name'
-    slname = input('Job Name (dir or input) (Currently '+tempVal+'): ')
-    if 'd' in slname:
-        verb('  Using Directory Names')
-        cl_args.dir_names = True
-    elif slname == '':
-        verb('  Using current value of '+tempVal)
+def check_for_array():
+    """
+    Resolve the --array path to a .txt file and return (num_rows, full_path).
+    Raises ValueError if zero or more than one match is found.
+    """
+    dir_lead = "../" if args.subdirs else ""
+    p = Path(dir_lead + args.array).expanduser()
+
+    if p.suffix.lower() == ".txt":
+        matches = [p] if p.is_file() else []
     else:
-        verb('  Using Input.i Names')
-        cl_args.dir_names = False
-    # Nodes
-    nodes = input('Number of nodes (currently '+str(cl_args.nodes)+'): ')
-    if nodes == '':
-        verb('  Using current value of '+str(cl_args.nodes)+' nodes')
-    else:
-        cl_args.nodes = nodes
-    # Tasks/CPUs per node
-    ncpu = input('Number of CPUs per node (currently '+str(cl_args.tasks)+'): ')
-    if ncpu == '':
-        verb('  Using current value of '+str(cl_args.tasks)+' CPUs per node')
-    else:
-        cl_args.tasks = ncpu
-        cl_args.cpus_per_task = 1
-    # Memory
-    mem = input('Memory per CPU (currently '+str(cl_args.mem_per_cpu)+'): ')
-    if mem == '':
-        verb('  Using current value of '+str(cl_args.mem_per_cpu)+' per CPU')
-    else:
-        cl_args.mem_per_cpu = mem
-    # Partition
-    partition = input('Partition (optional, None for unspecified, currently '+str(cl_args.partition)+'): ')
-    if partition == '':
-        verb('  Using current value of '+str(cl_args.partition))
-    else:
-        cl_args.partition = partition
-    # Time
-    time = input('Time to run in hours (or days in format d-hh, currently '+str(cl_args.time)+'): ')
-    if time == '':
-        verb('  Using current value of '+str(cl_args.time)+':00:00')
-    else:
-        cl_args.time = time
-    # Burst
-    burst = input('Burst (TF, currently '+str(cl_args.burst)+'): ')
-    if burst == '':
-        verb('  Using current value of '+str(cl_args.burst))
-    else:
-        cl_args.burst = burst
-    slurmHeaderPreview(True)
-    pt(' ')
-    return
+        parent = p.parent if str(p.parent) != "" else Path(".")
+        matches = list(parent.glob(p.name + "*.txt"))
+
+    if len(matches) == 0:
+        raise ValueError(f"  No .txt file found matching: {p}")
+    if len(matches) > 1:
+        raise ValueError(f"  More than one .txt file found matching: {p}\n"
+                         + "\n".join(f"    {f}" for f in matches))
+
+    full_path = os.path.abspath(matches[0])
+    with open(full_path) as f:
+        nrows = sum(1 for _ in f)
+    logging.info(f"  Array file : {full_path}")
+    logging.info(f"  Array rows : {nrows}")
+    return nrows, full_path
 
 
-# Write the actual slurm script
-def slurmWrite(cwd,inputName):
-    slurmList = []
-    if cl_args.inl == False:
-        # Slurm style
-        # Building the header
-        slurmList.append('#!/bin/bash')
-        slurmList.append('')
-        # Job Name: Directory or Input File
-        if cl_args.dir_names:
-            slurmList.append('#SBATCH --job-name='+cwd.rsplit('/',1)[1])
-        elif cl_args.dir_names == False:
-            slurmList.append('#SBATCH --job-name='+inputName)
-        else:
-            raise ValueError("--dir-names not specified True or False")
-        # Nodes
-        slurmList.append('#SBATCH --nodes='+str(cl_args.nodes))
-        # Tasks per node
-        slurmList.append('#SBATCH --ntasks-per-node='+str(cl_args.tasks))
-        # CPUs per task
-        slurmList.append('#SBATCH --cpus-per-task='+str(cl_args.cpus_per_task))
-        # Memory per CPU
-        slurmList.append('#SBATCH --mem-per-cpu='+cl_args.mem_per_cpu)
-        # Distribution line
-        slurmList.append('#SBATCH --distribution=cyclic:cyclic')
-        # A nice empty line for cleanliness
-        slurmList.append('')
-        # Partition if specified
-        if cl_args.partition==None or cl_args.partition=="None":
-            verb('    No partition specified')
-        else:
-            slurmList.append('#SBATCH --partition='+cl_args.partition)
-        # Time to run in hours
-        slurmList.append('#SBATCH --time='+str(cl_args.time)+':00:00')
-        # Terminal save name
-        slurmList.append('#SBATCH --output=moose_console_%j.out')
-        # Email
-        slurmList.append('#SBATCH --mail-user=bbattas@ufl.edu')
-        slurmList.append('#SBATCH --mail-type=BEGIN,END,FAIL')
-        # Account to run on and burst or not
-        slurmList.append('#SBATCH --account=michael.tonks')
-        if cl_args.burst:
-            verb('    Specifying burst allocation')
-            slurmList.append('#SBATCH --qos=michael.tonks-b')
-        # Old Exclude List (2/1/24)
-        # slurmList.append('#SBATCH --exclude=c0702a-s28,c0702a-s29,c0703a-s18,c0706a-s7,c0709a-s21,c0710a-s28,c0713a-s18,c0713a-s19')
-        # Current Problem Nodes (6/7/24)
-        if cl_args.force:
-            slurmList.append('#SBATCH --exclude=c0701a-s30,c0703a-s18,c0706a-s18,c0707a-s21')
+def build_recover_flag():
+    """Return the --recover string fragment based on args.recover."""
+    if args.recover is None:
+        return ""
+    if args.recover is True:
+        return " --recover"
+    # A path string was provided
+    return f" --recover {args.recover}"
 
-        # On to the actual job to submit
-        # Define Locations
-        slurmList.append('')
-        slurmList.append('echo ${SLURM_JOB_NODELIST}')
-        slurmList.append('')
-        slurmList.append('MOOSE='+pf_opt)
-        slurmList.append('OUTPUT='+cwd)
-        # Module loading
-        slurmList.append('')
-        slurmList.append('export CC=mpicc CXX=mpicxx FC=mpif90 F90=mpif90 F77=mpif77')
-        slurmList.append('module purge')
-        slurmList.append('module load ufrc mkl/2023.2.0 gcc/12.2.0 openmpi/4.1.6 python/3.11 cmake/3.26.4')
-        # slurmList.append('module load conda')
-        # Mamba Build
-        # slurmList.append('source ~/.bashrc')
-        # slurmList.append('mamba activate moose')
-        # Actually go to the output and run the shit
-        slurmList.append('')
-        slurmList.append('cd $OUTPUT')
-        if cl_args.force:
-            if cl_args.args == None:
-                slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i' + (' --recover' if cl_args.recover else ''))
-            else:
-                slurmList.append('mpiexec $MOOSE -i $OUTPUT/'+inputName+'.i ' + ('--recover ' if cl_args.recover else '') +str(cl_args.args))
-        else:
-            if cl_args.args == None:
-                slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i' + (' --recover' if cl_args.recover else ''))
-            else:
-                slurmList.append('srun --mpi=pmix_v3 $MOOSE -i $OUTPUT/'+inputName+'.i ' + ('--recover ' if cl_args.recover else '')+str(cl_args.args))
 
-        # Output the slurm script
-        # verb(slurmList)
-        slurmName = 'slurm_' + inputName + '.sh'
-        verb('    Saving slurm script: '+slurmName)
-        with open(slurmName, mode='w') as slurmFile:
-            slurmFile.write('\n'.join(slurmList))
+def build_script(cwd, input_name):
+    """
+    Build and return the full SLURM script as a list of strings.
+    This is the single source of truth for script content,
+    used by both the preview and the file writer.
+    """
+    lines = []
+    array_num  = None
+    array_path = None
+
+    if args.array is not None:
+        array_num, array_path = check_for_array()
+
+    # --- Header ---
+    lines.append("#!/bin/bash")
+    lines.append("")
+
+    job_name = cwd.rsplit("/", 1)[1] if not args.use_input_name else input_name
+    lines.append(f"#SBATCH --job-name={job_name}")
+    lines.append(f"#SBATCH --nodes={args.nodes}")
+    lines.append(f"#SBATCH --ntasks-per-node={args.tasks}")
+    lines.append(f"#SBATCH --cpus-per-task={args.cpus_per_task}")
+    lines.append(f"#SBATCH --mem-per-cpu={args.mem_per_cpu}")
+    lines.append( "#SBATCH --distribution=cyclic:cyclic")
+
+    if array_num is not None:
+        lines.append(f"#SBATCH --array=1-{array_num}")
+
+    lines.append("")
+
+    if args.partition not in (None, "None"):
+        lines.append(f"#SBATCH --partition={args.partition}")
+
+    lines.append(f"#SBATCH --time={args.time}:00:00")
+
+    if array_num is not None:
+        lines.append("#SBATCH --output=moose_console_%A_%a.out")
     else:
-        # PBS style
-        # Building the header
-        slurmList.append('#!/bin/bash')
-        # Job Name: Directory or Input File
-        if cl_args.dir_names:
-            slurmList.append('#PBS -N '+cwd.rsplit('/',1)[1])
-        elif cl_args.dir_names == False:
-            slurmList.append('#PBS -N '+inputName)
-        else:
-            raise ValueError("--dir-names not specified True or False")
-        # Nodes
-        slurmList.append('#PBS -l select='+str(cl_args.nodes)+':ncpus=48:mpiprocs=48')
-        # Time to run in hours
-        slurmList.append('#PBS -l walltime='+str(cl_args.time)+':0:0')
-        slurmList.append('#PBS -k doe')
-        slurmList.append('#PBS -o terminal_out')
-        slurmList.append('#PBS -j oe')
-        slurmList.append('#PBS -P neams')
-        slurmList.append('#PBS -m abe')
-        slurmList.append('#PBS -M bbattas@ufl.edu')
-        slurmList.append(' ')
-        slurmList.append('cat $PBS_NODEFILE')
-        slurmList.append('source /etc/profile.d/modules.sh')
-        slurmList.append('module load use.moose moose-dev')
-        slurmList.append(' ')
-        slurmList.append('cd $PBS_O_WORKDIR')
-        slurmList.append(' ')
-        # slurmList.append('mpirun /home/$USER/projects/moose/modules/phase_field/phase_field-opt -i '+inputName+'.i')
-        slurmList.append('mpirun /scratch/$USER/moose/modules/phase_field/phase_field-opt -i '+inputName+'.i')
-        # Output the PBS script
-        # verb(slurmList)
-        slurmName = 'pbs_' + inputName + '.sh'
-        verb('    Saving slurm script: '+slurmName)
-        with open(slurmName, mode='w') as slurmFile:
-            slurmFile.write('\n'.join(slurmList))
+        lines.append("#SBATCH --output=moose_console_%j.out")
+
+    lines.append("#SBATCH --mail-user=bbattas@ufl.edu")
+    if not args.no_email:
+        lines.append("#SBATCH --mail-type=BEGIN,END,FAIL")
+
+    lines.append("#SBATCH --account=michael.tonks")
+    if args.burst:
+        logging.info("    Burst allocation specified.")
+        lines.append("#SBATCH --qos=michael.tonks-b")
+
+    if args.exclude:
+        lines.append(f"#SBATCH --exclude={BAD_NODES}")
+
+    lines.append("#SBATCH --constraint=el9")
+
+    # --- Environment setup ---
+    lines.append("")
+    lines.append("echo ${SLURM_JOB_NODELIST}")
+    lines.append("")
+    lines.append(f"MOOSE={pf_opt}")
+    lines.append(f"OUTPUT={cwd}")
+    if array_path is not None:
+        lines.append(f"OV_FILE={array_path}")
+
+    lines.append("")
+    lines.append(MPI_EXPORTS)
+    lines.append("module purge")
+    lines.append(f"module load {MODULES}")
+
+    if args.mpi:
+        lines.append("")
+        lines.append("export OMPI_MCA_coll_hcoll_enable=0")
+
+    # --- Array task parsing block ---
+    if array_path is not None:
+        lines.extend([
+            "",
+            "LINE=\"$(awk 'NF>0 && $1 !~ /^#/' \"${OV_FILE}\" | sed -n \"${SLURM_ARRAY_TASK_ID}p\")\"",
+            "",
+            "if [[ -z \"${LINE}\" ]]; then",
+            "  echo \"No overrides for task ${SLURM_ARRAY_TASK_ID}. Check the array size or ${OV_FILE}.\"",
+            "  exit 1",
+            "fi",
+            "",
+            "echo \"[$(date)] Task ${SLURM_ARRAY_TASK_ID} overrides: ${LINE}\"",
+            "echo \"[$(date)] Running: srun ${MOOSE} -i INPUT.i ${LINE}\"",
+        ])
+
+    # --- Execution line ---
+    recover_str = build_recover_flag()
+    extra_args  = f" {args.args}" if args.args else ""
+    lines.append("")
+    lines.append("cd $OUTPUT")
+
+    if array_path is not None:
+        lines.append(
+            f"srun {MPI_FLAG} $MOOSE -i $OUTPUT/{input_name}.i"
+            + (f"{recover_str} ${{LINE}}" if recover_str else " ${LINE}")
+            + extra_args
+        )
+    else:
+        lines.append(
+            f"srun {MPI_FLAG} $MOOSE -i $OUTPUT/{input_name}.i"
+            + recover_str
+            + extra_args
+        )
+
+    return lines
 
 
-# Preview of the header content of the SLURM script printed to terminal
-# copied from the slurmWrite(), so if the header there changes it needs to here too
-def slurmHeaderPreview(interactive):
-    if cl_args.inl == True:
-        pt('No Preview for PBS currently')
-        return
-    if interactive:
-        pt(' ')
-        pt('\x1B[1m'+'Header Preview: \x1b[0m')
-        pt(' ')
-    slurmList = []
-    # Building the header
-    slurmList.append('#!/bin/bash')
-    slurmList.append('')
-    # Job Name: Directory or Input File
-    if cl_args.dir_names:
-        slurmList.append('#SBATCH --job-name='+'[CWD]')
-    elif cl_args.dir_names == False:
-        slurmList.append('#SBATCH --job-name='+'[inputName]')
+def show_preview(cwd, input_name):
+    """
+    Print the script preview (header only by default, full script with --preview-full).
+    Prompts for confirmation unless --yes is set.
+    """
+    script_lines = build_script(cwd, input_name)
+
+    if args.preview_full:
+        preview_lines = script_lines
+        label = "Full Script Preview:"
     else:
-        raise ValueError("--dir-names not specified True or False")
-    # Nodes
-    slurmList.append('#SBATCH --nodes='+str(cl_args.nodes))
-    # Tasks per node
-    slurmList.append('#SBATCH --ntasks-per-node='+str(cl_args.tasks))
-    # CPUs per task
-    slurmList.append('#SBATCH --cpus-per-task='+str(cl_args.cpus_per_task))
-    # Memory per CPU
-    slurmList.append('#SBATCH --mem-per-cpu='+cl_args.mem_per_cpu)
-    # Distribution line
-    slurmList.append('#SBATCH --distribution=cyclic:cyclic')
-    # A nice empty line for cleanliness
-    slurmList.append('')
-    # Partition if specified
-    if cl_args.partition==None or cl_args.partition=="None":
-        logging.debug('    No partition specified')
-    else:
-        slurmList.append('#SBATCH --partition='+cl_args.partition)
-    # Time to run in hours
-    slurmList.append('#SBATCH --time='+str(cl_args.time)+':00:00')
-    # Terminal save name
-    slurmList.append('#SBATCH --output=moose_console_%j.out')
-    # Email
-    slurmList.append('#SBATCH --mail-user=bbattas@ufl.edu')
-    slurmList.append('#SBATCH --mail-type=BEGIN,END,FAIL')
-    # Account to run on and burst or not
-    slurmList.append('#SBATCH --account=michael.tonks')
-    if cl_args.burst:
-        # verb('    Specifying burst allocation')
-        slurmList.append('#SBATCH --qos=michael.tonks-b')
-    # # Current Exclude List (2/1/24)
-    # slurmList.append('#SBATCH --exclude=c0702a-s28,c0702a-s29,c0703a-s18,c0706a-s7,c0709a-s21,c0710a-s28,c0713a-s18,c0713a-s19')
-    pt('\n'.join(slurmList))
-    if interactive:
-        pt (' ')
-        confirm = input('Continue using this as the header? [y]/n: ')
-        if 'n' in confirm.lower():
-            pt('\x1b[31;1m'+'WARNING:'+'\x1b[0m'+' Exiting Code')
+        # Header = everything up to and including the last #SBATCH line
+        last_sbatch = 0
+        for i, line in enumerate(script_lines):
+            if line.startswith("#SBATCH"):
+                last_sbatch = i
+        preview_lines = script_lines[: last_sbatch + 1]
+        label = "Header Preview:"
+
+    logging.warning("")
+    logging.warning(f"\033[1m{label}\033[0m")
+    logging.warning("")
+    for line in preview_lines:
+        logging.warning(line)
+    logging.warning("")
+
+    if not args.yes:
+        confirm = input("Continue with this script? [y]/n: ")
+        if "n" in confirm.lower():
+            logging.warning("Exiting.")
             sys.exit()
 
 
-# Run the slurm script in the current directory
-def runSlurm():
-    if cl_args.inl == False:
-        verb('  Submitting slurm script')
-        # Find slurm script name
-        for file in glob.glob("*.sh"):
-            slurmScriptName = file
-        command = ['sbatch',slurmScriptName]
-        verb('    Command being run is: ' + str(command))
-        # Submit the slurm script
-        subprocess.run(command)
-    else:
-        verb('  Submitting PBS script')
-        # Find slurm script name
-        for file in glob.glob("*.sh"):
-            slurmScriptName = file
-        command = ['qsub',slurmScriptName]
-        verb('    Command being run is: ' + str(command))
-        # Submit the slurm script
-        subprocess.run(command)
+def write_script(cwd, input_name):
+    """Build the script and write it to slurm_<inputName>.sh in the current directory."""
+    script_lines = build_script(cwd, input_name)
+    slurm_name = f"slurm_{input_name}.sh"
+    logging.info(f"    Writing script: {slurm_name}")
+    with open(slurm_name, mode="w") as f:
+        f.write("\n".join(script_lines))
+    return slurm_name
 
 
-def setCL_valuesOverride(defaults_tf):
-    verb('Setting cl_args based on CL overrides')
-    # Set defaults first (if not loading json)
-    if defaults_tf is True:
-        cl_args.dir_names = default_vals.dir_names
-        cl_args.nodes = default_vals.nodes
-        cl_args.tasks = default_vals.tasks
-        cl_args.cpus_per_task = default_vals.cpus_per_task
-        cl_args.mem_per_cpu = default_vals.mem_per_cpu
-        cl_args.time = default_vals.time
-        cl_args.partition = default_vals.partition
-        cl_args.burst = default_vals.burst
-    # If the cl_args input values not None (or default for T/F)
-    if input_vals.dir_names is False:
-        cl_args.dir_names = input_vals.dir_names
-    if input_vals.nodes is not None:
-        cl_args.nodes = input_vals.nodes
-    if input_vals.tasks is not None:
-        cl_args.tasks = input_vals.tasks
-    if input_vals.cpus_per_task is not None:
-        cl_args.cpus_per_task = input_vals.cpus_per_task
-    if input_vals.mem_per_cpu is not None:
-        cl_args.mem_per_cpu = input_vals.mem_per_cpu
-    if input_vals.time is not None:
-        cl_args.time = input_vals.time
-    if input_vals.partition is not None:
-        cl_args.partition = input_vals.partition
-    if input_vals.burst is True:
-        cl_args.burst = input_vals.burst
+def run_slurm(slurm_name):
+    """Submit a SLURM script by name via sbatch."""
+    logging.info(f"  Submitting: {slurm_name}")
+    subprocess.run(["sbatch", slurm_name])
 
 
+# =============================================================================
+# MAIN
+# =============================================================================
 
-# Read a json file 'slurm_header_template.json' in scripts
-# folder under pf/examples/sintering/ to define the different
-# slurm script header parameters
-def jsonToSlurmVariables():
-    # If --json and file exists
-    if cl_args.json and write_json==False:
-        verb('Reading from json')
-        # verb('  '+json_path)
-        # Read the json file
-        with open(json_path) as json_file:
-            dict = json.load(json_file)
-        # Redefine cl_args based on the json values
-        cl_args.dir_names = dict['job_name_using_dir_names']
-        cl_args.nodes = dict['nodes']
-        cl_args.tasks = dict['tasks_per_node']
-        cl_args.cpus_per_task = dict['cpus_per_task']
-        cl_args.mem_per_cpu = dict['mem_per_cpu']
-        cl_args.time = dict['hours']
-        cl_args.partition = dict['partition']
-        cl_args.burst = dict['burst']
-        setCL_valuesOverride(False)
-        slurmHeaderPreview(True)
-        # verb(' ')
-        # verb(cl_args)
-        # verb(' ')
-    # If --json and file does not exist
-    elif cl_args.json and write_json:
-        verb('Writing a new json file at: ')
-        verb('  '+json_path)
-        if cl_args.input:
-            manualInput()
-        setCL_valuesOverride(True)
-        dict = {}
-        dict['job_name_using_dir_names'] = cl_args.dir_names
-        dict['nodes'] = cl_args.nodes
-        dict['tasks_per_node'] = cl_args.tasks
-        dict['cpus_per_task'] = cl_args.cpus_per_task
-        dict['mem_per_cpu'] = cl_args.mem_per_cpu
-        dict['hours'] = cl_args.time
-        dict['partition'] = cl_args.partition
-        dict['burst'] = cl_args.burst
+def main():
+    # Validate executable path
+    if not os.path.exists(pf_opt):
+        logging.warning(f"WARNING: Cannot find phase_field-opt at: {pf_opt}")
+        confirm = input("Would you like to continue anyway? y/[n]: ")
+        if "y" not in confirm.lower():
+            logging.warning("Exiting.")
+            sys.exit()
 
-        with open(json_path, 'w') as fp:
-            json.dump(dict, fp)
-        slurmHeaderPreview(True)
+    # Startup warnings
+    if args.overwrite:
+        logging.warning("WARNING: Overwriting existing .sh files.")
+    if args.run:
+        logging.warning("WARNING: Submitting all generated .sh files via sbatch.")
+    if args.exclude:
+        logging.warning(f"WARNING: Excluding nodes: {BAD_NODES}")
+
+    # Show preview once before iterating (uses cwd as a stand-in for job name preview)
+    show_preview(os.getcwd(), "[input_name]")
+
+    # --- Directory iteration ---
+    exclude_prefixes = (".", "00_")
+
+    if args.subdirs:
+        logging.info("Cycling through subdirectories.")
+        working_dir = os.getcwd()
+        dirs = sorted(
+            d for d in os.listdir()
+            if not d.startswith(exclude_prefixes) and os.path.isdir(d)
+        )
+        logging.info(f"Subdirectories found: {dirs}")
+
+        for d in dirs:
+            cwd = os.path.join(working_dir, d)
+            os.chdir(cwd)
+            logging.info(f"In directory: {cwd}")
+
+            found, input_name = check_for_input()
+            if found:
+                if not check_for_slurm():
+                    slurm_name = write_script(cwd, input_name)
+                    if args.run:
+                        run_slurm(slurm_name)
+            logging.info("")
+
+        os.chdir(working_dir)  # Return to original directory when done
 
     else:
-        logging.debug('Skipping json as the -json flag = '+str(cl_args.json))
-        verb('No json used, setting cl_args from defaults')
-        setCL_valuesOverride(True)
-        slurmHeaderPreview(True)
+        logging.info("Running in current directory only.")
+        cwd = os.getcwd()
+        logging.info(f"In directory: {cwd}")
+
+        found, input_name = check_for_input()
+        if found:
+            if not check_for_slurm():
+                slurm_name = write_script(cwd, input_name)
+                if args.run:
+                    run_slurm(slurm_name)
+
+    logging.info("Done.")
 
 
-
-# ███████╗██╗  ██╗███████╗ ██████╗██╗   ██╗████████╗███████╗
-# ██╔════╝╚██╗██╔╝██╔════╝██╔════╝██║   ██║╚══██╔══╝██╔════╝
-# █████╗   ╚███╔╝ █████╗  ██║     ██║   ██║   ██║   █████╗
-# ██╔══╝   ██╔██╗ ██╔══╝  ██║     ██║   ██║   ██║   ██╔══╝
-# ███████╗██╔╝ ██╗███████╗╚██████╗╚██████╔╝   ██║   ███████╗
-# ╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═════╝    ╚═╝   ╚══════╝
-
-
-# Decision tree for manual input and json to overwrite cl_args
-if cl_args.input and cl_args.json:
-    if write_json:
-        # Writing a new json with manual input
-        jsonToSlurmVariables()
-    else:
-        # Read the json file at pf/examples/sintering/scripts
-        jsonToSlurmVariables()
-        pt(' ')
-        pt('Manual overwriting the slurm values:  ')
-        # Now manual overwrite of json input
-        manualInput()
-elif cl_args.input and not cl_args.json:
-    manualInput()
-elif cl_args.json and not cl_args.input:
-    jsonToSlurmVariables()
-elif not cl_args.input and not cl_args.json:
-    verb('No json or manual input for SLURM header- using defaults with command line overrides')
-    jsonToSlurmVariables()
-    verb(' ')
-else:
-    raise ValueError('\x1b[31;1m'+'ERROR:'+'\x1b[0m'+' json and manual input logic tree failure')
-
-
-
-# All subdirectories 1 level deep
-if cl_args.subdirs:
-    verb('Cycling through all subdirectories.')
-    exclude_prefixes = ('.', '00_')
-    # Cycle through the directories
-    working_dir = os.getcwd()
-    verb('Directories:')
-    verb(glob.glob("*/"))
-    for dir in os.listdir():
-        if not dir.startswith(exclude_prefixes):
-            cwd = os.path.join(working_dir, dir)
-            if os.path.isdir(cwd):  # Check if cwd is a directory
-                os.chdir(cwd)
-                verb('In directory: ' + os.getcwd())
-                # Check if there is a .i file
-                input = checkForInput()
-                if input[0]:
-                    # Check if we need to make a slurm script for the .i file
-                    if not checkForSlurm():
-                        # Make a new slurm script
-                        slurmWrite(cwd, input[1])
-                    if cl_args.run:
-                        runSlurm()
-                verb(' ')
-            else:
-                verb(f'Skipping: {cwd} is not a directory')
-# No sibdirectories, only the current directory
-else:
-    verb('Running only in current directory')
-    cwd = os.getcwd()
-    verb('In directory: ' + cwd)
-    # Check if there is a .i file
-    input = checkForInput()
-    if input[0]:
-        # Check if we need to make a slurm script for the .i file
-        if checkForSlurm() == False:
-            # Make a new slurm script
-            slurmWrite(cwd,input[1])
-        if cl_args.run:
-            runSlurm()
-        verb(' ')
-
-verb(' ')
-verb('██████╗  ██████╗ ███╗   ██╗███████╗')
-verb('██╔══██╗██╔═══██╗████╗  ██║██╔════╝')
-verb('██║  ██║██║   ██║██╔██╗ ██║█████╗  ')
-verb('██║  ██║██║   ██║██║╚██╗██║██╔══╝  ')
-verb('██████╔╝╚██████╔╝██║ ╚████║███████╗')
-verb('╚═════╝  ╚═════╝ ╚═╝  ╚═══╝╚══════╝')
-verb('''
-⢀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⣠⣤⣶⣶
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⢰⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣧⣀⣀⣾⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⡏⠉⠛⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⣿
-⣿⣿⣿⣿⣿⣿⠀⠀⠀⠈⠛⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠉⠁⠀⣿
-⣿⣿⣿⣿⣿⣿⣧⡀⠀⠀⠀⠀⠙⠿⠿⠿⠻⠿⠿⠟⠿⠛⠉⠀⠀⠀⠀⠀⣸⣿
-⣿⣿⣿⣿⣿⣿⣿⣷⣄⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⠏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠠⣴⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⠀⢰⣹⡆⠀⠀⠀⠀⠀⠀⣭⣷⠀⠀⠀⠸⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠈⠉⠀⠀⠤⠄⠀⠀⠀⠉⠁⠀⠀⠀⠀⢿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⢾⣿⣷⠀⠀⠀⠀⡠⠤⢄⠀⠀⠀⠠⣿⣿⣷⠀⢸⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⡀⠉⠀⠀⠀⠀⠀⢄⠀⢀⠀⠀⠀⠀⠉⠉⠁⠀⠀⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣧⠀⠀⠀⠀⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢹⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿''')
-
-verb(' ')
-
-
-verb("Finished Exectuing Python Script")
-quit()
-quit()
+if __name__ == "__main__":
+    main()
