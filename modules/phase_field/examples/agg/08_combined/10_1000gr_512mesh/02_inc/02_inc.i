@@ -4,7 +4,7 @@
 # Created Date: Wednesday June 10th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday June 10th 2026
+# Last Modified: Wednesday June 24th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -248,7 +248,7 @@ randseed = 20
   l_max_its = 60 # Max number of linear iterations
   l_tol = 1e-4 # Relative tolerance for linear solves
   nl_max_its = 12 # Max number of nonlinear iterations
-  nl_rel_tol = 1e-8 #1e-10 # Relative tolerance for nonlienar solves
+  nl_rel_tol = 1e-6 #8 #1e-10 # Relative tolerance for nonlienar solves
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
@@ -266,6 +266,7 @@ randseed = 20
 
   automatic_scaling = true
   compute_scaling_once = false
+  line_search = 'none'
 []
 
 [Outputs]
@@ -277,11 +278,11 @@ randseed = 20
   print_linear_residuals = true
   print_nonlinear_residuals = true
   #
-  checkpoint = false
-  # [checkpoint]
-  #   type = Checkpoint
-  #   num_files = 3
-  # []
+  # checkpoint = false
+  [checkpoint]
+    type = Checkpoint
+    num_files = 3
+  []
   # [pgraph]
   #   type = PerfGraphOutput
   #   execute_on = 'initial final' # Default is "final"
