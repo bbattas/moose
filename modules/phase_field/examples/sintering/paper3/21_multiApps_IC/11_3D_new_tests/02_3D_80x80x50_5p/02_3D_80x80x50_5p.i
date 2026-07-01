@@ -22,7 +22,7 @@
   [subdomain_external]
     type = ParsedSubdomainMeshGenerator
     input = ebsd_mesh
-    combinatorial_geometry = 'x > 98000'
+    combinatorial_geometry = 'x > 78000'
     block_id = 1
   []
   parallel_type = DISTRIBUTED
