@@ -209,9 +209,123 @@
     boundary = 'left right top bottom'
     value = 0
   []
-  [grain_bc]
+  [bc_gr0]
     type = NeumannBC
-    variable = 'gr0 gr1 gr2 gr3 gr4 gr5 gr6 gr7 gr8 gr9 gr10 gr11 gr12 gr13 gr14 gr15 gr16 gr17 gr18 gr19'
+    variable = 'gr0'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr1]
+    type = NeumannBC
+    variable = 'gr1'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr2]
+    type = NeumannBC
+    variable = 'gr2'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr3]
+    type = NeumannBC
+    variable = 'gr3'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr4]
+    type = NeumannBC
+    variable = 'gr4'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr5]
+    type = NeumannBC
+    variable = 'gr5'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr6]
+    type = NeumannBC
+    variable = 'gr6'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr7]
+    type = NeumannBC
+    variable = 'gr7'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr8]
+    type = NeumannBC
+    variable = 'gr8'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr9]
+    type = NeumannBC
+    variable = 'gr9'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr10]
+    type = NeumannBC
+    variable = 'gr10'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr11]
+    type = NeumannBC
+    variable = 'gr11'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr12]
+    type = NeumannBC
+    variable = 'gr12'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr13]
+    type = NeumannBC
+    variable = 'gr13'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr14]
+    type = NeumannBC
+    variable = 'gr14'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr15]
+    type = NeumannBC
+    variable = 'gr15'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr16]
+    type = NeumannBC
+    variable = 'gr16'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr17]
+    type = NeumannBC
+    variable = 'gr17'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr18]
+    type = NeumannBC
+    variable = 'gr18'
+    boundary = 'left right top bottom'
+    value = 0
+  []
+  [bc_gr19]
+    type = NeumannBC
+    variable = 'gr19'
     boundary = 'left right top bottom'
     value = 0
   []
