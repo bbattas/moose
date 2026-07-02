@@ -4,7 +4,7 @@
 # Created Date: Thursday June 25th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday June 25th 2026
+# Last Modified: Thursday July 2nd 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -183,6 +183,7 @@ rot_ang = 0 #0.7854 #1.5708
     kappa_name = kappa_op
     gbe_iso_name = gbe_iso
     enable_misorientation = false
+    tj_mode = weighted
     hgb = hgb_mat
     # euler_angle_provider = euler_file
     # w_inc = 1

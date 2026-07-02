@@ -4,7 +4,7 @@
 # Created Date: Thursday June 25th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday June 25th 2026
+# Last Modified: Thursday July 2nd 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -174,6 +174,7 @@ randseed = 20
     kappa_name = kappa_op
     gbe_iso_name = gbe_iso
     enable_misorientation = false
+    tj_mode = weighted
     # euler_angle_provider = euler_file
     # w_inc = 1
     # w_miso = 1
