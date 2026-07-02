@@ -44,7 +44,7 @@ derivative_matrixc2 = 0.5*(1/deltax)*spdiags([-1*e 1*e ], -1:2:1, N(2), N(2));
 
 
 if bound_cond == 'pp' % only periodic boundary conditions were considered so far
-    
+
     laplace_matrix(1,N(1))=1/deltax^2; laplace_matrix(N(1),1)=1/deltax^2;
     derivative_matrixr(N(1),1) = 1/deltax;
     derivative_matrixl(1,N(1)) = -1/deltax;
@@ -62,12 +62,36 @@ if bound_cond == 'pp' % only periodic boundary conditions were considered so far
 end
 clear e
 
+% -----------------------------------------------------------------------------------
+% Save initial condition before the loop
+microstructure = [];
+grain_area = [grain_area sum(sum(eta{1}))];
+for s = 1 : N(1)
+    for t = 1 : N(2)
+        max_val = abs(eta{1}(s,t));
+        microstructure(s,t) = 1;
+        for kk = 2 : order_par
+            if abs(eta{kk}(s,t)) > max_val
+                max_val = abs(eta{kk}(s,t));
+                microstructure(s,t) = kk;
+            end
+        end
+    end
+end
+eta_kwad_init = cellfun(@(x) x.^2, eta, 'UniformOutput', false);
+sumetasqu = eta_kwad_init{1};
+for ii = 2 : order_par
+    sumetasqu = sumetasqu + eta_kwad_init{ii};
+end
+save(strcat(invoer,'nn',int2str(n_old)), 'sumetasqu', 'eta', 'microstructure', 'grain_area')
+% -----------------------------------------------------------------------------------
+
 for k = 1 + n_old:n
-    
+
     if mod(k,50) == 0 % every 50 times steps the time step is written on the screen
         fprintf('iterationstep %g \n',k)
     end
-    
+
     eta_kwad = cell(order_par,1);
     eta_kwad{1} = eta{1}.^2;
     sumetasqu = eta_kwad{1};
@@ -75,12 +99,12 @@ for k = 1 + n_old:n
         eta_kwad{ii} = eta{ii}.^2;
         sumetasqu = sumetasqu + eta_kwad{ii};
     end
-    
+
     sumetacrosssqu = zeros(N(1),N(2));
     sumetacrosssqu_k1ij = zeros(N(1),N(2));
     for ii = 1 : order_par
         for jj = ii + 1 : order_par
-            
+
             extra = eta_kwad{ii}.*eta_kwad{jj};
             sumetacrosssqu = sumetacrosssqu + extra;
             phi_2 = (derivative_matrixc2*(eta{ii}-eta{jj})')';
@@ -101,25 +125,25 @@ for k = 1 + n_old:n
                     delta_s(ii,jj)*((sign(cos(theta_angle))).*cos(theta_angle)...
                     + (sign(sin(theta_angle))).*sin(theta_angle)));
             end
-            
+
             kin_anis = 1 + delta_s_kin(ii,jj)*(cos(n_fold_kin(ii,jj)*theta_angle_kin)); % f_mu = (1+delta_kin*cos(n*(theta+theta_ofset_kin)))
             sumetacrosssqu_k1ij = sumetacrosssqu_k1ij + k1(ii,jj)*kin_anis.*g_g.*extra;
-            
+
         end
     end
-    
-    
+
+
     interface = find(sumetacrosssqu > 1e-6);
     k1_ij = (k1_average)*ones(N(1),N(2));
     k1_ij(interface) = (sumetacrosssqu_k1ij(interface))./sumetacrosssqu(interface);
-    
-    
+
+
     for ii = 1 : order_par
-        
+
         sumetasqu_gamma = zeros(N(1),N(2));
         sumetasqu_dgamma1 = zeros(N(1),N(2));
         sumetasqu_dgamma2 = zeros(N(1),N(2));
-        
+
         for jj = 1 : ii - 1
             phi_2 = (derivative_matrixc2*(eta{jj}-eta{ii})')';
             phi_1 = derivative_matrixc*(eta{jj}-eta{ii});
@@ -156,19 +180,19 @@ for k = 1 + n_old:n
             extra = eta_kwad{ii}.*eta_kwad{jj};
             aa = find(unit > 1e-4); % only for unit > 1e-4 we divide by unit;
             %otherwise it is numerically not stable;
-            
+
             theta_angle_1 = -phi_2; % this value is only kept for unit < 1e-4; this only occurs when well within the bulk,
             %where the evaluation of the interface energy will not affect the behavior
             theta_angle_2 = phi_1;
             theta_angle_1(aa) = -(phi_2(aa)./unit(aa)).*extra(aa); % at boundaries, where unit > 1e-4, we fully evaluate theta_angle_1 and _2
             theta_angle_2(aa) = (phi_1(aa)./unit(aa)).*extra(aa);
-            
-            
+
+
             sumetasqu_dgamma1 = sumetasqu_dgamma1 +  (-2*(gamma.^2).*derivative_polynomial.*g_g.*g_dg).*(-theta_angle_1);
             sumetasqu_dgamma2 = sumetasqu_dgamma2 +  (-2*(gamma.^2).*derivative_polynomial.*g_g.*g_dg).*(-theta_angle_2);
         end
         for jj = ii + 1 : order_par
-            
+
             phi_2 = (derivative_matrixc2*(eta{ii}-eta{jj})')';
             phi_1 = derivative_matrixc*(eta{ii}-eta{jj});
             theta_angle = (pi/2)*ones(N(1),N(2));
@@ -205,28 +229,28 @@ for k = 1 + n_old:n
             unit = (m/kappa)*g_g;
             aa = find(unit>1e-4);% only for unit > 1e-4 we divide by unit;
             %otherwise it is numerically not stable;
-            
+
             theta_angle_1 = -phi_2; % this value is only kept for unit < 1e-4; this only occurs when well within the bulk,
             %where the evaluation of the interface energy will not affect the behavior
             theta_angle_2 = phi_1;
             theta_angle_1(aa) = -(phi_2(aa).*extra(aa))./unit(aa); % at boundaries, where unit > 1e-4, we fully evaluate theta_angle_1 and _2
             theta_angle_2(aa) = phi_1(aa).*extra(aa)./unit(aa);
-            
+
             sumetasqu_dgamma1 = sumetasqu_dgamma1 +  (-2*(gamma.^2).*derivative_polynomial.*g_g.*g_dg).*theta_angle_1;
             sumetasqu_dgamma2 = sumetasqu_dgamma2 +  (-2*(gamma.^2).*derivative_polynomial.*g_g.*g_dg).*theta_angle_2;
-            
+
         end
-        
+
         gradient_anis = - m*(derivative_matrixc*sumetasqu_dgamma1 + ...
             (derivative_matrixc2*(sumetasqu_dgamma2'))');
-        
+
         gradient_energy = -kappa.*(laplace_matrix*eta{ii} + (laplace_matrix2*eta{ii}')') ...
             + gradient_anis;
         bulk = m.*eta{ii}.*(eta_kwad{ii} - 1 + 2*sumetasqu_gamma);
-        
+
         eta{ii} = eta{ii} - k1_ij.*(bulk + gradient_energy);
     end
-    
+
     if mod(k,save_freq)==0
         microstructure = [];
         grain_area = [grain_area sum(sum(eta{1}))];
