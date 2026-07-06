@@ -73,6 +73,9 @@ GBCombinedAnisotropyMaterial::GBCombinedAnisotropyMaterial(const InputParameters
     // Anisotropic Outputs
     _fgbe(declareProperty<std::vector<Real>>("fgbe")),
     _gbe_norm(declareProperty<Real>("gbe_norm")),
+    _gbe_gb(declareProperty<Real>("gbe_gb")),
+    _gb_notj_mask(declareProperty<Real>("gb_notj_mask")),
+    _gb_tj_mask(declareProperty<Real>("gb_tj_mask")),
     // _L_ij(declareProperty<std::vector<Real>>("L_ij")),
     _L(declareProperty<Real>("L")),
     _gamma_ij(declareProperty<std::vector<Real>>("gamma_ij")),
@@ -217,6 +220,10 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
   constexpr Real a4 = -8.1819; // coefficient for g2
   constexpr Real a5 = 2.0033;  // constant term
 
+  // Masks for integral/avg gbe
+  _gb_notj_mask[_qp] = (theta.size() == 1) ? 1.0 : 0.0;
+  _gb_tj_mask[_qp] = (theta.size() >= 1) ? 1.0 : 0.0;
+
   // TEMPORARY
   // _elem_noij[_qp] = false;
   _noij_out[_qp] = 0;
@@ -241,6 +248,7 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
     // Calculate L
     _L[_qp] = _L0[_qp] * _bulk_mult;
     _gbe_norm[_qp] = _bulk_mult;
+    _gbe_gb[_qp] = 0.0;
     return;
   }
 
@@ -408,6 +416,7 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
   _int_width[_qp] = iw_sum / hgb_tot;
   _L[_qp] = Lij_sum / hgb_tot;
   _gbe_norm[_qp] = gbe_sum / hgb_tot;
+  _gbe_gb[_qp] = gbe_sum / hgb_tot;
   if (_aniso_L && _stiffness)
   {
     for (unsigned int i = 0; i < _op_num; ++i)

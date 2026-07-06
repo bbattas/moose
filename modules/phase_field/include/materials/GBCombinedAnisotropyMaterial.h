@@ -69,6 +69,9 @@ protected:
   // Aniso Outputs
   MaterialProperty<std::vector<Real>> & _fgbe;
   MaterialProperty<Real> & _gbe_norm;
+  MaterialProperty<Real> & _gbe_gb;
+  MaterialProperty<Real> & _gb_notj_mask;
+  MaterialProperty<Real> & _gb_tj_mask;
   // MaterialProperty<std::vector<Real>> & _L_ij; // Array version for kernel? Not being used?
   MaterialProperty<Real> & _L;
 
