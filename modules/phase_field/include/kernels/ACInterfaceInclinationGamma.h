@@ -29,10 +29,13 @@ protected:
   /// the \f$ \nabla(L\psi) \f$ term
   RealGradient nablaLPsi();
 
-  ///@{ Variables for second order derivatives
-  const VariableSecond & _second_u;
-  const VariableTestSecond & _second_test;
-  const VariablePhiSecond & _second_phi;
+  /// flag set if L is a function of non-linear variables in args
+  const bool _variable_L;
+
+  ///@{ Variables for second order derivatives, only needed when variable_L = true
+  const VariableSecond * _second_u;
+  const VariableTestSecond * _second_test;
+  const VariablePhiSecond * _second_phi;
   ///@}
 
   const unsigned int _op_num;
@@ -40,6 +43,7 @@ protected:
   const std::string _var_name_base;
 
   const MaterialProperty<bool> & _no_ij_pairs;
+  const MaterialProperty<std::vector<unsigned char>> & _op_has_active_pair;
   const MaterialProperty<std::vector<unsigned int>> & _ij_i;
   const MaterialProperty<std::vector<unsigned int>> & _ij_j;
 
@@ -55,12 +59,9 @@ protected:
   // /// Interfacial parameter
   // const MaterialProperty<Real> & _kappa;
 
-  /// flag set if L is a function of non-linear variables in args
-  const bool _variable_L;
-
   const bool _skip_off;
 
-  // const bool _debug_kernel;
+  const bool _debug_kernel;
 
   // Adding a mask for GB only and to smooth it out a bit
   const MaterialProperty<Real> * _mask;
@@ -101,23 +102,10 @@ protected:
   std::vector<int> _op_to_jvar;
 
   // Convenience: get eta_k and grad phi_j at this qp
-  inline Real eta_at(unsigned k) const { return (*_eta_by_op[k])[_qp]; }
-
-  // std::unordered_map<unsigned int, const VariableValue *> _grain_val_by_k;    // key = k
-  // std::unordered_map<unsigned int, const VariableValue *> _grain_val_by_argi; // key = i
-
-  // // Inline, const, and noexcept (optional).
-  // inline const VariableValue * get_val_by_k(unsigned int j) const noexcept
-  // {
-  //   if (auto it = _grain_val_by_k.find(j); it != _grain_val_by_k.end())
-  //     return it->second;
-  //   return nullptr;
-  // }
-
-  // inline const VariableValue * get_val_by_argi(unsigned int arg_i) const noexcept
-  // {
-  //   if (auto it = _grain_val_by_argi.find(arg_i); it != _grain_val_by_argi.end())
-  //     return it->second;
-  //   return nullptr;
-  // }
+  inline Real eta_at(unsigned k) const
+  {
+    mooseAssert(k < _eta_by_op.size(), "Requested OP index outside eta_by_op.");
+    mooseAssert(_eta_by_op[k], "Missing coupled OP value in ACInterfaceInclinationGamma.");
+    return (*_eta_by_op[k])[_qp];
+  }
 };
