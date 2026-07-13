@@ -69,7 +69,7 @@
   [voronoi]
     type = PolycrystalVoronoi
     # grain_num = 1499
-    file_name = '3D_50x50x25_8avg_grain_ctrs.txt'
+    file_name = '../05_3D_50x50x25_voronoi_kd/3D_50x50x25_8avg_grain_ctrs.txt'
     coloring_algorithm = bt
     use_kdtree = true
   []
