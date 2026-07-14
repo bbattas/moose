@@ -156,6 +156,7 @@
     grain_tracker = grain_tracker
     gb_mode = ISO
     bulk_scalar = 1
+    iso_gbe = 1
     alpha_tol = 8
     hgbalpha_tol = 0
     ifunc_a = 0.0
