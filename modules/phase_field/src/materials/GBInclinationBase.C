@@ -40,7 +40,7 @@ GBInclinationBase::GBInclinationBase(const InputParameters & parameters)
     _theta_ij(declareProperty<std::vector<Real>>("theta_ij")),
     _dtheta_dgradeta(declareProperty<std::vector<RealGradient>>("dtheta_dgradeta")),
     _d2theta_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2theta_dgradeta2")),
-    // Polar angle (from z axis)- 0 in 2D with global reference
+    // Polar angle (from z axis)- 90 degrees in 2D with global reference
     _polar_ij(declareProperty<std::vector<Real>>("polar_ij")),
     _dpolar_dgradeta(declareProperty<std::vector<RealGradient>>("dpolar_dgradeta")),
     _d2polar_dgradeta2(declareProperty<std::vector<RealTensorValue>>("d2polar_dgradeta2")),
@@ -190,7 +190,7 @@ GBInclinationBase::computeQpProperties()
       break;
 
     default:
-      // do all ij pairs (i>j) if more than 2 vars/features
+      // do all ij pairs (i<j) if more than 2 vars/features
       for (std::size_t idx1 = 0; idx1 < _gb_pairs.size(); ++idx1)
         for (std::size_t idx2 = idx1 + 1; idx2 < _gb_pairs.size(); ++idx2)
         {
