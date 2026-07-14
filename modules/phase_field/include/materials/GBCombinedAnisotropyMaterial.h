@@ -93,8 +93,8 @@ protected:
 
   // COS Inclination function constants
   const Real _if_a;
+  const Real _if_b;
   const Real _if_rot;
-  // const Real _if_b;
   // const Real _if_c;
 
   // TEMPORARY
