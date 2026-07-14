@@ -43,8 +43,8 @@ GBCombinedAnisotropyMaterial::validParams()
       "w_miso", 1, "Weight for misorientation contribution in combined form [0-1].");
   // Constants for COS inc function
   params.addParam<Real>("ifunc_a", 0.05, "Cos inclination function constant a.");
+  params.addParam<Real>("ifunc_b", 2, "Cos inclination function constant b.");
   params.addParam<Real>("ifunc_rot", 0, "Cos inclination function rotation offset (rad).");
-  // params.addParam<Real>("ifunc_b", 2, "Inclination function constant b.");
   // params.addParam<Real>("ifunc_c", 0.0, "Inclination function constant c.");
 
   params.addClassDescription(
@@ -90,8 +90,8 @@ GBCombinedAnisotropyMaterial::GBCombinedAnisotropyMaterial(const InputParameters
     _w_miso(getParam<Real>("w_miso")),
     // COS FUNCTION CONSTANTS
     _if_a(getParam<Real>("ifunc_a")),
+    _if_b(getParam<Real>("ifunc_b")),
     _if_rot(getParam<Real>("ifunc_rot")),
-    // _if_b(getParam<Real>("ifunc_b")),
     // _if_c(getParam<Real>("ifunc_c")),
     // HARDCODED skip param needed in kernel but should change that later
     // _elem_noij(declareProperty<bool>("elem_no_ij")),
@@ -272,7 +272,7 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
     {
       case COS:
       {
-        out = computeCosineOnlyGBE(theta[k], polar[k], _if_a, 2, _if_rot);
+        out = computeCosineOnlyGBE(theta[k], polar[k], _if_a, _if_b, _if_rot);
         break;
       }
 
