@@ -4,13 +4,13 @@
 # Created Date: Thursday July 16th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday July 16th 2026
+# Last Modified: Friday July 17th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
 #  trying jp instead of the preferred bt since it never finished with bt
 #
-#
+#  20 ops was not enough, trying 25 (the 3d recommended number)
 #
 ##############################################################################
 
@@ -45,7 +45,7 @@
 [GlobalParams]
   profile = TANH
   int_width = 2000
-  op_num = 20
+  op_num = 25
   var_name_base = gr
   # Voronoi Values
   radius = 2500
