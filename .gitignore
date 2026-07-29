@@ -357,6 +357,8 @@ core.phase_field*
 terminal_out*
 *.parquet
 *.h5
+*.npy
+*.npz
 # clangd cache data
 .cache
 
