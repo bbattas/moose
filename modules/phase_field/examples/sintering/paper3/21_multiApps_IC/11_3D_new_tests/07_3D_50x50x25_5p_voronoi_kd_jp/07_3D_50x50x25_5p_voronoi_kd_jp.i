@@ -4,7 +4,7 @@
 # Created Date: Thursday July 16th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday July 17th 2026
+# Last Modified: Monday August 3rd 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -69,7 +69,7 @@
   [voronoi]
     type = PolycrystalVoronoi
     # grain_num = 1499
-    file_name = '../05_3D_50x50x25_voronoi_kd/3D_50x50x25_8avg_grain_ctrs.txt'
+    file_name = '../05_3D_50x50x25_voronoi_kd/3D_50x50x25_8avg_grain_ctrs_rescaled.txt'
     coloring_algorithm = jp
     use_kdtree = true
   []
