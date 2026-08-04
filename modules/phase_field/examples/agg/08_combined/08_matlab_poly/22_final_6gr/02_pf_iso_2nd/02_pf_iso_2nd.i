@@ -101,10 +101,10 @@ randseed = 20
     variable_mobility = false
     # order = SECOND
   []
-  [PolycrystalInclinationKernel]
-    variable_mobility = true
-    # hgb_mask = hgb
-  []
+  # [PolycrystalInclinationKernel]
+  #   variable_mobility = true
+  #   # hgb_mask = hgb
+  # []
 []
 
 [AuxKernels]
