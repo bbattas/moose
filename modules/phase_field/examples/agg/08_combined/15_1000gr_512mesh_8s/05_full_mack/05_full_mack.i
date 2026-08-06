@@ -302,11 +302,11 @@ randseed = 20
   print_linear_residuals = true
   print_nonlinear_residuals = true
   #
-  checkpoint = false
-  # [checkpoint]
-  #   type = Checkpoint
-  #   num_files = 3
-  # []
+  # checkpoint = false
+  [checkpoint]
+    type = Checkpoint
+    num_files = 3
+  []
   # [pgraph]
   #   type = PerfGraphOutput
   #   execute_on = 'initial final' # Default is "final"
