@@ -12,6 +12,7 @@
 #include "MooseRevision.h"
 #include "SystemInfo.h"
 
+#include "libmesh/bounding_box.h"
 #include "libmesh/libmesh_config.h"
 #include "libmesh/int_range.h"
 #include "libmesh/dense_vector.h"
@@ -21,13 +22,10 @@
 void
 to_json(nlohmann::json & json, const MooseApp & app)
 {
-  if (!app.getSystemInfo())
-    return;
-
   json["app_name"] = app.name();
-  json["current_time"] = app.getSystemInfo()->getTimeStamp();
-  json["executable"] = app.getSystemInfo()->getExecutable();
-  json["executable_time"] = app.getSystemInfo()->getExecutableTimeStamp(json["executable"]);
+  json["current_time"] = app.getSystemInfo().getTimeStamp();
+  json["executable"] = app.getSystemInfo().getExecutable();
+  json["executable_time"] = app.getSystemInfo().getExecutableTimeStamp(json["executable"]);
 
   json["moose_version"] = MOOSE_REVISION;
   json["libmesh_version"] = LIBMESH_BUILD_VERSION;
@@ -47,11 +45,15 @@ to_json(nlohmann::json & json, const MooseApp & app)
 namespace libMesh
 {
 void
+to_json(nlohmann::json & json, const libMesh::BoundingBox & bbox)
+{
+  json = {{"max", bbox.max()}, {"min", bbox.min()}};
+}
+
+void
 to_json(nlohmann::json & json, const libMesh::Point & p)
 {
-  json["x"] = p(0);
-  json["y"] = p(1);
-  json["z"] = p(2);
+  json = {{"x", p(0)}, {"y", p(1)}, {"z", p(2)}};
 }
 
 void

@@ -7,19 +7,22 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
-#include "MFEMGeneralUserObject.h"
+
+#include "MFEMExecutedObject.h"
 
 /**
  * Base class used to set the initial value(s) on an MFEMVariable.
  */
-class MFEMInitialCondition : public MFEMGeneralUserObject
+class MFEMInitialCondition : public MFEMExecutedObject
 {
 public:
   static InputParameters validParams();
   MFEMInitialCondition(const InputParameters & params);
+
+  virtual std::optional<std::string> suppliedVariableName() const override;
 };
 
 #endif

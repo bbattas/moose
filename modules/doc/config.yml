@@ -43,12 +43,12 @@ Content:
         root_dir: ${MOOSE_DIR}/modules/ray_tracing/doc/content
     rdg:
         root_dir: ${MOOSE_DIR}/modules/rdg/doc/content
-    richards:
-        root_dir: ${MOOSE_DIR}/modules/richards/doc/content
     reactor:
         root_dir: ${MOOSE_DIR}/modules/reactor/doc/content
     scalar_transport:
         root_dir: ${MOOSE_DIR}/modules/scalar_transport/doc/content
+    shifted_boundary_method:
+        root_dir: ${MOOSE_DIR}/modules/shifted_boundary_method/doc/content
     solid_mechanics:
         root_dir: ${MOOSE_DIR}/modules/solid_mechanics/doc/content
     solid_properties:
@@ -115,6 +115,7 @@ Extensions:
             Applications:
                 Thermal Hydraulics: applications/thermal_hydraulics.md
                 NCRC Applications: help/inl/applications.md
+                Community: tracked_apps.md
             Gallery: /gallery.md
             News: newsletter/index.md
             Citing: citing.md
@@ -132,7 +133,6 @@ Extensions:
         remove:
             framework: !include framework/doc/remove.yml
             fluid_properties: !include modules/fluid_properties/doc/remove.yml
-            richards: !include modules/richards/doc/remove.yml
             stochastic_tools: !include modules/stochastic_tools/doc/remove.yml
             subchannel: !include modules/subchannel/doc/remove.yml
     MooseDocs.extensions.common:
@@ -157,6 +157,7 @@ Extensions:
             convergence: syntax/Convergence/index.md
             correctors: syntax/Correctors/index.md
             covariances: syntax/Covariance/index.md
+            csg: syntax/CSG/index.md
             dampers: syntax/Dampers/index.md
             dgkernels: syntax/DGKernels/index.md
             dirackernels: syntax/DiracKernels/index.md
@@ -191,6 +192,7 @@ Extensions:
             nodalkernels: syntax/NodalKernels/index.md
             optimizationreporters: syntax/OptimizationReporter/index.md
             outputs: syntax/Outputs/index.md
+            parallelacquisitions: syntax/ParallelAcquisition/index.md
             parser: source/parser/Parser.md
             partitioner: syntax/Mesh/Partitioner/index.md
             physics: syntax/Physics/index.md
@@ -256,6 +258,7 @@ Extensions:
             rdg: !include modules/rdg/doc/sqa_rdg.yml
             reactor: !include modules/reactor/doc/sqa_reactor.yml
             scalar_transport: !include modules/scalar_transport/doc/sqa_scalar_transport.yml
+            shifted_boundary_method: !include modules/shifted_boundary_method/doc/sqa_shifted_boundary_method.yml
             solid_properties: !include modules/solid_properties/doc/sqa_solid_properties.yml
             stochastic_tools: !include modules/stochastic_tools/doc/sqa_stochastic_tools.yml
             subchannel: !include modules/subchannel/doc/sqa_subchannel.yml

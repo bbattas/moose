@@ -32,7 +32,9 @@ left boundary ($x=0$) and the natural boundary condition on the opposite boundar
 
 !---
 
-!media tutorial03_verification/1d_exact.mp4 style=width:75%;margin-left:auto;margin-right:auto;display:block;
+!media tutorial03_verification/1d_exact.mp4
+       style=width:75%;margin-left:auto;margin-right:auto;display:block;
+       alt=The analytic solution for the heat equation, evolving in time.
 
 !---
 
@@ -61,6 +63,14 @@ Variables System in the `[Variables]` block and used the default
 configuration of a first-order Lagrange finite element variable.
 
 !listing tutorial03_verification/app/test/tests/step03_analytical/1d_analytical.i link=False block=Variables
+
+!---
+
+### Initial Conditions
+
+The initial condition for temperature at the beginning of the simulation is set using the Initial Condition System in the `[ICs]` block. At $t=0$, an constant initial value of $T=300$ is applied uniformly across the problem.
+
+!listing tutorial03_verification/app/test/tests/step03_analytical/1d_analytical.i link=False block=ICs
 
 !---
 
@@ -108,7 +118,7 @@ Executing the simulation is straightforward, simply execute the heat transfer mo
 with the input file included using the "-i" option as follows.
 
 ```
-~/projects/moose/modules/heat_transfer/heat_conduction-opt -i 1d_analytical.i
+~/projects/moose/modules/heat_transfer/heat_transfer-opt -i 1d_analytical.i
 ```
 
 !---
@@ -127,22 +137,24 @@ The known solution can be defined using the Function System in the `Functions` b
 
 !listing tutorial03_verification/app/test/tests/step03_analytical/1d_analytical.i link=False block=Functions
 
-The "vars" and "vals" have a one-to-one relationship, e.g., $k=80.2$. If defined in this manner
-then the names in "vars" can be used in the definition of the equation in the "value" parameter.
+The "symbol_names" and "symbol_values" items have a one-to-one relationship, e.g., $k=80.2$. If defined in this manner
+then the names in "symbol_names" can be used in the definition of the equation in the "expression" parameter.
 
 !---
 
 ### $L_2$ Error
 
 The $L_2$-norm of the difference between the computed and exact solution
-can be computed using the `NodalL2Error` object. This is created within the `[Postprocessors]` block
+can be computed using the `ElementL2Error` object. This is created within the `[Postprocessors]` block
 along with the average element size.
 
 !listing tutorial03_verification/app/test/tests/step03_analytical/1d_analytical.i link=False block=Postprocessors
 
 !---
 
-!media tutorial03_verification/1d_analytical.mp4 style=width:75%;margin-left:auto;margin-right:auto;display:block;
+!media tutorial03_verification/1d_analytical.mp4
+       style=width:75%;margin-left:auto;margin-right:auto;display:block;
+       alt=Comparison of a MOOSE simulation to the analytic solution to the heat equation.
 
 !---
 
@@ -165,6 +177,7 @@ command line with "x" being an integer representing the number of refinements to
 !---
 
 !media tutorial03_verification/1d_analytical_spatial.png
+       alt=Plot of the L2 error of the heat equation simulation, as a function of element size.
 
 !---
 
@@ -179,6 +192,7 @@ For a temporal study, the time step is reduced.
 !---
 
 !media tutorial03_verification/1d_analytical_temporal.png
+       alt=Plot of the L2 error of the heat equation simulation, as a function of time-step size.
 
 !---
 

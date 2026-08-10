@@ -1,0 +1,75 @@
+//* This file is part of the MOOSE framework
+//* https://mooseframework.inl.gov
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#include "SCMHTCBorishanskii.h"
+
+registerMooseObject("SubChannelApp", SCMHTCBorishanskii);
+
+InputParameters
+SCMHTCBorishanskii::validParams()
+{
+  InputParameters params = SCMHTCClosureBase::validParams();
+  params.addClassDescription(
+      "Class that computes the convective heat transfer coefficient using the "
+      "Borishanskii correlation. Only use for fuel-pins.");
+  return params;
+}
+
+SCMHTCBorishanskii::SCMHTCBorishanskii(const InputParameters & parameters)
+  : SCMHTCClosureBase(parameters)
+{
+  // Check that the correlation is not used for the duct (not supported yet)
+  if (const auto * duct_uo = _scm_problem.getDuctHTCClosure(); duct_uo && duct_uo == this)
+    mooseError("'Borishanskii' is not yet supported for the 'duct_htc_correlation'.");
+}
+
+Real
+SCMHTCBorishanskii::computeNusseltNumber(const FrictionStruct & /*friction_args*/,
+                                         const NusseltStruct & nusselt_args) const
+{
+  const auto pre = computeNusseltNumberPreInfo(nusselt_args);
+  const Real Pe = pre.Re * pre.Pr;
+  const Real turbulent_Pe = turbulentReynoldsNumber(pre) * pre.Pr;
+
+  if (pre.poD < 1.1 || pre.poD > 1.5)
+    flagSolutionWarning(
+        "Pitch-over-pin diameter ratio out of range for the Borishanskii correlation.");
+
+  // Base Borishanskii correlation term
+  const Real poly = -8.12 + 12.76 * pre.poD - 3.65 * Utility::pow<2>(pre.poD);
+  if (poly <= 0.0)
+  {
+    mooseError("Logarithm argument non-positive in Borishanskii correlation; "
+               "Check Pitch-over-pin diameter ratio.");
+  }
+
+  auto NuT = 24.15 * std::log(poly);
+  // Peclet number correction term
+  const Real corr_prefactor = 0.0174 * (1.0 - std::exp(6.0 - 6.0 * pre.poD));
+
+  if (Pe > 2200.0)
+    flagSolutionWarning(
+        "Peclet number (Pe) above recommended range for the Borishanskii correlation.");
+
+  if (turbulent_Pe >= 200.0 && turbulent_Pe <= 2200.0)
+  {
+    NuT += corr_prefactor * std::pow(turbulent_Pe - 200.0, 0.9);
+  }
+  else if (turbulent_Pe < 200.0)
+  {
+    // do nothing, no extra term
+  }
+  else // Pe > 2200
+  {
+    // Still apply the same correlation formula at the turbulent endpoint.
+    NuT += corr_prefactor * std::pow(turbulent_Pe - 200.0, 0.9);
+  }
+
+  return blendTurbulentNusseltNumber(pre, NuT);
+}

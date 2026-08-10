@@ -18,7 +18,7 @@ registerMooseObject("NavierStokesApp", PCNSFVStrongBC);
 InputParameters
 PCNSFVStrongBC::validParams()
 {
-  InputParameters params = FVFluxBC::validParams();
+  InputParameters params = FVQpFluxBC::validParams();
   params.addClassDescription("Computes the residual of advective term using finite volume method.");
   params.addRequiredParam<UserObjectName>(NS::fluid, "Fluid properties userobject");
   MooseEnum eqn("mass momentum energy scalar");
@@ -54,7 +54,7 @@ PCNSFVStrongBC::validParams()
 }
 
 PCNSFVStrongBC::PCNSFVStrongBC(const InputParameters & params)
-  : FVFluxBC(params),
+  : FVQpFluxBC(params),
     _fluid(getUserObject<SinglePhaseFluidProperties>(NS::fluid)),
     _dim(_mesh.dimension()),
     _sup_vel_x_elem(getADMaterialProperty<Real>(NS::superficial_velocity_x)),
@@ -117,7 +117,7 @@ PCNSFVStrongBC::PCNSFVStrongBC(const InputParameters & params)
 ADReal
 PCNSFVStrongBC::computeQpResidual()
 {
-  const auto ft = _face_info->faceType(std::make_pair(_var.number(), _var.sys().number()));
+  const auto ft = _face_type;
   const bool out_of_elem = (ft == FaceInfo::VarFaceNeighbors::ELEM);
   const auto normal = out_of_elem ? _face_info->normal() : Point(-_face_info->normal());
 

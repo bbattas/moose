@@ -45,8 +45,6 @@ The `optional` and `exact` settings are similarly applied when handling alternat
 !alert warning title=Try not to abuse alternative links.
 The `alternative` setting should not be used as a means to circumvent potentially broken content configurations, but rather consciously under special circumstances. For example, its main purpose is to provide a fallback when developing sites designed with [multiple configurations](MooseDocs/config.md#multiconfigs) and cross-links between them, but expeditiously building only one of those configurations such that certain content is only conditionally unavailable.
 
-<!--TODO: The above alert should include a link to the appropriate multiconfigs documentation when it becomes available. See #18137-->
-
 ## Automatic Link Shortcuts
 
 Markdown includes syntax for creating shortcuts (see [core.md#shortcut-link]). In MooseDown,
@@ -97,6 +95,17 @@ a bottom extending modal window will be created that displays the complete text,
 [/Diffusion.C]
 
 [Diffusion Kernel](/Diffusion.C)
+!devel-end!
+
+The `!file` command provides an explicit source file link that creates the same modal window without
+relying on automatic link fallback behavior. Optional settings may be used to specify the source
+language and modal title.
+
+!devel! example id=example-explicit-file-link
+                caption=Example showing explicit source code links to modal windows with complete source code.
+[!file](framework/src/kernels/Diffusion.C)
+
+[!file language=python title=run_tests](test/run_tests)
 !devel-end!
 
 Similar to the [python/MooseDocs/extensions/listing.md], the optional `language` setting can be used to specify the coding language to use for syntax highlighting as demonstrated in [example-file-link-language].

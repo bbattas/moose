@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "EquationSystemProblemOperator.h"
 
@@ -16,35 +16,26 @@ namespace Moose::MFEM
 void
 EquationSystemProblemOperator::SetGridFunctions()
 {
-  _trial_var_names = GetEquationSystem()->TrialVarNames();
+  _trial_var_names = GetEquationSystem()->GetTrialVarNames();
+  _test_var_names = GetEquationSystem()->GetTestVarNames();
   ProblemOperator::SetGridFunctions();
 }
 
 void
-EquationSystemProblemOperator::Init(mfem::BlockVector & X)
+EquationSystemProblemOperator::Solve()
 {
-  ProblemOperator::Init(X);
+  FormEquationSystemOperator();
 
-  GetEquationSystem()->BuildEquationSystem();
+  auto * const es = GetEquationSystem();
+  SolveWithOperator(*es, _true_rhs, _true_x);
+
+  es->SetTrialVariablesFromTrueVectors(_true_x);
 }
 
 void
-EquationSystemProblemOperator::Solve(mfem::Vector &)
+EquationSystemProblemOperator::FormEquationSystemOperator()
 {
-  GetEquationSystem()->BuildJacobian(_true_x, _true_rhs);
-
-  if (_problem.jacobian_solver->isLOR() && _equation_system->_test_var_names.size() > 1)
-    mooseError("LOR solve is only supported for single-variable systems");
-
-  _problem.jacobian_solver->updateSolver(
-      *_equation_system->_blfs.Get(_equation_system->_test_var_names.at(0)),
-      _equation_system->_ess_tdof_lists.at(0));
-
-  _problem.nonlinear_solver->SetSolver(_problem.jacobian_solver->getSolver());
-  _problem.nonlinear_solver->SetOperator(*GetEquationSystem());
-  _problem.nonlinear_solver->Mult(_true_rhs, _true_x);
-
-  GetEquationSystem()->RecoverFEMSolution(_true_x, _problem.gridfunctions);
+  GetEquationSystem()->FormSystem(_true_x, _true_rhs);
 }
 
 } // namespace Moose::MFEM

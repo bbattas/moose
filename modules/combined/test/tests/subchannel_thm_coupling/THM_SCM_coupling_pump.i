@@ -82,9 +82,6 @@ m_dot_sec_in = 1. # kg/s
   [thm_closures]
     type = Closures1PhaseTHM
   []
-  [none_closures]
-    type = Closures1PhaseNone
-  []
 []
 
 [Materials]
@@ -97,9 +94,9 @@ m_dot_sec_in = 1. # kg/s
   []
 []
 
-[HeatStructureMaterials]
+[SolidProperties]
   [steel]
-    type = SolidMaterialProperties
+    type = ThermalFunctionSolidProperties
     rho = 8050
     k = 45
     cp = 466
@@ -131,7 +128,7 @@ m_dot_sec_in = 1. # kg/s
     length = ${core_length}
     n_elems = ${core_n_elems}
     A = ${A_core}
-    closures = none_closures
+    closures = ''
   []
 
   [core_ht]
@@ -255,7 +252,8 @@ m_dot_sec_in = 1. # kg/s
       n_elems = ${hx_n_elems}
       widths = '${hx_wall_thickness}'
       n_part_elems = '3'
-      materials = 'steel'
+      solid_properties = 'steel'
+      solid_properties_T_ref = '300'
       names = '0'
       inner_radius = '${fparse hx_dia_inner / 2.}'
     []
@@ -386,7 +384,7 @@ m_dot_sec_in = 1. # kg/s
   [core_delta_p]
     type = ParsedPostprocessor
     pp_names = 'core_p_in core_p_out'
-    function = 'core_p_in - core_p_out'
+    expression = 'core_p_in - core_p_out'
   []
 
   [hx_pri_T_out]
@@ -428,7 +426,7 @@ m_dot_sec_in = 1. # kg/s
   [Kloss]
     type = ParsedPostprocessor
     pp_names = 'core_delta_p_tgt av_rhouA av_rho'
-    function = '2.0 * core_delta_p_tgt * av_rho * ${A_core} * ${A_core} / (av_rhouA * av_rhouA)'
+    expression = '2.0 * core_delta_p_tgt * av_rho * ${A_core} * ${A_core} / (av_rhouA * av_rhouA)'
   []
 
   [Dh]
@@ -440,7 +438,7 @@ m_dot_sec_in = 1. # kg/s
   [core_f]
     type = ParsedPostprocessor
     pp_names = 'Kloss Dh'
-    function = 'Kloss * Dh / ${core_length}'
+    expression = 'Kloss * Dh / ${core_length}'
   []
 
   ### INFO to send to SC
@@ -467,7 +465,7 @@ m_dot_sec_in = 1. # kg/s
   [inlet_mass_flux]
     type = ParsedPostprocessor
     pp_names = 'inlet_mass_flow_rate'
-    function = 'abs(inlet_mass_flow_rate/${SC_core})'
+    expression = 'abs(inlet_mass_flow_rate/${SC_core})'
   []
   #####
   ##### Info received from subchannel
@@ -513,7 +511,6 @@ m_dot_sec_in = 1. # kg/s
   fixed_point_max_its = 5
   accept_on_max_fixed_point_iteration = true
   auto_advance = true
-  relaxation_factor = 0.5
 []
 
 [Outputs]

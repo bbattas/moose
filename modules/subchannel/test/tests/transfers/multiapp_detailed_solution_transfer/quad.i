@@ -8,16 +8,11 @@
 
 [QuadSubChannelMesh]
   [sub_channel]
-    type = SCMQuadSubChannelMeshGenerator
+    type = SCMQuadAssemblyMeshGenerator
     pin_diameter = 0.5
-    gap = 0.1
+    side_gap = 0.1
     spacer_z = '0'
     spacer_k = '0'
-  []
-
-  [fuel_pins]
-    type = SCMQuadPinMeshGenerator
-    input = sub_channel
   []
 []
 
@@ -29,7 +24,7 @@
 
 [AuxVariables]
   [P]
-    block = sub_channel
+    block = subchannel
   []
   [T]
     block = fuel_pins
@@ -40,7 +35,7 @@
   [P_ak]
     type = ParsedAux
     variable = P
-    function = 'pow(x + 1, 2) + pow(2*(y + 1), 2) - (50 * z)'
+    expression = 'pow(x + 1, 2) + pow(2*(y + 1), 2) - (50 * z)'
     use_xyzt = true
     execute_on = 'INITIAL TIMESTEP_BEGIN'
   []
@@ -48,7 +43,7 @@
   [T_ak]
     type = ParsedAux
     variable = T
-    function = 'pow(x + 0.5, 2) + pow(2*(y + 0.5), 2) + (50 * z)'
+    expression = 'pow(x + 0.5, 2) + pow(2*(y + 0.5), 2) + (50 * z)'
     use_xyzt = true
     execute_on = 'INITIAL TIMESTEP_BEGIN'
   []
@@ -70,6 +65,7 @@
   [viz]
     type = TransientMultiApp
     input_files = 'quad_viz.i'
+    max_procs_per_app = 1
   []
 []
 
@@ -80,7 +76,8 @@
     variable = 'P'
   []
   [T_transfer]
-    type = SCMPinSolutionTransfer
+    type = SCMSolutionTransfer
+    transfer_type = pin
     to_multi_app = viz
     variable = 'T'
   []

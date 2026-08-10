@@ -8,13 +8,13 @@ P_out = 4.923e6 # Pa
 
 [QuadSubChannelMesh]
   [sub_channel]
-    type = SCMQuadSubChannelMeshGenerator
+    type = SCMQuadAssemblyMeshGenerator
     nx = 6
     ny = 6
     n_cells = 50
     pitch = 0.0126
     pin_diameter = 0.00950
-    gap = 0.00095
+    side_gap = 0.00095
     heated_length = 3.658
     spacer_z = '0.0 0.229 0.457 0.686 0.914 1.143 1.372 1.600 1.829 2.057 2.286 2.515 2.743 2.972 3.200 3.429'
     spacer_k = '0.7 0.4 1.0 0.4 1.0 0.4 1.0 0.4 1.0 0.4 1.0 0.4 1.0 0.4 1.0 0.4'
@@ -31,26 +31,35 @@ P_out = 4.923e6 # Pa
   type = QuadSubChannel1PhaseProblem
   fp = water
   n_blocks = 1
-  beta = 0.006
-  CT = 2.0
   P_tol = 1e-6
   T_tol = 1e-6
   compute_density = true
   compute_viscosity = true
   compute_power = true
   P_out = ${P_out}
+  friction_closure = 'MATRA'
+  full_output = true
+  mixing_closure ='constant_beta'
+  pin_HTC_closure = 'Dittus-Boelter'
+
+[]
+
+[SCMClosures]
+  [MATRA]
+    type = SCMFrictionMATRA
+  []
+  [constant_beta]
+    type = SCMMixingConstantBeta
+    beta = 0.006
+    CT = 2.0
+  []
+  [Dittus-Boelter]
+    type = SCMHTCDittusBoelter
+  []
 []
 
 [ICs]
-  [S_IC]
-    type = SCMQuadFlowAreaIC
-    variable = S
-  []
 
-  [w_perim_IC]
-    type = SCMQuadWettedPerimIC
-    variable = w_perim
-  []
 
   [q_prime_IC]
     type = SCMQuadPowerIC

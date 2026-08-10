@@ -2,15 +2,11 @@
 
 !if! function=hasCapability('mfem')
 
-## Summary
-
-!syntax description /Transfers/MFEMSubMeshTransfer
-
 ## Overview
 
 `MFEMSubMeshTransfer` transfers data between [MFEM variables](MFEMVariable.md) sharing a common
 subspace within the same problem, when at least one is defined on an
-[MFEM SubMesh](MFEMSubMesh.md). The finite element space
+[MFEM submesh](MFEMSubMesh.md). The finite element space
 of the MFEM variables must otherwise be of the same type.
 
 !syntax parameters /Transfers/MFEMSubMeshTransfer

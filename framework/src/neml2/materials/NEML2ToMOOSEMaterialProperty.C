@@ -25,34 +25,28 @@ InputParameters
 NEML2ToMOOSEMaterialProperty<T>::validParams()
 {
   auto params = Material::validParams();
-  params.addClassDescription(
-      NEML2Utils::docstring("Provide an output (or its derivative) from a NEML2 model as a MOOSE "
-                            "material property of type " +
-                            demangle(typeid(T).name()) + "."));
+  params.addClassDescription("Provide an output (or its derivative) from a NEML2 model as a MOOSE "
+                             "material property of type " +
+                             demangle(typeid(T).name()) + ".");
 
-  params.addRequiredParam<UserObjectName>(
-      "neml2_executor",
-      NEML2Utils::docstring("User object managing the execution of the NEML2 model."));
+  params.addRequiredParam<UserObjectName>("neml2_executor",
+                                          "User object managing the execution of the NEML2 model.");
   params.addRequiredParam<MaterialPropertyName>(
       "to_moose",
-      NEML2Utils::docstring(
-          "MOOSE material property used to store the NEML2 output variable (or its derivative)"));
-  params.addRequiredParam<std::string>("from_neml2",
-                                       NEML2Utils::docstring("NEML2 output variable to read from"));
+      "MOOSE material property used to store the NEML2 output variable (or its derivative)");
+  params.addRequiredParam<std::string>("from_neml2", "NEML2 output variable to read from");
   params.addParam<std::string>(
       "neml2_input_derivative",
-      NEML2Utils::docstring(
-          "If supplied return the derivative of the NEML2 output variable with respect to this"));
+
+      "If supplied return the derivative of the NEML2 output variable with respect to this");
   params.addParam<std::string>(
       "neml2_parameter_derivative",
-      NEML2Utils::docstring(
-          "If supplied return the derivative of neml2_variable with respect to this"));
+      "If supplied return the derivative of neml2_variable with respect to this");
 
   // provide an optional initialization of the moose property (because we don't really know if it is
   // going to become stateful or not)
-  params.addParam<MaterialPropertyName>(
-      "moose_material_property_init",
-      NEML2Utils::docstring("Optional material property as the initial condition"));
+  params.addParam<MaterialPropertyName>("moose_material_property_init",
+                                        "Optional material property as the initial condition");
 
   return params;
 }
@@ -67,17 +61,15 @@ NEML2ToMOOSEMaterialProperty<T>::NEML2ToMOOSEMaterialProperty(const InputParamet
     _prop0(isParamValid("moose_material_property_init")
                ? &getMaterialProperty<T>("moose_material_property_init")
                : nullptr),
-    _value(
-        !isParamValid("neml2_input_derivative")
-            ? (!isParamValid("neml2_parameter_derivative")
-                   ? _execute_neml2_model.getOutput(
-                         NEML2Utils::parseVariableName(getParam<std::string>("from_neml2")))
-                   : _execute_neml2_model.getOutputParameterDerivative(
-                         NEML2Utils::parseVariableName(getParam<std::string>("from_neml2")),
-                         getParam<std::string>("neml2_parameter_derivative")))
-            : _execute_neml2_model.getOutputDerivative(
-                  NEML2Utils::parseVariableName(getParam<std::string>("from_neml2")),
-                  NEML2Utils::parseVariableName(getParam<std::string>("neml2_input_derivative"))))
+    _value(!isParamValid("neml2_input_derivative")
+               ? (!isParamValid("neml2_parameter_derivative")
+                      ? _execute_neml2_model.getOutput(getParam<std::string>("from_neml2"))
+                      : _execute_neml2_model.getOutputParameterDerivative(
+                            getParam<std::string>("from_neml2"),
+                            getParam<std::string>("neml2_parameter_derivative")))
+               : _execute_neml2_model.getOutputDerivative(
+                     getParam<std::string>("from_neml2"),
+                     getParam<std::string>("neml2_input_derivative")))
 #endif
 {
   NEML2Utils::assertNEML2Enabled();
@@ -102,7 +94,10 @@ NEML2ToMOOSEMaterialProperty<T>::computeProperties()
   // look up start index for current element
   const auto i = _execute_neml2_model.getBatchIndex(_current_elem->id());
   for (_qp = 0; _qp < _qrule->n_points(); ++_qp)
-    NEML2Utils::copyTensorToMOOSEData(_value.batch_index({neml2::Size(i + _qp)}), _prop[_qp]);
+    if (_value.batch_dim())
+      NEML2Utils::copyTensorToMOOSEData(_value.batch_index({neml2::Size(i + _qp)}), _prop[_qp]);
+    else
+      NEML2Utils::copyTensorToMOOSEData(_value, _prop[_qp]);
 }
 #endif
 

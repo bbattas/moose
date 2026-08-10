@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "MooseEnum.h"
+
 // Forward declarations
 namespace libMesh
 {
@@ -24,6 +26,18 @@ class Elem;
 // Using statements
 using libMesh::Elem;
 using libMesh::Real;
+
+enum class MortarSegmentTriangulationMode : unsigned char
+{
+  Delaunay,
+  Centroid,
+  EarClipping,
+  Vertex
+};
+
+CreateMooseEnumClass(Mortar3DQuadraturePointMapping,
+                     NORMAL_PROJECTION = 0,
+                     REFERENCE_INTERPOLATION = 1);
 
 /**
  * Holds xi^(1), xi^(2), and other data for a given mortar segment.
@@ -56,11 +70,6 @@ struct MortarSegmentInfo
    * reasons, see the list below.
    */
   bool isValid() const;
-
-  /**
-   * Returns true if this segment has a valid primary, false otherwise.
-   */
-  bool hasPrimary() const;
 
   Real xi1_a, xi1_b;
   Real xi2_a, xi2_b;

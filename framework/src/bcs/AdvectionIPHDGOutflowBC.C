@@ -15,27 +15,38 @@ registerMooseObject("MooseApp", AdvectionIPHDGOutflowBC);
 InputParameters
 AdvectionIPHDGOutflowBC::validParams()
 {
-  auto params = IPHDGBC::validParams();
+  auto params = ElementAndTraceScalarHDGBC::validParams();
   params += AdvectionIPHDGAssemblyHelper::validParams();
   params.addClassDescription("Implements an outflow boundary condition for use with a hybridized "
                              "discretization of the advection equation");
+  params.addRequiredParam<bool>("constrain_lm",
+                                "Whether to constrain the Lagrange multiplier to weakly match the "
+                                "interior solution on this boundary. This should be set to true "
+                                "for pure advection problems and likely false otherwise.");
   return params;
 }
 
 AdvectionIPHDGOutflowBC::AdvectionIPHDGOutflowBC(const InputParameters & parameters)
-  : IPHDGBC(parameters),
+  : ElementAndTraceScalarHDGBC(parameters),
     _iphdg_helper(std::make_unique<AdvectionIPHDGAssemblyHelper>(
-        this, this, this, _sys, _assembly, _tid, std::set<SubdomainID>{}, boundaryIDs()))
+        this, this, this, _sys, _assembly, _tid, std::set<SubdomainID>{}, boundaryIDs())),
+    _constrain_lm(getParam<bool>("constrain_lm"))
 {
 }
 
 void
-AdvectionIPHDGOutflowBC::compute()
+AdvectionIPHDGOutflowBC::compute(ElementAndTraceScalarHDGAssemblyHelper &)
 {
-  auto & iphdg_helper = iphdgHelper();
-  iphdg_helper.resizeResiduals();
+  _iphdg_helper->resizeResiduals();
 
   // u, lm_u
-  iphdg_helper.scalarFace();
-  iphdg_helper.lmOutflow();
+  _iphdg_helper->scalarFace();
+  if (_constrain_lm)
+    _iphdg_helper->lmOutflow();
+}
+
+ElementAndTraceScalarHDGAssemblyHelper &
+AdvectionIPHDGOutflowBC::hdgHelper()
+{
+  return *_iphdg_helper;
 }

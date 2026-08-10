@@ -9,19 +9,21 @@
 
 #pragma once
 
-#include "IPHDGKernel.h"
+#include "ElementAndTraceScalarHDGKernel.h"
+
+class AdvectionIPHDGAssemblyHelper;
 
 /**
  * Implements an advection term for a interior penalty hybridized discretization
  */
-class AdvectionIPHDGKernel : public IPHDGKernel
+class AdvectionIPHDGKernel : public ElementAndTraceScalarHDGKernel
 {
 public:
   static InputParameters validParams();
   AdvectionIPHDGKernel(const InputParameters & params);
 
-protected:
-  virtual IPHDGAssemblyHelper & iphdgHelper() override { return *_iphdg_helper; }
+private:
+  virtual ElementAndTraceScalarHDGAssemblyHelper & hdgHelper() override;
 
   /// The assembly helper providing the required IP-HDG method implementations
   std::unique_ptr<AdvectionIPHDGAssemblyHelper> _iphdg_helper;

@@ -11,6 +11,7 @@
 
 // MOOSE includes
 #include "SystemBase.h"
+#include "LinearFVGradientInterface.h"
 #include "ExecuteMooseObjectWarehouse.h"
 #include "PerfGraphInterface.h"
 
@@ -18,6 +19,7 @@
 #include "libmesh/transient_system.h"
 
 // Forward declarations
+class AuxKernelBase;
 template <typename ComputeValueType>
 class AuxKernelTempl;
 typedef AuxKernelTempl<Real> AuxKernel;
@@ -38,13 +40,16 @@ class NumericVector;
  * A system that holds auxiliary variables
  *
  */
-class AuxiliarySystem : public SystemBase, public PerfGraphInterface
+class AuxiliarySystem : public SystemBase,
+                        public PerfGraphInterface,
+                        public LinearFVGradientInterface
 {
 public:
   AuxiliarySystem(FEProblemBase & subproblem, const std::string & name);
   virtual ~AuxiliarySystem();
 
   virtual void initialSetup() override;
+  virtual void reinit() override;
   virtual void timestepSetup() override;
   virtual void customSetup(const ExecFlagType & exec_type) override;
   virtual void subdomainSetup() override;
@@ -65,6 +70,12 @@ public:
   void addKernel(const std::string & kernel_name,
                  const std::string & name,
                  InputParameters & parameters);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  void addKokkosKernel(const std::string & kernel_name,
+                       const std::string & name,
+                       InputParameters & parameters);
+#endif
 
   /**
    * Adds a scalar kernel
@@ -97,6 +108,10 @@ public:
    */
   virtual void compute(ExecFlagType type) override;
 
+#ifdef MOOSE_KOKKOS_ENABLED
+  void kokkosCompute(ExecFlagType type);
+#endif
+
   /**
    * Get a list of dependent UserObjects for this exec type
    * @param type Execution flag type
@@ -121,6 +136,9 @@ public:
   virtual libMesh::System & system() override { return _sys; }
   virtual const libMesh::System & system() const override { return _sys; }
 
+  using LinearFVGradientInterface::linearFVLimitedGradientContainer;
+  using LinearFVGradientInterface::requestLinearFVLimitedGradients;
+
   /// Copies the current solution into the previous nonlinear iteration solution
   virtual void copyCurrentIntoPreviousNL();
 
@@ -129,12 +147,18 @@ public:
   void clearScalarVariableCoupleableTags();
 
   const ExecuteMooseObjectWarehouse<AuxKernel> & nodalAuxWarehouse() const;
+  const ExecuteMooseObjectWarehouse<AuxKernel> & mortarNodalAuxWarehouse() const;
   const ExecuteMooseObjectWarehouse<VectorAuxKernel> & nodalVectorAuxWarehouse() const;
   const ExecuteMooseObjectWarehouse<ArrayAuxKernel> & nodalArrayAuxWarehouse() const;
 
   const ExecuteMooseObjectWarehouse<AuxKernel> & elemAuxWarehouse() const;
   const ExecuteMooseObjectWarehouse<VectorAuxKernel> & elemVectorAuxWarehouse() const;
   const ExecuteMooseObjectWarehouse<ArrayAuxKernel> & elemArrayAuxWarehouse() const;
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  const ExecuteMooseObjectWarehouse<AuxKernelBase> & kokkosNodalAuxWarehouse() const;
+  const ExecuteMooseObjectWarehouse<AuxKernelBase> & kokkosElemAuxWarehouse() const;
+#endif
 
   /// Computes and stores ||current - old|| / ||current|| for each variable in the given vector
   /// @param var_diffs a vector being filled with the L2 norm of the solution difference
@@ -190,6 +214,12 @@ protected:
   ExecuteMooseObjectWarehouse<ArrayAuxKernel> _nodal_array_aux_storage;
   ExecuteMooseObjectWarehouse<ArrayAuxKernel> _elemental_array_aux_storage;
 
+#ifdef MOOSE_KOKKOS_ENABLED
+  // Storage for KokkosAuxKernel objects
+  ExecuteMooseObjectWarehouse<AuxKernelBase> _kokkos_nodal_aux_storage;
+  ExecuteMooseObjectWarehouse<AuxKernelBase> _kokkos_elemental_aux_storage;
+#endif
+
   friend class ComputeIndicatorThread;
   friend class ComputeMarkerThread;
   friend class FlagElementsThread;
@@ -205,6 +235,12 @@ inline const ExecuteMooseObjectWarehouse<AuxKernel> &
 AuxiliarySystem::nodalAuxWarehouse() const
 {
   return _nodal_aux_storage;
+}
+
+inline const ExecuteMooseObjectWarehouse<AuxKernel> &
+AuxiliarySystem::mortarNodalAuxWarehouse() const
+{
+  return _mortar_nodal_aux_storage;
 }
 
 inline const ExecuteMooseObjectWarehouse<VectorAuxKernel> &
@@ -236,3 +272,17 @@ AuxiliarySystem::elemArrayAuxWarehouse() const
 {
   return _elemental_array_aux_storage;
 }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+inline const ExecuteMooseObjectWarehouse<AuxKernelBase> &
+AuxiliarySystem::kokkosNodalAuxWarehouse() const
+{
+  return _kokkos_nodal_aux_storage;
+}
+
+inline const ExecuteMooseObjectWarehouse<AuxKernelBase> &
+AuxiliarySystem::kokkosElemAuxWarehouse() const
+{
+  return _kokkos_elemental_aux_storage;
+}
+#endif

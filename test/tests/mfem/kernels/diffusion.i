@@ -1,7 +1,6 @@
 [Mesh]
   type = MFEMMesh
   file = ../mesh/mug.e
-  dim = 3
 []
 
 [Problem]
@@ -44,21 +43,6 @@
   []
 []
 
-[ICs]
-  [diffused_ic]
-    type = MFEMScalarIC
-    coefficient = one
-    variable = concentration
-  []
-[]
-
-[Functions]
-  [one]
-    type = ParsedFunction
-    expression = 1.0
-  []
-[]
-
 [BCs]
   [bottom]
     type = MFEMScalarDirichletBC
@@ -73,42 +57,41 @@
   []
 []
 
-[FunctorMaterials]
-  [Substance]
-    type = MFEMGenericFunctorMaterial
-    prop_names = diffusivity
-    prop_values = 1.0
-    block = 'the_domain'
-  []
-[]
-
 [Kernels]
   [diff]
     type = MFEMDiffusionKernel
     variable = concentration
-    coefficient = diffusivity
   []
 []
 
-[Preconditioner]
+
+[Solvers]
+  inactive = 'jacobi'
   [boomeramg]
     type = MFEMHypreBoomerAMG
   []
   [jacobi]
     type = MFEMOperatorJacobiSmoother
   []
-[]
-
-[Solver]
-  type = MFEMHypreGMRES
-  preconditioner = boomeramg
-  l_tol = 1e-16
-  l_max_its = 1000
+  [main]
+    type = MFEMHypreGMRES
+    preconditioner = boomeramg
+    l_tol = 1e-16
+    l_max_its = 1000
+  []
 []
 
 [Executioner]
   type = MFEMSteady
   device = cpu
+[]
+
+[Postprocessors]
+  [solution_l2_norm]
+    type = MFEML2Error
+    variable = concentration
+    function = 0
+  []
 []
 
 [Outputs]

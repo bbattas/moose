@@ -4,7 +4,6 @@
 [Mesh]
   type = MFEMMesh
   file = ../mesh/beam-tet.mesh
-  dim = 3
   uniform_refine = 1
 []
 
@@ -23,6 +22,7 @@
     type = MFEMScalarFESpace
     fec_type = L2
     fec_order = CONSTANT
+    basis = GaussLegendre
   []
 []
 
@@ -95,19 +95,19 @@
   []
 []
 
-[Preconditioner]
+
+[Solvers]
   [ADS]
     type = MFEMHypreADS
     fespace = HDivFESpace
   []
-[]
-
-[Solver]
-  type = MFEMCGSolver
-  preconditioner = ADS
-  l_tol = 1e-16
-  l_max_its = 1000
-  print_level = 2
+  [main]
+    type = MFEMCGSolver
+    preconditioner = ADS
+    l_tol = 1e-16
+    l_max_its = 1000
+    print_level = 2
+  []
 []
 
 [Executioner]

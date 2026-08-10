@@ -10,9 +10,12 @@
 #pragma once
 
 #include "MathFVUtils.h"
+#include "MooseEnum.h"
 
 class MooseObject;
 class InputParameters;
+class FEProblemBase;
+class Factory;
 
 namespace Moose
 {
@@ -40,6 +43,44 @@ InputParameters interpolationParameters();
 namespace NS
 {
 /**
+ * Enum of the advected interpolation methods supported by FVInterpolationMethod objects.
+ */
+MooseEnum fvAdvectedInterpolationMethods();
+
+/**
+ * Gets the FVInterpolationMethod object type for an advected interpolation method.
+ * @param interpolation_method The interpolation method enum to query
+ *
+ * Errors when no FVInterpolationMethod equivalent is supported.
+ */
+std::string fvAdvectedInterpolationMethodType(const MooseEnum & interpolation_method);
+
+/**
+ * Enum of the interpolation methods supported by FVInterpolationMethod objects.
+ */
+MooseEnum fvFaceInterpolationMethods();
+
+/**
+ * Gets the FVInterpolationMethod object type for a face interpolation method name.
+ * @param interpolation_method The interpolation method enum to query
+ *
+ * Errors when no FVInterpolationMethod equivalent is supported.
+ */
+std::string fvFaceInterpolationMethodType(const MooseEnum & interpolation_method);
+
+/**
+ * Add the FVInterpolationMethod object for a face interpolation method name, if absent.
+ * @param problem The problem to which the interpolation method should be added
+ * @param factory The factory used to build interpolation method parameters
+ * @param interpolation_method The interpolation method enum to add
+ *
+ * The method name must be supported by fvFaceInterpolationMethodType().
+ */
+void addFVFaceInterpolationMethod(FEProblemBase & problem,
+                                  Factory & factory,
+                                  const MooseEnum & interpolation_method);
+
+/**
  * Checks to see whether the porosity value jumps from one side to the other of the provided face
  * @param porosity the porosity
  * @param fi the face to inspect for porosity jumps
@@ -48,7 +89,13 @@ namespace NS
  * the porosity value on the "element" side of the face, and the second member is the porosity value
  * on the "neighbor" side of the face
  */
-std::tuple<bool, ADReal, ADReal> isPorosityJumpFace(const Moose::Functor<ADReal> & porosity,
-                                                    const FaceInfo & fi,
-                                                    const Moose::StateArg & time);
+template <class T>
+std::tuple<bool, T, T> isPorosityJumpFace(const Moose::FunctorBase<T> & porosity,
+                                          const FaceInfo & fi,
+                                          const Moose::StateArg & time);
+
+extern template std::tuple<bool, Real, Real> isPorosityJumpFace<Real>(
+    const Moose::FunctorBase<Real> & porosity, const FaceInfo & fi, const Moose::StateArg & time);
+extern template std::tuple<bool, ADReal, ADReal> isPorosityJumpFace<ADReal>(
+    const Moose::FunctorBase<ADReal> & porosity, const FaceInfo & fi, const Moose::StateArg & time);
 }

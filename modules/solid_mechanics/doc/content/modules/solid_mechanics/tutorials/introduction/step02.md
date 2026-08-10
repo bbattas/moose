@@ -44,7 +44,7 @@ pressure action could have instead been written as
 [Functions]
   [applied_pressure_function]
     type = ParsedFunction
-    value = 1e7*t
+    expression = 1e7*t
   []
 []
 
@@ -116,3 +116,10 @@ is not always feasible, and it is not exact under every circumstance.
 Once you've answered the questions and run this example we will move on to
 [Step 3](solid_mechanics/tutorials/introduction/step03.md) where the concept of subdomains or "blocks" is
 introduced.
+
+!media solid_mechanics/tutorials/introduction/mech_step02.mp4
+       style=width:60%;display:block;margin-left:auto;margin-right:auto;
+       autoplay=True
+       loop=True
+       id=mech_step02_result
+       caption=Displacement magnitude as the top load is ramped up with the bottom surface held fixed.

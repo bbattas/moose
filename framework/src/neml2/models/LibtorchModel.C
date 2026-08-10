@@ -26,13 +26,13 @@ OptionSet
 LibtorchModel::expected_options()
 {
   auto options = Model::expected_options();
-  options.set<std::vector<VariableName>>("inputs");
-  options.set<std::vector<VariableName>>("outputs");
-  options.set("outputs").doc() = "The scaled neural network output";
-  options.set<std::string>("file_path");
+  options.add<std::vector<VariableName>>("inputs", "The input variables for the neural network");
+  options.add<std::vector<VariableName>>("outputs",
+                                         "The (scaled) output variables for the neural network");
+  options.add<std::string>("file_path", "The path to the neural network file");
   // No jitting :/
-  options.set<bool>("jit") = false;
-  options.set("jit").suppressed() = true;
+  options.set<bool>("jit", false);
+  options.suppress("jit");
   return options;
 }
 
@@ -82,7 +82,7 @@ LibtorchModel::set_value(bool out, bool /*dout_din*/, bool /*d2out_din2*/)
     {
       // assert that all inputs have the same batch dimension
       neml_assert(_inputs[i]->batch_dim() == first_batch_dim);
-      values.push_back(_inputs[i]->value());
+      values.push_back(_inputs[i]->tensor());
     }
 
     auto x = Tensor(torch::transpose(torch::vstack(at::ArrayRef<at::Tensor>(
@@ -97,7 +97,7 @@ LibtorchModel::set_value(bool out, bool /*dout_din*/, bool /*d2out_din2*/)
         (temp.dim() == 1) ? temp.view({temp.size(0), 1}).transpose(0, 1) : temp.transpose(0, 1);
 
     for (size_t i = 0; i < _outputs.size(); ++i)
-      *_outputs[i] = Scalar(y0[i], _inputs[0]->batch_dim());
+      *_outputs[i] = Scalar(y0[i], 0);
   }
 }
 

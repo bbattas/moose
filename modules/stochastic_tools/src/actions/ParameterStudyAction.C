@@ -448,7 +448,12 @@ ParameterStudyAction::act()
 
       // batch-keep-solution
       if (_multiapp_mode == 3)
+      {
         params.set<bool>("keep_solution_during_restore") = true;
+        // Conceptually all these runs are not 'sequential in time' (moving along a transient)
+        // but rather simply restarted from the same solution
+        params.set<bool>("update_old_solution_when_keeping_solution_during_restore") = false;
+      }
       // batch-no-restore
       else if (_multiapp_mode == 4)
         params.set<bool>("no_restore") = true;
@@ -631,9 +636,7 @@ ParameterStudyAction::showObject(std::string type,
                                  const InputParameters & params) const
 {
   // Output basic information
-  std::string base_type = params.have_parameter<std::string>("_moose_base")
-                              ? params.get<std::string>("_moose_base")
-                              : "Unknown";
+  std::string base_type = params.hasBase() ? params.getBase() : "Unknown";
   _console << "[ParameterStudy] "
            << "Base Type:  " << COLOR_YELLOW << base_type << COLOR_DEFAULT << "\n"
            << "                 Type:       " << COLOR_YELLOW << type << COLOR_DEFAULT << "\n"
@@ -722,7 +725,6 @@ ParameterStudyAction::inferMultiAppMode()
   std::ifstream f(input_filename);
   std::string input((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
   std::unique_ptr<hit::Node> root(hit::parse(input_filename, input));
-  hit::explode(root.get());
 
   // Walk through the input and see if every param is controllable
   AreParametersControllableWalker control_walker(_parameters, _app);

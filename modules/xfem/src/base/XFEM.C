@@ -34,7 +34,10 @@
 #include "libmesh/partitioner.h"
 
 XFEM::XFEM(const InputParameters & params)
-  : XFEMInterface(params), _efa_mesh(Moose::out), _debug_output_level(1)
+  : XFEMInterface(params),
+    _efa_mesh(Moose::out),
+    _debug_output_level(1),
+    _min_weight_multiplier(0.0)
 {
 #ifndef LIBMESH_ENABLE_UNIQUE_ID
   mooseError("MOOSE requires unique ids to be enabled in libmesh (configure with "
@@ -263,6 +266,10 @@ XFEM::update(Real time,
 {
   if (_moose_mesh->isDistributedMesh())
     mooseError("Use of XFEM with distributed mesh is not yet supported");
+
+  for (const auto & elem : _mesh->active_element_ptr_range())
+    if (elem->level() > 0)
+      mooseError("XFEM does not currently support mesh adaptivity or adaptively refined meshes");
 
   bool mesh_changed = false;
 
@@ -1839,6 +1846,12 @@ XFEM::setDebugOutputLevel(unsigned int debug_output_level)
   _debug_output_level = debug_output_level;
 }
 
+void
+XFEM::setMinWeightMultiplier(Real min_weight_multiplier)
+{
+  _min_weight_multiplier = min_weight_multiplier;
+}
+
 bool
 XFEM::getXFEMWeights(MooseArray<Real> & weights,
                      const Elem * elem,
@@ -1852,6 +1865,18 @@ XFEM::getXFEMWeights(MooseArray<Real> & weights,
     mooseAssert(xfce != nullptr, "Must have valid XFEMCutElem object here");
     xfce->getWeightMultipliers(weights, qrule, getXFEMQRule(), q_points);
     have_weights = true;
+
+    Real ave_weight_multiplier = 0;
+    for (unsigned int i = 0; i < weights.size(); ++i)
+      ave_weight_multiplier += weights[i];
+    ave_weight_multiplier /= weights.size();
+
+    if (ave_weight_multiplier < _min_weight_multiplier)
+    {
+      const Real amount_to_add = _min_weight_multiplier - ave_weight_multiplier;
+      for (unsigned int i = 0; i < weights.size(); ++i)
+        weights[i] += amount_to_add;
+    }
   }
   return have_weights;
 }

@@ -11,6 +11,8 @@
 
 #include "DiffusionIPHDGAssemblyHelper.h"
 
+class MooseMesh;
+
 /**
  * Implements all the methods for assembling a hybridized interior penalty discontinuous Galerkin
  * (IPDG-H), which is a type of HDG method, discretization of the Navier-Stokes stress term
@@ -46,6 +48,8 @@ protected:
   virtual void scalarFace() override;
 
   virtual void scalarDirichlet(const Moose::Functor<Real> & dirichlet_value) override;
+
+  virtual void lmFace() override;
 
   /// The pressure variable on element interiors
   const MooseVariableFE<Real> & _pressure_var;

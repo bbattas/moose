@@ -31,6 +31,9 @@
 #include "libmesh/string_to_enum.h"
 #include "libmesh/fe_interface.h"
 
+// C++
+#include <cstring> // for "Jacobian" exception test
+
 using namespace libMesh;
 
 // AuxiliarySystem ////////
@@ -38,6 +41,7 @@ using namespace libMesh;
 AuxiliarySystem::AuxiliarySystem(FEProblemBase & subproblem, const std::string & name)
   : SystemBase(subproblem, subproblem, name, Moose::VAR_AUXILIARY),
     PerfGraphInterface(subproblem.getMooseApp().perfGraph(), "AuxiliarySystem"),
+    LinearFVGradientInterface(static_cast<SystemBase &>(*this)),
     _sys(subproblem.es().add_system<System>(name)),
     _current_solution(_sys.current_local_solution.get()),
     _aux_scalar_storage(_app.getExecuteOnEnum()),
@@ -48,6 +52,11 @@ AuxiliarySystem::AuxiliarySystem(FEProblemBase & subproblem, const std::string &
     _elemental_vec_aux_storage(_app.getExecuteOnEnum()),
     _nodal_array_aux_storage(_app.getExecuteOnEnum()),
     _elemental_array_aux_storage(_app.getExecuteOnEnum())
+#ifdef MOOSE_KOKKOS_ENABLED
+    ,
+    _kokkos_nodal_aux_storage(_app.getExecuteOnEnum()),
+    _kokkos_elemental_aux_storage(_app.getExecuteOnEnum())
+#endif
 {
   _nodal_vars.resize(libMesh::n_threads());
   _elem_vars.resize(libMesh::n_threads());
@@ -68,6 +77,8 @@ AuxiliarySystem::initialSetup()
   TIME_SECTION("initialSetup", 3, "Initializing Auxiliary System");
 
   SystemBase::initialSetup();
+  _current_solution = _sys.current_local_solution.get();
+  LinearFVGradientInterface::rebuildLinearFVGradientStorage();
 
   for (unsigned int tid = 0; tid < libMesh::n_threads(); tid++)
   {
@@ -95,6 +106,21 @@ AuxiliarySystem::initialSetup()
     _elemental_array_aux_storage.sort(tid);
     _elemental_array_aux_storage.initialSetup(tid);
   }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  _kokkos_nodal_aux_storage.sort(/*tid=*/0);
+  _kokkos_nodal_aux_storage.initialSetup(/*tid=*/0);
+
+  _kokkos_elemental_aux_storage.sort(/*tid=*/0);
+  _kokkos_elemental_aux_storage.initialSetup(/*tid=*/0);
+#endif
+}
+
+void
+AuxiliarySystem::reinit()
+{
+  _current_solution = _sys.current_local_solution.get();
+  LinearFVGradientInterface::rebuildLinearFVGradientStorage();
 }
 
 void
@@ -113,6 +139,11 @@ AuxiliarySystem::timestepSetup()
     _elemental_vec_aux_storage.timestepSetup(tid);
     _elemental_array_aux_storage.timestepSetup(tid);
   }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  _kokkos_nodal_aux_storage.timestepSetup(/*tid=*/0);
+  _kokkos_elemental_aux_storage.timestepSetup(/*tid=*/0);
+#endif
 }
 
 void
@@ -131,6 +162,11 @@ AuxiliarySystem::customSetup(const ExecFlagType & exec_type)
     _elemental_vec_aux_storage.customSetup(exec_type, tid);
     _elemental_array_aux_storage.customSetup(exec_type, tid);
   }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  _kokkos_nodal_aux_storage.customSetup(exec_type, /*tid=*/0);
+  _kokkos_elemental_aux_storage.customSetup(exec_type, /*tid=*/0);
+#endif
 }
 
 void
@@ -167,6 +203,11 @@ AuxiliarySystem::jacobianSetup()
     _elemental_vec_aux_storage.jacobianSetup(tid);
     _elemental_array_aux_storage.jacobianSetup(tid);
   }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  _kokkos_nodal_aux_storage.jacobianSetup(/*tid=*/0);
+  _kokkos_elemental_aux_storage.jacobianSetup(/*tid=*/0);
+#endif
 }
 
 void
@@ -185,6 +226,11 @@ AuxiliarySystem::residualSetup()
     _elemental_vec_aux_storage.residualSetup(tid);
     _elemental_array_aux_storage.residualSetup(tid);
   }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  _kokkos_nodal_aux_storage.residualSetup(/*tid=*/0);
+  _kokkos_elemental_aux_storage.residualSetup(/*tid=*/0);
+#endif
 }
 
 void
@@ -198,6 +244,14 @@ AuxiliarySystem::updateActive(THREAD_ID tid)
   _elemental_aux_storage.updateActive(tid);
   _elemental_vec_aux_storage.updateActive(tid);
   _elemental_array_aux_storage.updateActive(tid);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  if (tid == 0)
+  {
+    _kokkos_nodal_aux_storage.updateActive(/*tid=*/0);
+    _kokkos_elemental_aux_storage.updateActive(/*tid=*/0);
+  }
+#endif
 }
 
 void
@@ -261,8 +315,8 @@ AuxiliarySystem::addKernel(const std::string & kernel_name,
 {
   for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
   {
-    if (parameters.get<std::string>("_moose_base") == "AuxKernel" ||
-        parameters.get<std::string>("_moose_base") == "Bounds")
+    const auto & base = parameters.getBase();
+    if (base == "AuxKernel" || base == "Bounds")
     {
       std::shared_ptr<AuxKernel> kernel =
           _factory.create<AuxKernel>(kernel_name, name, parameters, tid);
@@ -277,7 +331,7 @@ AuxiliarySystem::addKernel(const std::string & kernel_name,
         _elemental_aux_storage.addObject(kernel, tid);
     }
 
-    else if (parameters.get<std::string>("_moose_base") == "VectorAuxKernel")
+    else if (base == "VectorAuxKernel")
     {
       std::shared_ptr<VectorAuxKernel> kernel =
           _factory.create<VectorAuxKernel>(kernel_name, name, parameters, tid);
@@ -291,7 +345,7 @@ AuxiliarySystem::addKernel(const std::string & kernel_name,
         _elemental_vec_aux_storage.addObject(kernel, tid);
     }
 
-    else if (parameters.get<std::string>("_moose_base") == "ArrayAuxKernel")
+    else if (base == "ArrayAuxKernel")
     {
       std::shared_ptr<ArrayAuxKernel> kernel =
           _factory.create<ArrayAuxKernel>(kernel_name, name, parameters, tid);
@@ -307,8 +361,7 @@ AuxiliarySystem::addKernel(const std::string & kernel_name,
     else
       mooseAssert(false,
                   "Attempting to add AuxKernel of type '" + kernel_name + "' and name '" + name +
-                      "' to the auxiliary system with invalid _moose_base: " +
-                      parameters.get<std::string>("_moose_base"));
+                      "' to the auxiliary system with invalid _moose_base: " + base);
   }
 }
 
@@ -403,6 +456,17 @@ AuxiliarySystem::compute(ExecFlagType type)
     computeElementalVecVars(type);
     computeElementalVars(type);
 
+#ifdef MOOSE_KOKKOS_ENABLED
+    kokkosCompute(type);
+#endif
+
+    if (!_raw_grad_container.empty())
+    {
+      solution().close();
+      _sys.update();
+      computeGradients();
+    }
+
     // compute time derivatives of nodal aux variables _after_ the values were updated
     if (_fe_problem.dt() > 0.)
       for (auto & ti : _time_integrators)
@@ -495,6 +559,30 @@ AuxiliarySystem::getDependObjects(ExecFlagType type)
     }
   }
 
+#ifdef MOOSE_KOKKOS_ENABLED
+  // Kokkos NodalAuxKernels
+  {
+    const std::vector<std::shared_ptr<AuxKernelBase>> & auxs =
+        _kokkos_nodal_aux_storage[type].getActiveObjects();
+    for (const auto & aux : auxs)
+    {
+      const std::set<UserObjectName> & uo = aux->getDependObjects();
+      depend_objects.insert(uo.begin(), uo.end());
+    }
+  }
+
+  // Kokkos ElementalAuxKernels
+  {
+    const std::vector<std::shared_ptr<AuxKernelBase>> & auxs =
+        _kokkos_elemental_aux_storage[type].getActiveObjects();
+    for (const auto & aux : auxs)
+    {
+      const std::set<UserObjectName> & uo = aux->getDependObjects();
+      depend_objects.insert(uo.begin(), uo.end());
+    }
+  }
+#endif
+
   return depend_objects;
 }
 
@@ -578,6 +666,30 @@ AuxiliarySystem::getDependObjects()
       depend_objects.insert(uo.begin(), uo.end());
     }
   }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  // Nodal KokkosAuxKernels
+  {
+    const std::vector<std::shared_ptr<AuxKernelBase>> & auxs =
+        _kokkos_nodal_aux_storage.getActiveObjects();
+    for (const auto & aux : auxs)
+    {
+      const std::set<UserObjectName> & uo = aux->getDependObjects();
+      depend_objects.insert(uo.begin(), uo.end());
+    }
+  }
+
+  // Elemental KokkosAuxKernels
+  {
+    const std::vector<std::shared_ptr<AuxKernelBase>> & auxs =
+        _kokkos_elemental_aux_storage.getActiveObjects();
+    for (const auto & aux : auxs)
+    {
+      const std::set<UserObjectName> & uo = aux->getDependObjects();
+      depend_objects.insert(uo.begin(), uo.end());
+    }
+  }
+#endif
 
   return depend_objects;
 }
@@ -701,12 +813,6 @@ AuxiliarySystem::computeMortarNodalVars(const ExecFlagType type)
                 _fe_problem, mortar_nodal_warehouse, bnd_id, index);
             Threads::parallel_reduce(bnd_nodes, mnabt);
           }
-          catch (libMesh::LogicError & e)
-          {
-            _fe_problem.setException("The following libMesh::LogicError was raised during mortar "
-                                     "nodal Auxiliary variable computation:\n" +
-                                     std::string(e.what()));
-          }
           catch (MooseException & e)
           {
             _fe_problem.setException("The following MooseException was raised during mortar nodal "
@@ -716,6 +822,18 @@ AuxiliarySystem::computeMortarNodalVars(const ExecFlagType type)
           catch (MetaPhysicL::LogicError & e)
           {
             moose::translateMetaPhysicLError(e);
+          }
+          catch (std::exception & e)
+          {
+            // Continue if we find a libMesh degenerate map exception, but
+            // just re-throw for any real error
+            if (!strstr(e.what(), "Jacobian") && !strstr(e.what(), "singular") &&
+                !strstr(e.what(), "det != 0"))
+              throw;
+
+            _fe_problem.setException("We caught a libMesh degeneracy exception during mortar "
+                                     "nodal Auxiliary variable computation:\n" +
+                                     std::string(e.what()));
           }
         }
         PARALLEL_CATCH;
@@ -802,7 +920,7 @@ AuxiliarySystem::computeElementalVarsHelper(const MooseObjectWarehouse<AuxKernel
     // Block Elemental AuxKernels
     PARALLEL_TRY
     {
-      ConstElemRange & range = *_mesh.getActiveLocalElementRange();
+      const ConstElemRange & range = *_mesh.getActiveLocalElementRange();
       ComputeElemAuxVarsThread<AuxKernelType> eavt(_fe_problem, warehouse, true);
       try
       {
@@ -917,7 +1035,7 @@ AuxiliarySystem::variableWiseRelativeSolutionDifferenceNorm(
     _communicator.sum(norm_n);
     diff_norm_n = sqrt(diff_norm_n);
     norm_n = sqrt(norm_n);
-    rel_diff_norms[n] = diff_norm_n / norm_n;
+    rel_diff_norms[n] = diff_norm_n > 0 ? diff_norm_n / norm_n : 0.0;
   }
 }
 

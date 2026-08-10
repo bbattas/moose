@@ -123,6 +123,7 @@ DGKernel::computeElemNeighResidual(Moose::DGResidualType type)
   else
     prepareVectorTagNeighbor(_assembly, _var.number());
 
+  precalculateResidual();
   for (_qp = 0; _qp < _qrule->n_points(); _qp++)
   {
     precalculateQpResidual(type);
@@ -133,15 +134,12 @@ DGKernel::computeElemNeighResidual(Moose::DGResidualType type)
   accumulateTaggedLocalResidual();
 
   if (_has_save_in)
-  {
-    Threads::spin_mutex::scoped_lock lock(_resid_vars_mutex);
     for (const auto & var : _save_in)
     {
       const std::vector<dof_id_type> & dof_indices =
           is_elem ? var->dofIndices() : var->dofIndicesNeighbor();
       var->sys().solution().add_vector(_local_re, dof_indices);
     }
-  }
 }
 
 void
@@ -157,6 +155,7 @@ DGKernel::computeElemNeighJacobian(Moose::DGJacobianType type)
   else
     prepareMatrixTagNeighbor(_assembly, _var.number(), _var.number(), type);
 
+  precalculateJacobian();
   for (_qp = 0; _qp < _qrule->n_points(); _qp++)
   {
     precalculateQpJacobian(type);
@@ -174,7 +173,6 @@ DGKernel::computeElemNeighJacobian(Moose::DGJacobianType type)
     for (unsigned int i = 0; i < rows; i++)
       diag(i) = _local_ke(i, i);
 
-    Threads::spin_mutex::scoped_lock lock(_jacoby_vars_mutex);
     for (const auto & var : _diag_save_in)
     {
       if (type == Moose::ElementElement)
@@ -202,6 +200,7 @@ DGKernel::computeOffDiagElemNeighJacobian(Moose::DGJacobianType type,
   if (_local_ke.n() == 0 || _local_ke.m() == 0)
     return;
 
+  precalculateJacobian();
   for (_qp = 0; _qp < _qrule->n_points(); _qp++)
   {
     precalculateQpOffDiagJacobian(type, jvar);

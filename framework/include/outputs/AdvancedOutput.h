@@ -200,6 +200,13 @@ protected:
    */
   virtual void init();
 
+  /// Add an additional variable to the hide list
+  void hideAdditionalVariable(const std::string & category, const std::string & var_name)
+  {
+    _execute_data[category].hide.insert(var_name);
+    _execute_data[category].output.erase(var_name);
+  }
+
   /**
    * Handles logic for determining if a step should be output
    * @return True if a call if output should be performed
@@ -272,6 +279,11 @@ protected:
    * @see CSV::outputReporters
    */
   virtual void outputReporters();
+
+  /**
+   * Clears bookkeeping used to suppress duplicate EXEC_FINAL output at the same time.
+   */
+  void clearLastExecuteTime();
 
   /**
    * Flags to control nodal output
@@ -354,7 +366,7 @@ private:
   OutputDataWarehouse _execute_data;
 
   /// Storage for the last output time for the various output types, this is used to avoid duplicate output when using OUTPUT_FINAL flag
-  std::map<std::string, Real> _last_execute_time;
+  std::map<std::string, Real> & _last_execute_time;
 
   /// Flags for outputting PP/VPP data as a reporter
   const bool _postprocessors_as_reporters, _vectorpostprocessors_as_reporters;
@@ -380,23 +392,26 @@ AdvancedOutput::initPostprocessorOrVectorPostprocessorLists(const std::string & 
   oss << "execute_" << execute_data_name << "_on";
   std::string execute_on_name = oss.str();
 
-  std::vector<UserObject *> objs;
-  _problem_ptr->theWarehouse()
-      .query()
-      .condition<AttribSystem>("UserObject")
-      .condition<AttribThread>(0)
-      .queryIntoUnsorted(objs);
+  std::vector<postprocessor_type *> objs;
+  if constexpr (std::is_same_v<postprocessor_type, Postprocessor>)
+    _problem_ptr->theWarehouse()
+        .query()
+        .condition<AttribInterfaces>(Interfaces::Postprocessor)
+        .condition<AttribThread>(0)
+        .queryIntoUnsorted(objs);
+  else if constexpr (std::is_same_v<postprocessor_type, VectorPostprocessor>)
+    _problem_ptr->theWarehouse()
+        .query()
+        .condition<AttribInterfaces>(Interfaces::VectorPostprocessor)
+        .condition<AttribThread>(0)
+        .queryIntoUnsorted(objs);
 
   for (const auto & obj : objs)
   {
-    auto pps = dynamic_cast<postprocessor_type *>(obj);
-    if (!pps)
-      continue;
-
-    execute_data.available.insert(pps->PPName());
+    execute_data.available.insert(obj->PPName());
 
     // Extract the list of outputs
-    const auto & pps_outputs = pps->getOutputs();
+    const auto & pps_outputs = obj->getOutputs();
 
     // Check that the outputs lists are valid
     _app.getOutputWarehouse().checkOutputs(pps_outputs);
@@ -415,7 +430,7 @@ AdvancedOutput::initPostprocessorOrVectorPostprocessorLists(const std::string & 
         mooseWarning("The ",
                      pp_type_str,
                      " '",
-                     pps->PPName(),
+                     obj->PPName(),
                      "' has requested to be output by the '",
                      name(),
                      "' output, but ",

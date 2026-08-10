@@ -53,7 +53,13 @@ ComputeMarkerThread::subdomainChanged()
   _marker_whs.updateMatPropDependency(needed_mat_props, _tid);
 
   _fe_problem.setActiveElementalMooseVariables(needed_moose_vars, _tid);
-  _fe_problem.prepareMaterials(needed_mat_props, _subdomain, _tid);
+
+  // Only prepare (and therefore reinit) materials if a marker actually consumes a material
+  // property. Otherwise skip the material system entirely to avoid recomputing the whole stack.
+  if (!needed_mat_props.empty())
+    _fe_problem.prepareMaterials(needed_mat_props, _subdomain, _tid);
+  else
+    _fe_problem.clearActiveMaterialProperties(_tid);
 }
 
 void
@@ -79,11 +85,8 @@ ComputeMarkerThread::onElement(const Elem * elem)
       marker->computeMarker();
   }
 
-  {
-    Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
-    for (auto * var : _aux_sys._elem_vars[_tid])
-      var->insert(_aux_sys.solution());
-  }
+  for (auto * var : _aux_sys._elem_vars[_tid])
+    var->insert(_aux_sys.solution());
 }
 
 void

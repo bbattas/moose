@@ -94,7 +94,7 @@ Applications:
     heat_transfer:
         exe_directory: modules/combined
         app_types:
-            - HeatConductionApp
+            - HeatTransferApp
         content_directory: modules/heat_transfer/doc/content
         unregister:
             - framework/doc/unregister.yml
@@ -205,6 +205,16 @@ Applications:
         app_types:
             - ScalarTransportApp
         content_directory: modules/scalar_transport/doc/content
+        unregister:
+            - framework/doc/unregister.yml
+        remove:
+            - framework/doc/remove.yml
+
+    shifted_boundary_method:
+        exe_directory: modules/combined
+        app_types:
+            - ShiftedBoundaryMethodApp
+        content_directory: modules/shifted_boundary_method/doc/content
         unregister:
             - framework/doc/unregister.yml
         remove:
@@ -406,14 +416,14 @@ Requirements:
         directories:
             - modules/reactor
 
-    richards:
-        directories:
-            - modules/richards
-        log_missing: NONE # deprecated module
-
     scalar_transport:
         directories:
             - modules/scalar_transport
+
+    shifted_boundary_method:
+        directories:
+            - modules/shifted_boundary_method
+        log_missing: WARNING
 
     solid_properties:
         directories:

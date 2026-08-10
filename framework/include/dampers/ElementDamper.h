@@ -30,7 +30,7 @@ class QBase;
 /**
  * Base class for deriving element dampers
  */
-class ElementDamper : public Damper, protected MaterialPropertyInterface
+class ElementDamper : public Damper, public MaterialPropertyInterface
 {
 public:
   static InputParameters validParams();
@@ -41,6 +41,11 @@ public:
    * Computes this Damper's damping for one element.
    */
   Real computeDamping();
+
+  /**
+   * Check whether this damper's variable has DOFs/components on the given element
+   */
+  bool variableDefinedOnElement(const Elem * elem) const;
 
   /**
    * Get the variable this damper is acting on

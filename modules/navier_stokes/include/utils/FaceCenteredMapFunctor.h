@@ -61,12 +61,12 @@ private:
   /// on all subdomains
   const std::set<SubdomainID> _sub_ids;
 
-  ValueType evaluate(const ElemArg & elem_arg, const StateArg & state) const override final;
-  ValueType evaluate(const FaceArg & face, const StateArg & state) const override final;
+  ValueType evaluate(const ElemArg &, const StateArg &) const override final;
+  ValueType evaluate(const FaceArg &, const StateArg &) const override final;
   ValueType evaluate(const ElemPointArg &, const StateArg &) const override;
   ValueType evaluate(const ElemQpArg &, const StateArg &) const override;
   ValueType evaluate(const ElemSideQpArg &, const StateArg &) const override;
-  ValueType evaluate(const NodeArg & node_arg, const StateArg & state) const override final;
+  ValueType evaluate(const NodeArg &, const StateArg &) const override final;
 };
 
 template <typename T, typename Map>
@@ -120,6 +120,12 @@ FaceCenteredMapFunctor<T, Map>::evaluate(const NodeArg &, const StateArg &) cons
 {
   mooseError("not implemented");
 }
+
+extern template class FaceCenteredMapFunctor<ADRealVectorValue,
+                                             std::unordered_map<dof_id_type, ADRealVectorValue>>;
+extern template class FaceCenteredMapFunctor<RealVectorValue,
+                                             std::unordered_map<dof_id_type, RealVectorValue>>;
+extern template class FaceCenteredMapFunctor<Real, std::unordered_map<dof_id_type, Real>>;
 
 template <typename T, typename Map>
 inline void

@@ -15,7 +15,7 @@ The `StressDivergenceRSphericalTensors` kernel can be automatically created with
 mechanics quasi-static physics is recommended to ensure the consistent setting of the *use_displaced_mesh*
 parameter for the strain formulation selected.  For a detailed explanation of the settings for
 _use_displaced_mesh_ in mechanics problems and the Solid Mechanics Physics usage, see the
-[Introduction/StressDivergence](/StressDivergence.md) page.
+[Introduction/StressDivergence](/solid_mechanics/BalanceOfLinearMomentum.md) page.
 
 ## Residual Calculation
 
@@ -45,7 +45,7 @@ Using the solid mechanics quasi-static physics, as shown
 the `StressDivergenceRSphericalTensors` kernel will be automatically built when the coordinate system
 in the Problem block is specified for the spherical system,
 
-!listing modules/solid_mechanics/test/tests/1D_spherical/finiteStrain_1DSphere_hollow.i block=Problem
+!listing modules/solid_mechanics/test/tests/1D_spherical/finiteStrain_1DSphere_hollow.i block=Mesh
 
 and only a single displacement variable is provided:
 

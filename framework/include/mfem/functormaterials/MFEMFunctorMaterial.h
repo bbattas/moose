@@ -7,22 +7,21 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
 
-#include "libmesh/ignore_warnings.h"
-#include <mfem.hpp>
-#include "libmesh/restore_warnings.h"
-#include "MFEMGeneralUserObject.h"
+#include "MFEMObject.h"
 #include "MFEMBlockRestrictable.h"
+#include "MFEMBoundaryRestrictable.h"
 #include "CoefficientManager.h"
 
-class MFEMFunctorMaterial : public MFEMGeneralUserObject, public MFEMBlockRestrictable
+class MFEMFunctorMaterial : public MFEMObject,
+                            public MFEMBlockRestrictable,
+                            public MFEMBoundaryRestrictable
 {
 public:
   static InputParameters validParams();
-  static libMesh::Point pointFromMFEMVector(const mfem::Vector & vec);
 
   MFEMFunctorMaterial(const InputParameters & parameters);
   virtual ~MFEMFunctorMaterial();

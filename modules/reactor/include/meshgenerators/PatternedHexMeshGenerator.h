@@ -8,6 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #pragma once
+
 #include "PolygonMeshGeneratorBase.h"
 #include "ReportingIDGeneratorUtils.h"
 #include "MooseEnum.h"
@@ -73,7 +74,7 @@ protected:
   /// Whether the non-circular region (outside the rings) can be deformed
   const bool _deform_non_circular_region;
   /// Pitch size of the input assembly mesh
-  Real _pattern_pitch;
+  Real _pattern_pitch = 0;
   /// Subdomain IDs of the peripheral regions
   std::vector<subdomain_id_type> _peripheral_block_ids;
   /// Subdomain Names of the peripheral regions

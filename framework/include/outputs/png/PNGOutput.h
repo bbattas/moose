@@ -8,7 +8,6 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 #pragma once
 
-#include "MooseConfig.h"
 #ifdef MOOSE_HAVE_LIBPNG
 
 // pnglib includes
@@ -20,10 +19,12 @@
 #include "libmesh/mesh_function.h"
 #include "libmesh/bounding_box.h"
 
+/**
+ * Output class to create a 2D figure in PNG format
+ */
 class PNGOutput : public FileOutput
 {
 public:
-  /// Basic constructor.  Takes parameters passed in to create a PNGOutput object.
   static InputParameters validParams();
 
   PNGOutput(const InputParameters & parameters);

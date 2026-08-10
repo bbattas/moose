@@ -38,6 +38,8 @@ MultiAppPostprocessorTransfer::validParams()
                              reduction_type,
                              "The type of reduction to perform to reduce postprocessor "
                              "values from multiple SubApps to a single value");
+  MultiAppTransfer::addUserObjectExecutionCheckParam(params);
+
   return params;
 }
 
@@ -50,14 +52,19 @@ MultiAppPostprocessorTransfer::MultiAppPostprocessorTransfer(const InputParamete
   if (_directions.size() != 1)
     paramError("direction", "This transfer is only unidirectional");
 
-  if (_current_direction == FROM_MULTIAPP)
-    if (!_reduction_type.isValid())
-      mooseError("In MultiAppPostprocessorTransfer, must specify 'reduction_type' if direction = "
-                 "from_multiapp");
+  if (isParamValid("from_multi_app") && !isParamValid("to_multi_app") &&
+      !isParamValid("reduction_type"))
+    paramError("reduction_type",
+               "In MultiAppPostprocessorTransfer, must specify 'reduction_type' if "
+               "'from_multi_app' is set");
+
+  if (isParamValid("to_multi_app") && !isParamValid("from_multi_app") &&
+      isParamValid("reduction_type"))
+    paramError("reduction_type", "Reduction is not supported for transfer from parent application");
 
   if (isParamValid("to_multi_app") && isParamValid("from_multi_app") &&
       isParamValid("reduction_type"))
-    mooseError("Reductions are not supported for multiapp sibling transfers");
+    paramError("reduction_type", "Reductions are not supported for multiapp sibling transfers");
 }
 
 void
@@ -70,6 +77,7 @@ MultiAppPostprocessorTransfer::execute()
   {
     case TO_MULTIAPP:
     {
+      checkParentAppUserObjectExecuteOn(_from_pp_name);
       _fe_problem.computeUserObjectByName(EXEC_TRANSFER, Moose::PRE_AUX, _from_pp_name);
       _fe_problem.computeUserObjectByName(EXEC_TRANSFER, Moose::POST_AUX, _from_pp_name);
       break;

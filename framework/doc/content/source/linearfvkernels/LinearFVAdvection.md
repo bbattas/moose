@@ -14,7 +14,18 @@ where $V_C$ is a cell in the mesh, while $\vec{v}$ is a pre-defined
 constant advecting velocity that can be supplied through the
 [!param](/LinearFVKernels/LinearFVAdvection/velocity) parameter.
 The face value of the variable $u_f$ is computed using the user-selected interpolation
-technique that can be supplied through the [!param](/LinearFVKernels/LinearFVAdvection/advected_interp_method) parameter.
+technique that can be supplied through the [!param](/LinearFVKernels/LinearFVAdvection/advected_interp_method_name) parameter.
+
+### Selecting the interpolation method
+
+The [!param](/LinearFVKernels/LinearFVAdvection/advected_interp_method_name) parameter is the
+name of an interpolation method in the `[FVInterpolationMethods]` block. For example, to use
+upwind interpolation, add an [FVAdvectedUpwind.md] method and set
+[!param](/LinearFVKernels/LinearFVAdvection/advected_interp_method_name) to that method name:
+
+!listing test/tests/linearfvkernels/advection/advection-1d.i block=FVInterpolationMethods
+
+!listing test/tests/linearfvkernels/advection/advection-1d.i block=LinearFVKernels/advection
 
 In the simplest case, using a linear interpolation method and an internal face
 for the integration, we get the following matrix contribution to the degree of freedom corresponding
@@ -28,6 +39,10 @@ contributes to the degree of freedom on the other side of the face with:
 
 !equation
 \vec{v} \cdot \vec{n}_f |S_f| (1-g_{C,f}).
+
+!alert warning
+When using non-zero flux boundary condition, only a single `LinearFVFluxKernel` may be used, as otherwise
+the boundary conditions may be applied multiple times. This warning applies to all `LinearFVFluxKernel`-derived classes.
 
 ## Example input syntax
 

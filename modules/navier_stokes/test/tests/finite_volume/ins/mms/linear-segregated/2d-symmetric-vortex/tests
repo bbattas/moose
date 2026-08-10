@@ -1,0 +1,21 @@
+[Tests]
+  issues = '#27280'
+  design = 'SIMPLE.md'
+  [vortex-orthogonal]
+    type = MMSTest
+    input = test.py
+    test_case = TestSymmetricVortexOrthogonal
+    min_parallel = 2
+    requirement = 'The system shall be able to solve the Navier Stokes equations with symmetry boundary conditions using the SIMPLE algorithm and obtain second order spatial convergence for velocity and at least first order spatial convergence for pressure on an orthogonal grid.'
+    max_threads = 1 # see libmesh issue #3808
+  []
+  [vortex-nonorthogonal]
+    type = MMSTest
+    input = test.py
+    test_case = TestSymmetricVortexNonorthogonal
+    min_parallel = 4
+    requirement = 'The system shall be able to solve the Navier Stokes equations with symmetry boundary conditions using the SIMPLE algorithm and obtain second order spatial convergence for velocity and at least first order spatial convergence for pressure on a nonorthogonal grid.'
+    # TODO: Figure out how to make pressure second order, pressure shift maybe instead of pin
+    max_threads = 1 # see libmesh issue #3808
+  []
+[]

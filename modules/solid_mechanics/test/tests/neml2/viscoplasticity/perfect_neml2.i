@@ -1,18 +1,13 @@
-[Solvers]
-  [newton]
-    type = Newton
-  []
-[]
-
 [Models]
   [mandel_stress]
     type = IsotropicMandelStress
+    cauchy_stress = 'neml2_stress'
   []
   [vonmises]
     type = SR2Invariant
     invariant_type = 'VONMISES'
-    tensor = 'state/internal/M'
-    invariant = 'state/internal/s'
+    tensor = 'mandel_stress'
+    invariant = 'effective_stress'
   []
   [yield]
     type = YieldFunction
@@ -25,9 +20,9 @@
   [normality]
     type = Normality
     model = 'flow'
-    function = 'state/internal/fp'
-    from = 'state/internal/M'
-    to = 'state/internal/NM'
+    function = 'yield_function'
+    from = 'mandel_stress'
+    to = 'flow_direction'
   []
   [flow_rate]
     type = PerzynaPlasticFlowRate
@@ -39,31 +34,59 @@
   []
   [Erate]
     type = SR2VariableRate
-    variable = 'forces/E'
+    variable = 'neml2_strain'
   []
   [Eerate]
     type = SR2LinearCombination
-    from_var = 'forces/E_rate state/internal/Ep_rate'
-    to_var = 'state/internal/Ee_rate'
-    coefficients = '1 -1'
+    from = 'neml2_strain_rate plastic_strain_rate'
+    to = 'elastic_strain_rate'
+    weights = '1 -1'
   []
   [elasticity]
     type = LinearIsotropicElasticity
     coefficients = '1e5 0.3'
     coefficient_types = 'YOUNGS_MODULUS POISSONS_RATIO'
     rate_form = true
+    strain = 'elastic_strain'
+    stress = 'neml2_stress'
   []
   [integrate_stress]
     type = SR2BackwardEulerTimeIntegration
-    variable = 'state/S'
+    variable = 'neml2_stress'
   []
   [implicit_rate]
     type = ComposedModel
     models = 'mandel_stress vonmises yield normality flow_rate Eprate Erate Eerate elasticity integrate_stress'
   []
+[]
+
+[EquationSystems]
+  [eq_sys]
+    type = NonlinearSystem
+    model = 'implicit_rate'
+    unknowns = 'neml2_stress'
+  []
+[]
+
+[Solvers]
+  [newton]
+    type = Newton
+    linear_solver = 'lu'
+  []
+  [lu]
+    type = DenseLU
+  []
+[]
+
+[Models]
+  [predictor]
+    type = ConstantExtrapolationPredictor
+    unknowns_SR2 = 'neml2_stress'
+  []
   [model]
     type = ImplicitUpdate
-    implicit_model = 'implicit_rate'
+    equation_system = 'eq_sys'
     solver = 'newton'
+    predictor = 'predictor'
   []
 []

@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMSuperLU.h"
 #include "MFEMProblem.h"
@@ -17,30 +17,24 @@ registerMooseObject("MooseApp", MFEMSuperLU);
 InputParameters
 MFEMSuperLU::validParams()
 {
-  InputParameters params = MFEMSolverBase::validParams();
+  InputParameters params = Moose::MFEM::LinearSolverBase::validParams();
   params.addClassDescription("MFEM solver for performing direct solves of sparse systems in "
                              "parallel using the SuperLU_DIST library.");
-
   return params;
 }
 
-MFEMSuperLU::MFEMSuperLU(const InputParameters & parameters) : MFEMSolverBase(parameters)
+MFEMSuperLU::MFEMSuperLU(const InputParameters & parameters)
+  : Moose::MFEM::LinearSolverBase(parameters)
 {
-  constructSolver(parameters);
+  ConstructSolver();
 }
 
 void
-MFEMSuperLU::constructSolver(const InputParameters &)
+MFEMSuperLU::ConstructSolver()
 {
-  _solver = std::make_unique<Moose::MFEM::SuperLUSolver>(
-      getMFEMProblem().mesh().getMFEMParMesh().GetComm());
-}
-
-void
-MFEMSuperLU::updateSolver(mfem::ParBilinearForm &, mfem::Array<int> &)
-{
-  if (_lor)
-    mooseError("SuperLU solver does not support LOR solve");
+  auto solver = std::make_unique<Moose::MFEM::SuperLUSolver>(getMFEMProblem().getComm());
+  solver->iterative_mode = getParam<bool>("use_initial_guess");
+  _solver = std::move(solver);
 }
 
 #endif

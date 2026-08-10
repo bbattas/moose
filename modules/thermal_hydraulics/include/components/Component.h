@@ -20,6 +20,7 @@
 class THMProblem;
 class THMMesh;
 class ThermalHydraulicsApp;
+class Convergence;
 
 /**
  * Base class for THM components
@@ -114,6 +115,11 @@ public:
   virtual void addMooseObjects() {}
 
   /**
+   * Gets the Component's nonlinear Convergence object if it has one
+   */
+  virtual Convergence * getNonlinearConvergence() const;
+
+  /**
    * Return a reference to a component via a parameter name
    * @tparam T the type of the component we are requesting
    * @param name The parameter name that has the component name
@@ -148,29 +154,34 @@ public:
   bool hasComponentByName(const std::string & cname) const;
 
   /**
-   * Connect with control logic
-   */
-  void connectObject(const InputParameters & params,
-                     const std::string & mooseName,
-                     const std::string & name) const;
-  /**
-   * Connect with control logic
-   */
-  void connectObject(const InputParameters & params,
-                     const std::string & mooseName,
-                     const std::string & name,
-                     const std::string & par_name) const;
-
-  /**
-   * Makes a function controllable if it is constant
+   * Connects a controllable parameter of the component to a controllable parameter of
+   * a constituent object.
    *
-   * @param[in] fn_name  name of the function
-   * @param[in] control_name  name of control parameter
-   * @param[in] param  name of controlled parameter
+   * This version assumes that the component and object have the same control parameter name.
+   *
+   * @param[in] obj_params  Constituent object input parameters object
+   * @param[in] obj_name    Constituent object name
+   * @param[in] param       Controllable parameter name (same in both component and constituent
+   * object)
    */
-  void makeFunctionControllableIfConstant(const FunctionName & fn_name,
-                                          const std::string & control_name,
-                                          const std::string & param = "value") const;
+  void connectObject(const InputParameters & obj_params,
+                     const std::string & obj_name,
+                     const std::string & param) const;
+  /**
+   * Connects a controllable parameter of the component to a controllable parameter of
+   * a constituent object.
+   *
+   * This is achieved by creating a "controllable parameter alias".
+   *
+   * @param[in] obj_params  Constituent object input parameters object
+   * @param[in] obj_name    Constituent object name
+   * @param[in] comp_param  Controllable component parameter
+   * @param[in] obj_param   Constituent object parameter
+   */
+  void connectObject(const InputParameters & obj_params,
+                     const std::string & obj_name,
+                     const std::string & comp_param,
+                     const std::string & obj_param) const;
 
   /**
    * Throws an error if the supplied setup status of this component has not been reached
@@ -242,9 +253,10 @@ public:
    *
    * @tparam    T       enum type
    * @param[in] param   name of the MooseEnum parameter
+   * @param[in] log_error  If true, log an error if the valid is invalid
    */
   template <typename T>
-  T getEnumParam(const std::string & param) const;
+  T getEnumParam(const std::string & param, bool log_error = true) const;
 
   /**
    * Whether the problem is transient
@@ -274,62 +286,6 @@ public:
    * @return vector of coordinate system types for this component
    */
   virtual const std::vector<Moose::CoordinateSystemType> & getCoordSysTypes() const;
-
-protected:
-  /**
-   * Initializes the component
-   *
-   * The reason this function exists (as opposed to just having everything in
-   * the constructor) is because some initialization depends on all components
-   * existing, since many components couple to other components. Therefore,
-   * when deciding whether code should go into the constructor or this function,
-   * one should use the following reasoning: if an operation does not require
-   * the existence of other components, then put that operation in the
-   * constructor; otherwise, put it in this function.
-   */
-  virtual void init() {}
-
-  /**
-   * Perform secondary initialization, which relies on init() being called
-   * for all components.
-   */
-  virtual void initSecondary() {}
-
-  /**
-   * Check the component integrity
-   */
-  virtual void check() const {}
-
-  /**
-   * Performs mesh setup such as creating mesh or naming mesh sets
-   */
-  virtual void setupMesh() {}
-
-  /**
-   * Method to add a relationship manager for the objects being added to the system. Relationship
-   * managers have to be added relatively early. In many cases before the Action::act() method
-   * is called.
-   *
-   * This method was copied from Action.
-   *
-   * @param moose_object_pars The MooseObject to inspect for RelationshipManagers to add
-   */
-  void addRelationshipManagersFromParameters(const InputParameters & moose_object_pars);
-
-  Node * addNode(const Point & pt);
-  Elem * addNodeElement(dof_id_type node);
-
-  /**
-   * Sets the next subdomain ID, name, and coordinate system
-   *
-   * @param[in] subdomain_id  subdomain index
-   * @param[in] subdomain_name  name of the new subdomain
-   * @param[in] coord_system  type of coordinate system
-   */
-  virtual void
-  setSubdomainInfo(SubdomainID subdomain_id,
-                   const std::string & subdomain_name,
-                   const Moose::CoordinateSystemType & coord_system = Moose::COORD_XYZ);
 
   /**
    * Runtime check to make sure that a parameter of specified type exists in the component's input
@@ -434,6 +390,101 @@ protected:
   void checkMutuallyExclusiveParameters(const std::vector<std::string> & params,
                                         bool need_one_specified = true) const;
 
+protected:
+  /**
+   * Initializes the component
+   *
+   * The reason this function exists (as opposed to just having everything in
+   * the constructor) is because some initialization depends on all components
+   * existing, since many components couple to other components. Therefore,
+   * when deciding whether code should go into the constructor or this function,
+   * one should use the following reasoning: if an operation does not require
+   * the existence of other components, then put that operation in the
+   * constructor; otherwise, put it in this function.
+   */
+  virtual void init() {}
+
+  /**
+   * Perform secondary initialization, which relies on init() being called
+   * for all components.
+   */
+  virtual void initSecondary() {}
+
+  /**
+   * Check the component integrity
+   */
+  virtual void check() const {}
+
+  /**
+   * Performs mesh setup such as creating mesh or naming mesh sets
+   */
+  virtual void setupMesh() {}
+
+  /**
+   * Method to add a relationship manager for the objects being added to the system. Relationship
+   * managers have to be added relatively early. In many cases before the Action::act() method
+   * is called.
+   *
+   * This method was copied from Action.
+   *
+   * @param moose_object_pars The MooseObject to inspect for RelationshipManagers to add
+   */
+  void addRelationshipManagersFromParameters(const InputParameters & moose_object_pars);
+
+  Node * addNode(const Point & pt);
+  Elem * addNodeElement(dof_id_type node);
+
+  /**
+   * Sets the next subdomain ID, name, and coordinate system
+   *
+   * @param[in] subdomain_id  subdomain index
+   * @param[in] subdomain_name  name of the new subdomain
+   * @param[in] coord_system  type of coordinate system
+   */
+  virtual void
+  setSubdomainInfo(SubdomainID subdomain_id,
+                   const std::string & subdomain_name,
+                   const Moose::CoordinateSystemType & coord_system = Moose::COORD_XYZ);
+
+  /**
+   * Adds a functor material to compute the absolute value of the change (step) of some functor
+   * between nonlinear iterations
+   *
+   * @param[in] functor_name  Functor for which to compute step
+   * @param[in] property  Name of new step functor material property
+   * @param[in] functor_is_ad  Is the functor for which to compute the step AD?
+   */
+  void addNonlinearStepFunctorMaterial(const std::string & functor_name,
+                                       const std::string & property,
+                                       bool functor_is_ad);
+
+  /**
+   * Adds a Postprocessor to compute the maximum of a functor over some domain
+   *
+   * @param[in] functor_name  Functor for which to compute maximum
+   * @param[in] pp_name  Name of new Postprocessor
+   * @param[in] normalization  Factor by which to divide quantity
+   * @param[in] subdomains  Subdomains over which to compute maximum
+   */
+  void addMaximumFunctorPostprocessor(const std::string & functor_name,
+                                      const std::string & pp_name,
+                                      const Real normalization,
+                                      const std::vector<SubdomainName> & subdomains);
+
+  /**
+   * Adds a MultiPostprocessorConvergence for nonlinear convergence for the component
+   *
+   * @param[in] postprocessors  Postprocessors to compare
+   * @param[in] descriptions  Description of each Postprocessor
+   * @param[in] tolerances  Tolerance for each check
+   */
+  void addMultiPostprocessorConvergence(const std::vector<PostprocessorName> & postprocessors,
+                                        const std::vector<std::string> & descriptions,
+                                        const std::vector<Real> & tolerances);
+
+  /// Nonlinear Convergence name
+  std::string nonlinearConvergenceName() const { return genName(name(), "nlconv"); }
+
   /// Pointer to a parent component (used in composed components)
   Component * _parent;
 
@@ -536,11 +587,11 @@ Component::hasComponentByName(const std::string & comp_name) const
 
 template <typename T>
 T
-Component::getEnumParam(const std::string & param) const
+Component::getEnumParam(const std::string & param, bool log_error) const
 {
   const MooseEnum & moose_enum = getParam<MooseEnum>(param);
   const T value = THM::stringToEnum<T>(moose_enum);
-  if (static_cast<int>(value) < 0) // cast necessary for scoped enums
+  if (log_error && static_cast<int>(value) < 0) // cast necessary for scoped enums
   {
     // Get the keys from the MooseEnum. Unfortunately, this returns a list of
     // *all* keys, including the invalid key that was supplied. Thus, that key

@@ -14,6 +14,8 @@
 #include "libmesh/vector_value.h"
 #include "libmesh/tensor_value.h"
 
+#include <limits>
+
 TEST(MooseUtils, camelCaseToUnderscore)
 {
   EXPECT_EQ(MooseUtils::camelCaseToUnderscore("Foo"), "foo");
@@ -213,6 +215,25 @@ TEST(MooseUtils, convertStringInt)
 
   // Should work with bigger type
   EXPECT_EQ(MooseUtils::convert<unsigned long int>("1e10", true), 10000000000ul);
+}
+
+TEST(MooseUtils, prettyCppType)
+{
+  // Vectors
+  std::vector<double> v1;
+  std::vector<std::vector<double>> v2;
+  EXPECT_EQ(MooseUtils::prettyCppType(&v1), "std::vector<double>");
+  EXPECT_EQ(MooseUtils::prettyCppType(&v2), "std::vector<std::vector<double>>");
+
+  // Maps
+  std::map<double, std::string> a1;
+  std::map<std::string, bool> a2;
+  EXPECT_EQ(MooseUtils::prettyCppType(&a1), "std::map<double, std::string>");
+  EXPECT_EQ(MooseUtils::prettyCppType(&a2), "std::map<std::string, bool>");
+  std::unordered_map<double, std::string> b1;
+  std::unordered_map<std::string, bool> b2;
+  EXPECT_EQ(MooseUtils::prettyCppType(&b1), "std::unordered_map<double, std::string>");
+  EXPECT_EQ(MooseUtils::prettyCppType(&b2), "std::unordered_map<std::string, bool>");
 }
 
 struct TestCase
@@ -536,4 +557,20 @@ TEST(MooseUtils, isZero)
   EXPECT_TRUE(!MooseUtils::isZero(ADRealTensorValue(1)));
   EXPECT_TRUE(!MooseUtils::isZero(std::vector<Real>(1, 1)));
   EXPECT_TRUE(!MooseUtils::isZero(std::array<Real, 1>{{1}}));
+}
+
+TEST(MooseUtils, IsFinitePoint)
+{
+  const Point finite_point;
+  EXPECT_TRUE(MooseUtils::isFinitePoint(finite_point));
+
+  for (const auto i : make_range(Moose::dim))
+  {
+    Point nonfinite_point;
+    nonfinite_point(i) = std::numeric_limits<Real>::quiet_NaN();
+    EXPECT_FALSE(MooseUtils::isFinitePoint(nonfinite_point));
+
+    nonfinite_point(i) = std::numeric_limits<Real>::infinity();
+    EXPECT_FALSE(MooseUtils::isFinitePoint(nonfinite_point));
+  }
 }

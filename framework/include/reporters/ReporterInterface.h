@@ -25,6 +25,13 @@ public:
   static InputParameters validParams();
   ReporterInterface(const MooseObject * moose_object);
 
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  ReporterInterface(const ReporterInterface & object, const Moose::Kokkos::FunctorCopy & key);
+#endif
+
 protected:
   ///@{
   /**
@@ -80,6 +87,14 @@ protected:
   bool hasReporterValueByName(const ReporterName & reporter_name) const;
 
   ///@}
+
+  /**
+   * Get the reporter context to allow non-typed operations with the data
+   * @param reporter_name A ReporterName object that for the desired Reporter context.
+   * @returns ReporterContextBase of the reporter value
+   */
+  const ReporterContextBase &
+  getReporterContextBaseByName(const ReporterName & reporter_name) const;
 
   /**
    * @returns The ReporterName associated with the parametre \p param_name.

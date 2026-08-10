@@ -15,6 +15,7 @@
 #include "DisplacedProblem.h"
 #include "MultiApp.h"
 #include "MooseMesh.h"
+#include "UserObject.h"
 
 #include "libmesh/parallel_algebra.h"
 #include "libmesh/mesh_tools.h"
@@ -79,6 +80,16 @@ MultiAppTransfer::addSkipCoordCollapsingParam(InputParameters & params)
       "mapping coordinate transformation operations. This parameter should only "
       "be set by users who really know what they're doing.");
   params.addParamNamesToGroup("skip_coordinate_collapsing", "Advanced");
+}
+
+void
+MultiAppTransfer::addUserObjectExecutionCheckParam(InputParameters & params)
+{
+  params.addParam<bool>("warn_source_object_execution_schedule",
+                        true,
+                        "Emit a warning when the transfer execution schedule is detected to lag "
+                        "information from the user object. Note that the check cannot detect all "
+                        "potential wrong combinations of user-object/transfer execution schedules");
 }
 
 MultiAppTransfer::MultiAppTransfer(const InputParameters & parameters)
@@ -613,24 +624,40 @@ MultiAppTransfer::checkVariable(const FEProblemBase & fe_problem,
 }
 
 Point
+MultiAppTransfer::mapBackWithoutCollapsing(MultiAppCoordTransform & transform,
+                                           const Point & p,
+                                           const std::string & phase) const
+{
+  if (transform.hasCoordinateSystemTypeChange())
+  {
+    if (!_skip_coordinate_collapsing)
+      mooseInfo(phase + " cannot use the point in the app frame due to the "
+                        "non-uniqueness of the coordinate collapsing reverse mapping."
+                        " Coordinate collapse is ignored for this operation");
+    transform.skipCoordinateCollapsing(true);
+    const auto pt = transform.mapBack(p);
+    transform.skipCoordinateCollapsing(false);
+    return pt;
+  }
+  else
+    return transform.mapBack(p);
+}
+
+Point
+MultiAppTransfer::getPointInSourceAppFrame(const Point & p,
+                                           unsigned int local_i_from,
+                                           const std::string & phase) const
+{
+  return mapBackWithoutCollapsing(
+      *_from_transforms[getGlobalSourceAppIndex(local_i_from)], p, phase);
+}
+
+Point
 MultiAppTransfer::getPointInTargetAppFrame(const Point & p,
                                            unsigned int local_i_to,
                                            const std::string & phase) const
 {
-  const auto & to_transform = _to_transforms[getGlobalTargetAppIndex(local_i_to)];
-  if (to_transform->hasCoordinateSystemTypeChange())
-  {
-    if (!_skip_coordinate_collapsing)
-      mooseInfo(phase + " cannot use the point in the target app frame due to the "
-                        "non-uniqueness of the coordinate collapsing reverse mapping."
-                        " Coordinate collapse is ignored for this operation");
-    to_transform->skipCoordinateCollapsing(true);
-    const auto target_point = to_transform->mapBack(p);
-    to_transform->skipCoordinateCollapsing(false);
-    return target_point;
-  }
-  else
-    return to_transform->mapBack(p);
+  return mapBackWithoutCollapsing(*_to_transforms[getGlobalTargetAppIndex(local_i_to)], p, phase);
 }
 
 unsigned int
@@ -655,6 +682,39 @@ MultiAppTransfer::getLocalSourceAppIndex(unsigned int i_from) const
   return _current_direction == TO_MULTIAPP
              ? 0
              : _from_local2global_map[i_from] - _from_local2global_map[0];
+}
+
+void
+MultiAppTransfer::checkParentAppUserObjectExecuteOn(const std::string & object_name) const
+{
+  // Source app is not the parent, most execution schedules are fine since the transfer occurs after
+  // the app has run NOTE: not true for siblings transfer
+  if (hasFromMultiApp())
+    return;
+  // Get user object from parent. We don't know the type
+  const auto & uo = _fe_problem.getUserObject<UserObject>(object_name);
+  // If we are executing on transfers, every additional schedule is not a problem
+  if (uo.getExecuteOnEnum().contains(EXEC_TRANSFER))
+    return;
+  // If we are transferring on the same schedule as we are executing, we are lagging. Is it on
+  // purpose? We don't know, so we will give a warning unless silenced.
+  // The derived-classes offer the parameter to silence this warning
+  // Note: UOs execute before transfers on INITIAL so it's not a problem at this time
+  if (uo.getExecuteOnEnum().contains(_fe_problem.getCurrentExecuteOnFlag()) &&
+      _fe_problem.getCurrentExecuteOnFlag() != EXEC_INITIAL)
+    if (!isParamValid("warn_source_object_execution_schedule") ||
+        getParam<bool>("warn_source_object_execution_schedule"))
+      uo.paramWarning("execute_on",
+                      "This UserObject-derived class is being executed on '" +
+                          Moose::stringify(_fe_problem.getCurrentExecuteOnFlag()) +
+                          "' and also providing values for the '" + name() +
+                          "' transfer, on that same execution schedule. Because user objects are "
+                          "executed after transfers are, this means the values provided by this "
+                          "user object are lagged. If you are ok with this, then set the "
+                          "'warn_source_object_execution_schedule' parameter to false in this "
+                          "Transfer. If not, then execute '" +
+                          uo.name() +
+                          "' on TRANSFER by adding it to the 'execute_on' vector parameter.");
 }
 
 void

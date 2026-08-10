@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMConduitDataCollection.h"
 
@@ -18,7 +18,7 @@ MFEMConduitDataCollection::validParams()
 {
   InputParameters params = MFEMDataCollection::validParams();
   params.addClassDescription("Output for controlling MFEMConduitDataCollection inherited data.");
-  MooseEnum protocol("hdf5 json conduit_json conduit_bin", "hdf5", false);
+  MooseEnum protocol("hdf5 json conduit_json conduit_bin", "hdf5");
   params.addParam<MooseEnum>("protocol",
                              protocol,
                              "Conduit relay I/O protocol to use. Options: hdf5 (default), json, "

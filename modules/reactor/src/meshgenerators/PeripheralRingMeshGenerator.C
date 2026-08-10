@@ -155,13 +155,16 @@ PeripheralRingMeshGenerator::generate()
   auto input_mesh = dynamic_cast<ReplicatedMesh *>(_input.get());
   if (!input_mesh)
     paramError("input", "Input is not a replicated mesh, which is required.");
+
+  if (!input_mesh->preparation().has_cached_elem_data)
+    input_mesh->cache_elem_data();
   if (*(input_mesh->elem_dimensions().begin()) != 2 ||
       *(input_mesh->elem_dimensions().rbegin()) != 2)
     paramError("input", "Only 2D meshes are supported.");
 
   _input_mesh_external_bid =
       MooseMeshUtils::getBoundaryID(_input_mesh_external_boundary, *input_mesh);
-  if (!MooseMeshUtils::hasBoundaryName(*input_mesh, _input_mesh_external_boundary))
+  if (!MooseMeshUtils::hasBoundaryNameOrID(*input_mesh, _input_mesh_external_boundary))
     paramError("input_mesh_external_boundary",
                "External boundary does not exist in the input mesh");
   // We check the element types of input mesh's external boundary here.
@@ -479,7 +482,7 @@ PeripheralRingMeshGenerator::generate()
         _external_boundary_name;
   }
 
-  _input->set_isnt_prepared();
+  _input->unset_is_prepared();
   return dynamic_pointer_cast<MeshBase>(_input);
 }
 

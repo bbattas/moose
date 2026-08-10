@@ -7,19 +7,17 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
-#include "libmesh/ignore_warnings.h"
-#include "mfem.hpp"
-#include "libmesh/restore_warnings.h"
-#include "MFEMGeneralUserObject.h"
+
+#include "MFEMObject.h"
 
 /**
  * Constructs and stores an mfem::ParFiniteElementSpace object. Access using the
  * getFESpace() accessor.
  */
-class MFEMFESpace : public MFEMGeneralUserObject
+class MFEMFESpace : public MFEMObject
 {
 public:
   static InputParameters validParams();
@@ -38,7 +36,7 @@ public:
   inline std::shared_ptr<mfem::ParFiniteElementSpace> getFESpace() const
   {
     if (!_fespace)
-      buildFESpace(getVDim());
+      buildFESpace();
     return _fespace;
   }
 
@@ -46,7 +44,7 @@ public:
   inline std::shared_ptr<mfem::FiniteElementCollection> getFEC() const
   {
     if (!_fec)
-      buildFEC(getFECName());
+      buildFEC();
     return _fec;
   }
 
@@ -65,21 +63,20 @@ protected:
   /// in this finite element space.
   virtual int getVDim() const = 0;
 
+  /// Mesh FESpace is defined with respect to. May differ from main problem mesh if
+  /// FESpace is defined on an MFEMSubMesh.
+  mfem::ParMesh & _pmesh;
+
 private:
   /// Constructs the fec from the fec name.
-  void buildFEC(const std::string & fec_name) const;
-
+  void buildFEC() const;
   /// Stores the constructed fecollection
   mutable std::shared_ptr<mfem::FiniteElementCollection> _fec{nullptr};
 
   /// Constructs the fespace.
-  void buildFESpace(const int vdim) const;
+  void buildFESpace() const;
   /// Stores the constructed fespace.
   mutable std::shared_ptr<mfem::ParFiniteElementSpace> _fespace{nullptr};
-
-  /// Mesh FESpace is defined with respect to. May differ from main problem mesh if
-  /// FESpace is defined on an MFEMSubMesh.
-  mfem::ParMesh & _pmesh;
 };
 
 #endif

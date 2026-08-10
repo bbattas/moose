@@ -9,6 +9,7 @@
 
 #include "DiscreteNucleationMap.h"
 #include "MooseMesh.h"
+#include "Executioner.h"
 
 #include "libmesh/quadrature.h"
 
@@ -35,7 +36,7 @@ DiscreteNucleationMap::DiscreteNucleationMap(const InputParameters & parameters)
   : ElementUserObject(parameters),
     _mesh_changed(false),
     _inserter(getUserObject<DiscreteNucleationInserterBase>("inserter")),
-    _periodic(isCoupled("periodic") ? coupled("periodic") : -1),
+    _periodic_var(isCoupled("periodic") ? getFieldVar("periodic", 0) : nullptr),
     _int_width(getParam<Real>("int_width")),
     _nucleus_list(_inserter.getNucleusList())
 {
@@ -45,10 +46,20 @@ DiscreteNucleationMap::DiscreteNucleationMap(const InputParameters & parameters)
 void
 DiscreteNucleationMap::initialize()
 {
-  if (_inserter.isMapUpdateRequired() || _mesh_changed)
+  if (_inserter.isMapUpdateRequired() || _mesh_changed || _force_rebuild_map)
   {
-    _rebuild_map = true;
-    _nucleus_map.clear();
+    // If the last solve didn't converge, postpone the rebuild until the next timestep
+    if (_app.getExecutioner()->lastSolveConverged())
+    {
+      _rebuild_map = true;
+      _nucleus_map.clear();
+      _force_rebuild_map = false;
+    }
+    else
+    {
+      _rebuild_map = false;
+      _force_rebuild_map = true;
+    }
   }
   else
     _rebuild_map = false;
@@ -75,9 +86,9 @@ DiscreteNucleationMap::execute()
       for (unsigned i = 0; i < _nucleus_list.size(); ++i)
       {
         // use a non-periodic or periodic distance
-        r = _periodic < 0
-                ? (_q_point[qp] - _nucleus_list[i].center).norm()
-                : _mesh.minPeriodicDistance(_periodic, _q_point[qp], _nucleus_list[i].center);
+        r = _periodic_var
+                ? _mesh.minPeriodicDistance(*_periodic_var, _q_point[qp], _nucleus_list[i].center)
+                : (_q_point[qp] - _nucleus_list[i].center).norm();
 
         // grab the radius of the nucleus that this qp is closest to
         local_radius = _nucleus_list[i].radius;

@@ -64,7 +64,7 @@ public:
     {
       if (key_index == value_keys.size() - 1)
       {
-        value = current_node->get<T>();
+        value = current_node->template get<T>();
         break;
       }
       current_node = &(*current_node)[value_keys[key_index + 1]];
@@ -108,19 +108,19 @@ public:
       {
         if (!current_node->is_array())
           mooseError("Cannot retrieve a vector from JSON node",
-                     *current_node,
+                     nlohmann::to_string(*current_node),
                      "obtained with last key",
                      vector_keys[key_index]);
         vector_to_fill.clear();
         for (const auto & item : *current_node)
-          vector_to_fill.push_back(item.get<T>());
+          vector_to_fill.push_back(item.template get<T>());
         return;
       }
       if (current_node->is_array())
         mooseError("Cannot obtain nested JSON item with key",
                    vector_keys[key_index + 1],
                    "because the current item is an array:",
-                   *current_node);
+                   nlohmann::to_string(*current_node));
       current_node = &(*current_node)[vector_keys[key_index + 1]];
     }
   }

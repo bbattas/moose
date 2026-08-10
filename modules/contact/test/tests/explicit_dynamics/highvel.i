@@ -350,7 +350,7 @@
 []
 
 [Outputs]
-  interval = 2
+  time_step_interval = 2
   exodus = true
   csv = true
   execute_on = 'TIMESTEP_END'
@@ -370,6 +370,7 @@
   []
   [critical_time_step]
     type = CriticalTimeStep
+    density = density
   []
   [contact_pressure_max]
     type = NodalExtremeValue

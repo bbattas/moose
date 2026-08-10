@@ -12,6 +12,7 @@
 // MOOOSE includes
 #include "MaterialBase.h"
 #include "Coupleable.h"
+#include "MooseEnum.h"
 #include "MaterialPropertyInterface.h"
 #include "FEProblemBase.h"
 
@@ -206,12 +207,7 @@ public:
   }
   virtual void subdomainSetup() override;
 
-  enum class ConstantTypeEnum
-  {
-    NONE,
-    ELEMENT,
-    SUBDOMAIN
-  };
+  CreateMooseEnumClass(ConstantTypeEnum, NONE, ELEMENT, SUBDOMAIN);
 
   bool ghostable() const override final { return _ghostable; }
 
@@ -223,6 +219,7 @@ protected:
 
   virtual const MaterialData & materialData() const override { return _material_data; }
   virtual MaterialData & materialData() override { return _material_data; }
+  virtual Moose::MaterialDataType materialDataType() override { return _material_data_type; }
 
   virtual const QBase & qRule() const override { return *_qrule; }
 

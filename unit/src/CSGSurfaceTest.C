@@ -1,0 +1,483 @@
+//* This file is part of the MOOSE framework
+//* https://mooseframework.inl.gov
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#include "gtest/gtest.h"
+
+#include "CSGPlane.h"
+#include "CSGSphere.h"
+#include "CSGXCylinder.h"
+#include "CSGYCylinder.h"
+#include "CSGZCylinder.h"
+
+#include "MooseUnitUtils.h"
+
+namespace CSG
+{
+
+// helper function for creating axis aligned cylinders
+template <typename T>
+T
+makeCylinder()
+{
+  Real c0 = 1.0;
+  Real c1 = 2.0;
+  Real radius = 3.0;
+  T cylinder("cyl", c0, c1, radius);
+  return cylinder;
+}
+
+// helper function for checking axis aligned cylinders
+void
+checkCylinder(std::string axis,
+              std::unordered_map<std::string, Real> test_coeffs,
+              std::string test_type)
+{
+  Real c0 = 1.0;
+  Real c1 = 2.0;
+  Real radius = 3.0;
+
+  std::string k0, k1;
+  if (axis == "X")
+  {
+    k0 = "y0";
+    k1 = "z0";
+  }
+  else if (axis == "Y")
+  {
+    k0 = "x0";
+    k1 = "z0";
+  }
+  else if (axis == "Z")
+  {
+    k0 = "x0";
+    k1 = "y0";
+  }
+  std::unordered_map<std::string, Real> exp_coeffs = {{k0, c0}, {k1, c1}, {"r", radius}};
+  std::string exp_type = "CSG::CSG" + axis + "Cylinder";
+  ASSERT_TRUE(exp_coeffs == test_coeffs);
+  ASSERT_TRUE(exp_type == test_type);
+}
+
+/// Tests CSGPlane::CSGPlane constructors, from 3 points
+TEST(CSGSurfaceTest, testPlaneFromPoints)
+{
+  // expected coefficients: a=-1, b=0, c=0, d=2.0
+  std::unordered_map<std::string, Real> exp_coeffs = {
+      {"a", -1.0}, {"b", 0.0}, {"c", 0.0}, {"d", 2.0}};
+  // expected surface type string
+  std::string exp_type = "CSG::CSGPlane";
+
+  const std::array<Point, 3> points{Point(-2, 0, 0), Point(-2, 1, 0), Point(-2, 0, 1)};
+  CSGPlane plane("plane_surf", points[0], points[1], points[2]);
+  ASSERT_EQ(exp_coeffs, plane.getCoeffs());
+  ASSERT_EQ(exp_type, plane.getSurfaceType());
+}
+
+/// Tests CSGPlane::CSGPlane constructors, from coefficients
+TEST(CSGSurfaceTest, testPlaneFromCoeffs)
+{
+  // expected coefficients: a=-1, b=0, c=0, d=2.0
+  std::unordered_map<std::string, Real> exp_coeffs = {
+      {"a", -1.0}, {"b", 0.0}, {"c", 0.0}, {"d", 2.0}};
+  // expected surface type string
+  std::string exp_type = "CSG::CSGPlane";
+
+  // a=-1.0, b=0.0, c=0.0, d=2.0
+  CSGPlane plane("plane_surf", -1.0, 0.0, 0.0, 2.0);
+  ASSERT_EQ(exp_coeffs, plane.getCoeffs());
+  ASSERT_EQ(exp_type, plane.getSurfaceType());
+}
+
+/// Tests CSGPlane::CSGPlane, error if points are collinear
+TEST(CSGSurfaceTest, testPlaneCollinearPoints)
+{
+  // three collinear points, expect error from constructor check
+  const std::array<Point, 3> points{Point(0, 0, 0), Point(1, 0, 0), Point(2, 0, 0)};
+  Moose::UnitUtils::assertThrows([&points]()
+                                 { CSGPlane plane("plane_surf", points[0], points[1], points[2]); },
+                                 "Provided points to define a CSGPlane are collinear");
+}
+
+/// tests CSGPlane::evaluateSurfaceEquationAtPoint
+TEST(CSGSurfaceTest, testPlaneEvaluateEq)
+{
+  CSGPlane plane("plane_surf", 1.0, 0.0, 0.0, 2.0);
+  const Point p = Point(3.0, 0.0, 0.0);
+  ASSERT_FLOAT_EQ(1.0, plane.evaluateSurfaceEquationAtPoint(p));
+}
+
+/// Tests CSGSphere::CSGSphere constructor, at specified center point
+TEST(CSGSurfaceTest, testSphereAtPoint)
+{
+  // expected surface type string
+  std::string exp_type = "CSG::CSGSphere";
+  std::unordered_map<std::string, Real> exp_coeffs = {
+      {"x0", 1.0}, {"y0", 2.0}, {"z0", 3.0}, {"r", 4.0}};
+
+  // Construct sphere at specified center point
+  Point center = Point(1, 2, 3);
+  Real radius = 4.0;
+  CSGSphere sphere("sphere_surf", center, radius);
+
+  ASSERT_EQ(exp_coeffs, sphere.getCoeffs());
+  ASSERT_EQ(exp_type, sphere.getSurfaceType());
+}
+
+/// Tests CSGSphere::CSGSphere constructor, at origin
+TEST(CSGSurfaceTest, testphereAtOrigin)
+{
+  // expected surface type string
+  std::string exp_type = "CSG::CSGSphere";
+
+  // Construct sphere at origin
+  std::unordered_map<std::string, Real> exp_coeffs = {
+      {"x0", 0.0}, {"y0", 0.0}, {"z0", 0.0}, {"r", 4.0}};
+  Real radius = 4.0;
+  CSGSphere sphere("sphere_surf", radius);
+
+  ASSERT_EQ(exp_coeffs, sphere.getCoeffs());
+  ASSERT_EQ(exp_type, sphere.getSurfaceType());
+}
+
+/// Tests CSGSphere::evaluateSurfaceEquationAtPoint
+TEST(CSGSurfaceTest, testSphereEvaluateEq)
+{
+  Real radius = 4.0;
+  CSGSphere sphere("sphere_surf", radius);
+  const Point p = Point(2.0, 0.0, 0.0);
+  ASSERT_FLOAT_EQ(-12.0, sphere.evaluateSurfaceEquationAtPoint(p));
+}
+
+/// Tests error is raised during construction for negative radius
+TEST(CSGSurfaceTest, testSphereNegativeRadius)
+{
+  Real radius = -1.0;
+  Moose::UnitUtils::assertThrows([&radius]() { CSGSphere sphere("sphere_surf", radius); },
+                                 "Radius of sphere must be positive.");
+}
+
+/// tests CSGXCylinder constructor and attributes
+TEST(CSGSurfaceTest, testXCylinder)
+{
+  CSGXCylinder cyl = makeCylinder<CSGXCylinder>();
+  checkCylinder("X", cyl.getCoeffs(), cyl.getSurfaceType());
+}
+
+/// tests CSGYCylinder constructor and attributes
+TEST(CSGSurfaceTest, testYCylinder)
+{
+  CSGYCylinder cyl = makeCylinder<CSGYCylinder>();
+  checkCylinder("Y", cyl.getCoeffs(), cyl.getSurfaceType());
+}
+
+/// tests CSGZCylinder constructor and attributes
+TEST(CSGSurfaceTest, testZCylinder)
+{
+  CSGZCylinder cyl = makeCylinder<CSGZCylinder>();
+  checkCylinder("Z", cyl.getCoeffs(), cyl.getSurfaceType());
+}
+
+/// Expect error if cylinders are constructed with a negative radius
+TEST(CSGSurfaceTest, testCylNegativeRadius)
+{
+  Real neg_r = -1.0;
+  // XCylinder
+  {
+    Moose::UnitUtils::assertThrows([&neg_r]() { CSGXCylinder xcyl("cyl", 0, 0, neg_r); },
+                                   "Radius of x-cylinder must be positive.");
+  }
+  // YCylinder
+  {
+    Moose::UnitUtils::assertThrows([&neg_r]() { CSGYCylinder ycyl("cyl", 0, 0, neg_r); },
+                                   "Radius of y-cylinder must be positive.");
+  }
+  // ZCylinder
+  {
+    Moose::UnitUtils::assertThrows([&neg_r]() { CSGZCylinder zcyl("cyl", 0, 0, neg_r); },
+                                   "Radius of z-cylinder must be positive.");
+  }
+}
+
+// tests CSG[X/Y/Z]Cylinder::evaluateSurfaceEquationAtPoint
+TEST(CSGSurfaceTest, testCylEvaluateEq)
+{
+  Real exp_val = -4.0;
+  const Point p = Point(0.0, 0.0, 0.0);
+  // XCylinder
+  {
+    CSGXCylinder cyl = makeCylinder<CSGXCylinder>();
+    ASSERT_FLOAT_EQ(exp_val, cyl.evaluateSurfaceEquationAtPoint(p));
+  }
+  // YCylinder
+  {
+    CSGYCylinder cyl = makeCylinder<CSGYCylinder>();
+    ASSERT_FLOAT_EQ(exp_val, cyl.evaluateSurfaceEquationAtPoint(p));
+  }
+  // ZCylinder
+  {
+    CSGZCylinder cyl = makeCylinder<CSGZCylinder>();
+    ASSERT_FLOAT_EQ(exp_val, cyl.evaluateSurfaceEquationAtPoint(p));
+  }
+}
+
+/// Tests CSGSurface::getHalfspaceFromPoint
+TEST(CSGSurfaceTest, testGetHalfspaceFromPoint)
+{
+  // Surface in the +x direction
+  const std::array<Point, 3> points{Point(1, 0, 0), Point(1, 1, 0), Point(1, 0, 1)};
+  CSGPlane plane("plus_x", points[0], points[1], points[2]);
+
+  // Centroid of the points
+  Point centroid;
+  for (const auto & point : points)
+    centroid += point;
+  centroid /= 3;
+
+  // Positive halfspace
+  {
+    const auto point = centroid + Point(-1, 0, 0);
+    ASSERT_EQ(CSGSurface::Halfspace::POSITIVE, plane.getHalfspaceFromPoint(point));
+  }
+  // Negative halfspace
+  {
+    const auto point = centroid + Point(1, 0, 0);
+    ASSERT_EQ(CSGSurface::Halfspace::NEGATIVE, plane.getHalfspaceFromPoint(point));
+  }
+  // Lies on the plane; error
+  {
+    Moose::UnitUtils::assertThrows([&centroid, &plane]() { plane.getHalfspaceFromPoint(centroid); },
+                                   "ambiguously defined halfspace");
+  }
+}
+
+/// tests that a point is properly transformed for proper half-space determination
+TEST(CSGSurfaceTest, testHalfspaceWithTransform)
+{
+  // define a circle with r=1 and "apply" each transformation to it such that the point's half-space
+  // will change if transformed
+  CSGSphere sph1("sp", 1.0);
+  Point p(1.5, 0, 0);
+
+  // check scaling: if a factor of 2 is applied to the sphere, the point (1.5, 0, 0) should be
+  // considered in the positive (outside) half-space prior to scaling but in the negative (inside)
+  // half-space after scaling
+  {
+    // pre-transformation - outside (positive)
+    ASSERT_EQ(CSGSurface::Halfspace::POSITIVE, sph1.getHalfspaceFromPoint(p));
+    // apply scale = 2 transform
+    std::tuple<Real, Real, Real> trans = {2.0, 2.0, 2.0};
+    sph1.addTransformation(TransformationType::SCALE, trans);
+    // post-transformation - inside (negative)
+    ASSERT_EQ(CSGSurface::Halfspace::NEGATIVE, sph1.getHalfspaceFromPoint(p));
+  }
+
+  // remake sphere located at (1, 0, 0) to test just rotation handling
+  CSGSphere sph2("sp", Point(1, 0, 0), 1.0);
+  // check rotation: if rotation 90 degrees around z-axis is applied, the point (1.5, 0, 0) should
+  // be considered inside the sphere (negative half-space) prior to rotation, and outside (positive)
+  // after rotation.
+  {
+    // pre-transformation - inside (negative)
+    ASSERT_EQ(CSGSurface::Halfspace::NEGATIVE, sph2.getHalfspaceFromPoint(p));
+    // apply rotation of 90 degrees around z-axis
+    std::tuple<Real, Real, Real> trans = {0.0, 0.0, 90};
+    sph2.addTransformation(TransformationType::ROTATION, trans);
+    // post-transformation - outside (positive)
+    ASSERT_EQ(CSGSurface::Halfspace::POSITIVE, sph2.getHalfspaceFromPoint(p));
+  }
+
+  // remake sphere at origin so no transformations are applied
+  CSGSphere sph3("sp", 1.0);
+  // check translation: if a translation of x=1 is applied, the point (1.5, 0, 0) should be
+  // considered in the positive (outside) half-space prior to translation but in the negative
+  // (inside) half-space after translation
+  {
+    // pre-transformation - outside (positive)
+    ASSERT_EQ(CSGSurface::Halfspace::POSITIVE, sph3.getHalfspaceFromPoint(p));
+    // apply translation x=1
+    std::tuple<Real, Real, Real> trans = {1.0, 0.0, 0.0};
+    sph3.addTransformation(TransformationType::TRANSLATION, trans);
+    // post-transformation - inside (negative)
+    ASSERT_EQ(CSGSurface::Halfspace::NEGATIVE, sph3.getHalfspaceFromPoint(p));
+  }
+
+  // order of operations: if a rotation of 90 degrees around the z-axis is applied to the translated
+  // sph3 above, the order of operations on the point should determine that the point (1.5, 0, 0) is
+  // outside after performing these two transformations. If the transformations were to be
+  // considered in the wrong order during the half-space determination, the point would be
+  // incorrectly determined to be located inside the sphere.
+  {
+    // apply rotation 90 degrees around z-axis
+    std::tuple<Real, Real, Real> trans = {0.0, 0.0, 90};
+    sph3.addTransformation(TransformationType::ROTATION, trans);
+    // a sphere with the translation and then the rotation applied should have the point (1.5, 0, 0)
+    // be considered in the positive half-space (outside)
+    ASSERT_EQ(CSGSurface::Halfspace::POSITIVE, sph3.getHalfspaceFromPoint(p));
+  }
+}
+
+/// tests that a point is properly handled if transformations do not alter surface
+/// (scale = 1, translate=0, rotation=0 or 360)
+TEST(CSGSurfaceTest, testHalfspaceWithNullTransform)
+{
+  // define a circle with r=1 and "apply" each transformation to it such that the point's half-space
+  // will change if transformed
+  CSGSphere sph1("sp", 1.0);
+  Point p(1.5, 0, 0);
+
+  // check scaling = 1
+  {
+    // pre-transformation - outside (positive)
+    ASSERT_EQ(CSGSurface::Halfspace::POSITIVE, sph1.getHalfspaceFromPoint(p));
+    // apply scale = 1 transform
+    std::tuple<Real, Real, Real> trans = {1.0, 1.0, 1.0};
+    sph1.addTransformation(TransformationType::SCALE, trans);
+    // post-transformation - still outside (positive)
+    ASSERT_EQ(CSGSurface::Halfspace::POSITIVE, sph1.getHalfspaceFromPoint(p));
+  }
+
+  // remake sphere located at (1, 0, 0) to test just rotation handling
+  CSGSphere sph2("sp", Point(1, 0, 0), 1.0);
+  // check rotation: if rotation 360 degrees around z-axis is applied, the point (1.5, 0, 0) should
+  // be considered still inside after the complete rotation
+  {
+    // pre-transformation - inside (negative)
+    ASSERT_EQ(CSGSurface::Halfspace::NEGATIVE, sph2.getHalfspaceFromPoint(p));
+    // apply rotation of 360 degrees around z-axis
+    std::tuple<Real, Real, Real> trans = {0.0, 0.0, 360};
+    sph2.addTransformation(TransformationType::ROTATION, trans);
+    // post-transformation - still inside (negative)
+    ASSERT_EQ(CSGSurface::Halfspace::NEGATIVE, sph2.getHalfspaceFromPoint(p));
+  }
+
+  // remake sphere at origin so no transformations are applied
+  CSGSphere sph3("sp", 1.0);
+  // check translation: if a translation of x=y=z=0 is applied, the point (1.5, 0, 0) should be
+  // considered in the positive (outside) half-space before and after translation
+  {
+    // pre-transformation - outside (positive)
+    ASSERT_EQ(CSGSurface::Halfspace::POSITIVE, sph3.getHalfspaceFromPoint(p));
+    // apply translation x=1
+    std::tuple<Real, Real, Real> trans = {0.0, 0.0, 0.0};
+    sph3.addTransformation(TransformationType::TRANSLATION, trans);
+    // post-transformation - still outside (positive)
+    ASSERT_EQ(CSGSurface::Halfspace::POSITIVE, sph3.getHalfspaceFromPoint(p));
+  }
+}
+
+/// tests surface equality operators
+TEST(CSGSurfaceTest, testSurfaceEquality)
+{
+  // make two identical surfaces and check they register as equal
+  Real radius = 1.0;
+  CSGSphere sphere1("sphere_surf", radius);
+  CSGSphere sphere2("sphere_surf", radius);
+  ASSERT_TRUE(sphere1 == sphere2);
+
+  // make spheres that differ from sphere1 by one characteristic and check
+  // that each registers as not equal to sphere1
+  std::array<CSGSphere, 4> sphs{CSGSphere("new_name", radius),
+                                CSGSphere("sphere_surf", 2.0),
+                                CSGSphere("sphere_surf", Point(1, 2, 3), radius),
+                                CSGSphere("sphere_surf", radius)};
+  // add transformation to last sphere to differ by transformations as well
+  CSGSphere & sphere3 = sphs[3];
+  sphere3.addTransformation(TransformationType::TRANSLATION, {1.0, 0.0, 0.0});
+  for (auto surf : sphs)
+  {
+    ASSERT_TRUE(sphere1 != surf);
+  }
+}
+
+/// test CSGSurface::getName
+TEST(CSGSurfaceTest, testGetName)
+{
+  std::string name = "sph_surf_name";
+  CSGSphere sph(name, 1.0);
+  ASSERT_EQ(name, sph.getName());
+}
+
+/// test CSGSurface::setName
+TEST(CSGSurfaceTest, testSetName)
+{
+  CSGSphere sph("first_name", 1.0);
+  sph.setName("new_name");
+  ASSERT_EQ("new_name", sph.getName());
+}
+
+/// tests CSGUtils::checkValidCSGName
+TEST(CSGSurfaceTest, testValidSurfaceName)
+{
+  // Define 6 surface names that are invalid
+  std::string invalid_name1 = "surf ";
+  std::string invalid_name2 = "-surf";
+  std::string invalid_name3 = "s+urf";
+  std::string invalid_name4 = "su~rf";
+  std::string invalid_name5 = "sur&f";
+  std::string invalid_name6 = "surf|";
+  Real r = 1.0;
+
+  // error should be raised when creating surfaces with invalid characters in the name
+  {
+    Moose::UnitUtils::assertThrows(
+        [&invalid_name1, &r]()
+        {
+          std::unique_ptr<CSG::CSGSphere> surf_ptr =
+              std::make_unique<CSG::CSGSphere>(invalid_name1, r);
+        },
+        "Detected whitespace in CSG component");
+  }
+  {
+    Moose::UnitUtils::assertThrows(
+        [&invalid_name2, &r]()
+        {
+          std::unique_ptr<CSG::CSGSphere> surf_ptr =
+              std::make_unique<CSG::CSGSphere>(invalid_name2, r);
+        },
+        "Invalid symbol in CSG component");
+  }
+  {
+    Moose::UnitUtils::assertThrows(
+        [&invalid_name3, &r]()
+        {
+          std::unique_ptr<CSG::CSGSphere> surf_ptr =
+              std::make_unique<CSG::CSGSphere>(invalid_name3, r);
+        },
+        "Invalid symbol in CSG component");
+  }
+  {
+    Moose::UnitUtils::assertThrows(
+        [&invalid_name4, &r]()
+        {
+          std::unique_ptr<CSG::CSGSphere> surf_ptr =
+              std::make_unique<CSG::CSGSphere>(invalid_name4, r);
+        },
+        "Invalid symbol in CSG component");
+  }
+  {
+    Moose::UnitUtils::assertThrows(
+        [&invalid_name5, &r]()
+        {
+          std::unique_ptr<CSG::CSGSphere> surf_ptr =
+              std::make_unique<CSG::CSGSphere>(invalid_name5, r);
+        },
+        "Invalid symbol in CSG component");
+  }
+  {
+    Moose::UnitUtils::assertThrows(
+        [&invalid_name6, &r]()
+        {
+          std::unique_ptr<CSG::CSGSphere> surf_ptr =
+              std::make_unique<CSG::CSGSphere>(invalid_name6, r);
+        },
+        "Invalid symbol in CSG component");
+  }
+}
+
+} // namespace CSG

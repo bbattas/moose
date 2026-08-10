@@ -2,24 +2,20 @@
 
 !if! function=hasCapability('mfem')
 
-## Summary
-
-!syntax description /Solver/MFEMCGSolver
-
 ## Overview
 
 Defines and builds an `mfem::CGSolver` solver to use as an iterative solver to solve the MFEM
 equation system. Compatible with use on partially assembled equation systems.
 
-A Low-Order-Refined (LOR) version of this solver may be used instead by setting the parameter 
-[!param](/Solver/MFEMCGSolver/low_order_refined) to `true`. Using an LOR solver improves performance for high polynomial 
+A Low-Order-Refined (LOR) version of this solver may be used instead by setting the parameter
+[!param](/Solvers/MFEMCGSolver/low_order_refined) to `true`. Using an LOR solver improves performance for high polynomial
 order systems.
 
-!syntax parameters /Solver/MFEMCGSolver
+!syntax parameters /Solvers/MFEMCGSolver
 
-!syntax inputs /Solver/MFEMCGSolver
+!syntax inputs /Solvers/MFEMCGSolver
 
-!syntax children /Solver/MFEMCGSolver
+!syntax children /Solvers/MFEMCGSolver
 
 !if-end!
 

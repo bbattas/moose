@@ -31,13 +31,9 @@ WCNSFVScalarTransportPhysicsBase::validParams()
 
   // These parameters are not shared because the NSFVPhysics use functors
   params.addParam<std::vector<std::vector<MooseFunctorName>>>(
-      "passive_scalar_inlet_function",
+      "passive_scalar_inlet_functors",
       std::vector<std::vector<MooseFunctorName>>(),
       "Functors for inlet boundaries in the passive scalar equations.");
-
-  // New functor boundary conditions
-  params.deprecateParam(
-      "passive_scalar_inlet_function", "passive_scalar_inlet_functors", "01/01/2025");
 
   // No need for the duplication
   params.addParam<std::vector<MooseFunctorName>>("passive_scalar_source", "Passive scalar sources");
@@ -108,6 +104,23 @@ WCNSFVScalarTransportPhysicsBase::WCNSFVScalarTransportPhysicsBase(
   if (_passive_scalar_sources_coef.size())
     checkTwoDVectorParamsSameLength<MooseFunctorName, Real>("passive_scalar_coupled_source",
                                                             "passive_scalar_coupled_source_coeff");
+
+  addRequiredPhysicsTask("get_turbulence_physics");
+  addRequiredPhysicsTask("add_variables_physics");
+  addRequiredPhysicsTask("add_ics_physics");
+  addRequiredPhysicsTask("add_fv_kernel");
+  addRequiredPhysicsTask("add_fv_bc");
+}
+
+void
+WCNSFVScalarTransportPhysicsBase::actOnAdditionalTasks()
+{
+  // Turbulence physics would not be initialized before this task
+  if (_current_task == "get_turbulence_physics")
+  {
+    _turbulence_physics = getCoupledTurbulencePhysics();
+    _has_turbulence_model = _turbulence_physics ? _turbulence_physics->hasTurbulenceModel() : false;
+  }
 }
 
 void

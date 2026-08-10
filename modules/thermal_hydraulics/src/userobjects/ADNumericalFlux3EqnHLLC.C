@@ -51,6 +51,7 @@ ADNumericalFlux3EqnHLLC::calcFlux(const std::vector<ADReal> & UL,
                                   std::vector<ADReal> & FR) const
 {
   // extract the conserved variables and area
+  using std::sqrt, std::min, std::max;
 
   const ADReal rhoAL = UL[THMVACE3D::RHOA];
   const ADReal rhouAL = UL[THMVACE3D::RHOUA];
@@ -65,6 +66,14 @@ ADNumericalFlux3EqnHLLC::calcFlux(const std::vector<ADReal> & UL,
   const ADReal rhowAR = UR[THMVACE3D::RHOWA];
   const ADReal rhoEAR = UR[THMVACE3D::RHOEA];
   const ADReal AR = UR[THMVACE3D::AREA];
+
+  const auto n_passives = UL.size() - THMVACE3D::N_FLUX_INPUTS;
+  std::vector<ADReal> passivesL(n_passives, 0.0), passivesR(n_passives, 0.0);
+  for (const auto i : make_range(n_passives))
+  {
+    passivesL[i] = UL[THMVACE3D::N_FLUX_INPUTS + i] / AL;
+    passivesR[i] = UR[THMVACE3D::N_FLUX_INPUTS + i] / AR;
+  }
 
   // compute the primitive variables
 
@@ -97,8 +106,8 @@ ADNumericalFlux3EqnHLLC::calcFlux(const std::vector<ADReal> & UL,
   if (_wave_speed_formulation == WaveSpeedFormulation::EINFELDT)
   {
     // compute Roe-averaged variables
-    const ADReal sqrt_rhoL = std::sqrt(rhoL);
-    const ADReal sqrt_rhoR = std::sqrt(rhoR);
+    const ADReal sqrt_rhoL = sqrt(rhoL);
+    const ADReal sqrt_rhoR = sqrt(rhoR);
     const ADReal un_roe = (sqrt_rhoL * unL + sqrt_rhoR * unR) / (sqrt_rhoL + sqrt_rhoR);
     const ADReal ut1_roe = (sqrt_rhoL * ut1L + sqrt_rhoR * ut1R) / (sqrt_rhoL + sqrt_rhoR);
     const ADReal ut2_roe = (sqrt_rhoL * ut2L + sqrt_rhoR * ut2R) / (sqrt_rhoL + sqrt_rhoR);
@@ -107,18 +116,18 @@ ADNumericalFlux3EqnHLLC::calcFlux(const std::vector<ADReal> & UL,
     const ADReal H_roe = (sqrt_rhoL * HL + sqrt_rhoR * HR) / (sqrt_rhoL + sqrt_rhoR);
     const ADRealVectorValue uvec_roe(un_roe, ut1_roe, ut2_roe);
     const ADReal h_roe = H_roe - 0.5 * uvec_roe * uvec_roe;
-    const ADReal rho_roe = std::sqrt(rhoL * rhoR);
+    const ADReal rho_roe = sqrt(rhoL * rhoR);
     const ADReal v_roe = 1.0 / rho_roe;
     const ADReal e_roe = _fp.e_from_v_h(v_roe, h_roe);
     const ADReal c_roe = _fp.c_from_v_e(v_roe, e_roe);
 
-    sL = std::min(unL - cL, un_roe - c_roe);
-    sR = std::max(unR + cR, un_roe + c_roe);
+    sL = min(unL - cL, un_roe - c_roe);
+    sR = max(unR + cR, un_roe + c_roe);
   }
   else if (_wave_speed_formulation == WaveSpeedFormulation::DAVIS)
   {
-    sL = std::min(unL - cL, unR - cR);
-    sR = std::max(unL + cL, unR + cR);
+    sL = min(unL - cL, unR - cR);
+    sR = max(unL + cL, unR + cR);
   }
   else
   {
@@ -161,7 +170,7 @@ ADNumericalFlux3EqnHLLC::calcFlux(const std::vector<ADReal> & UL,
   const ADReal A_flow = computeFlowArea(UL_1d, UR_1d);
 
   // compute the fluxes
-  FL.resize(THMVACE3D::N_FLUX_OUTPUTS);
+  FL.resize(THMVACE3D::N_FLUX_OUTPUTS + n_passives);
   if (sL > 0.0)
   {
     FL[THMVACE3D::MASS] = unL * rhoL * A_flow;
@@ -169,6 +178,8 @@ ADNumericalFlux3EqnHLLC::calcFlux(const std::vector<ADReal> & UL,
     FL[THMVACE3D::MOM_TAN1] = rhoL * unL * ut1L * A_flow;
     FL[THMVACE3D::MOM_TAN2] = rhoL * unL * ut2L * A_flow;
     FL[THMVACE3D::ENERGY] = unL * (rhoEL + pL) * A_flow;
+    for (const auto i : make_range(n_passives))
+      FL[THMVACE3D::N_FLUX_OUTPUTS + i] = passivesL[i] * unL * A_flow;
 
     _last_region_index = 0;
   }
@@ -179,6 +190,11 @@ ADNumericalFlux3EqnHLLC::calcFlux(const std::vector<ADReal> & UL,
     FL[THMVACE3D::MOM_TAN1] = rhounLs * ut1L * A_flow;
     FL[THMVACE3D::MOM_TAN2] = rhounLs * ut2L * A_flow;
     FL[THMVACE3D::ENERGY] = sm * (rhoELs + ps) * A_flow;
+    for (const auto i : make_range(n_passives))
+    {
+      const auto passiveLs = omegL * (sL - unL) * passivesL[i];
+      FL[THMVACE3D::N_FLUX_OUTPUTS + i] = passiveLs * sm * A_flow;
+    }
 
     _last_region_index = 1;
   }
@@ -189,6 +205,11 @@ ADNumericalFlux3EqnHLLC::calcFlux(const std::vector<ADReal> & UL,
     FL[THMVACE3D::MOM_TAN1] = rhounRs * ut1R * A_flow;
     FL[THMVACE3D::MOM_TAN2] = rhounRs * ut2R * A_flow;
     FL[THMVACE3D::ENERGY] = sm * (rhoERs + ps) * A_flow;
+    for (const auto i : make_range(n_passives))
+    {
+      const auto passiveRs = omegR * (sR - unR) * passivesR[i];
+      FL[THMVACE3D::N_FLUX_OUTPUTS + i] = passiveRs * sm * A_flow;
+    }
 
     _last_region_index = 2;
   }
@@ -199,6 +220,8 @@ ADNumericalFlux3EqnHLLC::calcFlux(const std::vector<ADReal> & UL,
     FL[THMVACE3D::MOM_TAN1] = rhoR * unR * ut1R * A_flow;
     FL[THMVACE3D::MOM_TAN2] = rhoR * unR * ut2R * A_flow;
     FL[THMVACE3D::ENERGY] = unR * (rhoER + pR) * A_flow;
+    for (const auto i : make_range(n_passives))
+      FL[THMVACE3D::N_FLUX_OUTPUTS + i] = passivesR[i] * unR * A_flow;
 
     _last_region_index = 3;
   }

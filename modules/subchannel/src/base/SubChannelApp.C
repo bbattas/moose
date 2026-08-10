@@ -16,23 +16,6 @@
 #include "MooseSyntax.h"
 #include "SubChannelSyntax.h"
 
-const std::string SubChannelApp::MASS_FLOW_RATE = "mdot";
-const std::string SubChannelApp::SURFACE_AREA = "S";
-const std::string SubChannelApp::SUM_CROSSFLOW = "SumWij";
-const std::string SubChannelApp::PRESSURE = "P";
-const std::string SubChannelApp::PRESSURE_DROP = "DP";
-const std::string SubChannelApp::ENTHALPY = "h";
-const std::string SubChannelApp::TEMPERATURE = "T";
-const std::string SubChannelApp::PIN_TEMPERATURE = "Tpin";
-const std::string SubChannelApp::PIN_DIAMETER = "Dpin";
-const std::string SubChannelApp::DENSITY = "rho";
-const std::string SubChannelApp::VISCOSITY = "mu";
-const std::string SubChannelApp::WETTED_PERIMETER = "w_perim";
-const std::string SubChannelApp::LINEAR_HEAT_RATE = "q_prime";
-const std::string SubChannelApp::DUCT_LINEAR_HEAT_RATE = "q_prime_duct";
-const std::string SubChannelApp::DUCT_TEMPERATURE = "Tduct";
-const std::string SubChannelApp::DISPLACEMENT = "displacement";
-
 InputParameters
 SubChannelApp::validParams()
 {
@@ -54,8 +37,38 @@ SubChannelApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
   Registry::registerObjectsTo(f, {"SubChannelApp"});
   Registry::registerActionsTo(af, {"SubChannelApp"});
 
+  // Cited by --citations whenever any SubChannel object is used in a simulation
+  Registry::addAppCitation("SubChannelApp",
+                           "kyriakopoulos2022development",
+                           R"(@article{kyriakopoulos2022development,
+  title={Development of a Single-Phase, Transient, Subchannel Code, within the MOOSE Multi-Physics Computational Framework},
+  author={Kyriakopoulos, Vasileios and Tano, Mauricio E and Ragusa, Jean C},
+  journal={Energies},
+  volume={15},
+  number={11},
+  pages={3948},
+  year={2022},
+  publisher={MDPI}
+})");
+  Registry::addAppCitation("SubChannelApp",
+                           "kyriakopoulos2026numerical",
+                           R"(@article{kyriakopoulos2026numerical,
+  title={Numerical implementation of the MOOSE subchannel module (SCM) algorithm},
+  author={Kyriakopoulos, Vasileios and Tano, Mauricio},
+  journal={Nuclear Engineering and Design},
+  volume={450},
+  pages={114802},
+  year={2026},
+  publisher={Elsevier}
+})");
+
   /* register custom execute flags, action syntax, etc. here */
-  SubChannel::associateSyntax(s, af);
+  SCM::associateSyntax(s, af);
+
+  // Register new syntax for SCMClosures
+  auto & syntax = s;
+  registerSyntaxTask("AddSCMClosureAction", "SCMClosures/*", "add_scm_closure");
+  registerMooseObjectTask("add_scm_closure", SCMClosureBase, /*default task*/ false);
 
   FluidPropertiesApp::registerAll(f, af, s);
   HeatTransferApp::registerAll(f, af, s);

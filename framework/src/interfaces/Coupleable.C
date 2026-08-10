@@ -23,11 +23,12 @@
 #include "NodalUserObject.h"
 #include "NodeFaceConstraint.h"
 #include "NodeElemConstraintBase.h"
+#include "Material.h"
 
 Coupleable::Coupleable(const MooseObject * moose_object, bool nodal, bool is_fv)
   : _c_parameters(moose_object->parameters()),
-    _c_name(_c_parameters.get<std::string>("_object_name")),
-    _c_type(_c_parameters.get<std::string>("_type")),
+    _c_name(moose_object->name()),
+    _c_type(moose_object->type()),
     _c_fe_problem(*_c_parameters.getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
     _c_sys(_c_parameters.isParamValid("_sys") ? _c_parameters.get<SystemBase *>("_sys") : nullptr),
     _new_to_deprecated_coupled_vars(_c_parameters.getNewToDeprecatedVarMap()),
@@ -90,17 +91,9 @@ Coupleable::Coupleable(const MooseObject * moose_object, bool nodal, bool is_fv)
           else if (auto * tmp_var = dynamic_cast<ArrayMooseVariable *>(moose_var))
             _coupled_array_moose_vars.push_back(tmp_var);
           else if (auto * tmp_var = dynamic_cast<MooseVariableFV<Real> *>(moose_var))
-          {
-            // We are using a finite volume variable through add*CoupledVar as opposed to getFunctor
-            // so we can be reasonably confident that the variable values will be obtained using
-            // traditional pre-evaluation and quadrature point indexing
-            tmp_var->requireQpComputations();
-            _coupled_standard_fv_moose_vars.push_back(tmp_var);
-          }
+            _coupled_fv_moose_vars.push_back(tmp_var);
           else if (auto * tmp_var = dynamic_cast<MooseLinearVariableFV<Real> *>(moose_var))
-          {
-            _coupled_standard_linear_fv_moose_vars.push_back(tmp_var);
-          }
+            _coupled_fv_moose_vars.push_back(tmp_var);
           else
             _obj->paramError(name, "provided c++ type for variable parameter is not supported");
         }
@@ -125,6 +118,38 @@ Coupleable::Coupleable(const MooseObject * moose_object, bool nodal, bool is_fv)
   }
 }
 
+#ifdef MOOSE_KOKKOS_ENABLED
+Coupleable::Coupleable(const Coupleable & object, const Moose::Kokkos::FunctorCopy &)
+  : _c_parameters(object._c_parameters),
+    _c_name(object._c_name),
+    _c_type(object._c_type),
+    _c_fe_problem(object._c_fe_problem),
+    _c_sys(object._c_sys),
+    _new_to_deprecated_coupled_vars(object._new_to_deprecated_coupled_vars),
+    _c_nodal(object._c_nodal),
+    _c_is_implicit(object._c_is_implicit),
+    _c_allow_element_to_nodal_coupling(object._c_allow_element_to_nodal_coupling),
+    _c_tid(object._c_tid),
+    _zero(object._zero),
+    _phi_zero(object._phi_zero),
+    _ad_zero(object._ad_zero),
+    _grad_zero(object._grad_zero),
+    _ad_grad_zero(object._ad_grad_zero),
+    _grad_phi_zero(object._grad_phi_zero),
+    _second_zero(object._second_zero),
+    _ad_second_zero(object._ad_second_zero),
+    _second_phi_zero(object._second_phi_zero),
+    _vector_zero(object._vector_zero),
+    _vector_curl_zero(object._vector_curl_zero),
+    _coupleable_neighbor(object._coupleable_neighbor),
+    _coupleable_max_qps(object._coupleable_max_qps),
+    _is_fv(object._is_fv),
+    _obj(object._obj),
+    _writable_coupled_variables(object._writable_coupled_variables)
+{
+}
+#endif
+
 bool
 Coupleable::isCoupled(const std::string & var_name_in, unsigned int i) const
 {
@@ -136,7 +161,7 @@ Coupleable::isCoupled(const std::string & var_name_in, unsigned int i) const
   else
   {
     // Make sure the user originally requested this value in the InputParameter syntax
-    if (!_c_parameters.hasCoupledValue(var_name))
+    if (!_c_parameters.hasCoupledVar(var_name))
       mooseError(_c_name,
                  ": The coupled variable \"",
                  var_name,
@@ -282,6 +307,12 @@ const MooseVariableFieldBase *
 Coupleable::getFieldVar(const std::string & var_name, unsigned int comp) const
 {
   return getVarHelper<MooseVariableFieldBase>(var_name, comp);
+}
+
+std::vector<const MooseVariableFieldBase *>
+Coupleable::getFieldVars(const std::string & var_name) const
+{
+  return getVarsHelper<MooseVariableFieldBase>(var_name);
 }
 
 MooseVariable *
@@ -884,10 +915,11 @@ Coupleable::writableVariable(const std::string & var_name, unsigned int comp)
   const auto * nuo = dynamic_cast<const NodalUserObject *>(this);
   const auto * nfc = dynamic_cast<const NodeFaceConstraint *>(this);
   const auto * nec = dynamic_cast<const NodeElemConstraintBase *>(this);
+  const auto * mat = dynamic_cast<const Material *>(this);
 
-  if (!aux && !euo && !nuo && !nfc && !nec)
+  if (!aux && !euo && !nuo && !nfc && !nec && !mat)
     mooseError("writableVariable() can only be called from AuxKernels, ElementUserObjects, "
-               "NodalUserObjects, NodeFaceConstraints, or NodeElemConstraints. '",
+               "NodalUserObjects, NodeFaceConstraints, NodeElemConstraints or Materials. '",
                _obj->name(),
                "' is none of those.");
 
@@ -954,6 +986,7 @@ Coupleable::checkWritableVar(MooseWritableVariable * var)
   // check domain restrictions for compatibility
   const auto * br = dynamic_cast<const BlockRestrictable *>(this);
   const auto * nfc = dynamic_cast<const NodeFaceConstraint *>(this);
+  const auto * mat = dynamic_cast<const Material *>(this);
 
   if (br && !var->hasBlocks(br->blockIDs()))
     mooseError("The variable '",
@@ -980,6 +1013,9 @@ Coupleable::checkWritableVar(MooseWritableVariable * var)
           !MooseUtils::setsIntersect(br->blockIDs(), br_other->blockIDs()))
         continue;
       else if (nfc)
+        continue;
+      // three materials per material declared
+      else if (mat)
         continue;
 
       mooseError("'",
@@ -2040,6 +2076,7 @@ std::vector<const VariableValue *>
 Coupleable::coupledAllDofValues(const std::string & var_name) const
 {
   auto func = [this, &var_name](unsigned int comp) { return &coupledDofValues(var_name, comp); };
+  checkFuncType(var_name, VarType::Ignore, FuncAge::Curr);
   return coupledVectorHelper<const VariableValue *>(var_name, func);
 }
 

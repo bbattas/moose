@@ -7,56 +7,58 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
-#include "MFEMGeneralUserObject.h"
-#include "libmesh/ignore_warnings.h"
-#include <mfem.hpp>
-#include "libmesh/restore_warnings.h"
-#include <memory>
 
+#include "MFEMObject.h"
+
+namespace Moose::MFEM
+{
 /**
  * Base class for wrapping mfem::Solver-derived classes.
  */
-class MFEMSolverBase : public MFEMGeneralUserObject
+class SolverBase : public MFEMObject
 {
 public:
   static InputParameters validParams();
 
-  MFEMSolverBase(const InputParameters & parameters);
-
-  /// Retrieves the preconditioner userobject if present, sets the member pointer to
-  /// said object if still unset, and sets the solver to use this preconditioner.
-  template <typename T>
-  void setPreconditioner(T & solver);
+  SolverBase(const InputParameters & parameters);
 
   /// Returns the wrapped MFEM solver
-  mfem::Solver & getSolver();
+  mfem::Solver & GetSolver();
 
-  /// Updates the solver with the given bilinear form and essential dof list, in case an LOR or algebraic solver is needed.
-  virtual void updateSolver(mfem::ParBilinearForm & a, mfem::Array<int> & tdofs) = 0;
+  /// Set the wrapped MFEM solver
+  void SetSolver(mfem::Solver * solver) { _solver.reset(solver); }
 
-  /// Returns whether or not this solver (or its preconditioner) uses LOR
-  bool isLOR() const { return _lor || (_preconditioner && _preconditioner->isLOR()); }
+  /// Override in derived classes to construct and set the solver options.
+  virtual void ConstructSolver() = 0;
+
+  /// Updates the solver and any associated weak form context at the operator level
+  void SetOperator(mfem::Operator & op);
+
+  /// Solve the operator for the provided right-hand side and solution vector.
+  void Mult(const mfem::Vector & rhs, mfem::Vector & x) { GetSolver().Mult(rhs, x); }
 
 protected:
-  /// Override in derived classes to construct and set the solver options.
-  virtual void constructSolver(const InputParameters & parameters) = 0;
+  /// Update the solver following any changes to the weak form it is responsible for solving.
+  /// Default no-op.
+  virtual void UpdateEquationSystemContext() {}
 
-  // Variable defining whether to use LOR solver
-  bool _lor;
+  /// Updates the solver at the operator level. Default implementation sets the operator on the
+  /// wrapped MFEM solver
+  virtual void SetOperatorImpl(mfem::Operator & op) { GetSolver().SetOperator(op); }
 
-  // Solver and preconditioner to be used for the problem
+  /// Solver to be used for the problem
   std::unique_ptr<mfem::Solver> _solver;
-  MFEMSolverBase * _preconditioner;
 };
 
 inline mfem::Solver &
-MFEMSolverBase::getSolver()
+SolverBase::GetSolver()
 {
   mooseAssert(_solver, "Attempting to retrieve solver before it's been constructed");
   return *_solver;
 }
+} // namespace Moose::MFEM
 
 #endif

@@ -15,9 +15,24 @@
 #include "MooseUtils.h"
 #include "MooseTypes.h"
 #include "FaceInfo.h"
+#include "MeshGenerator.h"
+
+// Utilities for MeshBase
+// Many of these utilities could live in libMesh, and in fact, before adding a new one here
+// you should also check mesh_tools.h in libMesh to see if it does not exist there already.
 
 namespace MooseMeshUtils
 {
+
+// Used to temporarily store information about which lower-dimensional
+// sides to add and what subdomain id to use for the added sides.
+struct ElemSidePair
+{
+  ElemSidePair(Elem * elem_in, unsigned short int side_in) : elem(elem_in), side(side_in) {}
+
+  Elem * elem;
+  unsigned short int side;
+};
 
 /**
  * Merges the boundary IDs of boundaries that have the same names
@@ -80,7 +95,7 @@ std::vector<BoundaryID> getBoundaryIDs(const libMesh::MeshBase & mesh,
  * Gets the boundary IDs into a set with their names.
  *
  * Because libMesh allows the same boundary to have multiple different boundary names,
- * the size of the returned boundary ID set may be smaller than the size of the bounndary
+ * the size of the returned boundary ID set may be smaller than the size of the boundary
  * name vector.
  * When a boundary name is not available in the mesh, if \p generate_unknown is true
  * a non-existant boundary ID will be returned, otherwise a BoundaryInfo::invalid_id
@@ -121,12 +136,28 @@ std::set<subdomain_id_type> getSubdomainIDs(const libMesh::MeshBase & mesh,
 /**
  * Calculates the centroid of a MeshBase.
  * @param mesh input mesh whose centroid needs to be calculated
- * @return a Point data containing the mesh centroid
+ * @return a Point corresponding to the mesh centroid
  */
 Point meshCentroidCalculator(const MeshBase & mesh);
 
 /**
- * compute a coordinate transformation factor
+ * Calculates the centroid of a boundary on a mesh
+ * @param boundary boundary to compute the centroid of
+ * @param mesh input mesh holding the boundary whose centroid needs to be calculated
+ * @return a Point corresponding to the boundary centroid
+ */
+Point boundaryCentroidCalculator(const BoundaryName & boundary, MeshBase & mesh);
+
+/**
+ * Calculates the side-volume weighted (side-vertex) average normal of a boundary on a mesh
+ * @param boundary boundary to compute the weighted normal of
+ * @param mesh input mesh holding the boundary whose averaged normal needs to be calculated
+ * @return a Point corresponding to the boundary weighted normal
+ */
+RealVectorValue boundaryWeightedNormal(const BoundaryName & boundary, MeshBase & mesh);
+
+/**
+ * Compute a coordinate transformation volume integration factor
  * @param point The libMesh \p Point in space where we are evaluating the factor
  * @param factor The output of this function. Would be 1 for cartesian coordinate systems, 2*pi*r
  * for cylindrical coordinate systems, and 4*pi*r^2 for spherical coordinate systems
@@ -177,6 +208,17 @@ computeDistanceToAxis(const P & point, const Point & origin, const RealVectorVal
 }
 
 /**
+ * Computes the maximum distance from all nodes of a mesh to a general axis
+ *
+ * @param[in] mesh mesh to get the distance from
+ * @param[in] origin  Axis starting point
+ * @param[in] direction  Axis direction
+ */
+Real computeMaxDistanceToAxis(const MeshBase & mesh,
+                              const Point & origin,
+                              const RealVectorValue & direction);
+
+/**
  * Computes a coordinate transformation factor for a general axisymmetric axis
  *
  * @param[in] point  The libMesh \p Point in space where we are evaluating the factor
@@ -202,7 +244,7 @@ computeFiniteVolumeCoords(FaceInfo & fi,
 }
 
 /**
- * Crate a new set of element-wise IDs by finding unique combinations of existing extra ID values
+ * Create a new set of element-wise IDs by finding unique combinations of existing extra ID values
  *
  * This function finds the unique combinations by recursively calling itself for extra ID inputs. In
  * the recursive calling, the new unique combinations is determined by combining the extra ID value
@@ -228,7 +270,7 @@ getExtraIDUniqueCombinationMap(const MeshBase & mesh,
  * @param fixed_pt a Point in the plane
  * @return whether all the Points are in the given plane
  */
-bool isCoPlanar(const std::vector<Point> vec_pts, const Point plane_nvec, const Point fixed_pt);
+bool isCoPlanar(const std::vector<Point> & vec_pts, const Point plane_nvec, const Point fixed_pt);
 
 /**
  * Decides whether all the Points of a vector of Points are in a plane with a given normal vector
@@ -236,14 +278,14 @@ bool isCoPlanar(const std::vector<Point> vec_pts, const Point plane_nvec, const 
  * @param plane_nvec normal vector of the plane
  * @return whether all the Points are in the same plane with the given normal vector
  */
-bool isCoPlanar(const std::vector<Point> vec_pts, const Point plane_nvec);
+bool isCoPlanar(const std::vector<Point> & vec_pts, const Point plane_nvec);
 
 /**
  * Decides whether all the Points of a vector of Points are coplanar
  * @param vec_pts vector of points to be examined
  * @return whether all the Points are in a same plane
  */
-bool isCoPlanar(const std::vector<Point> vec_pts);
+bool isCoPlanar(const std::vector<Point> & vec_pts);
 
 /**
  * Checks input mesh and returns max(block ID) + 1, which represents
@@ -257,8 +299,8 @@ SubdomainID getNextFreeSubdomainID(MeshBase & input_mesh);
  * a boundary ID in the mesh that is not currently in use
  * @param input mesh over which to compute the next free boundary ID
  */
-
 BoundaryID getNextFreeBoundaryID(MeshBase & input_mesh);
+
 /**
  * Whether a particular subdomain ID exists in the mesh
  * @param input mesh over which to determine subdomain IDs
@@ -281,11 +323,24 @@ bool hasSubdomainName(const MeshBase & input_mesh, const SubdomainName & name);
 bool hasBoundaryID(const MeshBase & input_mesh, const BoundaryID id);
 
 /**
- * Whether a particular boundary name exists in the mesh
- * @param input mesh over which to determine boundary names
- * @param boundary name
+ * Whether a particular boundary name exists in the mesh.
+ *
+ * This returns true if \c name is non-empty and is a name (not ID) that exists.
+ *
+ * @param mesh mesh over which to determine boundary names
+ * @param name boundary name
  */
-bool hasBoundaryName(const MeshBase & input_mesh, const BoundaryName & name);
+bool hasBoundaryName(const MeshBase & mesh, const BoundaryName & name);
+
+/**
+ * Whether a particular boundary name or ID exists in the mesh.
+ *
+ * This returns true if \c name_or_id is non-empty and either a name or ID that exists.
+ *
+ * @param mesh mesh over which to determine boundary names
+ * @param name_or_id boundary name or ID
+ */
+bool hasBoundaryNameOrID(const MeshBase & mesh, const BoundaryName & name_or_id);
 
 /**
  * Convert a list of sides in the form of a vector of pairs of node ids into a list of ordered nodes
@@ -414,6 +469,151 @@ void extraElemIntegerSwapParametersProcessor(
  * @param input_mesh  The input mesh
  * @param boundary_id The boundary id
  */
-std::unique_ptr<ReplicatedMesh> buildBoundaryMesh(const ReplicatedMesh & input_mesh,
+std::unique_ptr<ReplicatedMesh> buildBoundaryMesh(const MeshBase & input_mesh,
                                                   const boundary_id_type boundary_id);
+
+/**
+ * Build a loop mesh of edges from the contiguous 2D boundary of 2D input mesh
+ * Note: The lower-dimensional mesh will only have one subdomain.
+ *       An error will be thrown if the mesh does not have the boundary.
+ * Note: currently, the boundary_id must be a nodeset!
+ * @param input_mesh  The input mesh
+ * @param boundary_id The boundary id
+ */
+std::unique_ptr<ReplicatedMesh> buildLoopBoundaryOf2DMesh(const MeshBase & input_mesh,
+                                                          const boundary_id_type boundary_id);
+
+/**
+ * Build a map from the node ids to all element ids they are part of for the nodes on a particular
+ * nodeset
+ * @param input_mesh  The input mesh to get the map for
+ * @param boundary_id The boundary id of interest
+ */
+std::unordered_map<dof_id_type, std::unordered_set<dof_id_type>>
+buildBoundaryNodeToElemMap(const MeshBase & input_mesh, const boundary_id_type boundary_id);
+
+/**
+ * Get all the nodes on that particular boundary, whether a nodeset or a sideset.
+ * Note: if the mesh has both a nodeset and a sideset with the same ID, they will both be considered
+ *       If this is undesirable, renumber one of them prior to calling this routine
+ * @param input_mesh  The input mesh to get the map for
+ * @param boundary_id The boundary id of interest
+ */
+std::set<dof_id_type> getBoundaryNodes(const MeshBase & mesh, const BoundaryID boundary_id);
+
+/**
+ * Create a new subdomain by generating new side elements from a list of sidesets in a given mesh.
+ * @param mesh The mesh to work on
+ * @param boundary_names The names of the sidesets to be used to create the new subdomain
+ * @param new_subdomain_id The ID of the new subdomain to be created based on the sidesets
+ * @param new_subdomain_name The name of the new subdomain to be created based on the sidesets
+ * @param type_name The type of the mesh generator that is calling this method, used for error
+ *                  messages and debugging purposes.
+ */
+void createSubdomainFromSidesets(MeshBase & mesh,
+                                 std::vector<BoundaryName> boundary_names,
+                                 const SubdomainID new_subdomain_id,
+                                 const SubdomainName new_subdomain_name,
+                                 const std::string type_name);
+
+/**
+ * Convert a list of blocks in a given mesh to a standalone new mesh.
+ * @param source_mesh The source mesh from which the blocks will be converted
+ * @param target_mesh The target mesh to which the blocks will be converted
+ * @param target_blocks The names of the blocks to be converted to the target mesh
+ */
+void convertBlockToMesh(MeshBase & source_mesh,
+                        MeshBase & target_mesh,
+                        const std::vector<SubdomainName> & target_blocks);
+
+/**
+ * Helper function for copying one mesh into another
+ * @param mg The mesh generator calling this function
+ * @param destination The mesh to copy into
+ * @param source The mesh to copy from
+ * @param avoid_merging_subdomains If true, subdomain IDs in the source mesh will
+ * be offset to avoid merging with subdomain IDs in the destination mesh
+ * @param avoid_merging_boundaries If true, boundary IDs in the source mesh will
+ * be offset to avoid merging with boundary IDs in the destination mesh
+ * @param communicator The communicator for parallel operations
+ */
+void copyIntoMesh(MeshGenerator & mg,
+                  UnstructuredMesh & destination,
+                  const UnstructuredMesh & source,
+                  const bool avoid_merging_subdomains,
+                  const bool avoid_merging_boundaries,
+                  const Parallel::Communicator & communicator);
+
+/**
+ * Generates meshes from edges connecting a list of points.
+ * @param mesh The mesh to be built
+ * @param points The list of points defining the polyline
+ * @param loop Whether the polyline is a closed loop
+ * @param start_boundary The boundary name to assign to the start of the polyline (if
+ * not a loop)
+ * @param end_boundary The boundary name to assign to the end of the polyline (if
+ * not a loop)
+ * @param nums_edges_between_points The numbers of edges to create between each pair of points
+ *  (if only one number is given, it is used for all point pairs)
+ */
+void buildPolyLineMesh(MeshBase & mesh,
+                       const std::vector<Point> & points,
+                       const bool loop,
+                       const BoundaryName & start_boundary,
+                       const BoundaryName & end_boundary,
+                       const std::vector<unsigned int> & nums_edges_between_points);
+
+/**
+ * Generates meshes from edges connecting a list of points, with optional midpoints to produce
+ * Edge3 elements so as to enable quadratic meshing. If mid_points is empty, Edge2 elements are
+ * produced.
+ * @param mesh The mesh to be built
+ * @param points The list of points defining the polyline
+ * @param mid_points The optional list of midpoints corresponding to the segments for quadratic
+ * elements. if provided, it must contains exactly one midpoint per segment and
+ * nums_edges_between_points must be unity for every segment.
+ * @param loop Whether the polyline is a closed loop
+ * @param start_boundary The boundary name to assign to the start of the polyline (if
+ * not a loop)
+ * @param end_boundary The boundary name to assign to the end of the polyline (if
+ * not a loop)
+ * @param nums_edges_between_points The numbers of edges to create between each pair of points
+ *  (if only one number is given, it is used for all point pairs)
+ */
+void buildPolyLineMesh(MeshBase & mesh,
+                       const std::vector<Point> & points,
+                       const std::vector<Point> & mid_points,
+                       const bool loop,
+                       const BoundaryName & start_boundary,
+                       const BoundaryName & end_boundary,
+                       const std::vector<unsigned int> & nums_edges_between_points);
+
+/**
+ * Generates meshes from edges connecting a list of points. Note that we do not support
+ * max_elem_size and quadratic mid points at the same time as we cannot pre-determine the number of
+ * mid points needed for quadratic elements when max_elem_size is specified.
+ * @param mesh The mesh to be built
+ * @param points The list of points defining the polyline
+ * @param loop Whether the polyline is a closed loop
+ * @param start_boundary The boundary name to assign to the start of the polyline (if
+ * not a loop)
+ * @param end_boundary The boundary name to assign to the end of the polyline (if
+ * not a loop)
+ * @param max_elem_size The maximum element size for the mesh
+ */
+void buildPolyLineMesh(MeshBase & mesh,
+                       const std::vector<Point> & points,
+                       const bool loop,
+                       const BoundaryName & start_boundary,
+                       const BoundaryName & end_boundary,
+                       const Real max_elem_size);
+
+/**
+ * Adds a sideset for the external boundary of the mesh (e.g. all element sides with no neighbors)
+ * @param mesh the mesh to modify
+ * @param extern_bid the ID to assign to the external boundary
+ * @param has_external_bid false if all elements of the mesh are internal (for example a sphere
+ * shell)
+ */
+void addExternalBoundary(MeshBase & mesh, const BoundaryID extern_bid, bool & has_external_bid);
 }

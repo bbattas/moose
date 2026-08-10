@@ -1,5 +1,10 @@
 # Generalized Plane Strain
 
+!alert warning title=Deprecated
+The generalized plane strain capability described here belongs to the legacy mechanics kernels,
+which are being phased out.  For new models, use the [homogenization system](solid_mechanics/Homogenization.md)
+provided by the Lagrangian kernels instead.
+
 ## Description
 
 The generalized plane strain problem has found use in many important applications. Many different presentations can be found in the literature. The simplest one is an extension of the plane strain problem by allowing a non-vanishing constant direction strain in the out-of-plane direction [!citep](Adams1967gps). It has been further generalized by allowing two rotations degrees of freedom [!citep](Abaqus2014gps). An even more generalized form includes the anticlastic problem associated with the out-of-plane shear [!citep](Adams1984gps, Li1999gps).
@@ -92,44 +97,18 @@ The formulation above for the generalized plane strain problem shares many simil
 The out-of-plane strain is a scalar variable, and it can be added to the standard system of equations for a mechanics problem, where $\boldsymbol{u}_x$ and $\boldsymbol{u}_y$ represent
 the displacement vectors in the $x$ and $y$ directions, $\boldsymbol{f}_x$ and $\boldsymbol{f}_y$ represent the corresponding reaction forces. The discussion here is for the case where the two-dimensional model lies in the $x$-$y$ plane,  The partitioned linearized system of equations, in which the block entries in the stiffness matrix are represented by subscripted $\boldsymbol{K}$ terms, can be written including the scalar strain variable as follows:
 
-<!--This is the intended equation, but \hline was not working when the equation was created-->
-<!-- \begin{equation} -->
-<!-- \left[ -->
-<!-- \begin{array}{cc|c} -->
-<!-- \boldsymbol{K}_{xx} & \boldsymbol{K}_{xy} & \boldsymbol{K}_{xz} \\ -->
-<!-- \boldsymbol{K}_{yx} & \boldsymbol{K}_{yy} & \boldsymbol{K}_{yz} \\ \hline -->
-<!-- \boldsymbol{K}_{zx} & \boldsymbol{K}_{zy} & K_{zz} -->
-<!-- \end{array} -->
-<!-- \right] -->
-<!-- \left\{ -->
-<!-- \begin{array}{c} -->
-<!-- \boldsymbol{u}_x \\ -->
-<!-- \boldsymbol{u}_y \\ \hline -->
-<!-- \epsilon_{zz} -->
-<!-- \end{array} -->
-<!-- \right\} -->
-<!-- = -->
-<!-- \left\{ -->
-<!-- \begin{array}{c} -->
-<!-- \boldsymbol{f}_x \\ -->
-<!-- \boldsymbol{f}_y \\ \hline -->
-<!-- N_{z} -->
-<!-- \end{array} -->
-<!-- \right\} -->
-<!-- \end{equation} -->
-
 \begin{equation}
 \left[
-\begin{array}{ccc}
+\begin{array}{cc|c}
 \boldsymbol{K}_{xx} & \boldsymbol{K}_{xy} & \boldsymbol{K}_{xz} \\
-\boldsymbol{K}_{yx} & \boldsymbol{K}_{yy} & \boldsymbol{K}_{yz} \\
+\boldsymbol{K}_{yx} & \boldsymbol{K}_{yy} & \boldsymbol{K}_{yz} \\ \hline
 \boldsymbol{K}_{zx} & \boldsymbol{K}_{zy} & K_{zz}
 \end{array}
 \right]
 \left\{
 \begin{array}{c}
 \boldsymbol{u}_x \\
-\boldsymbol{u}_y \\
+\boldsymbol{u}_y \\ \hline
 \epsilon_{zz}
 \end{array}
 \right\}
@@ -137,7 +116,7 @@ the displacement vectors in the $x$ and $y$ directions, $\boldsymbol{f}_x$ and $
 \left\{
 \begin{array}{c}
 \boldsymbol{f}_x \\
-\boldsymbol{f}_y \\
+\boldsymbol{f}_y \\ \hline
 N_{z}
 \end{array}
 \right\}
@@ -173,9 +152,9 @@ The same pattern is followed for the $y$-$z$ plane case.
 
 Objects available for generalized plane strain:
 
-- [Stress Divergence Kernel](/StressDivergence.md): in-plane equilibrium equation
+- [Stress Divergence Kernel](/StressDivergenceTensors.md): in-plane equilibrium equation
 
-- [Stress Models](solid_mechanics/Stresses.md): full stress tensor calculation
+- [Stress Models](/ComputeMultipleInelasticStress.md): full stress tensor calculation
 
 Objects specific for generalized plane strain:
 
@@ -185,7 +164,7 @@ Objects specific for generalized plane strain:
 
 - [Generalized Plane Strain Off-diagonal Kernel](/GeneralizedPlaneStrainOffDiag.md): in-plane displacement variables and scalar out-of-plane strain coupling
 
-- [Strain Calculations](solid_mechanics/Strains.md): in-plane strain calculation and formation of full strain tensor considering the scalar out-of-plane strain
+- [Strain Calculations](/ComputeFiniteStrain.md): in-plane strain calculation and formation of full strain tensor considering the scalar out-of-plane strain
 
 ## How to use generalized plane strain model
 

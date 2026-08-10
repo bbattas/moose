@@ -12,7 +12,7 @@ P_out = 2.0e5 # Pa
 
 [TriSubChannelMesh]
   [subchannel]
-    type = SCMTriSubChannelMeshGenerator
+    type = SCMTriAssemblyMeshGenerator
     pin_diameter = 0.01
     dwire = 0.002
     hwire = 0.0833
@@ -25,80 +25,48 @@ P_out = 2.0e5 # Pa
   []
 []
 
-[AuxVariables]
-  [mdot]
-    block = subchannel
-  []
-  [SumWij]
-    block = subchannel
-  []
-  [P]
-    block = subchannel
-  []
-  [DP]
-    block = subchannel
-  []
-  [h]
-    block = subchannel
-  []
-  [T]
-    block = subchannel
-  []
-  [rho]
-    block = subchannel
-  []
-  [S]
-    block = subchannel
-  []
-  [w_perim]
-    block = subchannel
-  []
-  [mu]
-    block = subchannel
-  []
-  [q_prime]
-    block = subchannel
-  []
-  [displacement]
-    block = subchannel
-  []
-  [q_prime_duct]
-    block = duct
-  []
-  [Tduct]
-    block = duct
-  []
-[]
-
 [FluidProperties]
   [sodium]
     type = PBSodiumFluidProperties
   []
 []
 
-[Problem]
+[SubChannel]
   type = TriSubChannel1PhaseProblem
   fp = sodium
   n_blocks = 1
   P_out = 2.0e5
-  CT = 1.0
   compute_density = true
   compute_viscosity = true
   compute_power = true
   implicit = true
   segregated = true
+  verbose_subchannel = true
+  duct_HTC_closure = 'gnielinski'
+  pin_HTC_closure = 'Dittus-Boelter'
+  friction_closure = 'cheng'
+  full_output = true
+  mixing_closure = 'cheng_todreas'
+
+[]
+
+[SCMClosures]
+  [cheng]
+    type = SCMFrictionUpdatedChengTodreas
+  []
+  [gnielinski]
+    type = SCMHTCGnielinski
+  []
+  [cheng_todreas]
+    type = SCMMixingChengTodreas
+  []
+  [Dittus-Boelter]
+    type = SCMHTCDittusBoelter
+  []
 []
 
 [ICs]
-  [S_IC]
-    type = SCMTriFlowAreaIC
-    variable = S
-  []
 
-  [w_perim_IC]
-    type = SCMTriWettedPerimIC
-    variable = w_perim
-  []
 
   [q_prime_IC]
     type = SCMTriPowerIC
@@ -107,10 +75,22 @@ P_out = 2.0e5 # Pa
     filename = "pin_power_profile19.txt"
   []
 
+  [Dpin_ic]
+    type = ConstantIC
+    variable = Dpin
+    value = 0.01
+  []
+
   [T_ic]
     type = ConstantIC
     variable = T
     value = ${T_in}
+  []
+
+  [duct_heat_flux_ic]
+    type = ConstantIC
+    variable = duct_heat_flux #W/m2
+    value = 1000.0
   []
 
   [P_ic]
@@ -248,17 +228,23 @@ P_out = 2.0e5 # Pa
     variable = T
     height = 2
   []
-  [Total_power]
-    type = ElementIntegralVariablePostprocessor
-    variable = q_prime
-    block = subchannel
-  []
   [mdot-8]
     type = SubChannelPointValue
     variable = mdot
     index = 28
     execute_on = 'TIMESTEP_END'
     height = 0.5
+  []
+  [Total_power]
+    type = ElementIntegralVariablePostprocessor
+    variable = q_prime
+    block = fuel_pins
+  []
+  [Total_power_SCMDuctPowerPostprocessor]
+    type = SCMDuctHeatRatePostprocessor
+  []
+  [Total_power_SCMTHPowerPostprocessor]
+    type = SCMTHPowerPostprocessor
   []
 []
 

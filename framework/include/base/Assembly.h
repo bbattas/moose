@@ -13,6 +13,7 @@
 #include "MooseArray.h"
 #include "MooseTypes.h"
 #include "MooseVariableFE.h"
+#include "MoosePassKey.h"
 #include "ArbitraryQuadrature.h"
 
 #include "libmesh/dense_vector.h"
@@ -62,6 +63,13 @@ typedef MooseVariableFE<RealEigenVector> ArrayMooseVariable;
 class XFEMInterface;
 class SubProblem;
 class NodeFaceConstraint;
+
+#ifdef MOOSE_KOKKOS_ENABLED
+namespace Moose::Kokkos
+{
+class Assembly;
+}
+#endif
 
 // Assembly.h does not import Moose.h nor libMeshReducedNamespace.h
 using libMesh::FEBase;
@@ -211,6 +219,15 @@ public:
     return constify_ref(_vector_fe_face_neighbor[dim][type]);
   }
 
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Key structure for APIs manipulating internal shape and quadrature data. Developers in blessed
+   * classes may create keys using simple curly braces \p {} or may be more explicit and use \p
+   * Assembly::InternalDataKey{}
+   */
+  using InternalDataKey = Moose::PassKey<Moose::Kokkos::Assembly>;
+#endif
+
   /**
    * Returns the reference to the current quadrature being used
    * @return A _reference_ to the pointer.  Make sure to store this as a reference!
@@ -222,6 +239,17 @@ public:
    * @return A _reference_ to the pointer.  Make sure to store this as a reference!
    */
   libMesh::QBase * const & writeableQRule() { return _current_qrule; }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Returns the pointer to the quadrature of specified block and dimension
+   * @return A pointer.
+   */
+  libMesh::QBase * writeableQRule(unsigned int dim, SubdomainID block, InternalDataKey)
+  {
+    return qrules(dim, block).vol.get();
+  }
+#endif
 
   /**
    * Returns the reference to the quadrature points
@@ -298,6 +326,17 @@ public:
    * @return A _reference_.  Make sure to store this as a reference!
    */
   libMesh::QBase * const & writeableQRuleFace() { return _current_qrule_face; }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Returns the pointer to the quadrature used on a face of specified block and dimension
+   * @return A pointer.
+   */
+  libMesh::QBase * writeableQRuleFace(unsigned int dim, SubdomainID block, InternalDataKey)
+  {
+    return qrules(dim, block).face.get();
+  }
+#endif
 
   /**
    * Returns the reference to the current quadrature being used
@@ -416,7 +455,7 @@ public:
    * Returns the side element
    * @return A _reference_.  Make sure to store this as a reference!
    */
-  const Elem *& sideElem() { return _current_side_elem; }
+  const Elem * const & sideElem() const { return _current_side_elem; }
 
   /**
    * Returns the reference to the volume of current side element
@@ -587,16 +626,6 @@ public:
    * Set the cached quadrature rules to nullptr
    */
   void clearCachedQRules();
-
-  /**
-   * Set the static condensation object
-   */
-  void addStaticCondensation(libMesh::StaticCondensation & sc) { _sc = &sc; }
-
-  /**
-   * @returns Whether we have static condensation
-   */
-  bool hasStaticCondensation() const { return _sc; }
 
 private:
   /**
@@ -1189,16 +1218,17 @@ public:
 
   /**
    * Cache a local Jacobian block with the provided rows (\p idof_indices) and columns (\p
-   * jdof_indices) for eventual accumulation into the global matrix specified by \p tag. The \p
-   * scaling_factor will be applied before caching. Only blessed framework classes may call this API
-   * by creating the requisiste \p LocalDataKey class
+   * jdof_indices) for eventual accumulation into the global matrices specified by \p tags. The \p
+   * scaling_factor will be applied before caching. The input block is left unchanged; any
+   * constraints and scaling are applied to Assembly's work matrix. Only blessed framework classes
+   * may call this API by creating the requisite \p LocalDataKey class.
    */
-  void cacheJacobianBlock(DenseMatrix<Number> & jac_block,
+  void cacheJacobianBlock(const DenseMatrix<Number> & jac_block,
                           const std::vector<dof_id_type> & idof_indices,
                           const std::vector<dof_id_type> & jdof_indices,
                           Real scaling_factor,
                           LocalDataKey,
-                          TagID tag);
+                          const std::set<TagID> & tags);
 
   /**
    * Process the supplied residual values. This is a mirror of of the non-templated version of \p
@@ -1793,6 +1823,11 @@ public:
       re(i) += v(j);
   }
 
+  void saveLocalADArray(std::vector<ADReal> & re,
+                        unsigned int i,
+                        unsigned int ntest,
+                        const ADRealEigenVector & v) const;
+
   /**
    * Helper function for assembling diagonal Jacobian contriubutions on local
    * quadrature points for an array kernel, bc, etc.
@@ -1854,7 +1889,7 @@ public:
     }
   }
 
-  DenseVector<Real> getJacobianDiagonal(DenseMatrix<Number> & ke)
+  DenseVector<Real> getJacobianDiagonal(const DenseMatrix<Number> & ke)
   {
     unsigned int rows = ke.m();
     unsigned int cols = ke.n();
@@ -2061,8 +2096,7 @@ private:
    */
   void processLocalResidual(DenseVector<Number> & res_block,
                             std::vector<dof_id_type> & dof_indices,
-                            const std::vector<Real> & scaling_factor,
-                            bool is_nodal);
+                            const std::vector<Real> & scaling_factor);
 
   /**
    * Add a local residual block to a global residual vector with proper scaling.
@@ -2070,8 +2104,7 @@ private:
   void addResidualBlock(NumericVector<Number> & residual,
                         DenseVector<Number> & res_block,
                         const std::vector<dof_id_type> & dof_indices,
-                        const std::vector<Real> & scaling_factor,
-                        bool is_nodal);
+                        const std::vector<Real> & scaling_factor);
 
   /**
    * Push a local residual block with proper scaling into cache.
@@ -2080,8 +2113,7 @@ private:
                           std::vector<dof_id_type> & cached_residual_rows,
                           DenseVector<Number> & res_block,
                           const std::vector<dof_id_type> & dof_indices,
-                          const std::vector<Real> & scaling_factor,
-                          bool is_nodal);
+                          const std::vector<Real> & scaling_factor);
 
   /**
    * Set a local residual block to a global residual vector with proper scaling.
@@ -2089,8 +2121,7 @@ private:
   void setResidualBlock(NumericVector<Number> & residual,
                         DenseVector<Number> & res_block,
                         const std::vector<dof_id_type> & dof_indices,
-                        const std::vector<Real> & scaling_factor,
-                        bool is_nodal);
+                        const std::vector<Real> & scaling_factor);
 
   /**
    * Add a local Jacobian block to a global Jacobian with proper scaling.
@@ -2105,7 +2136,7 @@ private:
   /**
    * Push a local Jacobian block with proper scaling into cache for a certain tag.
    */
-  void cacheJacobianBlock(DenseMatrix<Number> & jac_block,
+  void cacheJacobianBlock(const DenseMatrix<Number> & jac_block,
                           const MooseVariableBase & ivar,
                           const MooseVariableBase & jvar,
                           const std::vector<dof_id_type> & idof_indices,
@@ -2115,7 +2146,7 @@ private:
   /**
    * Push non-zeros of a local Jacobian block with proper scaling into cache for a certain tag.
    */
-  void cacheJacobianBlockNonzero(DenseMatrix<Number> & jac_block,
+  void cacheJacobianBlockNonzero(const DenseMatrix<Number> & jac_block,
                                  const MooseVariableBase & ivar,
                                  const MooseVariableBase & jvar,
                                  const std::vector<dof_id_type> & idof_indices,
@@ -2872,9 +2903,6 @@ protected:
 
   /// The current reference points on the neighbor element
   std::vector<Point> _current_neighbor_ref_points;
-
-  /// A pointer to the static condensation class. Null if not present
-  libMesh::StaticCondensation * _sc;
 };
 
 template <typename OutputType>

@@ -67,9 +67,6 @@
 #ifdef REACTOR_ENABLED
 #include "ReactorApp.h"
 #endif
-#ifdef RICHARDS_ENABLED
-#include "RichardsApp.h"
-#endif
 #ifdef SCALAR_TRANSPORT_ENABLED
 #include "ScalarTransportApp.h"
 #endif
@@ -186,10 +183,6 @@ ModulesApp::registerApps()
   ReactorApp::registerApps();
 #endif
 
-#ifdef RICHARDS_ENABLED
-  RichardsApp::registerApps();
-#endif
-
 #ifdef SCALAR_TRANSPORT_ENABLED
   ScalarTransportApp::registerApps();
 #endif
@@ -222,7 +215,7 @@ ModulesApp::registerApps()
 void
 ModulesApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
 {
-  mooseDeprecated(
+  ::mooseDeprecated(
       "\"registerAll\" in Modules is deprecated. Please update your *App.C file(s) to call the new "
       "templated \"registerAllObjects\" method (e.g. ModulesApp::registerAllObjects<MyApp>(...))");
 
@@ -296,10 +289,6 @@ ModulesApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
 
 #ifdef REACTOR_ENABLED
   ReactorApp::registerAll(f, af, s);
-#endif
-
-#ifdef RICHARDS_ENABLED
-  RichardsApp::registerAll(f, af, s);
 #endif
 
 #ifdef SCALAR_TRANSPORT_ENABLED

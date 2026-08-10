@@ -159,8 +159,8 @@
   solve_type = 'PJFNK'
 
   petsc_options = '-snes_ksp_ew'
-  petsc_options_iname = '-pc_type -pc_factor_mat_solver_type'
-  petsc_options_value = 'lu     superlu_dist'
+  petsc_options_iname = '-pc_type -pc_factor_mat_solver_type -mat_superlu_dist_gpuoffload'
+  petsc_options_value = 'lu       superlu_dist               0'
 
   line_search = 'none'
 
@@ -194,7 +194,6 @@
 
 [Problem]
   type = AugmentedLagrangianContactProblem
-  solution_variables = 'disp_x disp_y'
   extra_tag_vectors = 'ref'
   reference_vector = 'ref'
   maximum_lagrangian_update_iterations = 100

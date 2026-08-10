@@ -29,6 +29,7 @@
 #include "SystemBase.h"
 #include "DomainUserObject.h"
 #include "MortarUserObject.h"
+#include "FVInterpolationMethod.h"
 #include "ExecFlagRegistry.h"
 
 #include <algorithm>
@@ -69,6 +70,8 @@ operator<<(std::ostream & os, Interfaces & iface)
     os << "|DomainUserObject";
   if (static_cast<bool>(iface & Interfaces::MortarUserObject))
     os << "|MortarUserObject";
+  if (static_cast<bool>(iface & Interfaces::FVInterpolationMethod))
+    os << "|FVInterpolationMethod";
   os << ")";
   return os;
 }
@@ -283,7 +286,7 @@ AttribThread::isEqual(const Attribute & other) const
 void
 AttribExecutionOrderGroup::initFrom(const MooseObject * obj)
 {
-  const auto * uo = dynamic_cast<const UserObject *>(obj);
+  const auto * uo = dynamic_cast<const UserObjectBase *>(obj);
   _val = uo ? uo->getParam<int>("execution_order_group") : 0;
 }
 bool
@@ -431,6 +434,30 @@ AttribSystem::isEqual(const Attribute & other) const
 }
 
 void
+AttribKokkos::initFrom(const MooseObject * obj)
+{
+#ifdef MOOSE_KOKKOS_ENABLED
+  _val = obj->isKokkosObject();
+#else
+  static_cast<void>(obj);
+  _val = false;
+#endif
+}
+
+bool
+AttribKokkos::isMatch(const Attribute & other) const
+{
+  auto a = dynamic_cast<const AttribKokkos *>(&other);
+  return a && (a->_val == _val);
+}
+
+bool
+AttribKokkos::isEqual(const Attribute & other) const
+{
+  return isMatch(other);
+}
+
+void
 AttribResidualObject::initFrom(const MooseObject * obj)
 {
   _val = obj->getParam<bool>("_residual_object");
@@ -475,7 +502,7 @@ AttribInterfaces::initFrom(const MooseObject * obj)
 {
   _val = 0;
   // clang-format off
-  _val |= (unsigned int)Interfaces::UserObject                * (dynamic_cast<const UserObject *>(obj) != nullptr);
+  _val |= (unsigned int)Interfaces::UserObject                * (dynamic_cast<const UserObjectBase *>(obj) != nullptr);
   _val |= (unsigned int)Interfaces::ElementUserObject         * (dynamic_cast<const ElementUserObject *>(obj) != nullptr);
   _val |= (unsigned int)Interfaces::SideUserObject            * (dynamic_cast<const SideUserObject *>(obj) != nullptr);
   _val |= (unsigned int)Interfaces::InternalSideUserObject    * (dynamic_cast<const InternalSideUserObject *>(obj) != nullptr);
@@ -492,6 +519,7 @@ AttribInterfaces::initFrom(const MooseObject * obj)
   _val |= (unsigned int)Interfaces::Reporter                  * (dynamic_cast<const Reporter *>(obj) != nullptr);
   _val |= (unsigned int)Interfaces::DomainUserObject          * (dynamic_cast<const DomainUserObject *>(obj) != nullptr);
   _val |= (unsigned int)Interfaces::MortarUserObject          * (dynamic_cast<const MortarUserObject *>(obj) != nullptr);
+  _val |= (unsigned int)Interfaces::FVInterpolationMethod     * (dynamic_cast<const FVInterpolationMethod *>(obj) != nullptr);
   // clang-format on
 }
 

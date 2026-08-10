@@ -11,6 +11,7 @@
 
 #include <string>
 #include "MathUtils.h"
+#include "MooseUtils.h"
 #include "MooseTypes.h"
 #include "libmesh/vector_value.h"
 #include "HeatConductionNames.h"
@@ -96,7 +97,10 @@ grad(const std::string & var)
 inline std::string
 time_deriv(const std::string & var)
 {
-  return MathUtils::timeDerivName(var);
+  if (MooseUtils::isFloat(var))
+    return "0";
+  else
+    return MathUtils::timeDerivName(var);
 }
 
 // Navier-Stokes Variables
@@ -187,6 +191,16 @@ enum class WallTreatmentEnum
   NEQ = 3
 };
 
+/**
+ * CHT side options, we want to make sure these can be used as integers
+ * so we are avoiding the enum class here.
+ */
+enum CHTSide
+{
+  SOLID = 0,
+  FLUID = 1
+};
+
 // Turbulence constants
 static constexpr Real von_karman_constant = 0.4187;
 static constexpr Real E_turb_constant = 9.793;
@@ -196,6 +210,15 @@ static constexpr Real mu_t_low_limit = 1.0e-8;
 static constexpr Real epsilon_low_limit = 1.0e-8;
 // Lower limit for y_plus
 static constexpr Real min_y_plus = 1e-10;
+
+// Boundary condition types
+enum class MomentumInletTypes
+{
+  FIXED_VELOCITY = 0,
+  FLUX_VELOCITY = 1,
+  FLUX_MASS = 2,
+  FIXED_PRESSURE = 3
+};
 }
 
 namespace NS_DEFAULT_VALUES

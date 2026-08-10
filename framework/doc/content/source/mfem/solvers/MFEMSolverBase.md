@@ -4,19 +4,16 @@
 
 ## Summary
 
-Base class for `mfem::Solver` objects to use in MFEM problems.
+Common base class for all MFEM solver objects.
 
 ## Overview
 
-Classes derived from `MFEMSolverBase` can usually be used as preconditioners or linear solvers; the
-`constructSolver` method should be overridden to construct a `shared_ptr` to an `mfem::Solver`
-derived object, and the `getSolver` method should return the `shared_ptr` for use during a solve.
+`MFEMSolverBase` is the common base class for all MFEM solver objects. Derived classes must
+implement `ConstructSolver` to create the underlying `mfem::Solver` object. The `GetSolver`
+method returns a reference to that solver for use during a solve.
 
-Problem-specific information - such as finite element spaces used in the set-up of some
-preconditioners - can be passed to the `mfem::Solver` at construction time.
-
-Most solvers have the option of being used as Low-Order-Refined (LOR) preconditioner, by setting their respective `low_order_refined` parameter to `true`. LOR solvers work by taking a problem and casting it onto a spectrally equivalent one with lower polynomial order and more refined mesh. Due to the scaling properties of the computing time with respect to polynomial order and mesh size, this change will often result in a significant performance improvement, which tends to be more pronounced at higher polynomial orders. More details can be found [here](https://mfem.org/pdf/workshop21/15_WillPazner_High_Order_Solvers.pdf).
-
+Direct subclasses are [MFEMLinearSolverBase.md], which covers linear solvers and preconditioners,
+and [MFEMNonlinearSolverBase.md], which covers nonlinear solve strategies.
 
 !if-end!
 

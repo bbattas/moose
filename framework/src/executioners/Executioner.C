@@ -42,10 +42,16 @@ Executioner::validParams()
       "File base name used for restart",
       "Please use \"Problem/restart_file_base\" instead");
 
+  // An executioner should never be disabled
+  params.suppressParameter<bool>("enable");
+
   params.registerBase("Executioner");
 
-  params.addParamNamesToGroup("fixed_point_algorithm", "Fixed point iterations");
+  params.addParamNamesToGroup("fixed_point_algorithm", "MultiApp fixed point iterations");
   params.addParamNamesToGroup("restart_file_base", "Restart");
+
+  // Whether or not this executioner supports --test-restep capability
+  params.addPrivateParam<bool>("_supports_test_restep", false);
 
   return params;
 }
@@ -70,6 +76,9 @@ Executioner::Executioner(const InputParameters & parameters)
   if (!_restart_file_base.empty())
     _fe_problem.setRestartFile(_restart_file_base);
 
+  if (!getParam<bool>("_supports_test_restep") && _app.testReStep())
+    mooseInfo("This Executioner does not support --test-restep; solve will behave as normal");
+
   // Instantiate the SolveObject for the MultiApp fixed point iteration algorithm
   if (_iteration_method == "picard")
     _fixed_point_solve = std::make_unique<PicardSolve>(*this);
@@ -77,10 +86,6 @@ Executioner::Executioner(const InputParameters & parameters)
     _fixed_point_solve = std::make_unique<SecantSolve>(*this);
   else if (_iteration_method == "steffensen")
     _fixed_point_solve = std::make_unique<SteffensenSolve>(*this);
-
-  // Propagate the verbosity down to the problem
-  if (_verbose)
-    _fe_problem.setVerboseProblem(_verbose);
 }
 
 Executioner::Executioner(const InputParameters & parameters, bool)
@@ -99,6 +104,9 @@ Executioner::Executioner(const InputParameters & parameters, bool)
 {
   if (!_restart_file_base.empty())
     _fe_problem.setRestartFile(_restart_file_base);
+
+  if (!getParam<bool>("_supports_test_restep") && _app.testReStep())
+    mooseInfo("This Executioner does not support --test-restep; solve will behave as normal");
 }
 
 Problem &

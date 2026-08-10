@@ -2,10 +2,6 @@
 
 !if! function=hasCapability('mfem')
 
-## Summary
-
-!syntax description /FESpaces/MFEMVectorFESpace
-
 ## Overview
 
 This is a convenience class for building finite element spaces to
@@ -21,7 +17,7 @@ The dimension of the resulting finite element collection/space will be
 the same as the dimension of the mesh. The value of `vdim` (the number
 of degrees of freedom per basis function) will depend on `fec_type`.
 
-- `H1` and `L2` spaces will have `vdim` set to `range_dim`
+- `H1` and `L2(Int)` spaces will have `vdim` set to `range_dim`
 - `ND` and `RT` spaces will always have `vdim` set to 1
 
 Note that Nédélec and Raviart-Thomas shape functions do not support
@@ -31,8 +27,7 @@ Raviart-Thomas finite elements in a 1D reference space but with 2D
 vectors.
 
 If you need a finite element space that can't be constructed using the
-options available in this class, you can use
-[MFEMGenericFESpace](MFEMGenericFESpace.md) instead.
+options available in this class, you can use [MFEMGenericFESpace.md] instead.
 
 ## Example Input File Syntax
 

@@ -37,15 +37,16 @@ PIMPLE::PIMPLE(const InputParameters & parameters) : TransientBase(parameters), 
 void
 PIMPLE::init()
 {
+  _pimple_solve.initialSetup();
   TransientBase::init();
   _pimple_solve.linkRhieChowUserObject();
   _pimple_solve.setupPressurePin();
 }
 
 Real
-PIMPLE::relativeSolutionDifferenceNorm()
+PIMPLE::relativeSolutionDifferenceNorm(bool check_aux) const
 {
-  if (_check_aux)
+  if (check_aux)
     return _aux.solution().l2_norm_diff(_aux.solutionOld()) / _aux.solution().l2_norm();
   else
   {

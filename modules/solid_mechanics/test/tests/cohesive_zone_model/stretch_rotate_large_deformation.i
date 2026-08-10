@@ -125,7 +125,7 @@
 
 [Physics/SolidMechanics/CohesiveZone]
   [./czm_ik]
-    boundary = 'interface'
+    boundary = 'Block0_Block1'
     strain = FINITE
     generate_output='traction_x traction_y traction_z jump_x jump_y jump_z normal_traction tangent_traction normal_jump tangent_jump pk1_traction_x pk1_traction_y pk1_traction_z'
   [../]
@@ -137,7 +137,8 @@
     enable_objects = 'BCs::fix_x BCs::fix_y BCs::fix_z BCs::back_z'
     disable_objects = 'BCs::rotate_x BCs::rotate_y BCs::rotate_z'
     start_time = '0'
-    end_time = '1'
+    end_time = '1.01'
+    execute_on = 'initial timestep_begin'
   [../]
 []
 
@@ -167,7 +168,7 @@
   [../]
   [./czm_mat]
     type = PureElasticTractionSeparation
-    boundary = 'interface'
+    boundary = 'Block0_Block1'
     normal_stiffness = 10000
     tangent_stiffness = 7000
   [../]

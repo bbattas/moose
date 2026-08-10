@@ -1,0 +1,72 @@
+//* This file is part of the MOOSE framework
+//* https://www.mooseframework.org
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#pragma once
+
+#include "LinearFVFluxKernel.h"
+#include "RhieChowMassFlux.h"
+#include "LinearFVAdvectionDiffusionBC.h"
+#include "FVAdvectedInterpolationMethod.h"
+#include "FVInterpolationMethodInterface.h"
+
+/**
+ * An advection kernel that implements the advection term for the turbulent variables
+ * limited for the first cells near the wall.
+ */
+class LinearFVTurbulentAdvection : public LinearFVFluxKernel, public FVInterpolationMethodInterface
+{
+public:
+  static InputParameters validParams();
+  LinearFVTurbulentAdvection(const InputParameters & params);
+
+  virtual void addMatrixContribution() override;
+
+  virtual void addRightHandSideContribution() override;
+
+  virtual void initialSetup() override;
+
+  virtual Real computeElemMatrixContribution() override;
+
+  virtual Real computeNeighborMatrixContribution() override;
+
+  virtual Real computeElemRightHandSideContribution() override;
+
+  virtual Real computeNeighborRightHandSideContribution() override;
+
+  virtual Real computeBoundaryMatrixContribution(const LinearFVBoundaryCondition & bc) override;
+
+  virtual Real computeBoundaryRHSContribution(const LinearFVBoundaryCondition & bc) override;
+
+  virtual void setupFaceData(const FaceInfo * face_info) override;
+
+protected:
+  /// The Rhie-Chow user object that provides us with the face velocity
+  const RhieChowMassFlux & _mass_flux_provider;
+
+private:
+  /// The interpolation method to use for the advected quantity
+  const FVAdvectedInterpolationMethod & _adv_interp_method;
+
+  /// Cached weights/correction for the current face (refreshed in setupFaceData)
+  FVAdvectedInterpolationMethod::AdvectedSystemContribution _adv_interp_result;
+
+  /// Reusable gradient storage used when advected interpolation requires gradients.
+  VectorValue<Real> _elem_grad_storage;
+  VectorValue<Real> _neighbor_grad_storage;
+
+  /// Container for the mass flux on the face which will be reused in the advection term's
+  /// matrix and right hand side contribution
+  Real _mass_face_flux;
+
+  /// Wall boundaries
+  const std::vector<BoundaryName> & _wall_boundary_names;
+
+  /// List for wall bounded elements
+  std::unordered_set<const Elem *> _wall_bounded;
+};

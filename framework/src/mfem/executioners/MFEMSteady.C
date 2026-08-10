@@ -7,41 +7,68 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMSteady.h"
 #include "MFEMProblem.h"
+#include "MFEMEigenproblem.h"
+#include "EigenproblemEquationSystem.h"
+#include "EquationSystemProblemOperator.h"
+#include "EigenproblemESProblemOperator.h"
 
 registerMooseObject("MooseApp", MFEMSteady);
 
 InputParameters
 MFEMSteady::validParams()
 {
-  InputParameters params = MFEMExecutioner::validParams();
+  InputParameters params = MFEMProblemSolve::validParams();
+  params += Executioner::validParams();
   params.addClassDescription("Executioner for steady state MFEM problems.");
   params.addParam<Real>("time", 0.0, "System time");
   return params;
 }
 
 MFEMSteady::MFEMSteady(const InputParameters & params)
-  : MFEMExecutioner(params),
+  : Executioner(params),
+    _mfem_problem(dynamic_cast<MFEMProblem &>(feProblem())),
+    _mfem_problem_data(_mfem_problem.getProblemData()),
+    _mfem_problem_solve(*this, getProblemOperators()),
     _system_time(getParam<Real>("time")),
     _time_step(_mfem_problem.timeStep()),
-    _time(_mfem_problem.time()),
-    _output_iteration_number(0)
+    _time([this]() -> Real & { return this->_mfem_problem.time() = this->_system_time; }()),
+    _last_solve_converged(false)
 {
-  _time = _system_time;
-}
-
-void
-MFEMSteady::constructProblemOperator()
-{
-  _problem_data.eqn_system = std::make_shared<Moose::MFEM::EquationSystem>();
-  auto problem_operator =
-      std::make_unique<Moose::MFEM::EquationSystemProblemOperator>(_problem_data);
-
-  _problem_operator.reset();
-  _problem_operator = std::move(problem_operator);
+  // If no ProblemOperators have been added by the user, add a default
+  if (getProblemOperators().empty())
+  {
+    if (_mfem_problem.getNumericType() == MFEMProblem::NumericType::REAL)
+    {
+      if (dynamic_cast<MFEMEigenproblem *>(&_mfem_problem))
+      {
+        _mfem_problem_data.eqn_system = std::make_shared<Moose::MFEM::EigenproblemEquationSystem>();
+        auto problem_operator =
+            std::make_shared<Moose::MFEM::EigenproblemESProblemOperator>(_mfem_problem);
+        addProblemOperator(std::move(problem_operator));
+      }
+      else
+      {
+        _mfem_problem_data.eqn_system = std::make_shared<Moose::MFEM::EquationSystem>();
+        auto problem_operator =
+            std::make_shared<Moose::MFEM::EquationSystemProblemOperator>(_mfem_problem);
+        addProblemOperator(std::move(problem_operator));
+      }
+    }
+    else if (_mfem_problem.getNumericType() == MFEMProblem::NumericType::COMPLEX)
+    {
+      _mfem_problem_data.eqn_system = std::make_shared<Moose::MFEM::ComplexEquationSystem>();
+      auto problem_operator =
+          std::make_shared<Moose::MFEM::ComplexEquationSystemProblemOperator>(_mfem_problem);
+      addProblemOperator(std::move(problem_operator));
+    }
+    else
+      mooseError("Unknown numeric type. "
+                 "Please set the Problem numeric type to either 'real' or 'complex'.");
+  }
 }
 
 void
@@ -50,14 +77,23 @@ MFEMSteady::init()
   _mfem_problem.execute(EXEC_PRE_MULTIAPP_SETUP);
   _mfem_problem.initialSetup();
 
+  if (_mfem_problem_data.nonlinear_solver)
+    _mfem_problem_data.eqn_system->SetGradientRequired(
+        _mfem_problem_data.nonlinear_solver->RequiresGradient());
+
+  _mfem_problem_data.eqn_system->SetCoefficientManager(_mfem_problem_data.coefficients);
+
   // Set up initial conditions
-  _problem_data.eqn_system->Init(
-      _problem_data.gridfunctions,
-      _problem_data.fespaces,
+  _mfem_problem_data.eqn_system->Init(
+      _mfem_problem_data.gridfunctions,
+      _mfem_problem_data.cmplx_gridfunctions,
       getParam<MooseEnum>("assembly_level").getEnum<mfem::AssemblyLevel>());
 
-  _problem_operator->SetGridFunctions();
-  _problem_operator->Init(_problem_data.f);
+  for (const auto & problem_operator : getProblemOperators())
+  {
+    problem_operator->SetGridFunctions();
+    problem_operator->Init(_mfem_problem_data.true_solution);
+  }
 }
 
 void
@@ -81,21 +117,24 @@ MFEMSteady::execute()
   // first step in any steady state solve is always 1 (preserving backwards compatibility)
   _time_step = 1;
   _mfem_problem.timestepSetup();
+  _mfem_problem.execTransfers(EXEC_TIMESTEP_BEGIN);
+  if (!_mfem_problem.execMultiApps(EXEC_TIMESTEP_BEGIN, true))
+  {
+    _last_solve_converged = false;
+    return;
+  }
+  _mfem_problem.execute(EXEC_TIMESTEP_BEGIN);
 
-  // Solve equation system.
-  if (_mfem_problem.shouldSolve())
-    _problem_operator->Solve(_problem_data.f);
-
-  // Displace mesh, if required
-  _mfem_problem.displaceMesh();
+  _last_solve_converged = _mfem_problem_solve.solve();
 
   _mfem_problem.computeIndicators();
   _mfem_problem.computeMarkers();
 
   // need to keep _time in sync with _time_step to get correct output
   _time = _time_step;
-  // Execute user objects at timestep end
   _mfem_problem.execute(EXEC_TIMESTEP_END);
+  _mfem_problem.execTransfers(EXEC_TIMESTEP_END);
+  _mfem_problem.execMultiApps(EXEC_TIMESTEP_END, true);
   _mfem_problem.outputStep(EXEC_TIMESTEP_END);
   _time = _system_time;
 

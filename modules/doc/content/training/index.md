@@ -2,20 +2,47 @@
 
 !style! halign=left
 Upcoming MOOSE related training in chronological order:
+
+- MOOSE Developer Training (2026 June 2-4, Idaho Falls) [Registration](https://ncrcaims.inl.gov/Identity/Account/TrainingRegistration)
+
+- MOOSE-based Thermal Hydraulics and Fluid Dynamics Training (2026 August 13-14, North Carolina State University) [Registration](https://ncrcaims.inl.gov/Identity/Account/TrainingRegistration)
+
 !style-end!
 
-- [BISON](https://ncrcaims.inl.gov/Identity/Account/TrainingRegistration) Fuels Performance (2025 June 18-19, Idaho Falls)
+!!!
+!alert! note
+There are currently no upcoming MOOSE-related training events. Please return to this page to view
+future opportunities for in-person training. For online training, tutorials, and examples, please
+refer to the [getting_started/examples_and_tutorials/index.md] page.
+!alert-end!
+!!!
+
+# Conferences
+
+- [UK MOOSE Conference 2026](https://cfms.org.uk/article/2026-uk-moose-conference/) (2026 May 11-13, CFMS, Bristol, UK)
+
+- 2nd MOOSE International Conference (2027 February, Idaho Falls)
 
 
 #### Past Training:
 
-- [MOOSE Framework Fundamentals](https://ncrcaims.inl.gov/Identity/Account/TrainingRegistration) (2025 June 3-5, Idaho Falls)
+- [Griffin Workshop during PHYSOR 2026](https://www.physor2026.org/info-workshop/) (2026 April 19, Turin, Italy)
+
+- MOOSE Modeling and Simulation User Training (2026 April 16, Texas A&M)
+
+- [BISON](https://mooseframework.inl.gov/bison) Fuels Performance (2026 January 8-9, Rensselaer Polytechnic Institute)
+
+- MOOSE Framework User training (2026 January 6-7, Rensselaer Polytechnic Institute)
+
+- [BISON](https://mooseframework.inl.gov/bison) Fuels Performance (2025 June 18-19, Idaho Falls)
+
+- MOOSE Framework Fundamentals (2025 June 3-5, Idaho Falls)
 
 - [Griffin Workshop during M&C 2025](https://www.ans.org/meetings/mc2025/calendar/event-1560/) (2025 April 27, Denver)
 
 - [BISON](https://mooseframework.inl.gov/bison) Fuels Performance (2025 January 17, University of Massachusetts - Lowell)
 
-- MOOSE Framework Fundamentals (2025 January 15-16, University of Massachusetts - Lowell)
+- MOOSE Framework User training (2025 January 15-16, University of Massachusetts - Lowell)
 
 - MOOSE Framework Fundamentals (2024 October 15-17, University of Illinois Urbana-Champaign)
 
@@ -47,6 +74,7 @@ Upcoming MOOSE related training in chronological order:
   - Video: [MOOSE Workshop (Summer 2023, Part 2)](https://www.youtube.com/watch?v=JwbtDXRYPYo)
 
 - Reactor Meshing Workshop (2023 May 16, virtual)
+
 - MOOSE Framework (2022 June)
 
 #### Past Conferences

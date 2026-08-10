@@ -140,6 +140,7 @@ AdvancedOutput::AdvancedOutput(const InputParameters & parameters)
                                                            : false),
     _scalar_as_nodal(isParamValid("scalar_as_nodal") ? getParam<bool>("scalar_as_nodal") : false),
     _reporter_data(_problem_ptr->getReporterData()),
+    _last_execute_time(declareRecoverableData<std::map<std::string, Real>>("last_execute_time")),
     _postprocessors_as_reporters(getParam<bool>("postprocessors_as_reporters")),
     _vectorpostprocessors_as_reporters(getParam<bool>("vectorpostprocessors_as_reporters"))
 {
@@ -332,6 +333,12 @@ AdvancedOutput::output()
   }
 }
 
+void
+AdvancedOutput::clearLastExecuteTime()
+{
+  _last_execute_time.clear();
+}
+
 bool
 AdvancedOutput::wantOutput(const std::string & name, const ExecFlagType & type)
 {
@@ -428,6 +435,15 @@ AdvancedOutput::initAvailableLists()
     {
       MooseVariableFEBase & var = _problem_ptr->getVariable(
           0, var_name, Moose::VarKindType::VAR_ANY, Moose::VarFieldType::VAR_FIELD_ANY);
+
+      // Skip if the 'outputs' parameter has been set to exclude this output
+      if (var.isParamValid("outputs"))
+      {
+        const auto & outputs = var.getParam<std::vector<OutputName>>("outputs");
+        if (outputs.size() && std::find(outputs.begin(), outputs.end(), name()) == outputs.end() &&
+            outputs[0] != "all")
+          continue;
+      }
 
       const FEType type = var.feType();
       for (unsigned int i = 0; i < var.count(); ++i)
@@ -641,21 +657,31 @@ AdvancedOutput::initOutputList(OutputData & data)
   std::set<std::string> & avail = data.available;
   std::set<std::string> & output = data.output;
 
-  // Append to the hide list from OutputInterface objects
+  // Get the hide list from OutputInterface objects
+  std::set<std::string> interface_hide_all_types;
+  _app.getOutputWarehouse().buildInterfaceHideVariables(name(), interface_hide_all_types);
+
+  // OutputInterface hide list includes all types; only include those that are available
   std::set<std::string> interface_hide;
-  _app.getOutputWarehouse().buildInterfaceHideVariables(name(), interface_hide);
+  std::set_intersection(interface_hide_all_types.begin(),
+                        interface_hide_all_types.end(),
+                        avail.begin(),
+                        avail.end(),
+                        std::inserter(interface_hide, interface_hide.begin()));
+
+  // Append to the hide list from OutputInterface objects
   hide.insert(interface_hide.begin(), interface_hide.end());
 
   // Both show and hide are empty and no show/hide settings were provided (show all available)
-  if (show.empty() && hide.empty() && !_execute_data.hasShowList())
+  if (!_execute_data.hasShowList() && hide.empty())
     output = avail;
 
   // Only hide is empty (show all the variables listed)
-  else if (!show.empty() && hide.empty())
+  else if (_execute_data.hasShowList() && hide.empty())
     output = show;
 
   // Only show is empty (show all except those hidden)
-  else if (show.empty() && !hide.empty())
+  else if (!_execute_data.hasShowList() && !hide.empty())
     std::set_difference(avail.begin(),
                         avail.end(),
                         hide.begin(),
@@ -663,7 +689,7 @@ AdvancedOutput::initOutputList(OutputData & data)
                         std::inserter(output, output.begin()));
 
   // Both hide and show are present (show all those listed)
-  else
+  else // (_execute_data.hasShowList() && !hide.empty())
   {
     // Check if variables are in both, which is invalid
     std::vector<std::string> tmp;

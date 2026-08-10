@@ -166,7 +166,6 @@
 []
 
 [FluidProperties]
-
   [water_true]
     type = Water97FluidProperties
   []
@@ -175,6 +174,8 @@
     fp = water_true
     allow_fp_and_tabulation = true
     fluid_property_file = fluid_properties_extended.csv
+    # the test relies on forwarding enthalpy evaluations to 'water_true'
+    interpolated_properties = 'density viscosity internal_energy'
   []
 []
 
@@ -207,6 +208,7 @@
   []
   [internal_energy]
     type = PorousFlowMatrixInternalEnergy
+    at_nodes = true # Needed as there are no kernels
     density = 2500
     specific_heat_capacity = 1200
   []

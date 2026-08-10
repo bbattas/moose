@@ -16,10 +16,13 @@
 #include <set>
 #include <map>
 #include <memory>
+#include <optional>
 
 #include "libmesh/utility.h"
 
+#ifdef MOOSE_UNIT_TEST
 #include <gtest/gtest.h>
+#endif
 
 #define combineNames1(X, Y) X##Y
 #define combineNames(X, Y) combineNames1(X, Y)
@@ -29,18 +32,21 @@
 /// when your app/module code may be compiled with other apps without your objects being
 /// registered.  Calling this multiple times with the same argument is safe.
 #define registerKnownLabel(X)                                                                      \
-  static char combineNames(dummy_var_for_known_label, __COUNTER__) = Registry::addKnownLabel(X)
+  [[maybe_unused]] static char combineNames(dummy_var_for_known_label, __COUNTER__) =              \
+      Registry::addKnownLabel(X)
 
 /// add an Action to the registry with the given app name/label as being associated with the given
 /// task (quoted string).  classname is the (unquoted) c++ class.
 #define registerMooseAction(app, classname, task)                                                  \
-  static char combineNames(dummyvar_for_registering_action_##classname, __COUNTER__) =             \
+  [[maybe_unused]] static char combineNames(dummyvar_for_registering_action_##classname,           \
+                                            __COUNTER__) =                                         \
       Registry::addAction<classname>({app, #classname, "", task, __FILE__, __LINE__, "", ""})
 
 /// Add a MooseObject to the registry with the given app name/label.  classname is the (unquoted)
 /// c++ class.  Each object/class should only be registered once.
 #define registerMooseObject(app, classname)                                                        \
-  static char combineNames(dummyvar_for_registering_obj_##classname, __COUNTER__) =                \
+  [[maybe_unused]] static char combineNames(dummyvar_for_registering_obj_##classname,              \
+                                            __COUNTER__) =                                         \
       Registry::add<classname>({app, #classname, "", "", __FILE__, __LINE__, "", ""})
 
 #define registerADMooseObject(app, classname) registerMooseObject(app, classname)
@@ -48,13 +54,15 @@
 /// Add a MooseObject to the registry with the given app name/label under an alternate alias/name
 /// (quoted string) instead of the classname.
 #define registerMooseObjectAliased(app, classname, alias)                                          \
-  static char combineNames(dummyvar_for_registering_obj_##classname, __COUNTER__) =                \
+  [[maybe_unused]] static char combineNames(dummyvar_for_registering_obj_##classname,              \
+                                            __COUNTER__) =                                         \
       Registry::add<classname>({app, #classname, alias, "", __FILE__, __LINE__, "", ""})
 
 /// Add a deprecated MooseObject to the registry with the given app name/label. time is the time
 /// the object became/becomes deprecated in "mm/dd/yyyy HH:MM" format.
 #define registerMooseObjectDeprecated(app, classname, time)                                        \
-  static char combineNames(dummyvar_for_registering_obj_##classname, __COUNTER__) =                \
+  [[maybe_unused]] static char combineNames(dummyvar_for_registering_obj_##classname,              \
+                                            __COUNTER__) =                                         \
       Registry::add<classname>({app, #classname, "", "", __FILE__, __LINE__, time, ""})
 
 #define registerADMooseObjectDeprecated(app, classname, time)                                      \
@@ -63,7 +71,8 @@
 /// add a deprecated MooseObject to the registry that has been replaced by another
 /// object. time is the time the object became/becomes deprecated in "mm/dd/yyyy hh:mm" format.
 #define registerMooseObjectReplaced(app, classname, time, replacement)                             \
-  static char combineNames(dummyvar_for_registering_obj_##classname, __COUNTER__) =                \
+  [[maybe_unused]] static char combineNames(dummyvar_for_registering_obj_##classname,              \
+                                            __COUNTER__) =                                         \
       Registry::add<classname>({app, #classname, "", "", __FILE__, __LINE__, time, #replacement})
 
 /// add a deprecated MooseObject orig_class to the registry that has been replaced by another
@@ -71,7 +80,8 @@
 /// "mm/dd/yyyy hh:mm" format.
 /// A call to registerMooseObject is still required for the new class
 #define registerMooseObjectRenamed(app, orig_class, time, new_class)                               \
-  static char combineNames(dummyvar_for_registering_obj_##orig_class, __COUNTER__) =               \
+  [[maybe_unused]] static char combineNames(dummyvar_for_registering_obj_##orig_class,             \
+                                            __COUNTER__) =                                         \
       Registry::add<new_class>(                                                                    \
           {app, #new_class, #orig_class, #orig_class, __FILE__, __LINE__, time, #new_class})
 
@@ -79,11 +89,16 @@
   registerMooseObjectRenamed(app, orig_class, time, new_class)
 
 /// Register a non-MooseApp data file path (folder name must be data)
-#define registerNonAppDataFilePath(name, path) Registry::addDataFilePath(name, path)
+#define registerNonAppDataFilePath(name, path) Registry::addDataFilePath(name, path, false)
+/// Register a non-MooseApp data file path (folder name must be data) with extra information
+#define registerNonAppDataFilePathWithInfo(name, path, info)                                       \
+  Registry::addDataFilePath(name, path, false, info)
 /// Register a data file path for an application. Uses the current file to register
 /// ../../data as a path. The app name must be the APPLICATION_NAME used to build
 /// the app (solid_mechanics instead of SolidMechanicsApp, for example)
 #define registerAppDataFilePath(app) Registry::addAppDataFilePath(app, __FILE__)
+/// Register a missing data file path (adds the data capability as missing)
+#define registerMissingDataFilePath(name, info) Registry::addMissingDataFilePath(name, info)
 /// Deprecated method; use registerAppDataFilePath instead
 #define registerDataFilePath() Registry::addDeprecatedAppDataFilePath(__FILE__)
 
@@ -126,6 +141,7 @@ struct RegistryEntryBase : public RegistryEntryData
   virtual ~RegistryEntryBase() {}
   /// proxy functions
   virtual std::unique_ptr<MooseObject> build(const InputParameters & parameters) = 0;
+  virtual std::shared_ptr<MooseObject> buildShared(const InputParameters & parameters) = 0;
   virtual std::shared_ptr<Action> buildAction(const InputParameters & parameters) = 0;
   virtual InputParameters buildParameters() = 0;
   /// resolve the name from _classname, _alias, and _name
@@ -143,8 +159,9 @@ struct RegistryEntryBase : public RegistryEntryData
 template <typename T>
 struct RegistryEntry : public RegistryEntryBase
 {
-  RegistryEntry(const RegistryEntryData & data) : RegistryEntryBase(data) {}
+  RegistryEntry(const RegistryEntryData & data);
   virtual std::unique_ptr<MooseObject> build(const InputParameters & parameters) override;
+  virtual std::shared_ptr<MooseObject> buildShared(const InputParameters & parameters) override;
   virtual std::shared_ptr<Action> buildAction(const InputParameters & parameters) override;
   virtual InputParameters buildParameters() override;
 };
@@ -207,16 +224,27 @@ public:
   /// addKnownLabel whitelists a label as valid for purposes of the checkLabels function.
   static char addKnownLabel(const std::string & label);
 
-  /// register general search paths (folder name must be data)
-  static void addDataFilePath(const std::string & name, const std::string & in_tree_path);
+  /// register general search paths; "app" is whether or not the path is an app path
+  static void addDataFilePath(const std::string & name,
+                              const std::string & in_tree_path,
+                              const bool app = true,
+                              const std::optional<std::string> & info = {});
   /// register search paths for an application (path determined relative to app_path);
   /// app_path should be passed as __FILE__ from the application source file
   static void addAppDataFilePath(const std::string & app_name, const std::string & app_path);
+  /// register a data file path as missing, along with info about how it can be added
+  static void addMissingDataFilePath(const std::string & name, const std::string & info);
   /// deprecated method; use addAppDataFilePath instead
   static void addDeprecatedAppDataFilePath(const std::string & app_path);
 
   /// register a repository
   static void addRepository(const std::string & repo_name, const std::string & repo_url);
+
+  /// Register a citation (the full BibTeX \p bibtex text, identified by \p key) tied to the app
+  /// \p app_name; emitted by --citations when any object registered to that app is constructed. The
+  /// framework registers its paper under "MooseApp", so apps composed of MooseApp inherit it.
+  static void
+  addAppCitation(const std::string & app_name, const std::string & key, const std::string & bibtex);
 
   /// Returns a per-label keyed map of all MooseObjects in the registry.
   static const std::map<std::string, std::vector<std::shared_ptr<RegistryEntryBase>>> & allObjects()
@@ -258,6 +286,18 @@ public:
    */
   static const std::map<std::string, std::string> & getRepos() { return getRegistry()._repos; }
 
+  /// Returns the registered citations, keyed by app/module name and then by BibTeX key
+  /// (app/module name -> (BibTeX key -> BibTeX entry text))
+  static const std::map<std::string, std::map<std::string, std::string>> & getCitations()
+  {
+    return getRegistry()._app_citations;
+  }
+  /// Returns the citations (BibTeX key -> BibTeX entry text) tied to \p app_name, or an empty map
+  /// if no citations are registered for it. Most apps/modules register none, so the empty result
+  /// is a normal case: callers iterate over all constructed objects' labels and gather whatever
+  /// citations exist.
+  static const std::map<std::string, std::string> & getCitations(const std::string & app_name);
+
   /// returns the name() for a registered class
   template <typename T>
   static std::string getRegisteredName();
@@ -271,6 +311,7 @@ public:
   ///@}
 
 private:
+#ifdef MOOSE_UNIT_TEST
   /// Friends for unit testing
   ///@{
   friend class RegistryTest;
@@ -279,9 +320,11 @@ private:
   FRIEND_TEST(RegistryTest, determineFilePathFailed);
   FRIEND_TEST(RegistryTest, appNameFromAppPath);
   FRIEND_TEST(RegistryTest, appNameFromAppPathFailed);
+  FRIEND_TEST(RegistryTest, addDataFilePathCapability);
   ///@}
+#endif
 
-  Registry(){};
+  Registry() {};
 
   /**
    * Manually set the data file paths.
@@ -310,6 +353,14 @@ private:
   /// /path/to/FooBarBazApp.C -> foo_bar_baz, for use in addDeprecatedAppDataFilePath
   static std::string appNameFromAppPath(const std::string & app_path);
 
+  /// Check a data file path for valid characters
+  static void checkDataFilePathName(const std::string & name);
+
+  /// Add a data file path capability
+  static void addDataFilePathCapability(const std::string & name,
+                                        const std::optional<std::string> & path = {},
+                                        const std::optional<std::string> & extra_info = {});
+
   std::map<std::string, std::shared_ptr<RegistryEntryBase>> _name_to_entry;
   std::map<std::string, std::vector<std::shared_ptr<RegistryEntryBase>>> _per_label_objects;
   std::map<std::string, std::vector<std::shared_ptr<RegistryEntryBase>>> _per_label_actions;
@@ -319,6 +370,8 @@ private:
   /// Repository name -> repository URL; used for mooseDocumentedError
   std::map<std::string, std::string> _repos;
   std::map<std::string, std::string> _type_to_classname;
+  /// App/module name -> (citation key -> BibTeX entry text) for that app
+  std::map<std::string, std::map<std::string, std::string>> _app_citations;
 };
 
 template <typename T>
@@ -330,12 +383,27 @@ Registry::getRegisteredName()
 }
 
 template <typename T>
+RegistryEntry<T>::RegistryEntry(const RegistryEntryData & data) : RegistryEntryBase(data)
+{
+  static_assert(std::is_base_of_v<MooseObject, T> || std::is_base_of_v<Action, T>,
+                "Not derived from MooseObject or Action");
+}
+
+template <typename T>
 std::unique_ptr<MooseObject>
 RegistryEntry<T>::build(const InputParameters & parameters)
 {
   if constexpr (std::is_base_of_v<MooseObject, T>)
     return std::make_unique<T>(parameters);
-  mooseError("The object to be built is not derived from MooseObject.");
+  mooseError(MooseUtils::prettyCppType<T>(), " to be built is not a MooseObject.");
+}
+template <typename T>
+std::shared_ptr<MooseObject>
+RegistryEntry<T>::buildShared(const InputParameters & parameters)
+{
+  if constexpr (std::is_base_of_v<MooseObject, T>)
+    return std::make_shared<T>(parameters);
+  mooseError(MooseUtils::prettyCppType<T>(), " to be built is not a MooseObject.");
 }
 
 template <typename T>

@@ -35,15 +35,13 @@ AddVariableAction::validParams()
   params.set<std::string>("type") = "MooseVariableBase";
 
   // The below is for backwards compatibility
-  MooseEnum families(AddVariableAction::getNonlinearVariableFamilies());
-  MooseEnum orders(AddVariableAction::getNonlinearVariableOrders());
-  params.addParam<MooseEnum>(
-      "family", families, "Specifies the family of FE shape functions to use for this variable");
+  params.addParam<MooseEnum>("family",
+                             AddVariableAction::getNonlinearVariableFamilies(),
+                             "Specifies the family of FE shape functions to use for this variable");
   params.addParam<MooseEnum>("order",
-                             orders,
-                             "Specifies the order of the FE shape function to use "
-                             "for this variable (additional orders not listed are "
-                             "allowed)");
+                             AddVariableAction::getNonlinearVariableOrders(),
+                             "Specifies the order of the FE shape function to use for this "
+                             "variable (additional orders not listed are allowed)");
   params.addParam<std::vector<Real>>("scaling",
                                      "Specifies a scaling factor to apply to this variable");
   params.addParam<std::vector<Real>>("initial_condition",
@@ -74,7 +72,15 @@ AddVariableAction::getNonlinearVariableFamilies()
 MooseEnum
 AddVariableAction::getNonlinearVariableOrders()
 {
-  return MooseEnum("CONSTANT FIRST SECOND THIRD FOURTH", "FIRST", true);
+  return MooseEnum(
+      "CONSTANT FIRST SECOND THIRD FOURTH FIFTH SIXTH SEVENTH EIGHTH NINTH TENTH ELEVENTH TWELFTH "
+      "THIRTEENTH FOURTEENTH FIFTEENTH SIXTEENTH SEVENTEENTH EIGHTTEENTH NINETEENTH TWENTIETH "
+      "TWENTYFIRST TWENTYSECOND TWENTYTHIRD TWENTYFOURTH TWENTYFIFTH TWENTYSIXTH TWENTYSEVENTH "
+      "TWENTYEIGHTH TWENTYNINTH THIRTIETH THIRTYFIRST THIRTYSECOND THIRTYTHIRD THIRTYFOURTH "
+      "THIRTYFIFTH THIRTYSIXTH THIRTYSEVENTH THIRTYEIGHTH THIRTYNINTH FORTIETH FORTYFIRST "
+      "FORTYSECOND FORTYTHIRD",
+      "FIRST",
+      true);
 }
 
 FEType
@@ -185,10 +191,11 @@ AddVariableAction::createInitialConditionAction(const std::vector<Real> & value)
 
   const auto fe_field_type = FEInterface::field_type(_fe_type);
   const bool is_vector = fe_field_type == TYPE_VECTOR;
+  const auto is_array = _components > 1 || _moose_object_pars.get<bool>("array");
 
   if (_scalar_var)
     action_params.set<std::string>("type") = "ScalarConstantIC";
-  else if (_components == 1)
+  else if (!is_array)
   {
     if (is_vector)
       action_params.set<std::string>("type") = "VectorConstantIC";
@@ -218,7 +225,7 @@ AddVariableAction::createInitialConditionAction(const std::vector<Real> & value)
 
   // Set the required parameters for the object to be created
   action->getObjectParams().set<VariableName>("variable") = var_name;
-  if (_components > 1)
+  if (is_array)
   {
     RealEigenVector v(_components);
     for (unsigned int i = 0; i < _components; ++i)

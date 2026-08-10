@@ -89,7 +89,7 @@ FlagElementsThread::onElement(const Elem * elem)
     marker_value = static_cast<Marker::MarkerValue>(round(dof_value));
 
     // Make sure we aren't masking an issue in the Marker system by rounding its values.
-    if (std::abs(marker_value - dof_value) > TOLERANCE * TOLERANCE)
+    if (std::abs(static_cast<int>(marker_value) - dof_value) > TOLERANCE * TOLERANCE)
       mooseError("Invalid Marker value detected: ", dof_value);
   }
 
@@ -102,11 +102,6 @@ FlagElementsThread::onElement(const Elem * elem)
     marker_value = Marker::DO_NOTHING;
 
   const_cast<Elem *>(elem)->set_refinement_flag((Elem::RefinementState)marker_value);
-
-  if (_displaced_problem)
-    _displaced_problem->mesh()
-        .elemPtr(elem->id())
-        ->set_refinement_flag((Elem::RefinementState)marker_value);
 }
 
 void

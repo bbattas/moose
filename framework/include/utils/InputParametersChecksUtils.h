@@ -150,7 +150,7 @@ private:
   // MooseObjects and Actions (MooseParameterInterface-derived classes)
   /// Forwards parameter check to the class using this utility
   template <typename T>
-  T forwardGetParam(const std::string & param_name) const
+  const T & forwardGetParam(const std::string & param_name) const
   {
     return _customer_class->template getParam<T>(param_name);
   }
@@ -233,7 +233,7 @@ InputParametersChecksUtils<C>::checkVectorParamsSameLength(const std::string & p
   // handle empty vector defaults
   else if (forwardIsParamValid(param1) || forwardIsParamValid(param2))
     if (forwardGetParam<std::vector<T>>(param1).size() ||
-        forwardGetParam<std::vector<T>>(param2).size())
+        forwardGetParam<std::vector<S>>(param2).size())
       checkParamsBothSetOrNotSet(param1, param2);
 }
 
@@ -286,7 +286,7 @@ InputParametersChecksUtils<C>::checkTwoDVectorParamsSameLength(const std::string
   // handle empty vector defaults
   else if (forwardIsParamValid(param1) || forwardIsParamValid(param2))
     if (forwardGetParam<std::vector<T>>(param1).size() ||
-        forwardGetParam<std::vector<T>>(param2).size())
+        forwardGetParam<std::vector<S>>(param2).size())
       checkParamsBothSetOrNotSet(param1, param2);
 }
 
@@ -553,9 +553,8 @@ InputParametersChecksUtils<C>::warnInconsistent(const InputParameters & other_pa
   if (!consistent)
     forwardMooseWarning("Parameter " + param_name + " is inconsistent between Physics \"" +
                         forwardName() + "\" of type \"" + forwardType() +
-                        "\" and the parameter set for \"" +
-                        other_param.get<std::string>("_action_name") + "\" of type \"" +
-                        other_param.get<std::string>("action_type") + "\"");
+                        "\" and the parameter set for \"" + other_param.getObjectName() +
+                        "\" of type \"" + other_param.getObjectType() + "\"");
 }
 
 template <typename C>

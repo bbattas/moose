@@ -14,9 +14,14 @@
 #include "libmesh/libmesh_common.h"
 #include "XTermConstants.h"
 
+#include <csignal>
+#include <limits>
 #include <memory>
 #include <set>
 #include <string>
+
+#define QUOTE(macro) stringifyName(macro)
+#define stringifyName(name) #name
 
 namespace libMesh
 {
@@ -38,6 +43,11 @@ class Factory;
 class MooseEnumItem;
 class ExecFlagEnum;
 class MooseVariableFieldBase;
+
+namespace hit
+{
+class Node;
+}
 
 void MooseVecView(libMesh::NumericVector<libMesh::Number> & vector);
 void MooseVecView(const libMesh::NumericVector<libMesh::Number> & vector);
@@ -120,8 +130,11 @@ extern const ExecFlagType EXEC_NONLINEAR;
 extern const ExecFlagType EXEC_POSTCHECK;
 extern const ExecFlagType EXEC_TIMESTEP_END;
 extern const ExecFlagType EXEC_TIMESTEP_BEGIN;
+extern const ExecFlagType EXEC_MULTIAPP_FIXED_POINT_ITERATION_END;
 extern const ExecFlagType EXEC_MULTIAPP_FIXED_POINT_BEGIN;
 extern const ExecFlagType EXEC_MULTIAPP_FIXED_POINT_END;
+extern const ExecFlagType EXEC_MULTIAPP_FIXED_POINT_CONVERGENCE;
+extern const ExecFlagType EXEC_MULTISYSTEM_FIXED_POINT_CONVERGENCE;
 extern const ExecFlagType EXEC_FINAL;
 extern const ExecFlagType EXEC_FORCED;
 extern const ExecFlagType EXEC_FAILED;
@@ -151,17 +164,14 @@ static_assert(LIBMESH_DIM == 3,
  */
 static constexpr std::size_t dim = LIBMESH_DIM;
 
+/// Value for invalid size_t indices
+inline constexpr std::size_t invalid_size_t = std::numeric_limits<std::size_t>::max();
+
 /**
  * Used by the signal handler to determine if we should write a checkpoint file out at any point
  * during operation.
  */
-extern int interrupt_signal_number;
-
-/**
- * Set to true (the default) to print the stack trace with error and warning
- * messages - false to omit it.
- */
-extern bool show_trace;
+extern volatile std::sig_atomic_t interrupt_signal_number;
 
 /**
  * Set to false (the default) to display an error message only once for each error call code
@@ -279,9 +289,91 @@ private:
   MPI_Comm _orig;
 };
 
+/**
+ * Scoped helper for setting Moose::_throw_on_error during this scope.
+ *
+ * Cannot be used within threads.
+ */
+class ScopedThrowOnError
+{
+public:
+  /**
+   * Default constructor, which sets Moose::_throw_on_error = true
+   */
+  ScopedThrowOnError();
+
+  /**
+   * Specialized constructor, which sets Moose::_throw_on_error
+   * based on the argument \p throw_on_error
+   */
+  ScopedThrowOnError(const bool throw_on_error);
+
+  /**
+   * Destructor, which sets Moose::_throw_on_error to what it
+   * was upon construction
+   */
+  ~ScopedThrowOnError();
+
+private:
+  /// The value of Moose::_throw_on_error at construction
+  const bool _throw_on_error_before;
+};
+
+/**
+ * Scoped helper for setting Moose::_deprecated_is_error during this scope.
+ *
+ * Cannot be used within threads.
+ */
+class ScopedDeprecatedIsError
+{
+public:
+  /**
+   * Default constructor, which sets Moose::_deprecated_is_error = true
+   */
+  ScopedDeprecatedIsError();
+
+  /**
+   * Specialized constructor, which sets Moose::_deprecated_is_error
+   * based on the argument \p deprecated_is_error
+   */
+  ScopedDeprecatedIsError(const bool deprecated_is_error);
+
+  /**
+   * Destructor, which sets Moose::_deprecated_is_error to what it
+   * was upon construction
+   */
+  ~ScopedDeprecatedIsError();
+
+private:
+  /// The value of Moose::_throw_on_error at construction
+  const bool _deprecated_is_error_before;
+};
+
+/**
+ * Get the prefix to be associated with a hit node for a message
+ */
+std::string hitMessagePrefix(const hit::Node & node);
+
 // MOOSE Requires PETSc to run, this CPP check will cause a compile error if PETSc is not found
 #ifndef LIBMESH_HAVE_PETSC
 #error PETSc has not been detected, please ensure your environment is set up properly then rerun the libmesh build script and try to compile MOOSE again.
 #endif
 
 } // namespace Moose
+
+// If we are using MFEM, in addition to the checks we do as part of the build system in moose.mk,
+// we check at compile time if both MOOSE and MFEM were built in dbg mode or not
+#ifdef MOOSE_MFEM_ENABLED
+#include "libmesh/ignore_warnings.h"
+#include <mfem.hpp>
+#include "libmesh/restore_warnings.h"
+#ifdef MFEM_DEBUG
+static_assert(std::string_view(QUOTE(METHOD)) == "dbg",
+              "MFEM was built in dbg mode, but not MOOSE. Try reinstalling "
+              "MFEM using the scripts/update_and_rebuild_mfem.sh script.");
+#else
+static_assert(std::string_view(QUOTE(METHOD)) != "dbg",
+              "MOOSE was built in dbg mode, but not MFEM. Try reinstalling "
+              "MFEM using the scripts/update_and_rebuild_mfem.sh script.");
+#endif
+#endif

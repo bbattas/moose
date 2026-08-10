@@ -28,6 +28,17 @@ public:
 
   virtual void execute() override;
 
+  /**
+   * Called once at the beginning of the simulation, used to initialize
+   * recovered control values
+   */
+  virtual void initialSetup() override;
+
+  /**
+   * Used to reset the PID when failing a timestep and the control is executed on timestep_end.
+   */
+  virtual void timestepSetup() override;
+
 private:
   /// The current value of the target postprocessor
   const PostprocessorValue & _current;
@@ -68,4 +79,8 @@ private:
   Real & _old_delta;
   /// whether the app has recovered once, because the logic for setting the value is different after having just recovered
   bool _has_recovered;
+  /// the difference with the target from the previous time step, used if a time step fails
+  Real _delta_prev_tstep = 0.0;
+  /// the difference with the target from the second-to-last iteration of previous time step, used if a time step fails
+  Real _old_delta_prev_tstep = 0.0;
 };

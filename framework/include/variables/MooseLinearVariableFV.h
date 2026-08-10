@@ -14,6 +14,7 @@
 #include "SubProblem.h"
 #include "MooseMesh.h"
 #include "MooseVariableDataLinearFV.h"
+#include "GradientLimiterType.h"
 
 #include "libmesh/numeric_vector.h"
 #include "libmesh/dof_map.h"
@@ -26,9 +27,11 @@ template <typename>
 class MooseLinearVariableFV;
 
 typedef MooseLinearVariableFV<Real> MooseLinearVariableFVReal;
+class AuxiliarySystem;
 class FVDirichletBCBase;
 class FVFluxBC;
 class LinearFVBoundaryCondition;
+class LinearSystem;
 
 namespace libMesh
 {
@@ -58,8 +61,10 @@ public:
   using OutputShapeSecond = typename MooseVariableField<OutputType>::OutputShapeSecond;
   using OutputShapeDivergence = typename MooseVariableField<OutputType>::OutputShapeDivergence;
 
-  using OutputData = typename MooseVariableField<OutputType>::OutputData;
-  using DoFValue = typename MooseVariableField<OutputType>::DoFValue;
+  using DofValue = typename MooseVariableField<OutputType>::DofValue;
+  using DofValues = typename MooseVariableField<OutputType>::DofValues;
+  using ADDofValue = typename MooseVariableField<OutputType>::ADDofValue;
+  using ADDofValues = typename MooseVariableField<OutputType>::ADDofValues;
 
   using FieldVariablePhiValue = typename MooseVariableField<OutputType>::FieldVariablePhiValue;
   using FieldVariablePhiGradient =
@@ -94,6 +99,21 @@ public:
   void computeCellGradients() { _needs_cell_gradients = true; }
 
   /**
+   * Switch to request cell gradient computations with an optional gradient limiter.
+   *
+   * `GradientLimiterType::None` is equivalent to requesting the regular gradients only.
+   */
+  void computeCellGradients(const Moose::FV::GradientLimiterType limiter_type);
+
+  /**
+   * Switch to request limited cell gradient computations.
+   *
+   * Limited gradients are stored in limiter-specific containers on the system and are computed
+   * using the raw cell gradients.
+   */
+  void computeCellLimitedGradients(const Moose::FV::GradientLimiterType limiter_type);
+
+  /**
    * Check if cell gradient computations were requested for this variable.
    */
   virtual bool needsGradientVectorStorage() const override { return _needs_cell_gradients; }
@@ -105,18 +125,66 @@ public:
   /**
    * Get the variable gradient at a cell center.
    * @param elem_info The ElemInfo of the cell where we need the gradient
+   * @param state State argument describing which solution state to evaluate
    */
-  const VectorValue<Real> gradSln(const ElemInfo & elem_info) const;
+  VectorValue<Real> gradSln(const ElemInfo & elem_info, const StateArg & state) const;
+
+  /**
+   * Get one raw gradient component at a cell center without materializing the full gradient.
+   * @param elem_info The ElemInfo of the cell where we need the gradient
+   * @param component The gradient component to retrieve
+   */
+  Real gradSlnComponent(const ElemInfo & elem_info, unsigned int component) const;
+
+  /**
+   * Get either the raw or limited gradient at a cell center.
+   * @param elem_info The ElemInfo of the cell where we need the gradient
+   * @param state State argument describing which solution state to evaluate
+   * @param limiter_type The limiter type used to compute/store limited gradients
+   */
+  VectorValue<Real> gradSln(const ElemInfo & elem_info,
+                            const StateArg & state,
+                            const Moose::FV::GradientLimiterType limiter_type) const;
+
+  /**
+   * Get the limited gradient at a cell center.
+   * @param elem_info The ElemInfo of the cell where we need the gradient
+   * @param state State argument describing which solution state to evaluate
+   * @param limiter_type The limiter type used to compute/store limited gradients
+   */
+  VectorValue<Real> limitedGradSln(const ElemInfo & elem_info,
+                                   const StateArg & state,
+                                   const Moose::FV::GradientLimiterType limiter_type) const;
 
   /**
    * Compute interpolated gradient on the provided face.
-   * @param face The face for which to retrieve the gradient.
-   * @param state State argument which describes at what time / solution iteration state we want to
-   * evaluate the variable
+   * @param fi The face for which to retrieve the gradient
+   * @param state State argument describing which solution state to evaluate
    */
   VectorValue<Real> gradSln(const FaceInfo & fi, const StateArg & state) const;
 
+  /**
+   * Compute interpolated raw/limited gradient on the provided face.
+   * @param fi The face for which to retrieve the gradient
+   * @param state State argument describing which solution state to evaluate
+   * @param limiter_type The limiter type used to compute/store limited gradients
+   */
+  VectorValue<Real> gradSln(const FaceInfo & fi,
+                            const StateArg & state,
+                            const Moose::FV::GradientLimiterType limiter_type) const;
+
+  /**
+   * Compute interpolated limited gradient on the provided face.
+   * @param fi The face for which to retrieve the gradient
+   * @param state State argument describing which solution state to evaluate
+   * @param limiter_type The limiter type used to compute/store limited gradients
+   */
+  VectorValue<Real> limitedGradSln(const FaceInfo & fi,
+                                   const StateArg & state,
+                                   const Moose::FV::GradientLimiterType limiter_type) const;
+
   virtual void initialSetup() override;
+  virtual void timestepSetup() override;
 
   /**
    * Get the solution value for the provided element and seed the derivative for the corresponding
@@ -138,7 +206,7 @@ public:
     return _boundary_id_to_bc;
   }
 
-  virtual void prepareIC() override {}
+  virtual void prepareIC() override;
 
   virtual bool isNodal() const override final { return false; }
 
@@ -156,6 +224,12 @@ public:
   virtual bool computingDiv() const override final { return false; }
   virtual bool usesSecondPhiNeighbor() const override final { return false; }
 
+  virtual void sizeMatrixTagData() override;
+
+  void requireQpComputations() const override { _compute_qp_data = true; }
+  bool supportsQpBasedLoops() const override { return _compute_qp_data; }
+  bool supportsGeometricInfoBasedLoops() const override { return true; }
+
 protected:
   /// Throw an error when somebody requests time-related data from this variable
   [[noreturn]] void timeIntegratorError() const;
@@ -169,6 +243,9 @@ protected:
   /// Throw an error when somebody wants to use this variable with automatic differentiation
   [[noreturn]] void adError() const;
 
+  /// Throw an error when somebody requests gradients at a non-current solution state
+  [[noreturn]] void gradientStateError(const StateArg & state) const;
+
   /**
    * Setup the boundary to Dirichlet BC map
    */
@@ -176,13 +253,20 @@ protected:
 
   usingMooseVariableBaseMembers;
 
+  /// Whether QP computation has been requested for this variable (opt-in)
+  mutable bool _compute_qp_data = false;
+
   /// Boolean to check if this variable needs gradient computations.
   bool _needs_cell_gradients;
 
   /// Temporary storage for the cell gradient to avoid unnecessary allocations.
   mutable RealVectorValue _cell_gradient;
 
-  /// Pointer to the cell gradients which are stored on the linear system
+  /// Owning concrete system pointers. One will be null.
+  LinearSystem * const _linear_system;
+  AuxiliarySystem * const _auxiliary_system;
+
+  /// Pointer to the unlimited cell gradient stored by the owning concrete system
   const std::vector<std::unique_ptr<libMesh::NumericVector<libMesh::Number>>> & _grad_container;
 
   /// Holder for all the data associated with the "main" element. The data in this is
@@ -251,12 +335,12 @@ public:
   // *********************************************************************************
   // *********************************************************************************
 
-  virtual void setDofValue(const OutputData & /*value*/, unsigned int /*index*/) override;
+  virtual void setDofValue(const DofValue & /*value*/, unsigned int /*index*/) override;
 
   virtual void getDofIndices(const Elem * elem,
                              std::vector<dof_id_type> & dof_indices) const override;
 
-  virtual void setDofValues(const DenseVector<OutputData> & values) override;
+  virtual void setDofValues(const DenseVector<DofValue> & values) override;
 
   virtual void clearDofIndices() override;
 
@@ -283,7 +367,7 @@ public:
 
   virtual void setNodalValue(const OutputType & value, unsigned int idx = 0) override;
 
-  [[noreturn]] virtual const DoFValue & nodalVectorTagValue(TagID) const override;
+  [[noreturn]] virtual const DofValues & nodalVectorTagValue(TagID) const override;
 
   virtual const std::vector<dof_id_type> & dofIndices() const final;
   virtual const std::vector<dof_id_type> & dofIndicesNeighbor() const final;
@@ -309,7 +393,7 @@ public:
   virtual void computeElemValues() override;
   virtual void computeFaceValues(const FaceInfo & /*fi*/) override {}
 
-  virtual void setLowerDofValues(const DenseVector<OutputData> & values) override;
+  virtual void setLowerDofValues(const DenseVector<DofValue> & values) override;
 
   virtual void insert(libMesh::NumericVector<libMesh::Number> & vector) override;
   virtual void insertLower(libMesh::NumericVector<libMesh::Number> & vector) override;
@@ -352,8 +436,8 @@ public:
   [[noreturn]] virtual const FieldVariablePhiSecond & secondPhiNeighbor() const override final;
 
   virtual const FieldVariableValue & vectorTagValue(TagID tag) const override;
-  virtual const DoFValue & vectorTagDofValue(TagID tag) const override;
-  [[noreturn]] virtual const DoFValue & nodalMatrixTagValue(TagID tag) const override;
+  virtual const DofValues & vectorTagDofValue(TagID tag) const override;
+  [[noreturn]] virtual const DofValues & nodalMatrixTagValue(TagID tag) const override;
   virtual const FieldVariableValue & matrixTagValue(TagID tag) const override;
 
   virtual const FieldVariableValue & sln() const override;
@@ -386,23 +470,23 @@ public:
   [[noreturn]] virtual const ADTemplateVariableCurl<OutputType> &
   adCurlSlnNeighbor() const override;
 
-  virtual const DoFValue & dofValues() const override;
-  virtual const DoFValue & dofValuesOld() const override;
+  virtual const DofValues & dofValues() const override;
+  virtual const DofValues & dofValuesOld() const override;
 
-  virtual const DoFValue & dofValuesOlder() const override;
-  virtual const DoFValue & dofValuesPreviousNL() const override;
-  virtual const DoFValue & dofValuesNeighbor() const override;
-  virtual const DoFValue & dofValuesOldNeighbor() const override;
-  virtual const DoFValue & dofValuesOlderNeighbor() const override;
-  virtual const DoFValue & dofValuesPreviousNLNeighbor() const override;
-  [[noreturn]] virtual const DoFValue & dofValuesDot() const override;
-  [[noreturn]] virtual const DoFValue & dofValuesDotNeighbor() const override;
-  [[noreturn]] virtual const DoFValue & dofValuesDotOld() const override;
-  [[noreturn]] virtual const DoFValue & dofValuesDotOldNeighbor() const override;
-  [[noreturn]] virtual const DoFValue & dofValuesDotDot() const override;
-  [[noreturn]] virtual const DoFValue & dofValuesDotDotNeighbor() const override;
-  [[noreturn]] virtual const DoFValue & dofValuesDotDotOld() const override;
-  [[noreturn]] virtual const DoFValue & dofValuesDotDotOldNeighbor() const override;
+  virtual const DofValues & dofValuesOlder() const override;
+  virtual const DofValues & dofValuesPreviousNL() const override;
+  virtual const DofValues & dofValuesNeighbor() const override;
+  virtual const DofValues & dofValuesOldNeighbor() const override;
+  virtual const DofValues & dofValuesOlderNeighbor() const override;
+  virtual const DofValues & dofValuesPreviousNLNeighbor() const override;
+  [[noreturn]] virtual const DofValues & dofValuesDot() const override;
+  [[noreturn]] virtual const DofValues & dofValuesDotNeighbor() const override;
+  [[noreturn]] virtual const DofValues & dofValuesDotOld() const override;
+  [[noreturn]] virtual const DofValues & dofValuesDotOldNeighbor() const override;
+  [[noreturn]] virtual const DofValues & dofValuesDotDot() const override;
+  [[noreturn]] virtual const DofValues & dofValuesDotDotNeighbor() const override;
+  [[noreturn]] virtual const DofValues & dofValuesDotDotOld() const override;
+  [[noreturn]] virtual const DofValues & dofValuesDotDotOldNeighbor() const override;
   [[noreturn]] virtual const MooseArray<libMesh::Number> & dofValuesDuDotDu() const override;
   [[noreturn]] virtual const MooseArray<libMesh::Number> &
   dofValuesDuDotDuNeighbor() const override;
@@ -410,9 +494,9 @@ public:
   [[noreturn]] virtual const MooseArray<libMesh::Number> &
   dofValuesDuDotDotDuNeighbor() const override;
 
-  [[noreturn]] virtual const MooseArray<ADReal> & adDofValues() const override;
-  [[noreturn]] virtual const MooseArray<ADReal> & adDofValuesNeighbor() const override;
-  [[noreturn]] virtual const MooseArray<ADReal> & adDofValuesDot() const override;
+  [[noreturn]] virtual const ADDofValues & adDofValues() const override;
+  [[noreturn]] virtual const ADDofValues & adDofValuesNeighbor() const override;
+  [[noreturn]] virtual const ADDofValues & adDofValuesDot() const override;
   [[noreturn]] virtual const dof_id_type & nodalDofIndex() const override final;
   [[noreturn]] virtual const dof_id_type & nodalDofIndexNeighbor() const override final;
 
@@ -462,19 +546,19 @@ MooseLinearVariableFV<OutputType>::evaluate(const ElemSideQpArg & elem_side_qp,
 template <typename OutputType>
 typename MooseLinearVariableFV<OutputType>::GradientType
 MooseLinearVariableFV<OutputType>::evaluateGradient(const ElemQpArg & qp_arg,
-                                                    const StateArg & /*state*/) const
+                                                    const StateArg & state) const
 {
   const auto & elem_info = this->_mesh.elemInfo(qp_arg.elem->id());
-  return gradSln(elem_info);
+  return gradSln(elem_info, state);
 }
 
 template <typename OutputType>
 typename MooseLinearVariableFV<OutputType>::GradientType
 MooseLinearVariableFV<OutputType>::evaluateGradient(const ElemArg & elem_arg,
-                                                    const StateArg & /*state*/) const
+                                                    const StateArg & state) const
 {
   const auto & elem_info = this->_mesh.elemInfo(elem_arg.elem->id());
-  return gradSln(elem_info);
+  return gradSln(elem_info, state);
 }
 
 template <typename OutputType>
@@ -493,6 +577,18 @@ MooseLinearVariableFV<OutputType>::timeIntegratorError() const
   mooseError("MooseLinearVariableFV does not support time integration at the moment! The variable "
              "which is causing the issue: ",
              this->name());
+}
+
+template <typename OutputType>
+void
+MooseLinearVariableFV<OutputType>::gradientStateError(const StateArg & state) const
+{
+  mooseError("MooseLinearVariableFV does not currently support ElemInfo/FaceInfo gradient "
+             "evaluation for non-current states. Requested state index ",
+             state.state,
+             " for variable '",
+             this->name(),
+             "'. Old-state requests typically use state index 1.");
 }
 
 template <typename OutputType>

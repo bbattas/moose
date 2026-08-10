@@ -42,7 +42,13 @@ BoundaryRestrictable::BoundaryRestrictable(const MooseObject * moose_object, boo
     _bnd_dual_restrictable(moose_object->getParam<bool>("_dual_restrictable")),
     _block_ids(_empty_block_ids),
     _bnd_tid(moose_object->isParamValid("_tid") ? moose_object->getParam<THREAD_ID>("_tid") : 0),
-    _bnd_material_data(_bnd_feproblem->getMaterialData(Moose::BOUNDARY_MATERIAL_DATA, _bnd_tid)),
+    _bnd_material_data(
+#ifdef MOOSE_KOKKOS_ENABLED
+        moose_object->isKokkosObject()
+            ? _bnd_feproblem->getKokkosMaterialData(Moose::BOUNDARY_MATERIAL_DATA)
+            :
+#endif
+            _bnd_feproblem->getMaterialData(Moose::BOUNDARY_MATERIAL_DATA, _bnd_tid)),
     _bnd_nodal(nodal),
     _moose_object(*moose_object)
 {
@@ -61,7 +67,13 @@ BoundaryRestrictable::BoundaryRestrictable(const MooseObject * moose_object,
     _bnd_dual_restrictable(moose_object->getParam<bool>("_dual_restrictable")),
     _block_ids(block_ids),
     _bnd_tid(moose_object->isParamValid("_tid") ? moose_object->getParam<THREAD_ID>("_tid") : 0),
-    _bnd_material_data(_bnd_feproblem->getMaterialData(Moose::BOUNDARY_MATERIAL_DATA, _bnd_tid)),
+    _bnd_material_data(
+#ifdef MOOSE_KOKKOS_ENABLED
+        moose_object->isKokkosObject()
+            ? _bnd_feproblem->getKokkosMaterialData(Moose::BOUNDARY_MATERIAL_DATA)
+            :
+#endif
+            _bnd_feproblem->getMaterialData(Moose::BOUNDARY_MATERIAL_DATA, _bnd_tid)),
     _bnd_nodal(nodal),
     _moose_object(*moose_object)
 {
@@ -72,7 +84,7 @@ void
 BoundaryRestrictable::initializeBoundaryRestrictable()
 {
   // The name and id of the object
-  const std::string & name = _moose_object.getParam<std::string>("_object_name");
+  const std::string & name = _moose_object.name();
 
   // If the mesh pointer is not defined, but FEProblemBase is, get it from there
   if (_bnd_feproblem != NULL && _bnd_mesh == NULL)
@@ -160,18 +172,50 @@ BoundaryRestrictable::initializeBoundaryRestrictable()
           msg << sep << id;
         sep = ", ";
       }
-      if (!_bnd_nodal)
-        // Diagnostic message
-        msg << "\n\nMOOSE distinguishes between \"node sets\" and \"side sets\" depending on "
-               "whether \nyou are using \"Nodal\" or \"Integrated\" BCs respectively. Node sets "
-               "corresponding \nto your side sets are constructed for you by default.\n\n"
-               "Try setting \"Mesh/construct_side_list_from_node_list=true\" if you see this "
-               "error.\n"
-               "Note: If you are running with adaptivity you should prefer using side sets.";
+
+      const auto & other_ids =
+          _bnd_nodal ? _bnd_mesh->meshSidesetIds() : _bnd_mesh->meshNodesetIds();
+      std::vector<BoundaryID> other_boundary_ids;
+      std::set_intersection(diff.begin(),
+                            diff.end(),
+                            other_ids.begin(),
+                            other_ids.end(),
+                            std::back_inserter(other_boundary_ids));
+      if (!other_boundary_ids.empty())
+      {
+        msg << "\n\nThe following boundary ";
+        if (other_boundary_ids.size() == 1)
+          msg << "id exists";
+        else
+          msg << "ids exist";
+        if (other_boundary_ids.size() == 1)
+          msg << " as " << (_bnd_nodal ? "a side set" : "a node set")
+              << " but is being requested as " << (_bnd_nodal ? "a node set" : "a side set") << ":";
+        else
+          msg << " as " << (_bnd_nodal ? "side sets" : "node sets")
+              << " but are being requested as " << (_bnd_nodal ? "node sets" : "side sets") << ":";
+
+        sep = " ";
+        for (const auto id : other_boundary_ids)
+        {
+          msg << sep << id;
+          sep = ", ";
+        }
+
+        if (!_bnd_nodal)
+          msg << "\n\nTry setting Mesh/construct_side_list_from_node_list=true if you want side "
+                 "sets constructed from node sets.";
+      }
 
       _moose_object.paramError("boundary", msg.str());
     }
   }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  if (_moose_object.isKokkosObject())
+    _bnd_feproblem->addKokkosMeshInitializationHook(
+        std::bind(&BoundaryRestrictable::initializeKokkosBoundaryRestrictable, this));
+#endif
 }
 
 BoundaryRestrictable::~BoundaryRestrictable() {}

@@ -75,6 +75,8 @@ CoarsenBlockGenerator::generate()
   const std::set<SubdomainID> block_ids_set(block_ids.begin(), block_ids.end());
 
   // Check that the block ids/names exist in the mesh
+  if (!_input->preparation().has_cached_elem_data)
+    _input->cache_elem_data();
   std::set<SubdomainID> mesh_blocks;
   _input->subdomain_ids(mesh_blocks);
 
@@ -125,7 +127,7 @@ CoarsenBlockGenerator::generate()
 
   // element neighbors are not valid
   if (max_c > 0)
-    mesh_ptr->set_isnt_prepared();
+    mesh_ptr->unset_is_prepared();
 
   // flip elements as we were not careful to build them with a positive volume
   MeshTools::Modification::orient_elements(*mesh_ptr);

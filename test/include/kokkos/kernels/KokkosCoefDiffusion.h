@@ -1,0 +1,52 @@
+//* This file is part of the MOOSE framework
+//* https://mooseframework.inl.gov
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#pragma once
+
+#include "KokkosKernel.h"
+
+class KokkosCoefDiffusion : public Moose::Kokkos::Kernel
+{
+public:
+  static InputParameters validParams();
+
+  KokkosCoefDiffusion(const InputParameters & parameters);
+
+  template <typename Derived>
+  KOKKOS_FUNCTION Real computeQpResidual(const unsigned int i,
+                                         const unsigned int qp,
+                                         AssemblyDatum & datum) const;
+  template <typename Derived>
+  KOKKOS_FUNCTION Real computeQpJacobian(const unsigned int i,
+                                         const unsigned int j,
+                                         const unsigned int qp,
+                                         AssemblyDatum & datum) const;
+
+protected:
+  const Moose::Kokkos::Scalar<const Real> _coef;
+};
+
+template <typename Derived>
+KOKKOS_FUNCTION Real
+KokkosCoefDiffusion::computeQpResidual(const unsigned int i,
+                                       const unsigned int qp,
+                                       AssemblyDatum & datum) const
+{
+  return _coef * _grad_test(datum, i, qp) * _grad_u(datum, qp);
+}
+
+template <typename Derived>
+KOKKOS_FUNCTION Real
+KokkosCoefDiffusion::computeQpJacobian(const unsigned int i,
+                                       const unsigned int j,
+                                       const unsigned int qp,
+                                       AssemblyDatum & datum) const
+{
+  return _coef * _grad_test(datum, i, qp) * _grad_phi(datum, j, qp);
+}

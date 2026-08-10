@@ -7,12 +7,12 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
+
 #include "GeneralUserObject.h"
 #include "libmesh/ignore_warnings.h"
-#include <mfem.hpp>
 #include "mfem/miniapps/common/mfem-common.hpp"
 #include "libmesh/restore_warnings.h"
 
@@ -27,8 +27,8 @@ public:
 
   MFEMBlockRestrictable(const InputParameters & parameters, const mfem::ParMesh & mfem_mesh);
 
-  mfem::Array<int> subdomainsToAttributes(const std::vector<SubdomainName> & subdomain_names);
-  std::vector<std::string> subdomainsToStrings(const std::vector<SubdomainName> & subdomain_names);
+  mfem::Array<int> subdomainsToAttributes();
+  std::vector<std::string> subdomainsToStrings();
 
   /// Returns a bool indicating if the object is restricted to a subset of subdomains.
   bool isSubdomainRestricted() { return _subdomain_names.size(); }

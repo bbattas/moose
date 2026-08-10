@@ -71,9 +71,8 @@ public:
   typedef typename libMesh::TensorTools::IncrementRank<OutputShapeGradient>::type OutputShapeSecond;
   typedef typename libMesh::TensorTools::DecrementRank<OutputShape>::type OutputShapeDivergence;
 
-  // DoF value type for the template class OutputType
-  typedef typename Moose::DOFType<OutputType>::type OutputData;
-  typedef MooseArray<OutputData> DoFValue;
+  using typename MooseVariableDataBase<OutputType>::DofValue;
+  using typename MooseVariableDataBase<OutputType>::DofValues;
 
   MooseVariableDataLinearFV(const MooseLinearVariableFV<OutputType> & var,
                             SystemBase & sys,
@@ -97,14 +96,19 @@ public:
   void computeValues();
 
   /**
+   * Prepare the initial condition: initialize DOF indices and resize the DOF value array.
+   */
+  void prepareIC();
+
+  /**
    * Set local DOF values to the entries of \p values .
    */
-  void setDofValues(const DenseVector<OutputData> & values);
+  void setDofValues(const DenseVector<DofValue> & values);
 
   /**
    * Set local DOF value at \p index to \p value .
    */
-  void setDofValue(const OutputData & value, unsigned int index);
+  void setDofValue(const DofValue & value, unsigned int index);
 
   /**
    * Get the dof indices for an element.
@@ -192,7 +196,7 @@ private:
   using MooseVariableDataBase<OutputType>::_need_matrix_tag_u;
   using MooseVariableDataBase<OutputType>::_dof_indices;
   using MooseVariableDataBase<OutputType>::_has_dof_values;
-  using MooseVariableDataBase<OutputType>::fetchDoFValues;
+  using MooseVariableDataBase<OutputType>::fetchDofValues;
   using MooseVariableDataBase<OutputType>::assignNodalValue;
   using MooseVariableDataBase<OutputType>::zeroSizeDofValues;
   using MooseVariableDataBase<OutputType>::_solution_tag;

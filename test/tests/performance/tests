@@ -19,7 +19,6 @@
       type = RunApp
       input = input.i
       expect_out = "Num Processors:\s+1\s+Num Threads:\s+2"
-      min_parallel = 1
       max_parallel = 1
       min_threads = 2
       max_threads = 2
@@ -52,7 +51,7 @@
     [linux]
        type = RunApp
        input = input.i
-       capabilities = 'platform=darwin'
+       capabilities = 'platform=linux'
 
        detail = "Linux operating systems."
     []

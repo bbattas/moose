@@ -1,12 +1,12 @@
 [QuadSubChannelMesh]
   [subchannel]
-    type = SCMQuadSubChannelMeshGenerator
+    type = SCMQuadAssemblyMeshGenerator
     nx = 6
     ny = 6
     n_cells = 3
     pitch = 0.0126
     pin_diameter = 0.00950
-    gap = 0.00095 # the half gap between sub-channel assemblies
+    side_gap = 0.00095
     heated_length = 1.0
     spacer_z = '0.0'
     spacer_k = '0.0'
@@ -41,6 +41,23 @@
   []
 []
 
+[Postprocessors]
+  [blocked_inlet]
+    type = SubChannelPointValue
+    variable = mdot
+    index = 0
+    height = 0.0
+    execute_on = 'timestep_end'
+  []
+  [central_inlet]
+    type = SubChannelPointValue
+    variable = mdot
+    index = 14
+    height = 0.0
+    execute_on = 'timestep_end'
+  []
+[]
+
 [Problem]
   solve = false
 []
@@ -50,5 +67,5 @@
 []
 
 [Outputs]
-  exodus = true
+  csv = true
 []

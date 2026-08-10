@@ -22,92 +22,85 @@ PicardSolve::validParams()
   return params;
 }
 
-PicardSolve::PicardSolve(Executioner & ex) : FixedPointSolve(ex) { allocateStorage(true); }
+PicardSolve::PicardSolve(Executioner & ex) : FixedPointSolve(ex) {}
 
 void
 PicardSolve::allocateStorage(const bool primary)
 {
-  Real relaxation_factor;
-  TagID old_tag_id;
+  if (!performingRelaxation(primary))
+    return;
+  findTransformedSystem(primary);
+
   const std::vector<PostprocessorName> * transformed_pps;
   std::vector<std::vector<PostprocessorValue>> * transformed_pps_values;
   if (primary)
   {
-    relaxation_factor = _relax_factor;
-    old_tag_id = _problem.addVectorTag("xn_m1", Moose::VECTOR_TAG_SOLUTION);
-    _old_tag_id = old_tag_id;
+    if (_transformed_sys)
+    {
+      _old_tag_id =
+          _problem.addVectorTag(Moose::PREVIOUS_FP_SOLUTION_TAG, Moose::VECTOR_TAG_SOLUTION);
+      _transformed_sys->needSolutionState(1, Moose::SolutionIterationType::FixedPoint, PARALLEL);
+    }
     transformed_pps = &_transformed_pps;
     transformed_pps_values = &_transformed_pps_values;
   }
   else
   {
-    relaxation_factor = _secondary_relaxation_factor;
-    old_tag_id = _problem.addVectorTag("secondary_xn_m1", Moose::VECTOR_TAG_SOLUTION);
-    _secondary_old_tag_id = old_tag_id;
+    if (_transformed_sys)
+    {
+      _secondary_old_tag_id = _problem.addVectorTag("secondary_xn_m1", Moose::VECTOR_TAG_SOLUTION);
+      _transformed_sys->addVector(_secondary_old_tag_id, false, PARALLEL);
+    }
+
     transformed_pps = &_secondary_transformed_pps;
     transformed_pps_values = &_secondary_transformed_pps_values;
   }
 
-  if (relaxation_factor != 1.)
-  {
-    // Store a copy of the previous solution
-    _solver_sys.addVector(old_tag_id, false, PARALLEL);
-
-    // Allocate storage for the previous postprocessor values
-    (*transformed_pps_values).resize((*transformed_pps).size());
-    for (size_t i = 0; i < (*transformed_pps).size(); i++)
-      (*transformed_pps_values)[i].resize(1);
-  }
+  // Allocate storage for the previous postprocessor values
+  (*transformed_pps_values).resize((*transformed_pps).size());
+  for (const auto i : index_range(*transformed_pps))
+    (*transformed_pps_values)[i].resize(1);
 }
 
 void
 PicardSolve::saveVariableValues(const bool primary)
 {
-  Real relaxation_factor;
-  TagID old_tag_id;
-  if (primary)
-  {
-    relaxation_factor = _relax_factor;
-    old_tag_id = _old_tag_id;
-  }
-  else
-  {
-    relaxation_factor = _secondary_relaxation_factor;
-    old_tag_id = _secondary_old_tag_id;
-  }
+  // Primary is copied back by _transformed_sys->copyPreviousFixedPointSolutions()
+  if (!performingRelaxation(primary) || primary)
+    return;
 
-  if (relaxation_factor != 1.)
-  {
-    // Save variable previous values
-    NumericVector<Number> & solution = _solver_sys.solution();
-    NumericVector<Number> & transformed_old = _solver_sys.getVector(old_tag_id);
-    transformed_old = solution;
-  }
+  // Check to make sure allocateStorage has been called
+  mooseAssert(_secondary_old_tag_id != Moose::INVALID_TAG_ID,
+              "allocateStorage has not been called with primary = " + Moose::stringify(primary));
+
+  // Save variable previous values
+  NumericVector<Number> & solution = _transformed_sys->solution();
+  NumericVector<Number> & transformed_old = _transformed_sys->getVector(_secondary_old_tag_id);
+  transformed_old = solution;
 }
 
 void
 PicardSolve::savePostprocessorValues(const bool primary)
 {
-  Real relaxation_factor;
+  if (!performingRelaxation(primary))
+    return;
+
   const std::vector<PostprocessorName> * transformed_pps;
   std::vector<std::vector<PostprocessorValue>> * transformed_pps_values;
   if (primary)
   {
-    relaxation_factor = _relax_factor;
     transformed_pps = &_transformed_pps;
     transformed_pps_values = &_transformed_pps_values;
   }
   else
   {
-    relaxation_factor = _secondary_relaxation_factor;
     transformed_pps = &_secondary_transformed_pps;
     transformed_pps_values = &_secondary_transformed_pps_values;
   }
 
-  if (relaxation_factor != 1.)
-    // Save postprocessor previous values
-    for (size_t i = 0; i < (*transformed_pps).size(); i++)
-      (*transformed_pps_values)[i][0] = getPostprocessorValueByName((*transformed_pps)[i]);
+  // Save postprocessor previous values
+  for (const auto i : index_range(*transformed_pps))
+    (*transformed_pps_values)[i][0] = getPostprocessorValueByName((*transformed_pps)[i]);
 }
 
 bool
@@ -115,10 +108,8 @@ PicardSolve::useFixedPointAlgorithmUpdateInsteadOfPicard(const bool primary)
 {
   // unrelaxed Picard is the default update for fixed point iterations
   // old values are required for relaxation
-  if (primary)
-    return _relax_factor != 1. && _fixed_point_it > 0;
-  else
-    return _secondary_relaxation_factor != 1. && _main_fixed_point_it > 0;
+  const auto fixed_point_it = primary ? _fixed_point_it : _main_fixed_point_it;
+  return performingRelaxation(primary) && fixed_point_it > 0;
 }
 
 void
@@ -170,8 +161,8 @@ PicardSolve::transformVariables(const std::set<dof_id_type> & transformed_dofs, 
     old_tag_id = _secondary_old_tag_id;
   }
 
-  NumericVector<Number> & solution = _solver_sys.solution();
-  NumericVector<Number> & transformed_old = _solver_sys.getVector(old_tag_id);
+  NumericVector<Number> & solution = _transformed_sys->solution();
+  NumericVector<Number> & transformed_old = _transformed_sys->getVector(old_tag_id);
 
   for (const auto & dof : transformed_dofs)
     solution.set(dof,
@@ -179,21 +170,21 @@ PicardSolve::transformVariables(const std::set<dof_id_type> & transformed_dofs, 
                      (solution(dof) * relaxation_factor));
 
   solution.close();
-  _solver_sys.update();
+  _transformed_sys->update();
 }
 
 void
-PicardSolve::printFixedPointConvergenceHistory()
+PicardSolve::printFixedPointConvergenceHistory(Real initial_norm,
+                                               const std::vector<Real> & timestep_begin_norms,
+                                               const std::vector<Real> & timestep_end_norms) const
 {
   _console << "\n 0 Picard |R| = "
-           << Console::outputNorm(std::numeric_limits<Real>::max(), _fixed_point_initial_norm)
-           << '\n';
+           << Console::outputNorm(std::numeric_limits<Real>::max(), initial_norm) << '\n';
 
-  Real max_norm_old = _fixed_point_initial_norm;
+  Real max_norm_old = initial_norm;
   for (unsigned int i = 0; i <= _fixed_point_it; ++i)
   {
-    Real max_norm =
-        std::max(_fixed_point_timestep_begin_norm[i], _fixed_point_timestep_end_norm[i]);
+    Real max_norm = std::max(timestep_begin_norms[i], timestep_end_norms[i]);
     _console << std::setw(2) << i + 1
              << " Picard |R| = " << Console::outputNorm(max_norm_old, max_norm) << '\n';
     max_norm_old = max_norm;

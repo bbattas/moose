@@ -29,6 +29,11 @@ namespace MetaPhysicL
 class LogicError;
 }
 
+namespace hit
+{
+class Node;
+}
+
 // this function allows streaming tuples to ostreams
 template <size_t n, typename... T>
 void
@@ -51,22 +56,6 @@ operator<<(std::ostream & os, const std::tuple<T...> & tup)
   return os << "]";
 }
 
-/// Application abort macro. Uses MPI_Abort if available, std::abort otherwise
-#if defined(LIBMESH_HAVE_MPI)
-#define MOOSE_ABORT                                                                                \
-  do                                                                                               \
-  {                                                                                                \
-    MPI_Abort(libMesh::GLOBAL_COMM_WORLD, 1);                                                      \
-    std::abort();                                                                                  \
-  } while (0)
-#else
-#define MOOSE_ABORT                                                                                \
-  do                                                                                               \
-  {                                                                                                \
-    std::abort();                                                                                  \
-  } while (0)
-#endif
-
 #define mooseDoOnce(do_this)                                                                       \
   do                                                                                               \
   {                                                                                                \
@@ -82,12 +71,7 @@ operator<<(std::ostream & os, const std::tuple<T...> & tup)
   do                                                                                               \
   {                                                                                                \
     if (err != MPI_SUCCESS)                                                                        \
-    {                                                                                              \
-      if (libMesh::global_n_processors() == 1)                                                     \
-        libMesh::print_trace();                                                                    \
-      libmesh_here();                                                                              \
-      MOOSE_ABORT;                                                                                 \
-    }                                                                                              \
+      moose::internal::mooseErrorRaw("");                                                          \
   } while (0)
 
 #define mooseException(...)                                                                        \
@@ -113,12 +97,7 @@ operator<<(std::ostream & os, const std::tuple<T...> & tup)
       else                                                                                         \
       {                                                                                            \
         Moose::err << _assert_oss_.str() << std::flush;                                            \
-        if (libMesh::global_n_processors() == 1)                                                   \
-          libMesh::print_trace();                                                                  \
-        else                                                                                       \
-          libMesh::write_traceout();                                                               \
-        libmesh_here();                                                                            \
-        MOOSE_ABORT;                                                                               \
+        moose::internal::mooseErrorRaw("");                                                        \
       }                                                                                            \
     }                                                                                              \
   } while (0)
@@ -126,6 +105,30 @@ operator<<(std::ostream & os, const std::tuple<T...> & tup)
 
 template <typename... Args>
 [[noreturn]] void mooseError(Args &&... args);
+
+/**
+ * Exception to be thrown whenever we have _throw_on_error set and a
+ * mooseError() is emitted.
+ *
+ * Enables adding the context of the hit node from the location in input
+ * associated with the error, which can be used in the MooseServer to
+ * produce diagnostics without parsing messages.
+ */
+class MooseRuntimeError : public std::runtime_error
+{
+public:
+  MooseRuntimeError(const std::string & message, const hit::Node * const node)
+    : runtime_error(message), _node(node)
+  {
+  }
+
+  /// Get the associated hit node, if any
+  const hit::Node * getNode() const { return _node; }
+
+private:
+  /// The associated hit node, if any
+  const hit::Node * const _node;
+};
 
 class MooseVariableFieldBase;
 
@@ -162,7 +165,17 @@ mooseMsgFmt(const std::string & msg, const std::string & title, const std::strin
  */
 std::string mooseMsgFmt(const std::string & msg, const std::string & color);
 
-[[noreturn]] void mooseErrorRaw(std::string msg, const std::string prefix = "");
+/**
+ * Main callback for emitting a moose error.
+ * @param msg The error message
+ * @param prefix Optional prefix to add to every line of the error (for multiapp prefixes)
+ * @param node Optional HIT node to associate with the error, adding file path context
+ * @param show_trace Whether or not to show a stack trace, defaults to true
+ */
+[[noreturn]] void mooseErrorRaw(std::string msg,
+                                const std::string & prefix = "",
+                                const hit::Node * node = nullptr,
+                                const bool show_trace = true);
 
 /**
  * All of the following are not meant to be called directly - they are called by the normal macros
@@ -236,7 +249,8 @@ mooseInfoStream(S & oss, Args &&... args)
 
 template <typename S, typename... Args>
 void
-mooseDeprecatedStream(S & oss, const bool expired, const bool print_title, Args &&... args)
+mooseDeprecatedStream(
+    S & oss, const bool expired, const bool print_title, const bool show_trace, Args &&... args)
 {
   if (Moose::_deprecated_is_error)
     mooseError("\n\nDeprecated code:\n", std::forward<Args>(args)...);
@@ -245,16 +259,11 @@ mooseDeprecatedStream(S & oss, const bool expired, const bool print_title, Args 
   mooseStreamAll(ss, args...);
 
   const auto color = expired ? COLOR_RED : COLOR_YELLOW;
-  std::string msg =
-      print_title
-          ? mooseMsgFmt(
-                ss.str(),
-                "*** Warning, This code is deprecated and will be removed in future versions:",
-                color)
-          : mooseMsgFmt(ss.str(), color);
+  std::string msg = print_title ? mooseMsgFmt(ss.str(), "*** Deprecation Warning ***", color)
+                                : mooseMsgFmt(ss.str(), color);
   oss << msg;
   ss.str("");
-  if (Moose::show_trace)
+  if (show_trace)
   {
     if (libMesh::global_n_processors() == 1)
       libMesh::print_trace(ss);
@@ -348,19 +357,42 @@ mooseUnused(Args &&... args)
 }
 
 /// Emit a deprecated code/feature message with the given stringified, concatenated args.
+/// Will include a stack trace; use mooseDeprecatedNoTrace to exclude the trace.
 template <typename... Args>
 void
 mooseDeprecated(Args &&... args)
 {
-  moose::internal::mooseDeprecatedStream(Moose::out, false, true, std::forward<Args>(args)...);
+  moose::internal::mooseDeprecatedStream(
+      Moose::out, false, true, true, std::forward<Args>(args)...);
 }
 
 /// Emit a deprecated code/feature message with the given stringified, concatenated args.
+/// Will not include a stack trace; use mooseDeprecated to include the trace.
+template <typename... Args>
+void
+mooseDeprecatedNoTrace(Args &&... args)
+{
+  moose::internal::mooseDeprecatedStream(
+      Moose::out, false, true, false, std::forward<Args>(args)...);
+}
+
+/// Emit a deprecated code/feature message with the given stringified, concatenated args.
+/// Will include a stack trace; use mooseDeprecationExpiredNoTrace to exclude the trace.
 template <typename... Args>
 void
 mooseDeprecationExpired(Args &&... args)
 {
-  moose::internal::mooseDeprecatedStream(Moose::out, true, true, std::forward<Args>(args)...);
+  moose::internal::mooseDeprecatedStream(Moose::out, true, true, true, std::forward<Args>(args)...);
+}
+
+/// Emit a deprecated code/feature message with the given stringified, concatenated args.
+/// Will not include a stack trace; use mooseDeprecationExpired to include the trace.
+template <typename... Args>
+void
+mooseDeprecationExpiredNoTrace(Args &&... args)
+{
+  moose::internal::mooseDeprecatedStream(
+      Moose::out, true, true, false, std::forward<Args>(args)...);
 }
 
 /// Emit an informational message with the given stringified, concatenated args.

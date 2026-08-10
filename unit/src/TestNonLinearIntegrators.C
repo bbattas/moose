@@ -1,9 +1,6 @@
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "gtest/gtest.h"
-#include "libmesh/ignore_warnings.h"
-#include "mfem.hpp"
-#include "libmesh/restore_warnings.h"
 #include "Moose.h"
 
 class VectorPowerLawNLFIntegrator : public mfem::NonlinearFormIntegrator
@@ -177,6 +174,7 @@ public:
 
 TEST(CheckData, NonlinearIntegratorTest)
 {
+  mfem::Hypre::Init();
   mfem::Mesh mesh("../test/tests/mfem/mesh/cylinder-hex-q2.gen", 1, 1);
   auto pmesh = std::make_shared<mfem::ParMesh>(MPI_COMM_WORLD, mesh);
 

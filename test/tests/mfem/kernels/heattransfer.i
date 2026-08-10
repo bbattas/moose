@@ -1,7 +1,6 @@
 [Mesh]
   type = MFEMMesh
   file = ../mesh/mug.e
-  dim = 3
 []
 
 [Problem]
@@ -20,6 +19,23 @@
   [temperature]
     type = MFEMVariable
     fespace = H1FESpace
+  []
+[]
+
+[AuxVariables]
+  inactive = average_temperature
+  [average_temperature]
+    type = MFEMVariable
+    fespace = H1FESpace
+  []
+[]
+
+[AuxKernels]
+  inactive = average_field
+  [average_field]
+    type = MFEMScalarTimeAverageAux
+    variable = average_temperature
+    source = temperature
   []
 []
 
@@ -56,20 +72,21 @@
   []
 []
 
-[Preconditioner]
+
+[Solvers]
+  inactive = 'jacobi'
   [boomeramg]
     type = MFEMHypreBoomerAMG
   []
   [jacobi]
     type = MFEMOperatorJacobiSmoother
   []
-[]
-
-[Solver]
-  type = MFEMHypreGMRES
-  preconditioner = boomeramg
-  l_tol = 1e-16
-  l_max_its = 1000
+  [main]
+    type = MFEMHypreGMRES
+    preconditioner = boomeramg
+    l_tol = 1e-16
+    l_max_its = 1000
+  []
 []
 
 [Executioner]

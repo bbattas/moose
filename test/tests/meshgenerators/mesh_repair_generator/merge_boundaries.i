@@ -29,7 +29,7 @@
     type = StitchedMeshGenerator
     inputs = 'gmg_left_renamed gmg_right_renamed'
     clear_stitched_boundary_ids = true
-    stitch_boundaries_pairs = 'side2 side1;'
+    stitch_boundaries_pairs = 'side2 side1'
     merge_boundaries_with_same_name = false
   []
   [merge]
@@ -51,7 +51,8 @@
   [mesh]
     type = MeshInfo
     outputs = json
-    items = 'sidesets sideset_elems'
+    items = 'sidesets'
+    sideset_items = elems
   []
 []
 

@@ -1,6 +1,18 @@
-#ifdef MFEM_ENABLED
+//* This file is part of the MOOSE framework
+//* https://mooseframework.inl.gov
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMObjectUnitTest.h"
+#include "MFEMScalarDirichletBC.h"
+#include "MFEMDiffusionKernel.h"
+#include "MFEMDomainLFKernel.h"
 #include "MFEMHypreGMRES.h"
 #include "MFEMHypreFGMRES.h"
 #include "MFEMHyprePCG.h"
@@ -8,6 +20,7 @@
 #include "MFEMHypreADS.h"
 #include "MFEMHypreAMS.h"
 #include "MFEMSuperLU.h"
+#include "MFEMMUMPS.h"
 #include "MFEMGMRESSolver.h"
 #include "MFEMCGSolver.h"
 #include "MFEMOperatorJacobiSmoother.h"
@@ -16,13 +29,23 @@
 class MFEMSolverTest : public MFEMObjectUnitTest
 {
 public:
-  MFEMSolverTest() : MFEMObjectUnitTest("MooseUnitApp") {}
-
-  static double uexact(const mfem::Vector & x)
+  MFEMSolverTest() : MFEMObjectUnitTest("MooseUnitApp")
   {
-    double u;
-    u = x(2) * x(2) * x(2) - 5.0 * x(0) * x(0) * x(1) * x(2);
-    return u;
+    _pmesh = std::make_unique<mfem::ParMesh>(makeMesh());
+    _fec = std::make_unique<mfem::H1_FECollection>(3, 3);
+    _fespace = std::make_unique<mfem::ParFiniteElementSpace>(_pmesh.get(), _fec.get());
+    _x = std::make_shared<mfem::ParGridFunction>(_fespace.get());
+    *_x = 0.0;
+
+    const VariableName var_name("test_variable_name");
+    _mfem_problem->getProblemData().gridfunctions.Register(var_name, _x);
+    _equation_system = std::make_shared<Moose::MFEM::EquationSystem>();
+    _mfem_problem->getProblemData().eqn_system = _equation_system;
+  }
+
+  static mfem::real_t uexact(const mfem::Vector & x)
+  {
+    return x(2) * x(2) * x(2) - 5.0 * x(0) * x(0) * x(1) * x(2);
   }
 
   static void gradexact(const mfem::Vector & x, mfem::Vector & grad)
@@ -33,17 +56,14 @@ public:
     grad[2] = 3.0 * x(2) * x(2) - 5.0 * x(0) * x(0) * x(1);
   }
 
-  static double d2uexact(const mfem::Vector & x) // returns \Delta u
+  static mfem::real_t d2uexact(const mfem::Vector & x) // returns \Delta u
   {
-    double d2u;
-    d2u = -10.0 * x(1) * x(2) + 6.0 * x(2);
-    return d2u;
+    return -10.0 * x(1) * x(2) + 6.0 * x(2);
   }
 
-  static double fexact(const mfem::Vector & x) // returns -\Delta u
+  static mfem::real_t fexact(const mfem::Vector & x) // returns -\Delta u
   {
-    double d2u = d2uexact(x);
-    return -d2u;
+    return -d2uexact(x);
   }
 
   // Create a simple 3D mesh for testing
@@ -64,51 +84,68 @@ public:
    * Based on mfem/tests/unit/linalg/test_direct_solvers.cpp.
    */
   template <typename SolverType>
-  void testDiffusionSolve(MFEMSolverBase & solver, mfem::real_t tol)
+  void testDiffusionSolve(Moose::MFEM::LinearSolverBase & solver,
+                          mfem::real_t tol,
+                          bool solve_system = true)
   {
-    mfem::ParMesh pmesh = makeMesh();
-    int order = 3;
-    int dim = 3;
-    mfem::H1_FECollection fec(order, dim);
-    mfem::ParFiniteElementSpace fespace(&pmesh, &fec);
-    mfem::Array<int> ess_tdof_list, ess_bdr;
-    if (pmesh.bdr_attributes.Size())
-    {
-      ess_bdr.SetSize(pmesh.bdr_attributes.Max());
-      ess_bdr = 1;
-      fespace.GetEssentialTrueDofs(ess_bdr, ess_tdof_list);
-    }
-    mfem::FunctionCoefficient f(fexact);
-    mfem::ParLinearForm b(&fespace);
-    b.AddDomainIntegrator(new mfem::DomainLFIntegrator(f));
-    b.Assemble();
+    _mfem_problem->getCoefficients().declareScalar<mfem::FunctionCoefficient>("f_exact", fexact);
 
-    mfem::ParBilinearForm a(&fespace);
-    mfem::ConstantCoefficient one(1.0);
-    a.AddDomainIntegrator(new mfem::DiffusionIntegrator(one));
-    a.Assemble();
+    const VariableName var_name("test_variable_name");
+    InputParameters bc_params = _factory.getValidParams("MFEMScalarDirichletBC");
+    bc_params.set<VariableName>("variable") = var_name;
+    bc_params.set<MFEMScalarCoefficientName>("coefficient") = "0.";
+    auto essential_bcs =
+        _mfem_problem->addObject<MFEMScalarDirichletBC>("MFEMScalarDirichletBC", "bc1", bc_params);
 
-    mfem::ParGridFunction x(&fespace);
-    mfem::FunctionCoefficient uex(uexact);
-    x = 0.0;
-    x.ProjectBdrCoefficient(uex, ess_bdr);
+    InputParameters kernel1_params = _factory.getValidParams("MFEMDiffusionKernel");
+    kernel1_params.set<VariableName>("variable") = var_name;
+    kernel1_params.set<MFEMScalarCoefficientName>("coefficient") = "1.";
+    auto diffusion_kernels = _mfem_problem->addObject<MFEMDiffusionKernel>(
+        "MFEMDiffusionKernel", "kernel1", kernel1_params);
 
-    mfem::OperatorPtr A;
-    mfem::Vector B, X;
-    a.FormLinearSystem(ess_tdof_list, x, b, A, X, B);
+    InputParameters kernel2_params = _factory.getValidParams("MFEMDomainLFKernel");
+    kernel2_params.set<VariableName>("variable") = var_name;
+    kernel2_params.set<MFEMScalarCoefficientName>("coefficient") = "f_exact";
+    auto source_kernels = _mfem_problem->addObject<MFEMDomainLFKernel>(
+        "MFEMDomainLFKernel", "kernel2", kernel2_params);
 
-    solver.updateSolver(a, ess_tdof_list);
-    auto solver_ptr = dynamic_cast<SolverType *>(&solver.getSolver());
+    auto & equation_system = *_equation_system;
+    equation_system.AddEssentialBC(std::move(essential_bcs[0]));
+    equation_system.AddKernel(std::move(diffusion_kernels[0]));
+    equation_system.AddKernel(std::move(source_kernels[0]));
+    equation_system.Init(_mfem_problem->getProblemData().gridfunctions,
+                         _mfem_problem->getProblemData().cmplx_gridfunctions,
+                         mfem::AssemblyLevel::LEGACY);
+
+    mfem::Array<int> block_offsets(2);
+    block_offsets[0] = 0;
+    block_offsets[1] = _fespace->TrueVSize();
+    mfem::BlockVector X(block_offsets), B(block_offsets);
+    equation_system.FormSystem(X, B);
+
+    solver.SetOperator(equation_system.GetGradient(*_x));
+
+    auto solver_ptr = dynamic_cast<SolverType *>(&solver.GetSolver());
     // Test MFEMKernel returns an integrator of the expected type
     ASSERT_TRUE(solver_ptr != nullptr);
-    solver_ptr->SetOperator(*A);
+    if (!solve_system)
+      return;
     solver_ptr->Mult(B, X);
 
     mfem::Vector Y(X.Size());
+    mfem::OperatorHandle A = equation_system.GetLinearOperator();
     A->Mult(X, Y);
     Y -= B;
     ASSERT_LE(Y.Norml2(), tol);
+    ASSERT_GE(B.Norml2(), tol);
   }
+
+private:
+  std::unique_ptr<mfem::ParMesh> _pmesh;
+  std::unique_ptr<mfem::H1_FECollection> _fec;
+  std::unique_ptr<mfem::ParFiniteElementSpace> _fespace;
+  std::shared_ptr<mfem::ParGridFunction> _x;
+  std::shared_ptr<Moose::MFEM::EquationSystem> _equation_system;
 };
 
 /**
@@ -203,7 +240,7 @@ TEST_F(MFEMSolverTest, MFEMHypreBoomerAMG)
       addObject<MFEMHypreBoomerAMG>("MFEMHypreBoomerAMG", "solver1", solver_params);
 
   // Test MFEMSolver returns an solver of the expected type
-  auto solver_downcast = dynamic_cast<mfem::HypreBoomerAMG *>(&solver.getSolver());
+  auto solver_downcast = dynamic_cast<mfem::HypreBoomerAMG *>(&solver.GetSolver());
   // HypreBoomerAMG warnings are tripped by zero rows in matrices; turn this off for this test
   solver_downcast->SetErrorMode(mfem::HypreSolver::ErrorMode::IGNORE_HYPRE_ERRORS);
   ASSERT_NE(solver_downcast, nullptr);
@@ -226,13 +263,13 @@ TEST_F(MFEMSolverTest, MFEMHypreADS)
 
   // Build required solver inputs
   InputParameters solver_params = _factory.getValidParams("MFEMHypreADS");
-  solver_params.set<UserObjectName>("fespace") = "HDivFESpace";
+  solver_params.set<MFEMFESpaceName>("fespace") = "HDivFESpace";
 
   // Construct solver
   MFEMHypreADS & solver = addObject<MFEMHypreADS>("MFEMHypreADS", "solver1", solver_params);
 
   // Test MFEMSolver returns a solver of the expected type
-  auto solver_downcast = dynamic_cast<mfem::HypreADS *>(&solver.getSolver());
+  auto solver_downcast = dynamic_cast<mfem::HypreADS *>(&solver.GetSolver());
   ASSERT_NE(solver_downcast, nullptr);
 }
 
@@ -252,13 +289,13 @@ TEST_F(MFEMSolverTest, MFEMHypreAMS)
 
   // Build required solver inputs
   InputParameters solver_params = _factory.getValidParams("MFEMHypreAMS");
-  solver_params.set<UserObjectName>("fespace") = "HCurlFESpace";
+  solver_params.set<MFEMFESpaceName>("fespace") = "HCurlFESpace";
 
   // Construct solver
   MFEMHypreAMS & solver = addObject<MFEMHypreAMS>("MFEMHypreAMS", "solver1", solver_params);
 
   // Test MFEMSolver returns an solver of the expected type
-  auto solver_downcast = dynamic_cast<mfem::HypreAMS *>(&solver.getSolver());
+  auto solver_downcast = dynamic_cast<mfem::HypreAMS *>(&solver.GetSolver());
   ASSERT_NE(solver_downcast, nullptr);
 }
 
@@ -274,6 +311,20 @@ TEST_F(MFEMSolverTest, MFEMSuperLU)
   MFEMSuperLU & solver = addObject<MFEMSuperLU>("MFEMSuperLU", "solver1", solver_params);
 
   testDiffusionSolve<mfem::SuperLUSolver>(solver, 1e-12);
+}
+
+/**
+ * Test MFEMMUMPS creates an mfem::MUMPSSolver successfully.
+ */
+TEST_F(MFEMSolverTest, MFEMMUMPS)
+{
+  // Build required solver inputs
+  InputParameters solver_params = _factory.getValidParams("MFEMMUMPS");
+
+  // Construct solver
+  MFEMMUMPS & solver = addObject<MFEMMUMPS>("MFEMMUMPS", "solver1", solver_params);
+
+  testDiffusionSolve<mfem::MUMPSSolver>(solver, 1e-12);
 }
 
 /**
@@ -358,32 +409,13 @@ TEST_F(MFEMSolverTest, MFEMCGSolverLOR)
 
 TEST_F(MFEMSolverTest, MFEMHypreBoomerAMGLOR)
 {
-  // Build required kernel inputs
   InputParameters solver_params = _factory.getValidParams("MFEMHypreBoomerAMG");
   solver_params.set<bool>("low_order_refined") = true;
 
-  // Construct kernel
   MFEMHypreBoomerAMG & solver =
       addObject<MFEMHypreBoomerAMG>("MFEMHypreBoomerAMG", "solver1", solver_params);
 
-  mfem::ParMesh pmesh = makeMesh();
-  mfem::ParFiniteElementSpace fespace(&pmesh, new mfem::H1_FECollection(3, 3));
-  mfem::Array<int> ess_tdof_list;
-  mfem::ParBilinearForm a(&fespace);
-  mfem::ParGridFunction x(&fespace);
-  mfem::ParLinearForm b(&fespace);
-  a.Assemble();
-  b.Assemble();
-
-  mfem::OperatorPtr A;
-  mfem::Vector B, X;
-  a.FormLinearSystem(ess_tdof_list, x, b, A, X, B);
-
-  solver.updateSolver(a, ess_tdof_list);
-
-  auto solver_ptr = dynamic_cast<mfem::LORSolver<mfem::HypreBoomerAMG> *>(&solver.getSolver());
-  // Test MFEMKernel returns an integrator of the expected type
-  ASSERT_TRUE(solver_ptr != nullptr);
+  testDiffusionSolve<mfem::LORSolver<mfem::HypreBoomerAMG>>(solver, 1e-5, false);
 }
 
 #endif

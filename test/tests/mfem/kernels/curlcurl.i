@@ -4,7 +4,6 @@
 [Mesh]
   type = MFEMMesh
   file = ../mesh/small_fichera.mesh
-  dim = 3
 []
 
 [Problem]
@@ -12,6 +11,7 @@
 []
 
 [FESpaces]
+  inactive = "L2FESpace"
   [HCurlFESpace]
     type = MFEMVectorFESpace
     fec_type = ND
@@ -20,6 +20,11 @@
   [HDivFESpace]
     type = MFEMVectorFESpace
     fec_type = RT
+    fec_order = CONSTANT
+  []
+  [L2FESpace]
+    type = MFEMScalarFESpace
+    fec_type = L2
     fec_order = CONSTANT
   []
 []
@@ -32,18 +37,31 @@
 []
 
 [AuxVariables]
+  inactive = "joule_heating"
   [db_dt_field]
     type = MFEMVariable
     fespace = HDivFESpace
   []
+  [joule_heating]
+    type = MFEMVariable
+    fespace = L2FESpace
+  []
 []
 
 [AuxKernels]
+  inactive = "joule_Q_aux"
   [curl]
     type = MFEMCurlAux
     variable = db_dt_field
     source = e_field
     scale_factor = -1.0
+    execute_on = TIMESTEP_END
+  []
+  [joule_Q_aux]
+    type = MFEMInnerProductAux
+    variable = joule_heating
+    first_source_vec = e_field
+    second_source_vec = e_field
     execute_on = TIMESTEP_END
   []
 []
@@ -94,17 +112,26 @@
   []
 []
 
-[Preconditioner]
+
+[Solvers]
+  active = 'gmres ams'
   [ams]
     type = MFEMHypreAMS
     fespace = HCurlFESpace
   []
-[]
-
-[Solver]
-  type = MFEMHypreGMRES
-  preconditioner = ams
-  l_tol = 1e-6
+  [matrix_free_ams]
+    type = MFEMMatrixFreeAMS
+  []
+  [gmres]
+    type = MFEMHypreGMRES
+    preconditioner = ams
+    l_tol = 1e-12
+  []
+  [cg]
+    type = MFEMCGSolver
+    preconditioner = matrix_free_ams
+    l_tol = 1e-12
+  []
 []
 
 [Executioner]

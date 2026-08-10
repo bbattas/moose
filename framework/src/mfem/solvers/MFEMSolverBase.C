@@ -7,54 +7,38 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMSolverBase.h"
+#include "MFEMProblem.h"
 
-InputParameters
-MFEMSolverBase::validParams()
+namespace Moose::MFEM
 {
-  InputParameters params = MFEMGeneralUserObject::validParams();
+InputParameters
+SolverBase::validParams()
+{
+  InputParameters params = MFEMObject::validParams();
   params.addClassDescription("Base class for defining mfem::Solver derived classes for Moose.");
-  params.registerBase("MFEMSolverBase");
-  params.addParam<bool>("low_order_refined", false, "Set usage of Low-Order Refined solver.");
-
+  params.registerBase("Moose::MFEM::SolverBase");
+  params.registerSystemAttributeName("Moose::MFEM::SolverBase");
+  params.addParam<bool>("use_initial_guess",
+                        false,
+                        "Whether to preserve the current MFEM solution vector as the initial "
+                        "guess for an iterative solver.");
   return params;
 }
 
-MFEMSolverBase::MFEMSolverBase(const InputParameters & parameters)
-  : MFEMGeneralUserObject(parameters),
-    _lor{getParam<bool>("low_order_refined")},
-    _solver{nullptr},
-    _preconditioner{nullptr}
+SolverBase::SolverBase(const InputParameters & parameters)
+  : MFEMObject(parameters), _solver{nullptr}
 {
 }
 
-template <typename T>
 void
-MFEMSolverBase::setPreconditioner(T & solver)
+SolverBase::SetOperator(mfem::Operator & op)
 {
-  if (isParamSetByUser("preconditioner"))
-  {
-    if (!_preconditioner)
-      _preconditioner =
-          &const_cast<MFEMSolverBase &>(getUserObject<MFEMSolverBase>("preconditioner"));
-
-    auto & mfem_pre = _preconditioner->getSolver();
-    if constexpr (std::is_base_of_v<mfem::HypreSolver, T>)
-      if (auto * const hypre_pre = dynamic_cast<mfem::HypreSolver *>(&mfem_pre))
-        solver.SetPreconditioner(*hypre_pre);
-      else
-        mooseError("hypre solver preconditioners must themselves be hypre solvers");
-    else
-      solver.SetPreconditioner(mfem_pre);
-  }
+  UpdateEquationSystemContext();
+  SetOperatorImpl(op);
 }
-
-template void MFEMSolverBase::setPreconditioner(mfem::CGSolver &);
-template void MFEMSolverBase::setPreconditioner(mfem::GMRESSolver &);
-template void MFEMSolverBase::setPreconditioner(mfem::HypreFGMRES &);
-template void MFEMSolverBase::setPreconditioner(mfem::HypreGMRES &);
-template void MFEMSolverBase::setPreconditioner(mfem::HyprePCG &);
+} // namespace Moose::MFEM
 
 #endif

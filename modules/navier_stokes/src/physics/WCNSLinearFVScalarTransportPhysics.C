@@ -9,10 +9,14 @@
 
 #include "WCNSLinearFVScalarTransportPhysics.h"
 #include "WCNSFVFlowPhysicsBase.h"
+#include "NSFVUtils.h"
 #include "NS.h"
 
 registerNavierStokesPhysicsBaseTasks("NavierStokesApp", WCNSLinearFVScalarTransportPhysics);
 registerWCNSFVScalarTransportBaseTasks("NavierStokesApp", WCNSLinearFVScalarTransportPhysics);
+registerMooseAction("NavierStokesApp",
+                    WCNSLinearFVScalarTransportPhysics,
+                    "add_interpolation_method_physics");
 
 InputParameters
 WCNSLinearFVScalarTransportPhysics::validParams()
@@ -20,6 +24,12 @@ WCNSLinearFVScalarTransportPhysics::validParams()
   InputParameters params = WCNSFVScalarTransportPhysicsBase::validParams();
   params.addClassDescription("Define the Navier Stokes weakly-compressible scalar field transport "
                              "equation(s) using the linear finite volume discretization");
+  params.set<MooseEnum>("passive_scalar_advection_interpolation") =
+      NS::fvAdvectedInterpolationMethods();
+  params.addParam<InterpolationMethodName>(
+      "passive_scalar_advection_interpolation_method_name",
+      "Name of an externally defined FVInterpolationMethod to use for passive scalar advection. "
+      "When provided, this overrides 'passive_scalar_advection_interpolation'.");
   params.addParam<bool>("use_nonorthogonal_correction",
                         true,
                         "If the nonorthogonal correction should be used when computing the normal "
@@ -28,6 +38,9 @@ WCNSLinearFVScalarTransportPhysics::validParams()
   // Not supported
   params.suppressParameter<MooseEnum>("preconditioning");
 
+  params.addParamNamesToGroup("passive_scalar_advection_interpolation_method_name",
+                              "Numerical scheme");
+
   return params;
 }
 
@@ -35,9 +48,20 @@ WCNSLinearFVScalarTransportPhysics::WCNSLinearFVScalarTransportPhysics(
     const InputParameters & parameters)
   : WCNSFVScalarTransportPhysicsBase(parameters)
 {
+  addRequiredPhysicsTask("add_interpolation_method_physics");
+
   if (_porous_medium_treatment)
     _flow_equations_physics->paramError("porous_medium_treatment",
                                         "Porous media scalar advection is currently unimplemented");
+}
+
+void
+WCNSLinearFVScalarTransportPhysics::addFVInterpolationMethods()
+{
+  if (!_has_scalar_equation || isParamValid("passive_scalar_advection_interpolation_method_name"))
+    return;
+
+  addFVAdvectedInterpolationMethod(getParam<MooseEnum>("passive_scalar_advection_interpolation"));
 }
 
 void
@@ -87,13 +111,18 @@ WCNSLinearFVScalarTransportPhysics::addScalarTimeKernels()
 void
 WCNSLinearFVScalarTransportPhysics::addScalarAdvectionKernels()
 {
+  const auto method_name =
+      isParamValid("passive_scalar_advection_interpolation_method_name")
+          ? getParam<InterpolationMethodName>("passive_scalar_advection_interpolation_method_name")
+          : InterpolationMethodName(
+                std::string(getParam<MooseEnum>("passive_scalar_advection_interpolation")));
+
   const std::string kernel_type = "LinearFVScalarAdvection";
   InputParameters params = getFactory().getValidParams(kernel_type);
 
   assignBlocks(params, _blocks);
   params.set<UserObjectName>("rhie_chow_user_object") = _flow_equations_physics->rhieChowUOName();
-  params.set<MooseEnum>("advected_interp_method") =
-      getParam<MooseEnum>("passive_scalar_advection_interpolation");
+  params.set<InterpolationMethodName>("advected_interp_method_name") = method_name;
   setSlipVelocityParams(params);
 
   for (const auto & vname : _passive_scalar_names)
@@ -120,7 +149,8 @@ WCNSLinearFVScalarTransportPhysics::addScalarDiffusionKernels()
     for (const auto name_i : index_range(_passive_scalar_names))
     {
       params.set<LinearVariableName>("variable") = _passive_scalar_names[name_i];
-      params.set<MooseFunctorName>("diffusion_coeff") = passive_scalar_diffusivities[name_i];
+      params.set<MooseFunctorName>("diffusion_coeff") =
+          passive_scalar_diffusivities[name_i] + (_has_turbulence_model ? "_plus_mut/Sc_t" : "");
       getProblem().addLinearFVKernel(
           kernel_type, prefix() + "ins_" + _passive_scalar_names[name_i] + "_diffusion", params);
     }
@@ -142,7 +172,7 @@ WCNSLinearFVScalarTransportPhysics::addScalarSourceKernels()
     {
       // Added for backward compatibility with former Modules/NavierStokesFV syntax
       params.set<MooseFunctorName>("source_density") = _passive_scalar_sources[scalar_i];
-      getProblem().addFVKernel(
+      getProblem().addLinearFVKernel(
           kernel_type, prefix() + "ins_" + _passive_scalar_names[scalar_i] + "_source", params);
     }
 
@@ -217,6 +247,12 @@ WCNSLinearFVScalarTransportPhysics::addScalarInletBC()
       }
     }
   }
+}
+
+unsigned short
+WCNSLinearFVScalarTransportPhysics::getNumberAlgebraicGhostingLayersNeeded() const
+{
+  return 1;
 }
 
 void

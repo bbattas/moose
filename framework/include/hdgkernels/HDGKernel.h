@@ -12,7 +12,7 @@
 #include "Kernel.h"
 
 /**
- * A kernel for hybridized finite element formulations
+ * Base kernel for hybridized finite element formulations.
  */
 class HDGKernel : public Kernel
 {
@@ -21,10 +21,28 @@ public:
 
   HDGKernel(const InputParameters & parameters);
 
+  virtual void computeResidual() override = 0;
+  virtual void computeJacobian() override = 0;
+  virtual void computeOffDiagJacobian(unsigned int jvar) override = 0;
   virtual void computeResidualOnSide() = 0;
   virtual void computeJacobianOnSide() = 0;
   virtual void computeResidualAndJacobianOnSide();
 
 protected:
   virtual Real computeQpResidual() override { mooseError("this should never be called"); }
+
+  /// The face quadrature rule
+  const QBase * const & _qrule_face;
+
+  /// The physical locations of the quadrature points on the face
+  const MooseArray<Point> & _q_point_face;
+
+  /// transformed Jacobian weights on the current element face
+  const MooseArray<Real> & _JxW_face;
+
+  /// face normals
+  const MooseArray<Point> & _normals;
+
+  /// Current side element
+  const Elem * const & _current_side_elem;
 };

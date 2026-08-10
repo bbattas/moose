@@ -1257,4 +1257,650 @@ ca3944140e845b4b8586365397d7fe1110ebeb89: #30791; libMesh submodule update, add 
   wasp:
     full_version: 2025.05.13_1
     hash: 3e37a23
+f14118d63adbfcc3d45765c2ba3cac1dfa0ffa7a: #31104; add kokkos to all builds, update apptainer mpi, add libceed, fix conda zsh linux
+  libmesh:
+    full_version: 2025.06.25_1
+    hash: 471ff5e
+  libmesh-vtk:
+    full_version: 9.4.2_4
+    hash: d35235e
+  moose-dev:
+    full_version: 2025.07.22
+    hash: 46da177
+  mpi:
+    full_version: 2025.07.23
+    hash: 0a5dd50
+  petsc:
+    full_version: 3.23.0.6.gd9d7fd11dca_3
+    hash: '4564759'
+  pprof:
+    full_version: 2025.06.13
+    hash: 3d296db
+  seacas:
+    full_version: 2025.05.22_0
+    hash: '1278418'
+  tools:
+    full_version: 2025.06.26
+    hash: d73012a
+  wasp:
+    full_version: 2025.05.13_1
+    hash: 3e37a23
+586e50015ae9363074ebcafd7a1b72d1db467b16: #31141
+  libmesh:
+    full_version: 2025.08.06_0
+    hash: e1f499b
+  libmesh-vtk:
+    full_version: 9.4.2_5
+    hash: 2b88261
+  moose-dev:
+    full_version: 2025.08.06
+    hash: 7cad19c
+  mpi:
+    full_version: 2025.08.06
+    hash: de1bd33
+  petsc:
+    full_version: 3.23.4_0
+    hash: 437fa22
+  pprof:
+    full_version: 2025.06.13
+    hash: 3d296db
+  seacas:
+    full_version: 2025.05.22_0
+    hash: '1278418'
+  tools:
+    full_version: 2025.06.26
+    hash: d73012a
+  wasp:
+    full_version: 2025.07.07_0
+    hash: d014f0c
+4c302cd34f02fe55de788a6578fb90105daaafbc: #30204; update neml2 and hit
+  libmesh:
+    full_version: 2025.08.06_0
+    hash: e1f499b
+  libmesh-vtk:
+    full_version: 9.4.2_5
+    hash: 2b88261
+  moose-dev:
+    full_version: 2025.08.18
+    hash: e9012b6
+  mpi:
+    full_version: 2025.08.06
+    hash: de1bd33
+  petsc:
+    full_version: 3.23.4_0
+    hash: 437fa22
+  pprof:
+    full_version: 2025.06.13
+    hash: 3d296db
+  seacas:
+    full_version: 2025.05.22_0
+    hash: '1278418'
+  tools:
+    full_version: 2025.06.26
+    hash: d73012a
+  wasp:
+    full_version: 2025.07.07_1
+    hash: 732153c
+34e16c46b979e005966f1c36830f87e8d86c4d24: #31329
+  libmesh:
+    full_version: 2025.08.06_0
+    hash: e1f499b
+  libmesh-vtk:
+    full_version: 9.4.2_5
+    hash: 2b88261
+  moose-dev:
+    full_version: 2025.08.19
+    hash: c77818d
+  mpi:
+    full_version: 2025.08.06
+    hash: de1bd33
+  petsc:
+    full_version: 3.23.4_0
+    hash: 437fa22
+  pprof:
+    full_version: 2025.06.13
+    hash: 3d296db
+  seacas:
+    full_version: 2025.05.22_0
+    hash: '1278418'
+  tools:
+    full_version: 2025.06.26
+    hash: d73012a
+  wasp:
+    full_version: 2025.07.07_1
+    hash: 732153c
+41a2c0425d0ba04f51e9c64f40f7e68da74c17c6: #31029; configure WASP with waspplot, bump wasp and moose-dev
+  libmesh:
+    full_version: 2025.08.06_0
+    hash: e1f499b
+  libmesh-vtk:
+    full_version: 9.4.2_5
+    hash: 2b88261
+  moose-dev:
+    full_version: 2025.09.04
+    hash: 1dc2fb4
+  mpi:
+    full_version: 2025.08.06
+    hash: de1bd33
+  petsc:
+    full_version: 3.23.4_0
+    hash: 437fa22
+  pprof:
+    full_version: 2025.06.13
+    hash: 3d296db
+  seacas:
+    full_version: 2025.05.22_0
+    hash: '1278418'
+  tools:
+    full_version: 2025.06.26
+    hash: d73012a
+  wasp:
+    full_version: 2025.09.04_0
+    hash: 41363d4
+a62abba3f218c71fadda32d9ca52b828abbbafbb: #31536; update code-server in apptainer moose-dev
+  libmesh:
+    full_version: 2025.08.06_0
+    hash: e1f499b
+  libmesh-vtk:
+    full_version: 9.4.2_5
+    hash: 2b88261
+  moose-dev:
+    full_version: 2025.09.15
+    hash: aeabd1e
+  mpi:
+    full_version: 2025.08.06
+    hash: de1bd33
+  petsc:
+    full_version: 3.23.4_0
+    hash: 437fa22
+  pprof:
+    full_version: 2025.06.13
+    hash: 3d296db
+  seacas:
+    full_version: 2025.05.22_0
+    hash: '1278418'
+  tools:
+    full_version: 2025.06.26
+    hash: d73012a
+  wasp:
+    full_version: 2025.09.04_0
+    hash: 41363d4
+cf8fabc2a0944313bb3e5bf720972ba27d1a2a8b: #31560: update libmesh, wasp and add intel compiler, add pythonfmu to moose-dev container
+  libmesh:
+    full_version: 2025.09.18_0
+    hash: 748d6ae
+  libmesh-vtk:
+    full_version: 9.4.2_6
+    hash: d384dc6
+  moose-dev:
+    full_version: 2025.09.18
+    hash: 32e04eb
+  mpi:
+    full_version: 2025.09.18
+    hash: 37fd888
+  petsc:
+    full_version: 3.23.4_1
+    hash: 6c94cfc
+  pprof:
+    full_version: 2025.06.13
+    hash: 3d296db
+  seacas:
+    full_version: 2025.05.22_0
+    hash: '1278418'
+  tools:
+    full_version: 2025.06.26
+    hash: d73012a
+  wasp:
+    full_version: 2025.09.18_0
+    hash: 67c57c5
+fe70eeddb66f8e8f63484fea0d33ed7a67b1d8cb: #31650: update petsc, libmesh, mfem; add packages to moose-tools
+  libmesh:
+    full_version: 2025.10.15_0
+    hash: 7c44650
+  libmesh-vtk:
+    full_version: 9.4.2_6
+    hash: d384dc6
+  moose-dev:
+    full_version: 2025.10.21
+    hash: 41c84ff
+  mpi:
+    full_version: 2025.09.18
+    hash: 37fd888
+  petsc:
+    full_version: 3.24.0_0
+    hash: 992e65a
+  pprof:
+    full_version: 2025.06.13
+    hash: 3d296db
+  seacas:
+    full_version: 2025.05.22_0
+    hash: '1278418'
+  tools:
+    full_version: 2025.10.21
+    hash: a4f264e
+  wasp:
+    full_version: 2025.09.18_0
+    hash: 67c57c5
+3159bdb80e016882271cee25af8acfbe03b284ca: #31768
+  libmesh:
+    full_version: 2025.10.15_1
+    hash: e987a26
+  libmesh-vtk:
+    full_version: 9.4.2_6
+    hash: d384dc6
+  moose-dev:
+    full_version: 2025.10.27
+    hash: ed380db
+  mpi:
+    full_version: 2025.09.18
+    hash: 37fd888
+  petsc:
+    full_version: 3.24.0_1
+    hash: 09c8ce6
+  pprof:
+    full_version: 2025.06.13
+    hash: 3d296db
+  seacas:
+    full_version: 2025.05.22_0
+    hash: '1278418'
+  tools:
+    full_version: 2025.10.21
+    hash: a4f264e
+  wasp:
+    full_version: 2025.09.18_0
+    hash: 67c57c5
+62ac7f70735ea0cd280f23d6c3acb344d7c74d12: #31972: update wasp, neml2, and moose-dev
+  libmesh:
+    full_version: 2025.10.15_1
+    hash: e987a26
+  libmesh-vtk:
+    full_version: 9.4.2_6
+    hash: d384dc6
+  moose-dev:
+    full_version: 2025.11.24
+    hash: a20764f
+  mpi:
+    full_version: 2025.09.18
+    hash: 37fd888
+  petsc:
+    full_version: 3.24.0_1
+    hash: 09c8ce6
+  pprof:
+    full_version: 2025.06.13
+    hash: 3d296db
+  seacas:
+    full_version: 2025.05.22_0
+    hash: '1278418'
+  tools:
+    full_version: 2025.10.21
+    hash: a4f264e
+  wasp:
+    full_version: 2025.09.19_02960f1_0
+    hash: 0320f16
+5550fa95266251ec8b3f176fccbb92b142ab8c77: # 31906: update petsc, libmesh, mfem, and moose-dev
+  libmesh:
+    full_version: 2025.11.25_c144a6e_0
+    hash: ef3f506
+  libmesh-vtk:
+    full_version: 9.4.2_6
+    hash: d384dc6
+  moose-dev:
+    full_version: 2025.12.08
+    hash: 96b913b
+  mpi:
+    full_version: 2025.09.18
+    hash: 37fd888
+  petsc:
+    full_version: 3.24.2_0
+    hash: 562d7c8
+  pprof:
+    full_version: 2025.06.13
+    hash: 3d296db
+  seacas:
+    full_version: 2025.05.22_0
+    hash: '1278418'
+  tools:
+    full_version: 2025.10.21
+    hash: a4f264e
+  wasp:
+    full_version: 2025.09.19_02960f1_0
+    hash: 0320f16
+7fb22db6c7419980774cf3009c6191ff2d9eb3ac: # 31935
+  libmesh:
+    full_version: 2026.01.27_502d428_0
+    hash: c72d5c4
+  libmesh-vtk:
+    full_version: 9.5.2_0
+    hash: 6804f54
+  moose-dev:
+    full_version: 2026.01.27
+    hash: 97a6061
+  mpi:
+    full_version: 2026.01.27
+    hash: 8ce4d65
+  petsc:
+    full_version: 3.24.3_0
+    hash: 21e17c6
+  pprof:
+    full_version: 2026.01.11_71be6bf
+    hash: 2e7209c
+  seacas:
+    full_version: 2025.10.14_0
+    hash: a948f18
+  tools:
+    full_version: 2026.01.27
+    hash: 419db47
+  wasp:
+    full_version: 2025.09.19_02960f1_1
+    hash: f0e7230
+584097dcae05a38608b1f9787d5186df1dc4f176: # 32312
+  libmesh:
+    full_version: 2026.01.27_502d428_0
+    hash: c72d5c4
+  libmesh-vtk:
+    full_version: 9.5.2_0
+    hash: 6804f54
+  moose-dev:
+    full_version: 2026.02.05
+    hash: 83adebc
+  mpi:
+    full_version: 2026.01.27
+    hash: 8ce4d65
+  petsc:
+    full_version: 3.24.3_0
+    hash: 21e17c6
+  pprof:
+    full_version: 2026.01.11_71be6bf
+    hash: 2e7209c
+  seacas:
+    full_version: 2025.10.14_0
+    hash: a948f18
+  tools:
+    full_version: 2026.02.05
+    hash: 2cb9bc3
+  wasp:
+    full_version: 2025.09.19_02960f1_1
+    hash: f0e7230
+d1ec98bf4afb516711cfaddb60ca153cb323f98b: # 32329
+  libmesh:
+    full_version: 2026.01.27_502d428_0
+    hash: c72d5c4
+  libmesh-vtk:
+    full_version: 9.5.2_0
+    hash: 6804f54
+  moose-dev:
+    full_version: 2026.02.10
+    hash: b57796f
+  mpi:
+    full_version: 2026.01.27
+    hash: 8ce4d65
+  petsc:
+    full_version: 3.24.3_0
+    hash: 21e17c6
+  pprof:
+    full_version: 2026.01.11_71be6bf
+    hash: 2e7209c
+  seacas:
+    full_version: 2025.10.14_0
+    hash: a948f18
+  tools:
+    full_version: 2026.02.05
+    hash: 2cb9bc3
+  wasp:
+    full_version: 2025.09.19_02960f1_2
+    hash: fbd6c65
+f73302f346e05b294a71e1c1725aa917f2891183: # 32342
+  libmesh:
+    full_version: 2026.02.13_6232e98_0
+    hash: '1881419'
+  libmesh-vtk:
+    full_version: 9.6.0_0
+    hash: 7e4f471
+  moose-dev:
+    full_version: 2026.02.16
+    hash: d81cf64
+  mpi:
+    full_version: 2026.02.16
+    hash: 572cf81
+  petsc:
+    full_version: 3.24.4_0
+    hash: d5b5601
+  pprof:
+    full_version: 2026.01.11_71be6bf
+    hash: 2e7209c
+  seacas:
+    full_version: 2025.10.14_1
+    hash: '9685477'
+  tools:
+    full_version: 2026.02.16
+    hash: 8f1ccc2
+  wasp:
+    full_version: 2025.09.19_02960f1_3
+    hash: 44637c2
 
+a67141a7d1d7eaae0132956bdcf7b1d82b58d067: # 32364
+  libmesh:
+    full_version: 2026.02.13_6232e98_0
+    hash: '1881419'
+  libmesh-vtk:
+    full_version: 9.6.0_0
+    hash: 7e4f471
+  moose-dev:
+    full_version: 2026.02.17
+    hash: '6599578'
+  mpi:
+    full_version: 2026.02.16
+    hash: 572cf81
+  petsc:
+    full_version: 3.24.4_0
+    hash: d5b5601
+  pprof:
+    full_version: 2026.01.11_71be6bf
+    hash: 2e7209c
+  seacas:
+    full_version: 2025.10.14_1
+    hash: '9685477'
+  tools:
+    full_version: 2026.02.16
+    hash: 8f1ccc2
+  wasp:
+    full_version: 2025.09.19_02960f1_4
+    hash: ac33097
+
+53c9cf672618cc2e5c84f816905c07c84f8fbc76: # 32379
+  libmesh:
+    full_version: 2026.02.18_f8a1758_0
+    hash: 47aa7d2
+  libmesh-vtk:
+    full_version: 9.6.0_0
+    hash: 7e4f471
+  moose-dev:
+    full_version: 2026.02.20
+    hash: d2ceaf6
+  mpi:
+    full_version: 2026.02.16
+    hash: 572cf81
+  petsc:
+    full_version: 3.24.4_0
+    hash: d5b5601
+  pprof:
+    full_version: 2026.01.11_71be6bf
+    hash: 2e7209c
+  seacas:
+    full_version: 2025.10.14_1
+    hash: '9685477'
+  tools:
+    full_version: 2026.02.16
+    hash: 8f1ccc2
+  wasp:
+    full_version: 2025.09.19_02960f1_4
+    hash: ac33097
+
+d41b47a41b7edac3875e308fb77df6069de32269: # 32404
+  libmesh:
+    full_version: 2026.03.17_3463d95_0
+    hash: 42b18dc
+  libmesh-vtk:
+    full_version: 9.6.0_1
+    hash: d19231c
+  moose-dev:
+    full_version: 2026.03.19
+    hash: d211fce
+  mpi:
+    full_version: 2026.03.19
+    hash: 0927ee0
+  petsc:
+    full_version: 3.24.5_0
+    hash: 30e9f70
+  pprof:
+    full_version: 2026.01.11_71be6bf
+    hash: 2e7209c
+  seacas:
+    full_version: 2025.10.14_2
+    hash: 2c80fef
+  tools:
+    full_version: 2026.02.16
+    hash: 8f1ccc2
+  wasp:
+    full_version: 2025.09.19_02960f1_5
+    hash: 9ce59ea
+
+13877661c50a9c27dad15dbb2d1d8b7079e42576: # 32757
+  build:
+    full_version: 2026.04.21
+    hash: ae2c988
+  libmesh:
+    full_version: 2026.05.06_aeab0b9_0
+    hash: 5a8fab9
+  libmesh-vtk:
+    full_version: 9.6.1_0
+    hash: de4f8ad
+  moose-dev:
+    full_version: 2026.05.08
+    hash: 821fba8
+  mpi:
+    full_version: 2026.04.21
+    hash: f6f315e
+  petsc:
+    full_version: 3.25.1_0
+    hash: b035b4c
+  pprof:
+    full_version: 2026.03.01_a15ffb7
+    hash: '4869696'
+  pyhit:
+    full_version: 2026.04.21
+    hash: 1528d6d
+  seacas:
+    full_version: 2025.10.14_3
+    hash: 2115cf6
+  tools:
+    full_version: 2026.04.21
+    hash: eef89ae
+  wasp:
+    full_version: 2025.09.19_02960f1_6
+    hash: 4b8a7ec
+
+f255569fa6a7decb96241c472dbe1ba4fc85a0a0: # 33024
+  build:
+    full_version: 2026.06.07
+    hash: df713f6
+  libmesh:
+    full_version: 2026.06.05_ab36c00_0
+    hash: 1abd2ab
+  libmesh-vtk:
+    full_version: 9.6.2_0
+    hash: 541d7ec
+  moose-dev:
+    full_version: 2026.06.07
+    hash: 994e276
+  mpi:
+    full_version: 2026.06.07
+    hash: 46e85b3
+  petsc:
+    full_version: 3.25.2_0
+    hash: 5bee082
+  pprof:
+    full_version: 2026.05.06_92041b7_0
+    hash: 82f1795
+  pyhit:
+    full_version: 2026.06.07
+    hash: efc36b8
+  seacas:
+    full_version: 2025.10.14_4
+    hash: d38503e
+  tools:
+    full_version: 2026.06.07
+    hash: b9b6e81
+  wasp:
+    full_version: 2026.05.24_2cdbeb7_0
+    hash: e1143b9
+
+7c549a833a087303caef9d50e2b3e70db5079935:
+  build:
+    full_version: 2026.06.16
+    hash: d2814f0
+  libmesh:
+    full_version: 2026.06.05_ab36c00_0
+    hash: 1abd2ab
+  libmesh-vtk:
+    full_version: 9.6.2_0
+    hash: 541d7ec
+  moose-dev:
+    full_version: 2026.06.16
+    hash: e87a7fe
+  mpi:
+    full_version: 2026.06.07
+    hash: 46e85b3
+  petsc:
+    full_version: 3.25.2_0
+    hash: 5bee082
+  pprof:
+    full_version: 2026.05.06_92041b7_0
+    hash: 82f1795
+  pyhit:
+    full_version: 2026.06.16
+    hash: ec4aa51
+  seacas:
+    full_version: 2025.10.14_4
+    hash: d38503e
+  tools:
+    full_version: 2026.06.16
+    hash: 98d0467
+  wasp:
+    full_version: 2026.06.15_d8777a8_0
+    hash: 475155d
+
+ed633437b48c821cc2e4f84795e457744b7b1370: # 33460
+  build:
+    full_version: 2026.07.30
+    hash: cf419cc
+  libmesh:
+    full_version: 2026.06.05_ab36c00_1
+    hash: 8f0b7da
+  libmesh-vtk:
+    full_version: 9.6.2_0
+    hash: 541d7ec
+  moose-dev:
+    full_version: 2026.07.30
+    hash: 356a606
+  mpi:
+    full_version: 2026.06.07
+    hash: 46e85b3
+  petsc:
+    full_version: 3.25.2_0
+    hash: 5bee082
+  pprof:
+    full_version: 2026.05.06_92041b7_0
+    hash: 82f1795
+  pyhit:
+    full_version: 2026.06.16
+    hash: ec4aa51
+  seacas:
+    full_version: 2025.10.14_4
+    hash: d38503e
+  tools:
+    full_version: 2026.06.16
+    hash: 98d0467
+  wasp:
+    full_version: 2026.06.15_d8777a8_0
+    hash: 475155d

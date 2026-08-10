@@ -9,78 +9,58 @@
 
 #pragma once
 
-#include "Convergence.h"
+#include "DefaultConvergenceBase.h"
 #include "MooseApp.h"
 #include "Executioner.h"
 
+class NonlinearSystemBase;
+
 /**
- * Default convergence criteria for FEProblem
+ * Default nonlinear convergence criteria for FEProblem
  */
-class DefaultNonlinearConvergence : public Convergence
+class DefaultNonlinearConvergence : public DefaultConvergenceBase
 {
 public:
   static InputParameters validParams();
-
   static InputParameters residualConvergenceParams();
 
   DefaultNonlinearConvergence(const InputParameters & parameters);
 
-  virtual void initialSetup() override;
+  virtual void checkIterationType(IterationType it_type) const override;
 
-  virtual MooseConvergenceStatus checkConvergence(unsigned int iter) override;
+  virtual MooseConvergenceStatus checkConvergence(unsigned int n_iter) override;
 
 protected:
   /**
-   * Check the relative convergence of the nonlinear solution
+   * Nonlinear system whose convergence state should be checked.
+   */
+  virtual NonlinearSystemBase & nonlinearSystem();
+
+  /**
+   * Check the absolute and relative convergence of the nonlinear solution
+   * @param n_iter     Number of iterations performed
    * @param fnorm      Norm of the residual vector
    * @param ref_norm   Norm to use for reference value
    * @param rel_tol    Relative tolerance
    * @param abs_tol    Absolute tolerance
+   * @param oss        Output streamstring
    * @return           Bool signifying convergence
    */
-  virtual bool checkRelativeConvergence(const unsigned int it,
+  virtual bool checkResidualConvergence(const unsigned int n_iter,
                                         const Real fnorm,
                                         const Real ref_norm,
                                         const Real rel_tol,
                                         const Real abs_tol,
                                         std::ostringstream & oss);
 
-  /**
-   * Performs setup necessary for each call to checkConvergence
-   */
+  /// Performs setup necessary for each call to checkConvergence
   virtual void nonlinearConvergenceSetup() {}
 
-  /**
-   * This method is to be used for parameters that are shared with the executioner.
-   *
-   * If the parameter is set by the user in the executioner, get that value;
-   * otherwise, get this object's value.
-   * If the parameter is set by the user in both this object and the executioner,
-   * add it to a list and report an error later.
-   */
-  template <typename T>
-  const T & getSharedExecutionerParam(const std::string & name);
-
-  /**
-   * Throws an error if any of the parameters shared with the executioner have
-   * been set by the user in both places.
-   *
-   * This should be called after all calls to \c getSharedExecutionerParam.
-   * No error is thrown if the Convergence object was added as a default, since
-   * in that case, any parameters set by the user in the executioner will also
-   * be considered set by the user in the Convergence.
-   */
-  void checkDuplicateSetSharedExecutionerParams() const;
-
-private:
-  /// True if this object was added as a default instead of by the user
-  const bool _added_as_default;
-
-  /// List of shared executioner parameters that have been set by the user in both places
-  std::vector<std::string> _duplicate_shared_executioner_params;
-
-protected:
   FEProblemBase & _fe_problem;
+  /// Nonlinear absolute tolerance
+  PetscReal _abs_tol;
+  /// Nonlinear relative tolerance
+  PetscReal _rel_tol;
   /// Nonlinear absolute divergence tolerance
   const Real _nl_abs_div_tol;
   /// Nonlinear relative divergence tolerance
@@ -94,18 +74,3 @@ protected:
   /// Current number of nonlinear ping-pong iterations for the current solve
   unsigned int _nl_current_pingpong;
 };
-
-template <typename T>
-const T &
-DefaultNonlinearConvergence::getSharedExecutionerParam(const std::string & param)
-{
-  const auto * executioner = getMooseApp().getExecutioner();
-  if (executioner->isParamSetByUser(param))
-  {
-    if (isParamSetByUser(param))
-      _duplicate_shared_executioner_params.push_back(param);
-    return executioner->getParam<T>(param);
-  }
-  else
-    return getParam<T>(param);
-}

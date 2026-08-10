@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMBoundaryIntegratedBC.h"
 
@@ -26,8 +26,7 @@ MFEMBoundaryIntegratedBC::validParams()
 }
 
 MFEMBoundaryIntegratedBC::MFEMBoundaryIntegratedBC(const InputParameters & parameters)
-  : MFEMIntegratedBC(parameters),
-    _coef(getScalarCoefficient(getParam<MFEMScalarCoefficientName>("coefficient")))
+  : MFEMIntegratedBC(parameters), _coef(getScalarCoefficient("coefficient"))
 {
 }
 
@@ -37,13 +36,6 @@ mfem::LinearFormIntegrator *
 MFEMBoundaryIntegratedBC::createLFIntegrator()
 {
   return new mfem::BoundaryLFIntegrator(_coef);
-}
-
-// Create a new MFEM integrator to apply to LHS of the weak form. Ownership managed by the caller.
-mfem::BilinearFormIntegrator *
-MFEMBoundaryIntegratedBC::createBFIntegrator()
-{
-  return nullptr;
 }
 
 #endif

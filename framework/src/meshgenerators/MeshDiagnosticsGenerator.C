@@ -24,6 +24,9 @@
 #include "libmesh/string_to_enum.h"
 #include "libmesh/enum_point_locator_type.h"
 
+// C++
+#include <cstring>
+
 registerMooseObject("MooseApp", MeshDiagnosticsGenerator);
 
 InputParameters
@@ -83,7 +86,9 @@ MeshDiagnosticsGenerator::validParams()
       "whether to check for non-conformality arising from adaptive mesh refinement");
   params.addParam<MooseEnum>("check_local_jacobian",
                              chk_option,
-                             "whether to check the local Jacobian for negative values");
+                             "whether to check the local Jacobian for bad (non-positive) values");
+  params.addParam<MooseEnum>(
+      "check_polygons", chk_option, "Whether to check that all C0 polygons are convex");
   params.addParam<unsigned int>(
       "log_length_limit",
       10,
@@ -111,6 +116,7 @@ MeshDiagnosticsGenerator::MeshDiagnosticsGenerator(const InputParameters & param
     _check_adaptivity_non_conformality(
         getParam<MooseEnum>("search_for_adaptivity_nonconformality")),
     _check_local_jacobian(getParam<MooseEnum>("check_local_jacobian")),
+    _check_polygons(getParam<MooseEnum>("check_polygons")),
     _num_outputs(getParam<unsigned int>("log_length_limit"))
 {
   // Check that no secondary parameters have been passed with the main check disabled
@@ -127,7 +133,7 @@ MeshDiagnosticsGenerator::MeshDiagnosticsGenerator(const InputParameters & param
       _check_element_types == "NO_CHECK" && _check_element_overlap == "NO_CHECK" &&
       _check_non_planar_sides == "NO_CHECK" && _check_non_conformal_mesh == "NO_CHECK" &&
       _check_adaptivity_non_conformality == "NO_CHECK" && _check_local_jacobian == "NO_CHECK" &&
-      _check_non_matching_edges == "NO_CHECK")
+      _check_non_matching_edges == "NO_CHECK" && _check_polygons == "NO_CHECK")
     mooseError("You need to turn on at least one diagnostic. Did you misspell a parameter?");
 }
 
@@ -147,7 +153,7 @@ MeshDiagnosticsGenerator::generate()
   // check that specified boundary is valid, convert BoundaryNames to BoundaryIDs, and sort
   for (const auto & boundary_name : _watertight_boundary_names)
   {
-    if (!MooseMeshUtils::hasBoundaryName(*mesh, boundary_name))
+    if (!MooseMeshUtils::hasBoundaryNameOrID(*mesh, boundary_name))
       mooseError("User specified boundary_to_check \'", boundary_name, "\' does not exist");
   }
   _watertight_boundaries = MooseMeshUtils::getBoundaryIDs(*mesh, _watertight_boundary_names, false);
@@ -185,6 +191,9 @@ MeshDiagnosticsGenerator::generate()
 
   if (_check_non_matching_edges != "NO_CHECK")
     checkNonMatchingEdges(mesh);
+
+  if (_check_polygons != "NO_CHECK")
+    checkPolygons(mesh);
 
   return dynamic_pointer_cast<MeshBase>(mesh);
 }
@@ -468,7 +477,9 @@ MeshDiagnosticsGenerator::checkElementVolumes(const std::unique_ptr<MeshBase> & 
   // loop elements within the mesh (assumes replicated)
   for (auto & elem : mesh->active_element_ptr_range())
   {
-    if (elem->volume() <= _min_volume)
+    Real vol = elem->volume();
+
+    if (vol <= _min_volume)
     {
       if (num_tiny_elems < _num_outputs)
         _console << "Element with volume below threshold detected : \n"
@@ -477,7 +488,16 @@ MeshDiagnosticsGenerator::checkElementVolumes(const std::unique_ptr<MeshBase> & 
         _console << "Maximum output reached, log is silenced" << std::endl;
       num_tiny_elems++;
     }
-    if (elem->volume() >= _max_volume)
+    if (vol < 0)
+    {
+      if (num_negative_elems < _num_outputs)
+        _console << "Element with negative volume detected : \n"
+                 << "id " << elem->id() << " near point " << elem->vertex_average() << std::endl;
+      else if (num_negative_elems == _num_outputs)
+        _console << "Maximum output reached, log is silenced" << std::endl;
+      num_negative_elems++;
+    }
+    if (vol >= _max_volume)
     {
       if (num_big_elems < _num_outputs)
         _console << "Element with volume above threshold detected : \n"
@@ -1323,7 +1343,7 @@ MeshDiagnosticsGenerator::checkNonConformalMeshFromAdaptivity(
 void
 MeshDiagnosticsGenerator::checkLocalJacobians(const std::unique_ptr<MeshBase> & mesh) const
 {
-  unsigned int num_negative_elem_qp_jacobians = 0;
+  unsigned int num_bad_elem_qp_jacobians = 0;
   // Get a high-ish order quadrature
   auto qrule_dimension = mesh->mesh_dimension();
   libMesh::QGauss qrule(qrule_dimension, FIFTH);
@@ -1369,28 +1389,25 @@ MeshDiagnosticsGenerator::checkLocalJacobians(const std::unique_ptr<MeshBase> & 
     {
       fe_elem->reinit(elem);
     }
-    catch (libMesh::LogicError & e)
+    catch (std::exception & e)
     {
-      num_negative_elem_qp_jacobians++;
-      const auto msg = std::string(e.what());
-      if (msg.find("negative Jacobian") != std::string::npos)
-      {
-        if (num_negative_elem_qp_jacobians < _num_outputs)
-          _console << "Negative Jacobian found in element " << elem->id() << " near point "
-                   << elem->vertex_average() << std::endl;
-        else if (num_negative_elem_qp_jacobians == _num_outputs)
-          _console << "Maximum log output reached, silencing output" << std::endl;
-      }
-      else
-        _console << e.what() << std::endl;
+      if (!strstr(e.what(), "Jacobian"))
+        throw;
+
+      num_bad_elem_qp_jacobians++;
+      if (num_bad_elem_qp_jacobians < _num_outputs)
+        _console << "Bad Jacobian found in element " << elem->id() << " near point "
+                 << elem->vertex_average() << std::endl;
+      else if (num_bad_elem_qp_jacobians == _num_outputs)
+        _console << "Maximum log output reached, silencing output" << std::endl;
     }
   }
-  diagnosticsLog("Number of elements with a negative Jacobian: " +
-                     Moose::stringify(num_negative_elem_qp_jacobians),
+  diagnosticsLog("Number of elements with a bad Jacobian: " +
+                     Moose::stringify(num_bad_elem_qp_jacobians),
                  _check_local_jacobian,
-                 num_negative_elem_qp_jacobians);
+                 num_bad_elem_qp_jacobians);
 
-  unsigned int num_negative_side_qp_jacobians = 0;
+  unsigned int num_bad_side_qp_jacobians = 0;
   // Get a high-ish order side quadrature
   auto qrule_side_dimension = mesh->mesh_dimension() - 1;
   libMesh::QGauss qrule_side(qrule_side_dimension, FIFTH);
@@ -1425,27 +1442,26 @@ MeshDiagnosticsGenerator::checkLocalJacobians(const std::unique_ptr<MeshBase> & 
       {
         fe_elem->reinit(elem, side);
       }
-      catch (libMesh::LogicError & e)
+      catch (std::exception & e)
       {
-        const auto msg = std::string(e.what());
-        if (msg.find("negative Jacobian") != std::string::npos)
-        {
-          num_negative_side_qp_jacobians++;
-          if (num_negative_side_qp_jacobians < _num_outputs)
-            _console << "Negative Jacobian found in side " << side << " of element" << elem->id()
-                     << " near point " << elem->vertex_average() << std::endl;
-          else if (num_negative_side_qp_jacobians == _num_outputs)
-            _console << "Maximum log output reached, silencing output" << std::endl;
-        }
-        else
-          _console << e.what() << std::endl;
+        // In 2D dbg/devel modes libMesh could hit
+        // libmesh_assert_not_equal_to on a side reinit
+        if (!strstr(e.what(), "Jacobian") && !strstr(e.what(), "det != 0"))
+          throw;
+
+        num_bad_side_qp_jacobians++;
+        if (num_bad_side_qp_jacobians < _num_outputs)
+          _console << "Bad Jacobian found in side " << side << " of element" << elem->id()
+                   << " near point " << elem->vertex_average() << std::endl;
+        else if (num_bad_side_qp_jacobians == _num_outputs)
+          _console << "Maximum log output reached, silencing output" << std::endl;
       }
     }
   }
-  diagnosticsLog("Number of element sides with negative Jacobians: " +
-                     Moose::stringify(num_negative_side_qp_jacobians),
+  diagnosticsLog("Number of element sides with bad Jacobians: " +
+                     Moose::stringify(num_bad_side_qp_jacobians),
                  _check_local_jacobian,
-                 num_negative_side_qp_jacobians);
+                 num_bad_side_qp_jacobians);
 }
 
 void
@@ -1573,6 +1589,81 @@ MeshDiagnosticsGenerator::checkNonMatchingEdges(const std::unique_ptr<MeshBase> 
                      Moose::stringify(num_intersecting_edges),
                  _check_non_matching_edges,
                  num_intersecting_edges);
+}
+
+void
+MeshDiagnosticsGenerator::checkPolygons(const std::unique_ptr<MeshBase> & mesh) const
+{
+  unsigned int num_polygons = 0;
+  unsigned int num_nonconvex = 0;
+  unsigned int num_nonplanar = 0;
+  unsigned int num_flat_consecutive_sides = 0;
+
+  for (const auto & elem : mesh->element_ptr_range())
+    if (elem->type() == libMesh::C0POLYGON)
+    {
+      num_polygons++;
+      const auto n_nodes = elem->n_nodes();
+      Point base_top_dir(0, 0, 0);
+      bool nonconvex = false;
+      bool nonplanar = false;
+      for (const auto & i : make_range(n_nodes))
+      {
+        const auto n1 = elem->point(i);
+        const auto n2 = elem->point((i + 1) % n_nodes);
+        const auto n3 = elem->point((i + 2) % n_nodes);
+        // can't be const with unit
+        Point top_dir = (n2 - n1).cross(n3 - n2);
+
+        if (top_dir.norm_sq() > 0 && base_top_dir.norm() == 0)
+        {
+          base_top_dir = top_dir.unit();
+          continue;
+        }
+        if (base_top_dir * top_dir < 0)
+          nonconvex = true;
+        if (top_dir.norm_sq() > 0)
+          top_dir = top_dir.unit();
+        else
+          num_flat_consecutive_sides++;
+        if (!MooseUtils::absoluteFuzzyEqual((top_dir - base_top_dir).norm_sq(), 0, TOLERANCE) &&
+            !MooseUtils::absoluteFuzzyEqual((top_dir + base_top_dir).norm_sq(), 0, TOLERANCE))
+          nonplanar = true;
+      }
+
+      if (nonconvex)
+      {
+        num_nonconvex++;
+        if (num_nonconvex < _num_outputs)
+          _console << "Non convex C0 polygon detected:" << elem->get_info() << std::endl;
+        else if (num_nonconvex == _num_outputs)
+          _console << "Ouptut limit reached for non-convex polygons" << std::endl;
+      }
+      if (nonplanar)
+      {
+        num_nonplanar++;
+        if (num_nonconvex < _num_outputs)
+          _console << "Non planar C0 polygon detected:" << elem->get_info() << std::endl;
+        else if (num_nonconvex == _num_outputs)
+          _console << "Ouptut limit reached for non-planar polygons" << std::endl;
+      }
+    }
+
+  if (!num_polygons)
+    mooseWarning("No C0 polygons in geometry: polyon check did nothing");
+  else
+  {
+    diagnosticsLog("Number of non convex polygons: " + Moose::stringify(num_nonconvex),
+                   _check_polygons,
+                   num_nonconvex);
+    diagnosticsLog("Number of non planar polygons: " + Moose::stringify(num_nonplanar),
+                   _check_polygons,
+                   num_nonplanar);
+    diagnosticsLog("Number of colinear consecutive sides of polygons: " +
+                       Moose::stringify(num_flat_consecutive_sides),
+                   _check_polygons,
+                   num_flat_consecutive_sides);
+  }
 }
 
 void

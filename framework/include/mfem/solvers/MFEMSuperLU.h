@@ -7,52 +7,47 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
-#include "MFEMSolverBase.h"
-#include "libmesh/ignore_warnings.h"
-#include <mfem.hpp>
-#include "libmesh/restore_warnings.h"
-#include <memory>
+
+#include "MFEMLinearSolverBase.h"
 
 namespace Moose::MFEM
 {
 
 /**
- * Wrapper for mfem::SuperLU solver that creates a SuperLURowLocMatrix from the operator
- * when set.
+ * Wrapper for mfem::SuperLUSolver that creates a SuperLURowLocMatrix from the operator when set.
  */
 class SuperLUSolver : public mfem::SuperLUSolver
 {
 public:
-  SuperLUSolver(MPI_Comm comm, int npdep = 1) : mfem::SuperLUSolver(comm, npdep){};
+  SuperLUSolver(MPI_Comm comm, int npdep = 1)
+    : mfem::SuperLUSolver(comm), _s_superlu(std::make_unique<mfem::SuperLUSolver>(comm, npdep)) {};
   void SetOperator(const mfem::Operator & op) override
   {
     _a_superlu = std::make_unique<mfem::SuperLURowLocMatrix>(op);
-    mfem::SuperLUSolver::SetOperator(*_a_superlu.get());
+    _s_superlu->SetOperator(*_a_superlu.get());
   }
+  void Mult(const mfem::Vector & x, mfem::Vector & y) const override { _s_superlu->Mult(x, y); }
 
 private:
   std::unique_ptr<mfem::SuperLURowLocMatrix> _a_superlu{nullptr};
+  std::unique_ptr<mfem::SuperLUSolver> _s_superlu{nullptr};
 };
 } // namespace Moose::MFEM
 
 /**
- * Wrapper for mfem::mfem::SuperLUSolver.
+ * Wrapper for Moose::MFEM::SuperLUSolver.
  */
-class MFEMSuperLU : public MFEMSolverBase
+class MFEMSuperLU : public Moose::MFEM::LinearSolverBase
 {
 public:
   static InputParameters validParams();
 
   MFEMSuperLU(const InputParameters & parameters);
 
-protected:
-  void constructSolver(const InputParameters & parameters) override;
-
-  /// Updates the solver with the bilinear form in case LOR solve is required
-  void updateSolver(mfem::ParBilinearForm & a, mfem::Array<int> & tdofs) override;
+  void ConstructSolver() override;
 };
 
 #endif

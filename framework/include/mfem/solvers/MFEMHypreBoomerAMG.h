@@ -7,30 +7,28 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
-#include "MFEMSolverBase.h"
-#include "libmesh/ignore_warnings.h"
-#include <mfem.hpp>
-#include "libmesh/restore_warnings.h"
-#include <memory>
+
+#include "MFEMLORLinearSolverBase.h"
 
 /**
  * Wrapper for mfem::HypreBoomerAMG solver.
  */
-class MFEMHypreBoomerAMG : public MFEMSolverBase
+class MFEMHypreBoomerAMG : public Moose::MFEM::LORLinearSolverBase<mfem::HypreBoomerAMG>
 {
 public:
   static InputParameters validParams();
 
   MFEMHypreBoomerAMG(const InputParameters &);
+  ~MFEMHypreBoomerAMG();
 
-  /// Updates the solver with the bilinear form in case LOR solve is required
-  void updateSolver(mfem::ParBilinearForm & a, mfem::Array<int> & tdofs) override;
+  void ConstructSolver() override;
 
 protected:
-  void constructSolver(const InputParameters & parameters) override;
+  /// Update the wrapped MFEM solver parameters
+  virtual void SetSolverParameters(mfem::HypreBoomerAMG & solver) override;
 
 private:
   std::shared_ptr<mfem::ParFiniteElementSpace> _mfem_fespace{nullptr};

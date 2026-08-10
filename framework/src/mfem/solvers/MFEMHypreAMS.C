@@ -7,19 +7,20 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMHypreAMS.h"
+#include "MFEMProblem.h"
 
 registerMooseObject("MooseApp", MFEMHypreAMS);
 
 InputParameters
 MFEMHypreAMS::validParams()
 {
-  InputParameters params = MFEMSolverBase::validParams();
+  InputParameters params = Moose::MFEM::LORLinearSolverBase<mfem::HypreAMS>::validParams();
   params.addClassDescription("Hypre auxiliary-space Maxwell solver and preconditioner for the "
                              "iterative solution of MFEM equation systems.");
-  params.addParam<UserObjectName>("fespace", "H(curl) FESpace to use in HypreAMS setup.");
+  params.addParam<MFEMFESpaceName>("fespace", "H(curl) FESpace to use in HypreAMS setup.");
   params.addParam<bool>("singular",
                         false,
                         "Declare that the system is singular; use when solving curl-curl problem "
@@ -30,40 +31,28 @@ MFEMHypreAMS::validParams()
 }
 
 MFEMHypreAMS::MFEMHypreAMS(const InputParameters & parameters)
-  : MFEMSolverBase(parameters), _mfem_fespace(getUserObject<MFEMFESpace>("fespace"))
+  : Moose::MFEM::LORLinearSolverBase<mfem::HypreAMS>(parameters),
+    _mfem_fespace(getMFEMProblem().getMFEMObject<MFEMFESpace>("MFEMFESpace",
+                                                              getParam<MFEMFESpaceName>("fespace")))
 {
-  mfem::Hypre::Init();
-  constructSolver(parameters);
+  ConstructSolver();
 }
 
 void
-MFEMHypreAMS::constructSolver(const InputParameters &)
+MFEMHypreAMS::ConstructSolver()
 {
   auto solver = std::make_unique<mfem::HypreAMS>(_mfem_fespace.getFESpace().get());
-  if (getParam<bool>("singular"))
-    solver->SetSingularProblem();
-
-  solver->SetPrintLevel(getParam<int>("print_level"));
-
+  SetSolverParameters(*solver);
   _solver = std::move(solver);
 }
 
 void
-MFEMHypreAMS::updateSolver(mfem::ParBilinearForm & a, mfem::Array<int> & tdofs)
+MFEMHypreAMS::SetSolverParameters(mfem::HypreAMS & solver)
 {
-  if (_lor)
-  {
-    if (_mfem_fespace.getFESpace()->GetMesh()->GetElement(0)->GetGeometryType() !=
-        mfem::Geometry::Type::CUBE)
-      mooseError("LOR HypreAMS Solver only supports hex meshes.");
-
-    auto lor_solver = new mfem::LORSolver<mfem::HypreAMS>(a, tdofs);
-    lor_solver->GetSolver().SetPrintLevel(getParam<int>("print_level"));
-    if (getParam<bool>("singular"))
-      lor_solver->GetSolver().SetSingularProblem();
-
-    _solver.reset(lor_solver);
-  }
+  if (getParam<bool>("singular"))
+    solver.SetSingularProblem();
+  solver.iterative_mode = getParam<bool>("use_initial_guess");
+  solver.SetPrintLevel(getParam<int>("print_level"));
 }
 
 #endif

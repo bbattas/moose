@@ -116,6 +116,10 @@ NonlinearThread::subdomainChanged()
     }
   }
 
+  // Cache these to avoid computing them on every side
+  _subdomain_has_dg = _dg_warehouse->hasActiveBlockObjects(_subdomain, _tid);
+  _subdomain_has_hdg = _hdg_warehouse->hasActiveBlockObjects(_subdomain, _tid);
+
   _fe_problem.setActiveElementalMooseVariables(needed_moose_vars, _tid);
   _fe_problem.setActiveFEVariableCoupleableVectorTags(needed_fe_var_vector_tags, _tid);
   _fe_problem.prepareMaterials(needed_mat_props, _subdomain, _tid);
@@ -170,10 +174,7 @@ NonlinearThread::onBoundary(const Elem * const elem,
     computeOnBoundary(bnd_id, lower_d_elem);
 
     if (lower_d_elem)
-    {
-      Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
       accumulateLower();
-    }
   }
 }
 
@@ -203,11 +204,11 @@ NonlinearThread::onInterface(const Elem * elem, unsigned int side, BoundaryID bn
       // still remember to swap back during stack unwinding. Note that face, boundary, and interface
       // all operate with the same MaterialData object
       SwapBackSentinel face_sentinel(_fe_problem, &FEProblem::swapBackMaterialsFace, _tid);
-      _fe_problem.reinitMaterialsFace(elem->subdomain_id(), _tid);
+      _fe_problem.reinitMaterialsFaceOnBoundary(bnd_id, elem->subdomain_id(), _tid);
       _fe_problem.reinitMaterialsBoundary(bnd_id, _tid);
 
       SwapBackSentinel neighbor_sentinel(_fe_problem, &FEProblem::swapBackMaterialsNeighbor, _tid);
-      _fe_problem.reinitMaterialsNeighbor(neighbor->subdomain_id(), _tid);
+      _fe_problem.reinitMaterialsNeighborOnBoundary(bnd_id, neighbor->subdomain_id(), _tid);
 
       // Has to happen after face and neighbor properties have been computed. Note that we don't use
       // a sentinel here because FEProblem::swapBackMaterialsFace is going to handle face materials,
@@ -217,10 +218,7 @@ NonlinearThread::onInterface(const Elem * elem, unsigned int side, BoundaryID bn
 
       computeOnInterface(bnd_id);
 
-      {
-        Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
-        accumulateNeighbor();
-      }
+      accumulateNeighbor();
     }
   }
 }
@@ -236,7 +234,7 @@ NonlinearThread::computeOnInterface(BoundaryID bnd_id)
 void
 NonlinearThread::onInternalSide(const Elem * elem, unsigned int side)
 {
-  if (_should_execute_dg && _dg_warehouse->hasActiveBlockObjects(_subdomain, _tid))
+  if (_should_execute_dg)
   {
     // Pointer to the neighbor we are currently working on.
     const Elem * neighbor = elem->neighbor_ptr(side);
@@ -253,12 +251,9 @@ NonlinearThread::onInternalSide(const Elem * elem, unsigned int side)
 
     computeOnInternalFace(neighbor);
 
-    {
-      Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
-      accumulateNeighborLower();
-    }
+    accumulateNeighborLower();
   }
-  if (_hdg_warehouse->hasActiveBlockObjects(_subdomain, _tid))
+  if (_subdomain_has_hdg)
   {
     // Set up Sentinel class so that, after we swap in reinitMaterialsFace in prepareFace, even if
     // one of our callees throws we remember to swap back during stack unwinding. We put our
@@ -269,6 +264,26 @@ NonlinearThread::onInternalSide(const Elem * elem, unsigned int side)
     prepareFace(elem, side, Moose::INVALID_BOUNDARY_ID, nullptr);
     computeOnInternalFace();
   }
+}
+
+void
+NonlinearThread::onExternalSide(const Elem * elem, unsigned int side)
+{
+  // Check that we don't have any interface kernels defined on this boundary
+  const auto boundary_ids = _mesh.getBoundaryIDs(elem, side);
+
+  bool has_interface_kernels = false;
+  for (const auto bid : boundary_ids)
+    if (_ik_warehouse && _ik_warehouse->hasActiveBoundaryObjects(bid, _tid))
+      has_interface_kernels = true;
+
+  if (has_interface_kernels)
+    mooseError("Element ",
+               elem->id(),
+               " on side ",
+               side,
+               " is missing a neighbor (hence identified as an external side) but "
+               "has interface kernel(s) defined on the boundary.");
 }
 
 void
@@ -430,15 +445,24 @@ NonlinearThread::prepareFace(const Elem * const elem,
   if (lower_d_elem)
     _fe_problem.reinitLowerDElem(lower_d_elem, _tid);
 
-  _fe_problem.reinitMaterialsFace(elem->subdomain_id(), _tid);
   if (bnd_id != Moose::INVALID_BOUNDARY_ID)
+  {
+    _fe_problem.reinitMaterialsFaceOnBoundary(bnd_id, elem->subdomain_id(), _tid);
     _fe_problem.reinitMaterialsBoundary(bnd_id, _tid);
+  }
+  // Currently only used by HDG
+  else
+    _fe_problem.reinitMaterialsFace(elem->subdomain_id(), _tid);
 }
 
 bool
 NonlinearThread::shouldComputeInternalSide(const Elem & elem, const Elem & neighbor) const
 {
-  _should_execute_dg =
-      ThreadedElementLoop<ConstElemRange>::shouldComputeInternalSide(elem, neighbor);
-  return _should_execute_dg || _hdg_warehouse->hasActiveBlockObjects(_subdomain, _tid);
+  // ThreadedElementLoop<ConstElemRange>::shouldComputeInternalSide gets expensive on high
+  // h-refinement cases so we avoid it if possible
+  _should_execute_dg = false;
+  if (_subdomain_has_dg)
+    _should_execute_dg =
+        ThreadedElementLoop<ConstElemRange>::shouldComputeInternalSide(elem, neighbor);
+  return _subdomain_has_hdg || _should_execute_dg;
 }

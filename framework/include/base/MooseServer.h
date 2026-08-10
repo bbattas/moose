@@ -20,6 +20,7 @@
 #include "wasphit/HITNodeView.h"
 #include "waspsiren/SIRENInterpreter.h"
 #include "waspsiren/SIRENResultSet.h"
+#include "waspplot/CustomPlotFile.h"
 #include <string>
 #include <memory>
 #include <set>
@@ -38,6 +39,19 @@ public:
    */
   std::shared_ptr<wasp::lsp::Connection> getConnection() { return _connection; }
 
+  /**
+   * Public interface for writable check app reference with error checks.
+   * @return - writable reference to check app for current input document
+   */
+  MooseApp & getCheckApp();
+
+  /**
+   * Override number of discrete points in continuous distribution plots.
+   * Used by plotting unit test to lower sampling resolution for testing.
+   * @param num_points - number of discrete points for distribution plots
+   */
+  void setDistPlotNumPoints(std::size_t num_points) { _dist_plot_num_points = num_points; }
+
 private:
   /**
    * SortedLocationNodes - type alias for set of nodes sorted by location
@@ -54,21 +68,16 @@ private:
   bool parseDocumentForDiagnostics(wasp::DataArray & diagnosticsList);
 
   /**
-   * Update document text changes - specific to this server implemention.
-   * @param replacement_text - text to be replaced over the provided range
-   * @param start_line - starting replace line number ( zero-based )
-   * @param start_character - starting replace column number ( zero-based )
-   * @param end_line - ending replace line number ( zero-based )
-   * @param end_character - ending replace column number ( zero-based )
-   * @param range_length - length of replace range - server specific
-   * @return - true if the document text was updated successfully
+   * Add paths from includes and FileName parameters for client to watch.
    */
-  bool updateDocumentTextChanges(const std::string & replacement_text,
-                                 int start_line,
-                                 int start_character,
-                                 int end_line,
-                                 int end_character,
-                                 int range_length);
+  void addResourcesForDocument();
+
+  /**
+   * Recursively walk input to gather all FileName type parameter values.
+   * @param filename_vals - set to fill up with FileName parameter values
+   * @param parent - nodeview for recursive tree traversal starting point
+   */
+  void getFileNameTypeValues(std::set<std::string> & filename_vals, wasp::HITNodeView parent);
 
   /**
    * Gather document completion items - specific to this server implemention.
@@ -203,6 +212,14 @@ private:
                        std::map<std::string, std::string> & options_and_descs);
 
   /**
+   * Supplement completion list with objects in warehouses if applicable.
+   * @param param_type - parameter type string to pick suitable warehouse
+   * @param options_and_descs - map to fill with options and descriptions
+   */
+  void addObjectsFromWarehouses(const std::string & param_type,
+                                std::map<std::string, std::string> & options_and_descs);
+
+  /**
    * Gather definition locations - specific to this server implemention.
    * @param definitionLocations - data array of locations objects to fill
    * @param line - line to be used for locations gathering logic
@@ -335,6 +352,68 @@ private:
                                     const std::string & indent_spaces);
 
   /**
+   * Gather extension responses - specific to this server implemention.
+   * @param extensionResponses - data array of custom responses to fill
+   * @param extensionMethod - name for current extension request method
+   * @param line - zero-based line to use for logic of custom extension
+   * @param character - zero-based column for logic of custom extension
+   * @return - true if request successfully handled with response built
+   */
+  bool gatherExtensionResponses(wasp::DataArray & extensionResponses,
+                                const std::string & extensionMethod,
+                                int line,
+                                int character);
+
+  /**
+   * Build CustomPlot extension responses when method name is plotting.
+   * @param plotting_responses - array for CustomPlot responses to fill
+   * @param line - zero-based line to use for logic of custom extension
+   * @param character - zero-based column for logic of custom extension
+   * @return - true if request successfully handled with response built
+   */
+  bool gatherPlottingResponses(wasp::DataArray & plotting_responses, int line, int character);
+
+  /**
+   * Gather function data, build CustomPlot object, and add to responses.
+   * @param plotting_responses - array to be filled by CustomPlot objects
+   * @param problem - problem to query warehouses when building plot data
+   * @param object_name - name of request object to use for problem query
+   * @param object_type - type of request object to use in title for plot
+   */
+  void buildFuncPlotResponse(wasp::DataArray & plotting_responses,
+                             FEProblemBase & problem,
+                             const std::string & object_name,
+                             const std::string & object_type);
+
+  /**
+   * Compute PDF and CDF, build CustomPlot objects, and add to responses.
+   * @param plotting_responses - array to be filled by CustomPlot objects
+   * @param problem - problem to query warehouses when building plot data
+   * @param object_name - name of request object to use for problem query
+   * @param object_type - type of request object to use in title for plot
+   */
+  void buildDistPlotResponses(wasp::DataArray & plotting_responses,
+                              FEProblemBase & problem,
+                              const std::string & object_name,
+                              const std::string & object_type);
+
+  /**
+   * Build CustomPlot graph with provided keys, values, and plot title.
+   * @param plot_object - CustomPlot object to be built into line graph
+   * @param plot_title - title for plot composed of block name and type
+   * @param x_axis_label - label for x-axis of plot dependent upon type
+   * @param y_axis_label - label for y-axis of plot dependent upon type
+   * @param graph_keys - x values of function or distribution for graph
+   * @param graph_vals - y values of function or distribution for graph
+   */
+  void buildLineGraphPlot(wasp::CustomPlot & plot_object,
+                          const std::string & plot_title,
+                          const std::string & x_axis_label,
+                          const std::string & y_axis_label,
+                          const std::vector<double> & graph_keys,
+                          const std::vector<double> & graph_vals);
+
+  /**
    * Read from connection into object - specific to this server's connection.
    * @param object - reference to object to be read into
    * @return - true if the read from the connection completed successfully
@@ -356,19 +435,68 @@ private:
   bool rootIsValid() const;
 
   /**
-   * @return The current root node
+   * @return - current document check app or fall back to return parent app
+   * to get Syntax, Factory, and ActionFactory static registration metadata
+   * when parent app could still be beneficial if check app failed to build
    */
-  hit::Node & getRoot();
+  MooseApp & getRegistrationApp();
 
   /**
-   * @return Input check application for document path from current operation
+   * struct to store syntax metadata for each registration application type
    */
-  std::shared_ptr<MooseApp> getCheckApp() const;
+  struct SyntaxMetadata
+  {
+    std::map<std::string, std::set<std::string>> syntax_to_subblocks;
+    std::map<std::string, std::set<std::string>> type_to_input_paths;
+    std::map<std::string, std::set<std::string>> input_path_to_types;
+  };
 
   /**
-   * @return up to date text string associated with current document path
+   * @return - syntax metadata for type of current registration application
    */
-  const std::string & getDocumentText() const;
+  SyntaxMetadata & getSyntaxMetadata();
+
+  /**
+   * Helper for storing the state for a single document
+   */
+  struct CheckState
+  {
+    CheckState(std::shared_ptr<Parser> & parser) : parser(parser) {}
+    std::shared_ptr<Parser> parser;
+    std::unique_ptr<MooseApp> app;
+  };
+
+  /**
+   * @return The check state for the current document path, if any
+   */
+  ///@{
+  const CheckState * queryCheckState() const;
+  CheckState * queryCheckState();
+  ///@}
+  /**
+   * @return The check app for the current document path, if any
+   */
+  ///@{
+  const MooseApp * queryCheckApp() const;
+  MooseApp * queryCheckApp();
+  ///@}
+  /**
+   * @return The check parser for the current document path, if any
+   */
+  ///@{
+  const Parser * queryCheckParser() const;
+  Parser * queryCheckParser();
+  ///@}
+  /**
+   * @return The root node from the check parser for the current document path, if any
+   */
+  const hit::Node * queryRoot() const;
+
+  /**
+   * @return The root node from the check parser for the current document path, with error checking
+   * on if it exists
+   */
+  const hit::Node & getRoot() const;
 
   /**
    * @brief _moose_app - reference to parent application that owns this server
@@ -376,14 +504,9 @@ private:
   MooseApp & _moose_app;
 
   /**
-   * @brief _check_apps - map from document paths to input check applications
+   * @brief _check_state - map from document paths to state (parser, app, text)
    */
-  std::map<std::string, std::shared_ptr<MooseApp>> _check_apps;
-
-  /**
-   * @brief _path_to_text - map of document paths to current text strings
-   */
-  std::map<std::string, std::string> _path_to_text;
+  std::map<std::string, CheckState> _check_state;
 
   /**
    * @brief _connection - shared pointer to this server's read / write iostream
@@ -391,22 +514,22 @@ private:
   std::shared_ptr<wasp::lsp::IOStreamConnection> _connection;
 
   /**
-   * @brief _syntax_to_subblocks - map of syntax paths to valid subblocks
+   * @brief _app_type_to_syntax_metadata - syntax metadata per app type map
    */
-  std::map<std::string, std::set<std::string>> _syntax_to_subblocks;
-
-  /**
-   * @brief _type_to_input_paths - map of parameter types to lookup paths
-   */
-  std::map<std::string, std::set<std::string>> _type_to_input_paths;
-
-  /**
-   * @brief _type_to_input_paths - map of lookup paths to parameter types
-   */
-  std::map<std::string, std::set<std::string>> _input_path_to_types;
+  std::map<std::string, SyntaxMetadata> _app_type_to_syntax_metadata;
 
   /**
    * @brief _formatting_tab_size - number of indent spaces for formatting
    */
   std::size_t _formatting_tab_size;
+
+  /**
+   * @brief _dist_plot_num_points - distribution plot sampling resolution
+   */
+  std::size_t _dist_plot_num_points;
+
+  /**
+   * @brief _dist_plot_quantile_bound - epsilon to bound plot range tails
+   */
+  double _dist_plot_quantile_bound;
 };

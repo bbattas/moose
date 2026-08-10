@@ -35,7 +35,8 @@ enum class Interfaces
   BoundaryRestrictable = 1 << 14,
   Reporter = 1 << 15,
   DomainUserObject = 1 << 16,
-  MortarUserObject = 1 << 17
+  MortarUserObject = 1 << 17,
+  FVInterpolationMethod = 1 << 18
 };
 
 template <>
@@ -403,6 +404,24 @@ public:
 
 private:
   std::string _val;
+};
+
+class AttribKokkos : public Attribute
+{
+public:
+  typedef bool Key;
+  void setFrom(const Key & k) { _val = k; }
+
+  AttribKokkos(TheWarehouse & w) : Attribute(w, "kokkos"), _val(false) {}
+  AttribKokkos(TheWarehouse & w, bool is_kokkos) : Attribute(w, "kokkos"), _val(is_kokkos) {}
+  virtual void initFrom(const MooseObject * obj) override;
+  virtual bool isMatch(const Attribute & other) const override;
+  virtual bool isEqual(const Attribute & other) const override;
+  hashfunc(_val);
+  clonefunc(AttribKokkos);
+
+private:
+  bool _val;
 };
 
 /**

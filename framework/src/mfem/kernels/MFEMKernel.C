@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMKernel.h"
 #include "MFEMProblem.h"
@@ -18,17 +18,19 @@
 InputParameters
 MFEMKernel::validParams()
 {
-  InputParameters params = MFEMGeneralUserObject::validParams();
+  InputParameters params = MFEMObject::validParams();
   params += MFEMBlockRestrictable::validParams();
   params.registerBase("Kernel");
+  params.registerSystemAttributeName("Kernel");
   params.addParam<VariableName>("variable",
                                 "Variable labelling the weak form this kernel is added to");
   return params;
 }
 
 MFEMKernel::MFEMKernel(const InputParameters & parameters)
-  : MFEMGeneralUserObject(parameters),
-    MFEMBlockRestrictable(parameters, getMFEMProblem().mesh().getMFEMParMesh()),
+  : MFEMObject(parameters),
+    MFEMBlockRestrictable(parameters,
+                          getMFEMProblem().getMFEMVariableMesh(getParam<VariableName>("variable"))),
     _test_var_name(getParam<VariableName>("variable"))
 {
 }

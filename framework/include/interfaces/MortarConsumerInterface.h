@@ -16,7 +16,7 @@
 class InputParameters;
 class MooseObject;
 class MooseMesh;
-class MortarData;
+class MortarInterfaceWarehouse;
 class AutomaticMortarGeneration;
 class SubProblem;
 class Assembly;
@@ -38,6 +38,14 @@ public:
   MortarConsumerInterface(const MooseObject * moose_object);
 
   static InputParameters validParams();
+
+  /**
+   * @return An InputParameters object containing just the parameters that control 3D mortar
+   * polygon triangulation (\p triangulation, \p triangulate_triangles). Provided so that
+   * downstream actions / objects which need to expose the same controls (e.g. ContactAction)
+   * can pull these definitions in via \p params += rather than duplicating them.
+   */
+  static InputParameters triangulationParams();
 
   /**
    * @return The primary lower dimensional subdomain id
@@ -99,7 +107,7 @@ protected:
 
   /// A reference to the mortar data object that holds all the mortar
   /// mesh information
-  const MortarData & _mortar_data;
+  const MortarInterfaceWarehouse & _mortar_data;
 
   /// Boundary ID for the secondary surface
   const BoundaryID _secondary_id;

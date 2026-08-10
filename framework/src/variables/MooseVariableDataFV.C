@@ -425,7 +425,7 @@ MooseVariableDataFV<OutputType>::computeValues()
   unsigned int num_dofs = _dof_indices.size();
 
   if (num_dofs > 0)
-    fetchDoFValues();
+    fetchDofValues();
   else
     // We don't have any dofs. There's nothing to do
     return;
@@ -665,7 +665,7 @@ MooseVariableDataFV<OutputType>::getDofIndices(const Elem * elem,
 }
 
 template <typename OutputType>
-const typename MooseVariableDataFV<OutputType>::DoFValue &
+const typename MooseVariableDataFV<OutputType>::DofValue &
 MooseVariableDataFV<OutputType>::dofValuesDot() const
 {
   if (_sys.solutionUDot())
@@ -680,7 +680,7 @@ MooseVariableDataFV<OutputType>::dofValuesDot() const
 }
 
 template <typename OutputType>
-const typename MooseVariableDataFV<OutputType>::DoFValue &
+const typename MooseVariableDataFV<OutputType>::DofValue &
 MooseVariableDataFV<OutputType>::dofValuesDotDot() const
 {
   if (_sys.solutionUDotDot())
@@ -696,7 +696,7 @@ MooseVariableDataFV<OutputType>::dofValuesDotDot() const
 }
 
 template <typename OutputType>
-const typename MooseVariableDataFV<OutputType>::DoFValue &
+const typename MooseVariableDataFV<OutputType>::DofValue &
 MooseVariableDataFV<OutputType>::dofValuesDotOld() const
 {
   if (_sys.solutionUDotOld())
@@ -711,7 +711,7 @@ MooseVariableDataFV<OutputType>::dofValuesDotOld() const
 }
 
 template <typename OutputType>
-const typename MooseVariableDataFV<OutputType>::DoFValue &
+const typename MooseVariableDataFV<OutputType>::DofValue &
 MooseVariableDataFV<OutputType>::dofValuesDotDotOld() const
 {
   if (_sys.solutionUDotDotOld())
@@ -744,7 +744,7 @@ MooseVariableDataFV<OutputType>::dofValuesDuDotDotDu() const
 
 template <typename OutputType>
 void
-MooseVariableDataFV<OutputType>::fetchADDoFValues()
+MooseVariableDataFV<OutputType>::fetchADDofValues()
 {
   auto n = _dof_indices.size();
   libmesh_assert(n);
@@ -779,6 +779,66 @@ void
 MooseVariableDataFV<OutputType>::meshChanged()
 {
   _prev_elem = nullptr;
+}
+
+template <typename OutputType>
+const MooseArray<ADReal> &
+MooseVariableDataFV<OutputType>::adDofValues() const
+{
+  _var.requireQpComputations();
+  _need_ad = true;
+  return _ad_dof_values;
+}
+
+template <typename OutputType>
+const MooseArray<ADReal> &
+MooseVariableDataFV<OutputType>::adDofValuesDot() const
+{
+  _var.requireQpComputations();
+  _need_ad = _need_ad_u_dot = true;
+  return _ad_dofs_dot;
+}
+
+template <typename OutputType>
+const ADTemplateVariableValue<OutputType> &
+MooseVariableDataFV<OutputType>::adSln() const
+{
+  _var.requireQpComputations();
+  _need_ad = _need_ad_u = true;
+  return _ad_u;
+}
+
+template <typename OutputType>
+const ADTemplateVariableGradient<OutputType> &
+MooseVariableDataFV<OutputType>::adGradSln() const
+{
+  _var.requireQpComputations();
+  _need_ad = _need_ad_grad_u = true;
+  return _ad_grad_u;
+}
+
+template <typename OutputType>
+const ADTemplateVariableSecond<OutputType> &
+MooseVariableDataFV<OutputType>::adSecondSln() const
+{
+  _var.requireQpComputations();
+  _need_ad = _need_ad_second_u = true;
+  return _ad_second_u;
+}
+
+template <typename OutputType>
+inline const ADTemplateVariableValue<OutputType> &
+MooseVariableDataFV<OutputType>::adUDot() const
+{
+  _var.requireQpComputations();
+
+  _need_ad = _need_ad_u_dot = true;
+
+  if (!safeToComputeADUDot())
+    // We will just copy the value of _u_dot into _ad_u_dot
+    _need_u_dot = true;
+
+  return _ad_u_dot;
 }
 
 template class MooseVariableDataFV<Real>;

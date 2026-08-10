@@ -77,7 +77,6 @@ ComputeResidualAndJacobianThread::accumulate()
 
   if (_num_cached % 20 == 0)
   {
-    Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
     _fe_problem.addCachedResidual(_tid);
     _fe_problem.addCachedJacobian(_tid);
   }
@@ -131,6 +130,5 @@ ComputeResidualAndJacobianThread::computeOnInternalFace()
   mooseAssert(_hdg_warehouse->hasActiveBlockObjects(_subdomain, _tid),
               "We should not be called if we have no active HDG kernels");
   for (const auto & hdg_kernel : _hdg_warehouse->getActiveBlockObjects(_subdomain, _tid))
-    if (hdg_kernel->hasBlocks(_subdomain))
-      hdg_kernel->computeResidualAndJacobianOnSide();
+    hdg_kernel->computeResidualAndJacobianOnSide();
 }

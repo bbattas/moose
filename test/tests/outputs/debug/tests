@@ -133,7 +133,7 @@
       type = RunApp
       input = 'show_execution_kernels_bcs.i'
       expect_out = '\[DBG\] limit_v limit_u'
-      should_crash = true
+      expect_exit_code = 1
       detail = 'elemental dampers,'
       cli_args = "--color off Dampers/active='limit_v limit_u'"
     []
@@ -205,7 +205,7 @@
       type = RunApp
       input = 'show_execution_linear_fv_elemental.i'
       cli_args = '--color off'
-      expect_out = '\[DBG\] reaction_2 source_2'
+      expect_out = '\[DBG\] (source_2|reaction_2) (source_2|reaction_2)'
       detail = 'linear finite volume elemental kernels,'
       # in parallel, no guarantee block 1 is present on rank 0
       max_parallel = 1
@@ -233,7 +233,7 @@
       type = RunApp
       input = 'show_execution_nodal_aux_bcs.i'
       expect_out = '\[DBG\] limit_u'
-      should_crash = true
+      expect_exit_code = 1
       detail = 'nodal dampers,'
       cli_args = "--color off Dampers/inactive=''"
     []
@@ -370,5 +370,22 @@
                    "Kernels \(1 item\)\: diff[\n\s]*"
                    "Materials \(1 item\): block"
     []
+  []
+
+  [restriction_groups]
+    type = RunApp
+    input = show_restriction_groups.i
+    requirement = 'The system shall include the ability to output groups of objects with matching block and boundary restrictions'
+    design = 'Debug/index.md'
+    issues = '#25643'
+    expect_out = "Block-Restriction Groups \([0-9]+ groups\)\: showing objects with matching block restrictions[\s\S]*"
+                 "Blocks 'Box1' \(id 1\) \([0-9]+ items?\)\: [\s\S]*GenericConstantMaterial/restricted[\s\S]*"
+                 "Boundary-Restriction Groups \([0-9]+ groups\)\: showing objects with matching boundary restrictions[\s\S]*"
+                 "Boundaries 'top' \(id [0-9]+\) \([0-9]+ items?\)\: [\s\S]*ConstantAux/boundary_aux[\s\S]*"
+                 "GenericConstantMaterial/boundary"
+    absent_out = "Boundary-Restriction Groups \([0-9]+ groups\)\: showing objects with matching boundary restrictions[\s\S]*"
+                 "GenericConstantMaterial/restricted|"
+                 "Boundary-Restriction Groups \([0-9]+ groups\)\: showing objects with matching boundary restrictions[\s\S]*"
+                 "ConstantAux/block_aux"
   []
 []

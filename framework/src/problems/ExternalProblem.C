@@ -44,6 +44,9 @@ ExternalProblem::ExternalProblem(const InputParameters & parameters) : FEProblem
   }
   _aux = std::make_shared<AuxiliarySystem>(*this, "aux0");
 
+  // Set the current nonlinear system to the null system we created.
+  setCurrentNonlinearSystem(0);
+
   /**
    * We still need to create Assembly objects to hold the data structures for working with Aux
    * Variables, which will be used in the external problem.
@@ -63,6 +66,7 @@ ExternalProblem::solve(const unsigned int)
   TIME_SECTION("solve", 1, "Solving", false)
 
   syncSolutions(Direction::TO_EXTERNAL_APP);
-  externalSolve();
+  if (shouldSolve())
+    externalSolve();
   syncSolutions(Direction::FROM_EXTERNAL_APP);
 }

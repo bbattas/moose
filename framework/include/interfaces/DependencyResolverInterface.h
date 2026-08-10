@@ -30,6 +30,16 @@ public:
    */
   DependencyResolverInterface() {}
 
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  DependencyResolverInterface(const DependencyResolverInterface &,
+                              const Moose::Kokkos::FunctorCopy &)
+  {
+  }
+#endif
+
   /**
    * Return a set containing the names of items requested by the object.
    */
@@ -55,6 +65,11 @@ public:
   /**
    * A helper method for cyclic errors.
    */
+  template <typename T, typename T2, typename NameFunc>
+  static void cyclicDependencyError(CyclicDependencyException<T2> & e,
+                                    const std::string & header,
+                                    NameFunc && name_func);
+
   template <typename T, typename T2>
   static void cyclicDependencyError(CyclicDependencyException<T2> & e, const std::string & header);
 };
@@ -114,10 +129,11 @@ DependencyResolverInterface::sortDFS(typename std::vector<T> & vector)
   vector = sorted;
 }
 
-template <typename T, typename T2>
+template <typename T, typename T2, typename NameFunc>
 void
 DependencyResolverInterface::cyclicDependencyError(CyclicDependencyException<T2> & e,
-                                                   const std::string & header)
+                                                   const std::string & header,
+                                                   NameFunc && name_func)
 {
   std::ostringstream oss;
 
@@ -125,7 +141,15 @@ DependencyResolverInterface::cyclicDependencyError(CyclicDependencyException<T2>
   const auto cycle = e.getCyclicDependencies();
   std::vector<std::string> names(cycle.size());
   for (const auto i : index_range(cycle))
-    names[i] = static_cast<T>(cycle[i])->name();
+    names[i] = name_func(cycle[i]);
   oss << MooseUtils::join(names, " <- ");
   mooseError(oss.str());
+}
+
+template <typename T, typename T2>
+void
+DependencyResolverInterface::cyclicDependencyError(CyclicDependencyException<T2> & e,
+                                                   const std::string & header)
+{
+  cyclicDependencyError<T>(e, header, [](const auto & obj) { return static_cast<T>(obj)->name(); });
 }

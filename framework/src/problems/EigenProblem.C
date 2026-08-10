@@ -102,7 +102,7 @@ EigenProblem::EigenProblem(const InputParameters & parameters)
 
   es().parameters.set<EigenProblem *>("_eigen_problem") = this;
 #else
-  mooseError("Need to install SLEPc to solve eigenvalue problems, please reconfigure\n");
+  mooseError("Need to install SLEPc to solve eigenvalue problems, please reconfigure libMesh\n");
 #endif /* LIBMESH_HAVE_SLEPC */
 
   // SLEPc older than 3.13.0 can not take initial guess from moose
@@ -110,7 +110,7 @@ EigenProblem::EigenProblem(const InputParameters & parameters)
   mooseDeprecated(
       "Please use SLEPc-3.13.0 or higher. Old versions of SLEPc likely produce bad convergence");
 #endif
-  // Create extra vectors and matrices if any
+  // Create extra vectors if any
   createTagVectors();
 
   // Create extra solution vectors if any

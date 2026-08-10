@@ -8,15 +8,15 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "SamplerBase.h"
-
-// MOOSE includes
 #include "IndirectSort.h"
 #include "InputParameters.h"
 #include "MooseEnum.h"
 #include "MooseError.h"
 #include "VectorPostprocessor.h"
 #include "MooseVariableFieldBase.h"
-#include "MooseBaseParameterInterface.h"
+#include "FEProblemBase.h"
+#include "MooseApp.h"
+#include "TransientBase.h"
 
 #include "libmesh/point.h"
 
@@ -25,8 +25,10 @@ SamplerBase::validParams()
 {
   InputParameters params = emptyInputParameters();
 
-  MooseEnum sort_options("x y z id");
-  params.addRequiredParam<MooseEnum>("sort_by", sort_options, "What to sort the samples by");
+  params.addRequiredParam<std::string>(
+      "sort_by",
+      "What to sort the samples by. Options include 'x', 'y', 'z', 'id', and the name of any of "
+      "the sampled quantities (which each create a vector of the same name).");
 
   // The value from this VPP is naturally already on every processor
   // TODO: Make this not the case!  See #11415
@@ -41,12 +43,26 @@ SamplerBase::SamplerBase(const InputParameters & parameters,
   : _sampler_params(parameters),
     _vpp(vpp),
     _comm(comm),
-    _sort_by(parameters.get<MooseEnum>("sort_by")),
+    _sampler_transient(dynamic_cast<TransientBase *>(
+        parameters.getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")
+            ->getMooseApp()
+            .getExecutioner())),
+    _sort_by_index(libMesh::invalid_uint),
     _x(vpp->declareVector("x")),
     _y(vpp->declareVector("y")),
     _z(vpp->declareVector("z")),
-    _id(vpp->declareVector("id"))
+    _id(vpp->declareVector("id")),
+    _sort_by(parameters.get<std::string>("sort_by"))
 {
+  if (_sort_by == "x")
+    _sort_by_index = 0;
+  else if (_sort_by == "y")
+    _sort_by_index = 1;
+  else if (_sort_by == "z")
+    _sort_by_index = 2;
+  else if (_sort_by == "id")
+    _sort_by_index = 3;
+  // Sort by index for variables determined in setupVariables()
 }
 
 void
@@ -57,6 +73,18 @@ SamplerBase::setupVariables(const std::vector<std::string> & variable_names)
 
   for (const auto & variable_name : variable_names)
     _values.push_back(&_vpp->declareVector(variable_name));
+
+  // Find the index of the column to sort by for variables
+  if (_sort_by_index == libMesh::invalid_uint)
+  {
+    const auto it = std::find(_variable_names.begin(), _variable_names.end(), _sort_by);
+    if (it != _variable_names.end())
+      _sort_by_index = 4 + it - _variable_names.begin();
+    else
+      mooseError(
+          "The 'sort_by' parameter must be one of x/y/z/id or one of the sampled variable names: " +
+          Moose::stringify(_variable_names));
+  }
 }
 
 void
@@ -71,6 +99,8 @@ SamplerBase::addSample(const Point & p, const Real & id, const std::vector<Real>
   mooseAssert(values.size() == _variable_names.size(), "Mismatch of variable names to vector size");
   for (MooseIndex(values) i = 0; i < values.size(); ++i)
     _values[i]->emplace_back(values[i]);
+
+  _curr_num_samples++;
 }
 
 void
@@ -78,15 +108,45 @@ SamplerBase::initialize()
 {
   // Don't reset the vectors if we want to retain history
   if (_vpp->containsCompleteHistory() && _comm.rank() == 0)
-    return;
+  {
+    // If we are repeating the timestep due to an aborted solve, we want to throw away the last
+    // values
+    if (_sampler_transient && !_sampler_transient->lastSolveConverged())
+    {
+      // Convenient to allocate a single variable for all the vpp values
+      std::vector<VectorPostprocessorValue *> vec_ptrs = {{&_x, &_y, &_z, &_id}};
+      vec_ptrs.insert(vec_ptrs.end(), _values.begin(), _values.end());
+      // Erase the elements from the last execution
+      for (auto vec_ptr : vec_ptrs)
+      {
+        // Vector may have already been restored, if so, skip the erasure
+        if (_curr_total_samples > vec_ptr->size())
+        {
+          mooseAssert(vec_ptr->size() == (_curr_total_samples - _curr_num_samples),
+                      "Number of samples is not what is expected.");
+          continue;
+        }
+        for (auto ind : _curr_indices)
+        {
+          mooseAssert(ind < vec_ptr->size(), "Trying to remove a sample that doesn't exist.");
+          vec_ptr->erase(vec_ptr->begin() + ind);
+        }
+      }
+    }
+    _curr_indices.clear();
+  }
+  else
+  {
+    _x.clear();
+    _y.clear();
+    _z.clear();
+    _id.clear();
 
-  _x.clear();
-  _y.clear();
-  _z.clear();
-  _id.clear();
+    std::for_each(
+        _values.begin(), _values.end(), [](VectorPostprocessorValue * vec) { vec->clear(); });
+  }
 
-  std::for_each(
-      _values.begin(), _values.end(), [](VectorPostprocessorValue * vec) { vec->clear(); });
+  _curr_num_samples = 0;
 }
 
 void
@@ -139,7 +199,8 @@ SamplerBase::finalize()
 
   // Now create an index vector by using an indirect sort
   std::vector<std::size_t> sorted_indices;
-  Moose::indirectSort(vec_ptrs[_sort_by]->begin(), vec_ptrs[_sort_by]->end(), sorted_indices);
+  Moose::indirectSort(
+      vec_ptrs[_sort_by_index]->begin(), vec_ptrs[_sort_by_index]->end(), sorted_indices);
 
   /**
    * We now have one sorted vector. The remaining vectors need to be sorted according to that
@@ -168,6 +229,18 @@ SamplerBase::finalize()
     // Swap vector storage with sorted vector
     vec_ptr->swap(tmp_vector);
   }
+
+  // Gather the indices of samples from the last execution
+  // Used to determine which parts of the vector need to be erased if a solve fails
+  if (_vpp->containsCompleteHistory())
+  {
+    _comm.sum(_curr_num_samples);
+    if (_comm.rank() == 0)
+    {
+      _curr_indices.insert(sorted_indices.end() - _curr_num_samples, sorted_indices.end());
+      _curr_total_samples = vec_ptrs[0]->size();
+    }
+  }
 }
 
 void
@@ -181,4 +254,6 @@ SamplerBase::threadJoin(const SamplerBase & y)
 
   for (MooseIndex(_variable_names) i = 0; i < _variable_names.size(); i++)
     _values[i]->insert(_values[i]->end(), y._values[i]->begin(), y._values[i]->end());
+
+  _curr_num_samples += y._curr_num_samples;
 }

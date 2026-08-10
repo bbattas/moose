@@ -2,20 +2,17 @@
 
 !if! function=hasCapability('mfem')
 
-## Summary
-
-!syntax description /Executioner/MFEMTransient
-
 ## Overview
 
-`MFEMTransient` is the [`MFEMExecutioner`](MFEMExecutioner.md) type used to solve time dependent
-MFEM finite element problems.
+`MFEMTransient` is the `Executioner` class used to solve time dependent MFEM finite element
+problems, calling the [MFEMProblemSolve.md] solve object to execute one or more
+MFEM `TimeDependentProblemOperators`.
 
-As in all [`MFEMExecutioner`](MFEMExecutioner.md) derived classes, the desired device and assembly
-level to use during problem set-up and solution can be selected.
+As in all `Executioner` classes using the [MFEMProblemSolve.md] solve object,
+the desired device and assembly level to use during problem set-up and solution can be selected.
 
-Currently, only simulations with constant timestep `dt` and an implicit backwards Euler timestepper
-are supported.
+Currently, only simulations with an implicit backwards Euler time integrator are supported.
+However, the [TimeStepper](/TimeSteppers/index.md) system is fully supported providing wide choice for the timestep(s) `dt`.
 
 ## Example Input File Syntax
 

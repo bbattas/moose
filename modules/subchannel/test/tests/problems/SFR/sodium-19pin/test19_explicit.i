@@ -12,7 +12,7 @@ P_out = 2.0e5 # Pa
 
 [TriSubChannelMesh]
   [subchannel]
-    type = SCMTriSubChannelMeshGenerator
+    type = SCMTriAssemblyMeshGenerator
     pin_diameter = 0.01
     dwire = 0.002
     hwire = 0.0833
@@ -25,87 +25,60 @@ P_out = 2.0e5 # Pa
   []
 []
 
-[AuxVariables]
-  [mdot]
-    block = subchannel
-  []
-  [SumWij]
-    block = subchannel
-  []
-  [P]
-    block = subchannel
-  []
-  [DP]
-    block = subchannel
-  []
-  [h]
-    block = subchannel
-  []
-  [T]
-    block = subchannel
-  []
-  [rho]
-    block = subchannel
-  []
-  [S]
-    block = subchannel
-  []
-  [w_perim]
-    block = subchannel
-  []
-  [mu]
-    block = subchannel
-  []
-  [q_prime]
-    block = subchannel
-  []
-  [displacement]
-    block = subchannel
-  []
-  [q_prime_duct]
-    block = duct
-  []
-  [Tduct]
-    block = duct
-  []
-[]
-
 [FluidProperties]
   [sodium]
     type = PBSodiumFluidProperties
   []
 []
 
-[Problem]
+[SubChannel]
   type = TriSubChannel1PhaseProblem
   fp = sodium
   n_blocks = 1
   P_out = 2.0e5
-  CT = 1.0
   compute_density = true
   compute_viscosity = true
   compute_power = true
   implicit = false
   segregated = true
   verbose_subchannel = true
+  duct_HTC_closure = 'gnielinski'
+  pin_HTC_closure = 'Dittus-Boelter'
+  friction_closure = 'cheng'
+  full_output = true
+  mixing_closure = 'cheng_todreas'
+
+[]
+
+[SCMClosures]
+  [cheng]
+    type = SCMFrictionUpdatedChengTodreas
+  []
+  [gnielinski]
+    type = SCMHTCGnielinski
+  []
+  [cheng_todreas]
+    type = SCMMixingChengTodreas
+  []
+  [Dittus-Boelter]
+    type = SCMHTCDittusBoelter
+  []
 []
 
 [ICs]
-  [S_IC]
-    type = SCMTriFlowAreaIC
-    variable = S
-  []
 
-  [w_perim_IC]
-    type = SCMTriWettedPerimIC
-    variable = w_perim
-  []
 
   [q_prime_IC]
     type = SCMTriPowerIC
     variable = q_prime
     power = 1000.0 # W
     filename = "pin_power_profile19.txt"
+  []
+
+  [Dpin_ic]
+    type = ConstantIC
+    variable = Dpin
+    value = 0.01
   []
 
   [T_ic]
@@ -252,7 +225,7 @@ P_out = 2.0e5 # Pa
   [Total_power]
     type = ElementIntegralVariablePostprocessor
     variable = q_prime
-    block = subchannel
+    block = fuel_pins
   []
   [mdot-8]
     type = SubChannelPointValue

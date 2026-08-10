@@ -12,9 +12,7 @@ mass_flux_in = '${fparse 2786}' # kg/(m2.s)
 ###################################################
 # Geometric parameters
 ###################################################
-
 n_cells = 50
-
 # units are cm - do not forget to convert to meter
 scale_factor = 0.01
 fuel_element_pitch = '${fparse 14.598*scale_factor}'
@@ -37,7 +35,7 @@ duct_inside = '${fparse duct_outside - 2 * duct_thickness}'
 
 [TriSubChannelMesh]
   [subchannel]
-    type = SCMTriSubChannelMeshGenerator
+    type = SCMTriAssemblyMeshGenerator
     nrings = '${fparse n_rings}'
     n_cells = ${n_cells}
     flat_to_flat = '${fparse duct_inside}'
@@ -52,20 +50,9 @@ duct_inside = '${fparse duct_outside - 2 * duct_thickness}'
     spacer_k = '0.5 0.5'
   []
 
-  [fuel_pins]
-    type = SCMTriPinMeshGenerator
-    input = subchannel
-    nrings = '${fparse n_rings}'
-    n_cells = ${n_cells}
-    unheated_length_entry = '${fparse length_entry_fuel}'
-    heated_length = '${fparse length_heated_fuel}'
-    unheated_length_exit = '${fparse length_outlet_fuel}'
-    pitch = '${fparse fuel_pin_pitch}'
-  []
-
   [duct]
     type = SCMTriDuctMeshGenerator
-    input = fuel_pins
+    input = subchannel
     nrings = '${fparse n_rings}'
     n_cells = ${n_cells}
     flat_to_flat = '${fparse duct_inside}'
@@ -76,80 +63,34 @@ duct_inside = '${fparse duct_outside - 2 * duct_thickness}'
   []
 []
 
-[AuxVariables]
-  [mdot]
-    block = subchannel
-  []
-  [SumWij]
-    block = subchannel
-  []
-  [P]
-    block = subchannel
-  []
-  [DP]
-    block = subchannel
-  []
-  [h]
-    block = subchannel
-  []
-  [T]
-    block = subchannel
-  []
-  [Tpin]
-    block = fuel_pins
-  []
-  [Dpin]
-    block = fuel_pins
-  []
-  [rho]
-    block = subchannel
-  []
-  [S]
-    block = subchannel
-  []
-  [w_perim]
-    block = subchannel
-  []
-  [displacement]
-    block = subchannel
-  []
-  [q_prime]
-    block = fuel_pins
-  []
-  [mu]
-    block = subchannel
-  []
-  [q_prime_duct]
-    block = duct
-    initial_condition = 0
-  []
-  [Tduct]
-    block = duct
-  []
-[]
-
 [FluidProperties]
   [sodium]
     type = PBSodiumFluidProperties
   []
 []
 
-[Problem]
+[SubChannel]
   type = TriSubChannel1PhaseProblem
   fp = sodium
   P_out = ${P_out}
-  CT = 1.0
 
   # Solver parameters
   n_blocks = 10
-  implicit = false
-  segregated = true
+  implicit = true
+  segregated = false
   staggered_pressure = false
-  monolithic_thermal = false
 
   # Tolerances
   P_tol = 1.0e-4
   T_tol = 1.0e-8
+
+  # Heat Transfer Correlation
+  pin_HTC_closure = 'gnielinski'
+  duct_HTC_closure = 'gnielinski'
+  # Friction Correlation
+  friction_closure = 'Cheng'
+  # Turbulent mixing Correlation
+  mixing_closure = 'cheng_todreas'
 
   # Output
   compute_density = true
@@ -157,23 +98,24 @@ duct_inside = '${fparse duct_outside - 2 * duct_thickness}'
   compute_power = true
   verbose_multiapps = true
   verbose_subchannel = false
+
+  full_output = true
+[]
+
+[SCMClosures]
+  [Cheng]
+    type = SCMFrictionUpdatedChengTodreas
+  []
+  [gnielinski]
+    type = SCMHTCGnielinski
+  []
+  [cheng_todreas]
+    type = SCMMixingChengTodreas
+  []
 []
 
 [ICs]
   # Geometry
-  [S_IC]
-    type = SCMTriFlowAreaIC
-    variable = S
-  []
-  [w_perim_IC]
-    type = SCMTriWettedPerimIC
-    variable = w_perim
-  []
-  [Dpin_ic]
-    type = ConstantIC
-    variable = Dpin
-    value = ${fuel_pin_diameter}
-  []
 
   # Operating conditions
   [q_prime_IC]
@@ -280,7 +222,8 @@ duct_inside = '${fparse duct_outside - 2 * duct_thickness}'
     variable = 'mdot SumWij P DP h T rho mu S'
   []
   [pin_transfer]
-    type = SCMPinSolutionTransfer
+    type = SCMSolutionTransfer
+    transfer_type = pin
     to_multi_app = viz
     variable = 'Tpin q_prime'
   []

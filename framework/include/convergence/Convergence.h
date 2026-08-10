@@ -37,16 +37,35 @@ public:
     DIVERGED = -1
   };
 
+  /// Iteration type
+  using IterationType = MooseEnumItem;
+
   Convergence(const InputParameters & parameters);
 
-  virtual void initialSetup() override{};
+  virtual void initialSetup() override {}
+
+  /// Perform checks related to the iteration type
+  virtual void checkIterationType(IterationType /*it_type*/) const {}
+
+  /**
+   * Method that gets called before each iteration loop
+   */
+  virtual void initialize() {}
+
+  /**
+   * Method that gets called in each iteration before the solve
+   */
+  virtual void preExecute() {}
 
   /**
    * Returns convergence status.
    *
-   * @param[in] iter   Iteration index
+   * @param[in] n_iter Number of iterations performed; For example, it should equal 1 for
+   *                   the check after the first iteration. Note that some iteration types
+   *                   (e.g., nonlinear) can make a check before the first iteration, in
+   *                   which case this should be 0.
    */
-  virtual MooseConvergenceStatus checkConvergence(unsigned int iter) = 0;
+  virtual MooseConvergenceStatus checkConvergence(unsigned int n_iter) = 0;
 
   /// Returns whether verbose mode has been enabled
   bool verbose() const { return _verbose; }

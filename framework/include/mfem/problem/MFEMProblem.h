@@ -7,25 +7,45 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
+
+#include "Attributes.h"
 #include "ExternalProblem.h"
 #include "MFEMProblemData.h"
 #include "MFEMMesh.h"
-#include "MFEMExecutioner.h"
+#include "MFEMRefinementMarker.h"
+#include "MFEMComplexVariable.h"
+
+#include <map>
+
+namespace Moose::MFEM
+{
+struct SolutionState;
+}
 
 class MFEMProblem : public ExternalProblem
 {
 public:
+  /**
+   * Return the input parameters used to construct an MFEM problem.
+   */
   static InputParameters validParams();
 
+  /**
+   * Construct an MFEM problem from the supplied parameters.
+   */
   MFEMProblem(const InputParameters & params);
+
+  /**
+   * Destroy the MFEM problem.
+   */
   virtual ~MFEMProblem() {}
 
   virtual void initialSetup() override;
+  virtual void execute(const ExecFlagType & exec_type) override;
   virtual void externalSolve() override {}
-  virtual bool nlConverged(const unsigned int) override { return true; }
   virtual void syncSolutions(Direction) override {}
 
   /**
@@ -57,13 +77,14 @@ public:
   /**
    * Add an MFEM FESpace to the problem.
    */
-  void addFESpace(const std::string & user_object_name,
-                  const std::string & name,
-                  InputParameters & parameters);
+  void addFESpace(const std::string & type, const std::string & name, InputParameters & parameters);
+
   /**
-   * Set the device to use to solve the FE problem.
+   * Add an MFEMFESpaceHierarchy to the problem.
    */
-  void setDevice();
+  void addFESpaceHierarchy(const std::string & type,
+                           const std::string & name,
+                           InputParameters & parameters);
 
   /**
    * Set the mesh used by MFEM.
@@ -71,13 +92,16 @@ public:
   void setMesh();
 
   /**
-   * Initialise the required ProblemOperator used in the Executioner to solve the problem.
+   * Add an MFEM SubMesh to the problem.
    */
-  void initProblemOperator();
+  void addSubMesh(const std::string & type, const std::string & name, InputParameters & parameters);
 
-  void addSubMesh(const std::string & user_object_name,
-                  const std::string & name,
-                  InputParameters & parameters);
+  /**
+   * Add an MFEM QuadratureFunction-backed coefficient to the problem.
+   */
+  void addQuadratureFunction(const std::string & type,
+                             const std::string & name,
+                             InputParameters & parameters);
 
   /**
    * Add transfers between MultiApps and/or MFEM SubMeshes.
@@ -89,9 +113,9 @@ public:
    * Override of ExternalProblem::addVariable. Sets a
    * MFEM grid function (and time derivative, for transient problems) to be used in the MFEM solve.
    */
-  void addVariable(const std::string & var_type,
-                   const std::string & var_name,
-                   InputParameters & parameters) override;
+  virtual void addVariable(const std::string & var_type,
+                           const std::string & var_name,
+                           InputParameters & parameters) override;
 
   /**
    * Adds one MFEM GridFunction to be used in the MFEM solve.
@@ -110,32 +134,68 @@ public:
                       InputParameters & parameters) override;
 
   /**
-   * Override of ExternalProblem::addKernel. Uses ExternalProblem::addKernel to create a
-   * MFEMGeneralUserObject representing the kernel in MOOSE, and creates corresponding MFEM kernel
-   * to be used in the MFEM solve.
+   * Override of FEProblemBase::addElementalFieldVariable to be a no-op because we do not use the
+   * Marker/Indicator objects designed to work with libMesh infrastructure
+   */
+  void
+  addElementalFieldVariable(const std::string &, const std::string &, InputParameters &) override
+  {
+  }
+
+  /**
+   * Override of ExternalProblem::addKernel. Creates the MOOSE-side MFEM kernel wrapper and the
+   * corresponding MFEM kernel to be used in the MFEM solve.
    */
   void addKernel(const std::string & kernel_name,
                  const std::string & name,
                  InputParameters & parameters) override;
 
   /**
-   * Override of ExternalProblem::addAuxKernel. Uses ExternalProblem::addAuxKernel to create a
-   * MFEMGeneralUserObject representing the kernel in MOOSE, and creates corresponding MFEM kernel
-   * to be used in the MFEM solve.
+   * Adds a real component kernel to the parent MFEMComplexKernel.
+   */
+  void addRealComponentToKernel(const std::string & kernel_name,
+                                const std::string & name,
+                                InputParameters & parameters);
+
+  /**
+   * Adds an imaginary component kernel to the parent MFEMComplexKernel.
+   */
+  void addImagComponentToKernel(const std::string & kernel_name,
+                                const std::string & name,
+                                InputParameters & parameters);
+
+  /**
+   * Adds a real component BC to the parent MFEMComplexIntegratedBC.
+   */
+  void addRealComponentToBC(const std::string & kernel_name,
+                            const std::string & name,
+                            InputParameters & parameters);
+
+  /**
+   * Adds an imaginary component BC to the parent MFEMComplexIntegratedBC.
+   */
+  void addImagComponentToBC(const std::string & kernel_name,
+                            const std::string & name,
+                            InputParameters & parameters);
+
+  /**
+   * Override of ExternalProblem::addAuxKernel. Creates the MOOSE-side MFEM auxkernel wrapper.
    */
   void addAuxKernel(const std::string & kernel_name,
                     const std::string & name,
                     InputParameters & parameters) override;
 
   /**
-   * Override of ExternalProblem::addFunction. Uses ExternalProblem::addFunction to create a
-   * MFEMGeneralUserObject representing the function in MOOSE, and creates a corresponding
-   * MFEM Coefficient or VectorCoefficient object.
+   * Override of ExternalProblem::addFunction. Creates a corresponding MFEM Coefficient or
+   * VectorCoefficient object for the added MOOSE function.
    */
   void addFunction(const std::string & type,
                    const std::string & name,
                    InputParameters & parameters) override;
 
+  /**
+   * Add an MFEM initial condition to the problem.
+   */
   void addInitialCondition(const std::string & ic_name,
                            const std::string & name,
                            InputParameters & parameters) override;
@@ -150,24 +210,45 @@ public:
                         InputParameters & parameters) override;
 
   /**
-   * Method called in AddMFEMPreconditionerAction which will create the solver.
+   * Add a vector postprocessor and register its vectors with the MFEM execution system.
    */
-  void addMFEMPreconditioner(const std::string & user_object_name,
+  void addVectorPostprocessor(const std::string & type,
+                              const std::string & name,
+                              InputParameters & parameters) override;
+
+  /**
+   * Override of FEProblemBase::addIndicator. Creates the MFEMIndicator used when setting up
+   * adaptive mesh refinement later.
+   */
+  void addIndicator(const std::string & type,
+                    const std::string & name,
+                    InputParameters & parameters) override;
+
+  /**
+   * Override of FEProblemBase::addMarker. Creates the MFEMRefinementMarker used for adaptive mesh
+   * refinement.
+   */
+  void addMarker(const std::string & type,
+                 const std::string & name,
+                 InputParameters & parameters) override;
+
+  /**
+   * Method called in AddMFEMSolverAction which records a solver for later dependency-ordered
+   * construction.
+   */
+  virtual void addMFEMSolver(const std::string & user_object_name,
                              const std::string & name,
                              InputParameters & parameters);
 
   /**
-   * Method called in AddMFEMSolverAction which will create the solver.
+   * Construct recorded MFEM solvers in dependency order and select the problem driver solver(s).
    */
-  void addMFEMSolver(const std::string & user_object_name,
-                     const std::string & name,
-                     InputParameters & parameters);
+  virtual void resolveMFEMSolvers();
 
   /**
-   * Add the nonlinear solver to the system. TODO: allow user to specify solver options,
-   * similar to the linear solvers.
+   * Execute MFEM executed objects scheduled on the supplied execute flag.
    */
-  void addMFEMNonlinearSolver();
+  void executeMFEMObjects(const ExecFlagType & exec_type);
 
   /**
    * Method used to get an mfem FEC depending on the variable family specified in the input file.
@@ -190,9 +271,38 @@ public:
   MFEMProblemData & getProblemData() { return _problem_data; }
 
   /**
+   * Return the current MFEM problem data in a const context.
+   */
+  const MFEMProblemData & getProblemData() const { return _problem_data; }
+
+  /**
+   * Return the MPI communicator associated with this FE problem's mesh.
+   */
+  MPI_Comm getComm() { return getProblemData().comm; }
+
+  /**
+   * Return the ParMesh associated with a particular variable.
+   */
+  const mfem::ParMesh & getMFEMVariableMesh(std::string var_name)
+  {
+    if (_problem_data.gridfunctions.Has(var_name))
+      return *_problem_data.gridfunctions.Get(var_name)->ParFESpace()->GetParMesh();
+    else if (_problem_data.cmplx_gridfunctions.Has(var_name))
+      return *_problem_data.cmplx_gridfunctions.Get(var_name)->ParFESpace()->GetParMesh();
+    else
+      mooseError("Variable " + var_name +
+                 " not found in MFEMProblem real or complex gridfunctions.");
+  }
+
+  /**
    * Displace the mesh, if mesh displacement is enabled.
    */
   void displaceMesh();
+
+  /**
+   * Rebalance the (necessarily nonconforming) mesh.
+   */
+  void rebalanceMesh(mfem::ParMesh & pmesh);
 
   /**
    * Returns optional reference to the displacement GridFunction to apply to nodes.
@@ -205,12 +315,121 @@ public:
   std::string solverTypeString(unsigned int solver_sys_num) override;
 
   /**
+   * Calls Update() on all FE spaces
+   */
+  void updateFESpaces();
+
+  /**
+   * Calls Update() on all gridfunctions
+   */
+  void updateGridFunctions();
+
+  /**
+   * If AMR is enabled, request (and perform if needed) h-refinement
+   */
+  bool hRefine() { return _problem_data.refiner && _problem_data.refiner->hRefine(); }
+
+  /**
+   * If AMR is enabled, request (and perform if needed) p-refinement
+   */
+  bool pRefine() { return _problem_data.refiner && _problem_data.refiner->pRefine(); }
+
+  /**
    * @returns a shared pointer to an MFEM parallel grid function
    */
-  std::shared_ptr<mfem::ParGridFunction> getGridFunction(const std::string & name);
+  std::shared_ptr<mfem::ParGridFunction> getGridFunction(const std::string & name)
+  {
+    return _problem_data.gridfunctions.GetShared(name);
+  }
+
+  /**
+   * @returns a shared pointer to an MFEM parallel complex grid function
+   */
+  std::shared_ptr<mfem::ParComplexGridFunction> getComplexGridFunction(const std::string & name)
+  {
+    return _problem_data.cmplx_gridfunctions.GetShared(name);
+  }
+
+  /**
+   * Enumerates the supported numeric representations for MFEM variables and operators.
+   */
+  enum class NumericType
+  {
+    REAL,
+    COMPLEX
+  };
+
+  /**
+   * Retrieve the numeric type of the problem.
+   */
+  NumericType getNumericType() const { return _num_type; }
+
+  /**
+   * Retrieve an MFEM object from the warehouse by system and name.
+   */
+  template <typename T>
+  T & getMFEMObject(const std::string & system,
+                    const std::string & name,
+                    const THREAD_ID tid = 0) const;
+
+  /**
+   * Determine whether an MFEM object with the supplied system and name exists.
+   */
+  bool hasMFEMObject(const std::string & system, const std::string & name) const;
 
 protected:
+  /**
+   * Verify that a primary variable's numeric type matches the problem's equation system.
+   */
+  void validateVariableNumericType(const std::string & var_type,
+                                   const std::string & var_name) const;
+
+  struct MFEMSolverDefinition
+  {
+    std::string type;
+    InputParameters * parameters;
+    bool referenced = false;
+  };
+
+  /**
+   * Aggregated MFEM-side state for meshes, spaces, variables, coefficients, and solvers.
+   */
   MFEMProblemData _problem_data;
+
+  /**
+   * The numeric representation currently active for this problem.
+   */
+  NumericType _num_type;
+
+  /**
+   * Solver definitions recorded by AddMFEMSolverAction before the dependency resolver constructs
+   * them. Each key is the user-provided solver object name, which corresponds to a child block
+   * name under [Solvers]. Solver parameters of type MFEMSolverName refer to these same keys when
+   * declaring dependencies between solver objects.
+   */
+  std::map<std::string, MFEMSolverDefinition> _mfem_solver_definitions;
+
+  /// Restartable MFEM solution state associated with this problem.
+  Moose::MFEM::SolutionState & _solution_state_data;
 };
+
+template <typename T>
+T &
+MFEMProblem::getMFEMObject(const std::string & system,
+                           const std::string & name,
+                           const THREAD_ID tid) const
+{
+  std::vector<T *> objs;
+  theWarehouse()
+      .query()
+      .condition<AttribSystem>(system)
+      .condition<AttribThread>(tid)
+      .condition<AttribName>(name)
+      .queryInto(objs);
+  if (objs.empty())
+    mooseError("Unable to find MFEM object with system '" + system + "' and name '" + name + "'");
+  mooseAssert(objs.size() == 1, "Shouldn't find more than one object with given system and name");
+  return *(objs[0]);
+}
 
 #endif

@@ -25,8 +25,9 @@ MassFluxPenalty::validParams()
   params.addRequiredParam<unsigned short>("component",
                                           "The velocity component this object is being applied to");
   params.addParam<Real>("gamma", 1, "The penalty to multiply the jump");
-  params.addClassDescription(
-      "introduces a jump correction for grad-div stabilization for discontinuous Galerkin methods");
+  params.addClassDescription("Introduces a jump correction on internal faces for grad-div "
+                             "stabilization for discontinuous Galerkin methods. Because this is "
+                             "derived from DGKernel this class executes once per face.");
   return params;
 }
 
@@ -38,10 +39,17 @@ MassFluxPenalty::MassFluxPenalty(const InputParameters & parameters)
     _vel_y_neighbor(adCoupledNeighborValue("v")),
     _comp(getParam<unsigned short>("component")),
     _matrix_only(getParam<bool>("matrix_only")),
-    _gamma(getParam<Real>("gamma"))
+    _gamma(getParam<Real>("gamma")),
+    _hmax(0)
 {
   if (_mesh.dimension() > 2)
     mooseError("This class only supports 2D simulations at this time");
+}
+
+void
+MassFluxPenalty::precalculateResidual()
+{
+  _hmax = _current_side_elem->hmax();
 }
 
 void
@@ -61,11 +69,12 @@ MassFluxPenalty::computeQpResidual(Moose::DGResidualType type)
   switch (type)
   {
     case Moose::Element:
-      r = _gamma * soln_jump * _normals[_qp] * _test[_i][_qp] * _normals[_qp](_comp);
+      r = _gamma / _hmax * soln_jump * _normals[_qp] * _test[_i][_qp] * _normals[_qp](_comp);
       break;
 
     case Moose::Neighbor:
-      r = -_gamma * soln_jump * _normals[_qp] * _test_neighbor[_i][_qp] * _normals[_qp](_comp);
+      r = -_gamma / _hmax * soln_jump * _normals[_qp] * _test_neighbor[_i][_qp] *
+          _normals[_qp](_comp);
       break;
   }
 

@@ -26,7 +26,7 @@
       input = 'uoi.i'
       cli_args = 'UserObjects/test/not_found_by_param=true
                   UserObjects/test/uo=bad_uo'
-      expect_err = 'uo\)\:.*The requested UserObject with the name "bad_uo" was not found.'
+      expect_err = 'UserObjects/test/uo: The requested UserObject with the name "bad_uo" was not found.'
 
       detail = 'getting the name from a parameter and the user object is not found,'
     []
@@ -42,7 +42,7 @@
       type = RunException
       input = 'uoi.i'
       cli_args = 'UserObjects/test/bad_cast=true'
-      expect_err = 'uo\)\:.*The provided UserObject "other_uo" of type UserObjectInterfaceTest is not derived from the required type..*The UserObject must derive from ThreadedGeneralUserObject.'
+      expect_err = 'UserObjects/test/uo: The provided UserObject "other_uo" of type UserObjectInterfaceTest is not derived from the required type..*The UserObject must derive from ThreadedGeneralUserObject.'
 
       detail = 'getting the name from a paremeter and the provided object is not of the correct type, and'
     []
@@ -90,6 +90,26 @@
       expect_out = 'hasUserObjectByName<T> success'
 
       detail = 'name and type.'
+    []
+  []
+
+  [construction_order]
+    requirement = 'The system shall order user object construction to satisfy dependencies on other '
+                  'user objects regardless of input file order by'
+    issues = '#7879'
+    [resolves]
+      type = RunApp
+      input = 'uoi_construction_order.i'
+      expect_out = 'hasUserObject success'
+
+      detail = 'resolving a referenced user object that is declared after the user object referencing '
+               'it, and'
+    []
+    [mutual_references]
+      type = RunApp
+      input = 'uoi_cyclic.i'
+      detail = 'tolerating user objects that reference each other through parameters without resolving '
+               'each other at construction.'
     []
   []
 []

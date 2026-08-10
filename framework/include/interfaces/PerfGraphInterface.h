@@ -48,7 +48,9 @@
 #define TIME_SECTION(...)                                                                          \
   GET_MACRO(__VA_ARGS__, TIME_SECTION4, TIME_SECTION3, TIME_SECTION2, TIME_SECTION1, )(__VA_ARGS__)
 
+class MooseApp;
 class InputParameters;
+class LinearFVGradientInterface;
 class MooseObject;
 
 /**
@@ -59,12 +61,12 @@ class MooseObject;
 class PerfGraphInterface
 {
 public:
+  static InputParameters validParams();
+
   /**
    * For objects that _are_ MooseObjects with a default prefix of type()
    */
   PerfGraphInterface(const MooseObject * moose_object);
-
-  static InputParameters validParams();
 
   /**
    * For objects that _are_ MooseObjects
@@ -82,12 +84,21 @@ public:
    */
   PerfGraphInterface(MooseApp & moose_app, const std::string prefix = "");
 
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  PerfGraphInterface(const PerfGraphInterface & object, const Moose::Kokkos::FunctorCopy & key);
+#endif
+
   virtual ~PerfGraphInterface() = default;
 
   /**
    * Get the PerfGraph
    */
   PerfGraph & perfGraph();
+
+  friend class LinearFVGradientInterface;
 
 protected:
   /**

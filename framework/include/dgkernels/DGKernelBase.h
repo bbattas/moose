@@ -95,7 +95,7 @@ protected:
   /// Current side
   const unsigned int & _current_side;
   /// Current side element
-  const Elem *& _current_side_elem;
+  const Elem * const & _current_side_elem;
   /// The volume (or length) of the current side
   const Real & _current_side_volume;
 
@@ -136,9 +136,6 @@ protected:
   unsigned int _i, _j;
 
   BoundaryID _boundary_id;
-
-  static Threads::spin_mutex _resid_vars_mutex;
-  static Threads::spin_mutex _jacoby_vars_mutex;
 
   /// Check current element if it contains broken boundary
   bool excludeBoundary() const;

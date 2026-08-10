@@ -17,8 +17,8 @@
 InputParameters
 VectorPostprocessor::validParams()
 {
-  InputParameters params = UserObject::validParams();
-  params += OutputInterface::validParams();
+  InputParameters params = OutputInterface::validParams();
+  params += NonADFunctorInterface::validParams();
   params.addParam<bool>("contains_complete_history",
                         false,
                         "Set this flag to indicate that the values in all vectors declared by this "
@@ -50,7 +50,8 @@ VectorPostprocessor::validParams()
 
 VectorPostprocessor::VectorPostprocessor(const MooseObject * moose_object)
   : OutputInterface(moose_object->parameters()),
-    _vpp_name(MooseUtils::shortName(moose_object->parameters().get<std::string>("_object_name"))),
+    NonADFunctorInterface(moose_object),
+    _vpp_name(moose_object->name()),
     _vpp_fe_problem(
         *moose_object->parameters().getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
     _parallel_type(moose_object->parameters().get<MooseEnum>("parallel_type")),
@@ -63,6 +64,23 @@ VectorPostprocessor::VectorPostprocessor(const MooseObject * moose_object)
     _is_broadcast(_is_distributed || !moose_object->parameters().get<bool>("_auto_broadcast"))
 {
 }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+VectorPostprocessor::VectorPostprocessor(const VectorPostprocessor & object,
+                                         const Moose::Kokkos::FunctorCopy & key)
+  : OutputInterface(object, key),
+    NonADFunctorInterface(object, key),
+    _vpp_name(object._vpp_name),
+    _vpp_fe_problem(object._vpp_fe_problem),
+    _parallel_type(object._parallel_type),
+    _vpp_moose_object(object._vpp_moose_object),
+    _vpp_tid(object._vpp_tid),
+    _contains_complete_history(object._contains_complete_history),
+    _is_distributed(object._is_distributed),
+    _is_broadcast(object._is_broadcast)
+{
+}
+#endif
 
 VectorPostprocessorValue &
 VectorPostprocessor::declareVector(const std::string & vector_name)

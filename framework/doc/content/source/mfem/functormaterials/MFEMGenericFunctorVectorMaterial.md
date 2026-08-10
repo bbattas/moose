@@ -2,10 +2,6 @@
 
 !if! function=hasCapability('mfem')
 
-## Summary
-
-!syntax description /FunctorMaterials/MFEMGenericFunctorVectorMaterial
-
 ## Overview
 
 `MFEMGenericFunctorVectorMaterial` defines one or more vector material properties with values
@@ -19,6 +15,10 @@ coefficients in
 must be vector-valued. Numeric constant vector values can also be
 specified, but must be enclosed in curly braces to mark the start and
 end of the vector, e.g. `{1. 0. 0.}`.
+
+## Example Input File Syntax
+
+!listing test/tests/mfem/kernels/gravity.i block=/FunctorMaterials remove=Rigidium Bendium
 
 !syntax parameters /FunctorMaterials/MFEMGenericFunctorVectorMaterial
 

@@ -19,24 +19,24 @@ public:
   TemperaturePressureFunctionFluidPropertiesTest() : MooseObjectUnitTest("FluidPropertiesApp")
   {
     InputParameters params = _factory.getValidParams("ParsedFunction");
-    params.set<std::string>("_object_name") = "k_function";
+    params.set<std::string>(MooseBase::name_param) = "k_function";
     params.set<FEProblem *>("_fe_problem") = _fe_problem.get();
     params.set<FEProblemBase *>("_fe_problem_base") = _fe_problem.get();
     params.set<SubProblem *>("_subproblem") = _fe_problem.get();
     params.set<std::string>("expression") = "14 + 2e-2 * x + 3e-5 * y";
-    params.set<std::string>("_type") = "MooseParsedFunction";
+    params.set<std::string>(MooseBase::type_param) = "MooseParsedFunction";
     _fe_problem->addFunction("ParsedFunction", "k_function", params);
 
     params.set<std::string>("expression") = "1400 + 2.5 * x + 32e-5 * y";
-    params.set<std::string>("_object_name") = "rho_function";
+    params.set<std::string>(MooseBase::name_param) = "rho_function";
     _fe_problem->addFunction("ParsedFunction", "rho_function", params);
 
     params.set<std::string>("expression") = "1e-3 + 1e-5 * x - 3e-9 * y";
-    params.set<std::string>("_object_name") = "mu_function";
+    params.set<std::string>(MooseBase::name_param) = "mu_function";
     _fe_problem->addFunction("ParsedFunction", "mu_function", params);
 
     params.set<std::string>("expression") = "3000. + 3*x + 5e-4*y";
-    params.set<std::string>("_object_name") = "cp_function";
+    params.set<std::string>(MooseBase::name_param) = "cp_function";
     _fe_problem->addFunction("ParsedFunction", "cp_function", params);
 
     _fe_problem->getFunction("k_function").initialSetup();
@@ -74,8 +74,25 @@ protected:
 
     _fe_problem->addUserObject("TemperaturePressureFunctionFluidProperties", "fp_cp", uo_params2);
     _fp_cp = &_fe_problem->getUserObject<TemperaturePressureFunctionFluidProperties>("fp_cp");
+
+    InputParameters uo_params3 =
+        _factory.getValidParams("TemperaturePressureFunctionFluidProperties");
+    // Set the three functions and the specific heat capacity
+    uo_params3.set<FunctionName>("k") = "k_function";
+    uo_params3.set<FunctionName>("rho") = "2000";
+    uo_params3.set<FunctionName>("mu") = "mu_function";
+    uo_params3.set<FunctionName>("cp") = "cp_function";
+    uo_params3.set<Real>("T_initial_guess") = 250;
+    uo_params3.set<Real>("p_initial_guess") = 1e7;
+    uo_params3.set<Real>("dT_integration_intervals") = 0.001;
+
+    _fe_problem->addUserObject(
+        "TemperaturePressureFunctionFluidProperties", "fp_incompressible", uo_params3);
+    _fp_incompressible = &_fe_problem->getUserObject<TemperaturePressureFunctionFluidProperties>(
+        "fp_incompressible");
   }
 
   TemperaturePressureFunctionFluidProperties * _fp;
   TemperaturePressureFunctionFluidProperties * _fp_cp;
+  TemperaturePressureFunctionFluidProperties * _fp_incompressible;
 };

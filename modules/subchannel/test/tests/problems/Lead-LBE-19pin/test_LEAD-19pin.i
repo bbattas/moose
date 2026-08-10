@@ -6,7 +6,7 @@ mass_flux_in = '${fparse 10*rho_in/3600/flow_area}'
 P_out = 1.0e5 # Pa
 [TriSubChannelMesh]
   [subchannel]
-    type = SCMTriSubChannelMeshGenerator
+    type = SCMTriAssemblyMeshGenerator
     nrings = 3
     n_cells = 50
     flat_to_flat = 0.05319936
@@ -22,45 +22,17 @@ P_out = 1.0e5 # Pa
   []
 []
 
-[AuxVariables]
-  [mdot]
-  []
-  [SumWij]
-  []
-  [P]
-  []
-  [DP]
-  []
-  [h]
-  []
-  [T]
-  []
-  [rho]
-  []
-  [S]
-  []
-  [w_perim]
-  []
-  [q_prime]
-  []
-  [mu]
-  []
-  [displacement]
-  []
-[]
-
 [FluidProperties]
   [LEAD]
     type = LeadFluidProperties
   []
 []
 
-[Problem]
+[SubChannel]
   type = TriSubChannel1PhaseProblem
   fp = LEAD
   n_blocks = 1
   P_out = 1.0e5
-  CT = 1.0
   compute_density = true
   compute_viscosity = true
   compute_power = true
@@ -69,27 +41,44 @@ P_out = 1.0e5 # Pa
   implicit = true
   segregated = false
   staggered_pressure = false
-  monolithic_thermal = false
   verbose_multiapps = true
-  verbose_subchannel = false
+  verbose_subchannel = true
+  interpolation_scheme = upwind
+  pin_HTC_closure = 'Dittus-Boelter'
+
+  # friction model
+  friction_closure = 'cheng'
+
+  full_output = true
+  mixing_closure = 'Kim_and_Chung'
+[]
+
+[SCMClosures]
+  [cheng]
+    type = SCMFrictionUpdatedChengTodreas
+  []
+  [Kim_and_Chung]
+    type = SCMMixingKimAndChung
+  []
+  [Dittus-Boelter]
+    type = SCMHTCDittusBoelter
+  []
 []
 
 [ICs]
-  [S_IC]
-    type = SCMTriFlowAreaIC
-    variable = S
-  []
 
-  [w_perim_IC]
-    type = SCMTriWettedPerimIC
-    variable = w_perim
-  []
 
   [q_prime_IC]
     type = SCMTriPowerIC
     variable = q_prime
     power = '${fparse 250000}'
     filename = "pin_power_profile19.txt"
+  []
+
+  [Dpin_ic]
+    type = ConstantIC
+    variable = Dpin
+    value = 8.2e-3
   []
 
   [T_ic]
@@ -235,6 +224,7 @@ P_out = 1.0e5 # Pa
   [Total_power]
     type = ElementIntegralVariablePostprocessor
     variable = q_prime
+    block = fuel_pins
   []
 []
 
@@ -251,6 +241,7 @@ P_out = 1.0e5 # Pa
 #     type = FullSolveMultiApp
 #     input_files = "3d_LBE_19.i"
 #     execute_on = "timestep_end"
+#     max_procs_per_app = 1
 #   []
 # []
 

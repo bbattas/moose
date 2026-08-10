@@ -24,7 +24,11 @@ public:
   TimeSequenceFromTimes(const InputParameters & parameters);
 
 protected:
-  void step() override;
+  virtual void init() override;
+
+  virtual void refreshSequence() override;
+
+  void updateTimeSequence();
 
   /// A Times object that will provide the sequence of times to hit
   const Times & _times;

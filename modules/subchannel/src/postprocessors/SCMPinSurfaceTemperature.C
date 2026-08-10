@@ -18,10 +18,6 @@
 #include "SCM.h"
 
 registerMooseObject("SubChannelApp", SCMPinSurfaceTemperature);
-registerMooseObjectRenamed("SubChannelApp",
-                           PinSurfaceTemperature,
-                           "06/30/2025 24:00",
-                           SCMPinSurfaceTemperature);
 
 InputParameters
 SCMPinSurfaceTemperature::validParams()
@@ -52,6 +48,9 @@ SCMPinSurfaceTemperature::SCMPinSurfaceTemperature(const InputParameters & param
 void
 SCMPinSurfaceTemperature::execute()
 {
+  // No data on other ranks
+  if (processor_id() != 0)
+    return;
   auto Tpin_soln = SolutionHandle(_fe_problem.getVariable(0, "Tpin"));
   auto nz = _mesh.getNumOfAxialCells();
   auto z_grid = _mesh.getZGrid();

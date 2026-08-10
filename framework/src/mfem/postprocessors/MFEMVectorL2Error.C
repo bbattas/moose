@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMVectorL2Error.h"
 #include "MFEMProblem.h"
@@ -23,17 +23,15 @@ MFEMVectorL2Error::validParams()
       "vector gridfunctions.");
   params.addParam<MFEMVectorCoefficientName>("function",
                                              "The analytic solution to compare against.");
-  params.addParam<VariableName>(
-      "variable", "Name of the vector variable of which to find the norm of the error.");
+  MFEMExecutedObject::addRequiredDependencyParam<VariableName>(
+      params, "variable", "Name of the vector variable of which to find the norm of the error.");
   return params;
 }
 
 MFEMVectorL2Error::MFEMVectorL2Error(const InputParameters & parameters)
   : MFEMPostprocessor(parameters),
-    _var_name(getParam<VariableName>("variable")),
-    _coeff_name(getParam<MFEMVectorCoefficientName>("function")),
-    _vec_coeff(getVectorCoefficient(_coeff_name)),
-    _var(getMFEMProblem().getProblemData().gridfunctions.GetRef(_var_name))
+    _vec_coeff(getVectorCoefficient("function")),
+    _var(*getMFEMProblem().getGridFunction(getParam<VariableName>("variable")))
 {
 }
 

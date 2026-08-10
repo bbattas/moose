@@ -7,53 +7,46 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMHypreADS.h"
+#include "MFEMProblem.h"
 
 registerMooseObject("MooseApp", MFEMHypreADS);
 
 InputParameters
 MFEMHypreADS::validParams()
 {
-  InputParameters params = MFEMSolverBase::validParams();
+  InputParameters params = Moose::MFEM::LORLinearSolverBase<mfem::HypreADS>::validParams();
   params.addClassDescription("Hypre auxiliary-space divergence solver and preconditioner for the "
                              "iterative solution of MFEM equation systems.");
-  params.addParam<UserObjectName>("fespace", "H(div) FESpace to use in HypreADS setup.");
+  params.addParam<MFEMFESpaceName>("fespace", "H(div) FESpace to use in HypreADS setup.");
   params.addParam<int>("print_level", 2, "Set the solver verbosity.");
 
   return params;
 }
 
 MFEMHypreADS::MFEMHypreADS(const InputParameters & parameters)
-  : MFEMSolverBase(parameters), _mfem_fespace(getUserObject<MFEMFESpace>("fespace"))
+  : Moose::MFEM::LORLinearSolverBase<mfem::HypreADS>(parameters),
+    _mfem_fespace(getMFEMProblem().getMFEMObject<MFEMFESpace>("MFEMFESpace",
+                                                              getParam<MFEMFESpaceName>("fespace")))
 {
-  mfem::Hypre::Init();
-  constructSolver(parameters);
+  ConstructSolver();
 }
 
 void
-MFEMHypreADS::constructSolver(const InputParameters &)
+MFEMHypreADS::ConstructSolver()
 {
   auto solver = std::make_unique<mfem::HypreADS>(_mfem_fespace.getFESpace().get());
-  solver->SetPrintLevel(getParam<int>("print_level"));
-
+  SetSolverParameters(*solver);
   _solver = std::move(solver);
 }
 
 void
-MFEMHypreADS::updateSolver(mfem::ParBilinearForm & a, mfem::Array<int> & tdofs)
+MFEMHypreADS::SetSolverParameters(mfem::HypreADS & solver)
 {
-  if (_lor)
-  {
-    if (_mfem_fespace.getFESpace()->GetMesh()->GetElement(0)->GetGeometryType() !=
-        mfem::Geometry::Type::CUBE)
-      mooseError("LOR HypreADS Solver only supports hex meshes.");
-
-    auto lor_solver = new mfem::LORSolver<mfem::HypreADS>(a, tdofs);
-    lor_solver->GetSolver().SetPrintLevel(getParam<int>("print_level"));
-    _solver.reset(lor_solver);
-  }
+  solver.iterative_mode = getParam<bool>("use_initial_guess");
+  solver.SetPrintLevel(getParam<int>("print_level"));
 }
 
 #endif

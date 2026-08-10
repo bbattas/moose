@@ -11,6 +11,7 @@
 #include "MooseVariableField.h"
 #include "MortarUtils.h"
 #include "MooseUtils.h"
+#include "AutomaticMortarGeneration.h"
 #include "libmesh/quadrature.h"
 
 namespace
@@ -67,6 +68,8 @@ template <typename ComputeValueType>
 void
 MortarNodalAuxKernelTempl<ComputeValueType>::initialSetup()
 {
+  AuxKernelTempl<ComputeValueType>::initialSetup();
+
   std::array<const MortarNodalAuxKernelTempl<ComputeValueType> *, 1> consumers = {{this}};
 
   Moose::Mortar::setupMortarMaterials(consumers,

@@ -1,0 +1,40 @@
+[Tests]
+  design = 'syntax/MultiApps/index.md'
+  issues = '#31017'
+  [MFEMTransientMultiApps]
+    requirement = "The system shall support execution of sub-applications in transient problems:"
+    [MFEM_dt_from_parent]
+      type = CSVDiff
+      input = 'dt_from_parent.i'
+      csvdiff = 'dt_from_parent.csv dt_from_parent_sub.csv'
+      detail = "with a time step governed by the MFEM parent application,"
+      capabilities = 'mfem'
+      compute_devices = 'cpu cuda'
+      recover = false
+      restep = false
+    []
+    [MFEM_sub_cycling]
+      type = CSVDiff
+      input = 'sub_cycling.i'
+      csvdiff = 'sub_cycling_parent.csv sub_cycling_sub.csv'
+      detail = "and with the sub-app running multiple timesteps for each timestep of the parent app."
+      capabilities = 'mfem'
+      compute_devices = 'cpu cuda'
+      recover = false
+      restep = false
+    []
+  []
+  [MFEMFullSolveMultiApps]
+    requirement = "The system shall support executing a sub-application solving an entire sub-problem:"
+    [MFEM_full_solve_transient]
+      type = CSVDiff
+      input = 'full_solve.i'
+      csvdiff = 'full_solve_parent.csv full_solve_sub.csv'
+      detail = "with a transient problem running in the parent app."
+      capabilities = 'mfem'
+      compute_devices = 'cpu cuda'
+      recover = false
+      restep = false
+    []
+  []
+[]

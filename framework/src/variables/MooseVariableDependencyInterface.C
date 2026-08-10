@@ -9,6 +9,7 @@
 
 #include "MooseVariableDependencyInterface.h"
 #include "MooseVariableFieldBase.h"
+#include "MooseApp.h"
 #include "MooseObject.h"
 #include "SystemBase.h"
 #include "MooseError.h"
@@ -18,11 +19,18 @@
 
 using namespace libMesh;
 
-MooseVariableDependencyInterface::MooseVariableDependencyInterface(const MooseObject * const) {}
+MooseVariableDependencyInterface::MooseVariableDependencyInterface(const MooseObject *) {}
+
+#ifdef MOOSE_KOKKOS_ENABLED
+MooseVariableDependencyInterface::MooseVariableDependencyInterface(
+    const MooseVariableDependencyInterface &, const Moose::Kokkos::FunctorCopy &)
+{
+}
+#endif
 
 template <typename DofObjectType>
 std::set<MooseVariableFieldBase *>
-MooseVariableDependencyInterface::checkVariables(
+MooseVariableDependencyInterface::checkVariablesHelper(
     const DofObjectType & dof_object, const std::set<MooseVariableFieldBase *> & vars_to_check)
 {
   std::set<MooseVariableFieldBase *> vars_without_indices;
@@ -36,7 +44,7 @@ MooseVariableDependencyInterface::checkVariables(
   return vars_without_indices;
 }
 
-template std::set<MooseVariableFieldBase *> MooseVariableDependencyInterface::checkVariables(
+template std::set<MooseVariableFieldBase *> MooseVariableDependencyInterface::checkVariablesHelper(
     const Elem & dof_object, const std::set<MooseVariableFieldBase *> & vars_to_check);
-template std::set<MooseVariableFieldBase *> MooseVariableDependencyInterface::checkVariables(
+template std::set<MooseVariableFieldBase *> MooseVariableDependencyInterface::checkVariablesHelper(
     const Node & dof_object, const std::set<MooseVariableFieldBase *> & vars_to_check);

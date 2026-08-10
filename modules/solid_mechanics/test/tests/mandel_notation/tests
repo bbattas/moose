@@ -1,6 +1,6 @@
 [Tests]
   issues = '#19000'
-  design = 'TensorClasses.md'
+  design = 'MandelConverter.md'
 
   [small_strain]
     requirement = 'The system shall solve the continuum mechanics equations in the small strain '
@@ -27,6 +27,7 @@
       input = finite_elastic.i
       exodiff = finite_elastic_out.e
       detail = 'with full tensors'
+      capabilities = 'method!=dbg'
     []
     [symmetric_tensor]
       type = Exodiff

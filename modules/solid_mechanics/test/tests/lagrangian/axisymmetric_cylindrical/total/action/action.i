@@ -9,9 +9,6 @@
     nx = 2
     ny = 2
   []
-[]
-
-[Problem]
   coord_type = RZ
 []
 
@@ -54,7 +51,6 @@
   []
   [compute_stress]
     type = ComputeLagrangianLinearElasticStress
-    large_kinematics = true
   []
 []
 

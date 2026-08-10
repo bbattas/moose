@@ -19,7 +19,7 @@ mass_flux_in = '${fparse rho *  inlet_vel}'
 P_out = 2.0e5 # Pa
 [TriSubChannelMesh]
   [subchannel]
-    type = SCMTriSubChannelMeshGenerator
+    type = SCMTriAssemblyMeshGenerator
     nrings = 3
     n_cells = 50
     flat_to_flat = 0.0324290
@@ -30,52 +30,10 @@ P_out = 2.0e5 # Pa
     pitch = 7.2644e-3
     dwire = 0.0014224
     hwire = 0.3048
-    spacer_z = '0.0'
-    spacer_k = '0.0'
     z_blockage = '0.49 0.52'
     index_blockage = '29 31 30 32 34 33 35 15 16 8 17 18 9 19'
-    reduction_blockage = '0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2 0.2'
-    k_blockage = '1.2 1.2 1.2 1.2 1.2 1.2 1.2 1.2 1.2 1.2 1.2 1.2 1.2 1.2 '
-
-  []
-[]
-
-[AuxVariables]
-  [mdot]
-    block = subchannel
-  []
-  [SumWij]
-    block = subchannel
-  []
-  [P]
-    block = subchannel
-  []
-  [DP]
-    block = subchannel
-  []
-  [h]
-    block = subchannel
-  []
-  [T]
-    block = subchannel
-  []
-  [rho]
-    block = subchannel
-  []
-  [S]
-    block = subchannel
-  []
-  [w_perim]
-    block = subchannel
-  []
-  [mu]
-    block = subchannel
-  []
-  [q_prime]
-    block = subchannel
-  []
-  [displacement]
-    block = subchannel
+    reduction_blockage = '0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08'
+    k_blockage = '4 4 4 4 4 4 4 4 4 4 4 4 4 4 '
   []
 []
 
@@ -85,12 +43,11 @@ P_out = 2.0e5 # Pa
   []
 []
 
-[Problem]
+[SubChannel]
   type = TriSubChannel1PhaseProblem
   fp = sodium
   n_blocks = 1
   P_out = 2.0e5
-  CT = 2.2
   compute_density = true
   compute_viscosity = true
   compute_power = true
@@ -98,25 +55,43 @@ P_out = 2.0e5 # Pa
   T_tol = 1.0e-4
   implicit = true
   segregated = false
-  interpolation_scheme = 'upwind'
+  verbose_subchannel = true
+  interpolation_scheme = exponential
+  pin_HTC_closure = 'Dittus-Boelter'
+  # friction model
+  friction_closure = 'cheng'
+  full_output = true
+  mixing_closure = 'cheng_todreas'
+
+[]
+
+[SCMClosures]
+  [cheng]
+    type = SCMFrictionUpdatedChengTodreas
+  []
+  [cheng_todreas]
+    type = SCMMixingChengTodreas
+    CT = 2.0
+  []
+  [Dittus-Boelter]
+    type = SCMHTCDittusBoelter
+  []
 []
 
 [ICs]
-  [S_IC]
-    type = SCMTriFlowAreaIC
-    variable = S
-  []
 
-  [w_perim_IC]
-    type = SCMTriWettedPerimIC
-    variable = w_perim
-  []
 
   [q_prime_IC]
     type = SCMTriPowerIC
     variable = q_prime
     power = 145000  #W, high flow case
     filename = "pin_power_profile_19.txt"
+  []
+
+  [Dpin_ic]
+    type = ConstantIC
+    variable = Dpin
+    value = 0.005842
   []
 
   [T_ic]
@@ -267,9 +242,16 @@ P_out = 2.0e5 # Pa
 []
 
 [Transfers]
-  [xfer]
+  [xfer_subchannel]
     type = SCMSolutionTransfer
     to_multi_app = viz
-    variable = 'mdot SumWij P DP h T rho mu q_prime S displacement w_perim'
+    transfer_type = subchannel
+    variable = 'mdot SumWij P DP h T rho mu S displacement w_perim'
+  []
+  [xfer_q_prime]
+    type = SCMSolutionTransfer
+    to_multi_app = viz
+    transfer_type = pin
+    variable = q_prime
   []
 []

@@ -1,7 +1,7 @@
 # Following Benchmark Specifications and Data Requirements for EBR-II Shutdown Heat Removal Tests SHRT-17 and SHRT-45R
 # Available at: https://publications.anl.gov/anlpubs/2012/06/73647.pdf
 ###################################################
-# Steady state subchannel calcultion
+# Steady state subchannel calculation
 # Thermal-hydraulics parameters
 ###################################################
 T_in = 616.4 #Kelvin
@@ -26,7 +26,7 @@ unheated_length_exit = '${fparse 26.9*scale_factor}'
 
 [TriSubChannelMesh]
   [subchannel]
-    type = SCMTriSubChannelMeshGenerator
+    type = SCMTriAssemblyMeshGenerator
     nrings = ${n_rings}
     n_cells = 50
     flat_to_flat = ${inner_duct_in}
@@ -36,23 +36,12 @@ unheated_length_exit = '${fparse 26.9*scale_factor}'
     pitch = ${fuel_pin_pitch}
     dwire = ${wire_diameter}
     hwire = ${wire_z_spacing}
-    spacer_z = '0.0'
-    spacer_k = '0.0'
   []
 
-  [fuel_pins]
-    type = SCMTriPinMeshGenerator
-    input = subchannel
-    nrings = ${n_rings}
-    n_cells = 50
-    unheated_length_exit = ${unheated_length_exit}
-    heated_length = ${heated_length}
-    pitch = ${fuel_pin_pitch}
-  []
 
   [duct]
     type = SCMTriDuctMeshGenerator
-    input = fuel_pins
+    input = subchannel
     nrings = ${n_rings}
     n_cells = 50
     flat_to_flat = ${inner_duct_in}
@@ -62,63 +51,21 @@ unheated_length_exit = '${fparse 26.9*scale_factor}'
   []
 []
 
-[Functions]
-  [axial_heat_rate]
-    type = ParsedFunction
-    value = '(pi/2)*sin(pi*z/L)*exp(-alpha*z)/(1.0/alpha*(1.0 - exp(-alpha*L)))*L'
-    vars = 'L alpha'
-    vals = '${heated_length} 1.8012'
+[AuxVariables]
+  [q_prime_init]
+    block = fuel_pins
+  []
+  [power_history_field]
+    block = fuel_pins
   []
 []
 
-[AuxVariables]
-  [mdot]
-    block = subchannel
-  []
-  [SumWij]
-    block = subchannel
-  []
-  [P]
-    block = subchannel
-  []
-  [DP]
-    block = subchannel
-  []
-  [h]
-    block = subchannel
-  []
-  [T]
-    block = subchannel
-  []
-  [rho]
-    block = subchannel
-  []
-  [S]
-    block = subchannel
-  []
-  [w_perim]
-    block = subchannel
-  []
-  [mu]
-    block = subchannel
-  []
-  [displacement]
-    block = subchannel
-  []
-  [q_prime]
-    block = fuel_pins
-  []
-  [Tpin]
-    block = fuel_pins
-  []
-  [Dpin]
-    block = fuel_pins
-  []
-  [q_prime_duct]
-    block = duct
-  []
-  [Tduct]
-    block = duct
+[Functions]
+  [axial_heat_rate]
+    type = ParsedFunction
+    expression = '(pi/2)*sin(pi*z/L)*exp(-alpha*z)/(1.0/alpha*(1.0 - exp(-alpha*L)))*L'
+    symbol_names = 'L alpha'
+    symbol_values = '${heated_length} 1.8012'
   []
 []
 
@@ -128,12 +75,11 @@ unheated_length_exit = '${fparse 26.9*scale_factor}'
   []
 []
 
-[Problem]
+[SubChannel]
   type = TriSubChannel1PhaseProblem
   fp = sodium
   n_blocks = 1
   P_out = ${P_out}
-  CT = 2.6
   compute_density = true
   compute_viscosity = true
   compute_power = true
@@ -142,24 +88,36 @@ unheated_length_exit = '${fparse 26.9*scale_factor}'
   implicit = true
   segregated = false
   interpolation_scheme = 'upwind'
+  verbose_subchannel = true
+  pin_HTC_closure = 'gnielinski'
+  duct_HTC_closure = 'gnielinski'
+  friction_closure = 'cheng'
+  full_output = true
+  mixing_closure = 'cheng_todreas'
+
+[]
+
+[SCMClosures]
+  [cheng]
+    type = SCMFrictionUpdatedChengTodreas
+  []
+  [gnielinski]
+    type = SCMHTCGnielinski
+  []
+  [cheng_todreas]
+    type = SCMMixingChengTodreas
+    CT = 2.6
+  []
 []
 
 [ICs]
-  [S_IC]
-    type = SCMTriFlowAreaIC
-    variable = S
-  []
 
-  [w_perim_IC]
-    type = SCMTriWettedPerimIC
-    variable = w_perim
-  []
 
   [q_prime_IC]
     type = SCMTriPowerIC
     variable = q_prime
     power = ${Power_initial}
-    filename = "pin_power_profile61.txt"
+    filename = "pin_power_profile61_uniform.txt"
     axial_heat_rate = axial_heat_rate
   []
 
@@ -169,11 +127,6 @@ unheated_length_exit = '${fparse 26.9*scale_factor}'
     value = ${T_in}
   []
 
-  [Dpin_ic]
-    type = ConstantIC
-    variable = Dpin
-    value = ${fuel_pin_diameter}
-  []
 
   [P_ic]
     type = ConstantIC
@@ -238,7 +191,6 @@ unheated_length_exit = '${fparse 26.9*scale_factor}'
 []
 
 [Outputs]
-  exodus = true
   csv = true
 []
 
@@ -306,69 +258,69 @@ unheated_length_exit = '${fparse 26.9*scale_factor}'
     execute_on = 'TIMESTEP_END'
     height = 0.322
   []
-  # [MTC-20]
-  # type = SubChannelPointValue
-  # variable = T
-  # index = 33
-  # execute_on = 'TIMESTEP_END'
-  # height = 0.172
-  # []
-  # [MTC-22]
-  #   type = SubChannelPointValue
-  #   variable = T
-  #   index = 3
-  #   execute_on = 'TIMESTEP_END'
-  #   height = 0.172
-  # []
-  # [MTC-24]
-  #   type = SubChannelPointValue
-  #   variable = T
-  #   index = 28
-  #   execute_on = 'TIMESTEP_END'
-  #   height = 0.172
-  # []
-  # [MTC-25]
-  #   type = SubChannelPointValue
-  #   variable = T
-  #   index = 60
-  #   execute_on = 'TIMESTEP_END'
-  #   height = 0.172
-  # []
-  # [MTC-26]
-  #   type = SubChannelPointValue
-  #   variable = T
-  #   index = 106
-  #   execute_on = 'TIMESTEP_END'
-  #   height = 0.172
-  # []
-  # [14TC-37]
-  #   type = SubChannelPointValue
-  #   variable = T
-  #   index = 52
-  #   execute_on = 'TIMESTEP_END'
-  #   height = 0.480
-  # []
-  # [14TC-39]
-  #   type = SubChannelPointValue
-  #   variable = T
-  #   index = 6
-  #   execute_on = 'TIMESTEP_END'
-  #   height = 0.480
-  # []
-  # [14TC-41]
-  #   type = SubChannelPointValue
-  #   variable = T
-  #   index = 40
-  #   execute_on = 'TIMESTEP_END'
-  #   height = 0.480
-  # []
-  # [14TC-43]
-  #   type = SubChannelPointValue
-  #   variable = T
-  #   index = 105
-  #   execute_on = 'TIMESTEP_END'
-  #   height = 0.480
-  # []
+  [MTC-20]
+  type = SubChannelPointValue
+  variable = T
+  index = 33
+  execute_on = 'TIMESTEP_END'
+  height = 0.172
+  []
+  [MTC-22]
+    type = SubChannelPointValue
+    variable = T
+    index = 3
+    execute_on = 'TIMESTEP_END'
+    height = 0.172
+  []
+  [MTC-24]
+    type = SubChannelPointValue
+    variable = T
+    index = 28
+    execute_on = 'TIMESTEP_END'
+    height = 0.172
+  []
+  [MTC-25]
+    type = SubChannelPointValue
+    variable = T
+    index = 60
+    execute_on = 'TIMESTEP_END'
+    height = 0.172
+  []
+  [MTC-26]
+    type = SubChannelPointValue
+    variable = T
+    index = 106
+    execute_on = 'TIMESTEP_END'
+    height = 0.172
+  []
+  [14TC-37]
+    type = SubChannelPointValue
+    variable = T
+    index = 52
+    execute_on = 'TIMESTEP_END'
+    height = 0.480
+  []
+  [14TC-39]
+    type = SubChannelPointValue
+    variable = T
+    index = 6
+    execute_on = 'TIMESTEP_END'
+    height = 0.480
+  []
+  [14TC-41]
+    type = SubChannelPointValue
+    variable = T
+    index = 40
+    execute_on = 'TIMESTEP_END'
+    height = 0.480
+  []
+  [14TC-43]
+    type = SubChannelPointValue
+    variable = T
+    index = 105
+    execute_on = 'TIMESTEP_END'
+    height = 0.480
+  []
 []
 
 [Executioner]
@@ -393,7 +345,8 @@ unheated_length_exit = '${fparse 26.9*scale_factor}'
     variable = 'mdot SumWij P DP h T rho mu S'
   []
   [pin_transfer]
-    type = SCMPinSolutionTransfer
+    type = SCMSolutionTransfer
+    transfer_type = pin
     to_multi_app = viz
     variable = 'Tpin q_prime'
   []

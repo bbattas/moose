@@ -49,15 +49,9 @@ TransientMultiApp::validParams()
 
   params.addParam<bool>("detect_steady_state",
                         false,
-                        "If true then while sub_cycling a steady state check will be "
-                        "done.  In this mode output will only be done once the "
-                        "MultiApp reaches the target time or steady state is reached");
-
-  params.addParam<Real>("steady_state_tol",
-                        1e-8,
-                        "The relative difference between the new "
-                        "solution and the old solution that will be "
-                        "considered to be at steady state");
+                        "If true, then if/while sub-cycling ('sub_cycling = true'), a steady-state "
+                        "check will be performed for each child app, allowing them to skip to the "
+                        "end of the parent time step if steady conditions are detected.");
 
   params.addParam<bool>("output_sub_cycles", false, "If true then every sub-cycle will be output.");
   params.addParam<bool>(
@@ -67,7 +61,7 @@ TransientMultiApp::validParams()
       "max_failures", 0, "Maximum number of solve failures tolerated while sub_cycling.");
 
   params.addParamNamesToGroup("sub_cycling interpolate_transfers detect_steady_state "
-                              "steady_state_tol output_sub_cycles print_sub_cycles max_failures",
+                              "output_sub_cycles print_sub_cycles max_failures",
                               "Sub cycling");
 
   params.addParam<bool>("tolerate_failure",
@@ -98,7 +92,6 @@ TransientMultiApp::TransientMultiApp(const InputParameters & parameters)
     _sub_cycling(getParam<bool>("sub_cycling")),
     _interpolate_transfers(getParam<bool>("interpolate_transfers")),
     _detect_steady_state(getParam<bool>("detect_steady_state")),
-    _steady_state_tol(getParam<Real>("steady_state_tol")),
     _output_sub_cycles(getParam<bool>("output_sub_cycles")),
     _max_failures(getParam<unsigned int>("max_failures")),
     _tolerate_failure(getParam<bool>("tolerate_failure")),
@@ -260,7 +253,7 @@ TransientMultiApp::solveStep(Real dt, Real target_time, bool auto_advance)
 
           // Snag all of the local dof indices for all of these variables
           AllLocalDofIndicesThread aldit(problem, _transferred_vars);
-          ConstElemRange & elem_range = *problem.mesh().getActiveLocalElementRange();
+          const ConstElemRange & elem_range = *problem.mesh().getActiveLocalElementRange();
           Threads::parallel_reduce(elem_range, aldit);
 
           _transferred_dofs = aldit.getDofIndices();
@@ -354,18 +347,13 @@ TransientMultiApp::solveStep(Real dt, Real target_time, bool auto_advance)
               throw MultiAppSolveFailure(oss.str());
             }
           }
+          if (_detect_steady_state)
+            at_steady = ex->convergedToSteadyState();
 
-          Real solution_change_norm = ex->getSolutionChangeNorm();
-
-          if (_detect_steady_state && _fe_problem.verboseMultiApps())
-            _console << "Solution change norm: " << solution_change_norm << std::endl;
-
-          if (converged && _detect_steady_state && solution_change_norm < _steady_state_tol)
+          if (converged && _detect_steady_state && at_steady)
           {
             if (_fe_problem.verboseMultiApps())
               _console << "Detected Steady State! Fast-forwarding to " << target_time << std::endl;
-
-            at_steady = true;
 
             // Indicate that the next output call (occurs in ex->endStep()) should output,
             // regardless of intervals etc...
@@ -389,13 +377,14 @@ TransientMultiApp::solveStep(Real dt, Real target_time, bool auto_advance)
         if ((!at_steady && _detect_steady_state) || !_output_sub_cycles)
           problem.outputStep(EXEC_FORCED);
 
-      } // sub_cycling
+      } // end of sub_cycling
       else if (_tolerate_failure)
       {
         ex->takeStep(dt);
         ex->endStep(target_time - app_time_offset);
         ex->postStep();
       }
+      // matched time steps (no subcycling)
       else
       {
         // ADL: During restart, there is already an FEProblemBase::advanceState that occurs at the
@@ -681,6 +670,15 @@ TransientMultiApp::setupApp(unsigned int i, Real /*time*/) // FIXME: Should we b
 
     // This will be where we'll transfer the value to for the "target" time
     libmesh_aux_system.add_vector("transfer", false);
+  }
+
+  if (app->hasInitialBackupMesh())
+  {
+    app->restoreMeshFromInitialBackup(problem.mesh());
+    problem.mesh().prepare(/*mesh_to_clone=*/nullptr);
+    problem.meshChanged(/*intermediate_change=*/false,
+                        /*contract_mesh=*/false,
+                        /*clean_refinement_flags=*/false);
   }
 
   // Call initialization method of Executioner (Note, this performs the output of the initial time

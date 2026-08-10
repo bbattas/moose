@@ -68,15 +68,15 @@ cd ~/projects/moose/examples/ex14_pps
 pi^2*a^2*sin(x*pi*a)
 [force]
   type = ParsedFunction
-  value = 'pi^2*a^2*sin(x*pi*a)'
-  vars = 'a'
-  vals = '1.0'
+  expression = 'pi^2*a^2*sin(x*pi*a)'
+  symbol_names = 'a'
+  symbol_values = '1.0'
 []
 [exact]
   type = ParsedFunction
-  value = 'sin(x*pi*a)'
-  vars = 'a'
-  vals = '1.0'
+  expression = 'sin(x*pi*a)'
+  symbol_names = 'a'
+  symbol_values = '1.0'
 []
 ```
 
@@ -117,3 +117,4 @@ cd ~/projects/moose/examples/ex14_pps
 !---
 
 !media darcy_thermo_mech/ex14_mms.png
+       alt=L2 error of a simulation, as a function of element size.

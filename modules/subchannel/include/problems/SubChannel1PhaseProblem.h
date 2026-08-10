@@ -8,18 +8,24 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #pragma once
+
 #include "ExternalProblem.h"
 #include "PostprocessorInterface.h"
 #include "SubChannelApp.h"
 #include "QuadSubChannelMesh.h"
 #include "SolutionHandle.h"
-#include "SinglePhaseFluidProperties.h"
 #include <petscdm.h>
 #include <petscdmda.h>
 #include <petscksp.h>
 #include <petscsys.h>
 #include <petscvec.h>
 #include <petscsnes.h>
+#include <limits>
+
+class SinglePhaseFluidProperties;
+class SCMFrictionClosureBase;
+class SCMHTCClosureBase;
+class SCMMixingClosureBase;
 
 /**
  * Base class for the 1-phase steady-state/transient subchannel solver.
@@ -35,22 +41,72 @@ public:
   virtual bool solverSystemConverged(const unsigned int) override;
   virtual void initialSetup() override;
 
-protected:
-  /// Standard return structure for reusing in implicit/explicit formulations
-  struct StructPetscMatVec
-  {
-    Mat A;
-    Vec x;
-  };
+  const SCMHTCClosureBase * getDuctHTCClosure() const { return _duct_HTC_closure; }
+  const SCMHTCClosureBase * getPinHTCClosure() const { return _pin_HTC_closure; } // optional
+  const SCMFrictionClosureBase * getFrictionClosure() const { return _friction_closure; }
 
+  /// structure with the needed information to compute the friction factor at a specific subchannel cell
   struct FrictionStruct
   {
-    int i_ch;
-    Real Re, S, w_perim;
+    unsigned int i_ch = 0;
+    Real Re = 1.0;
+    Real S = 0.0;
+    Real w_perim = 0.0;
+
+    FrictionStruct() = delete;
+    FrictionStruct(unsigned int i_ch_, Real Re_, Real S_, Real w_perim_)
+      : i_ch(i_ch_), Re(Re_), S(S_), w_perim(w_perim_)
+    {
+    }
   } _friction_args;
 
-  /// Returns friction factor
-  virtual Real computeFrictionFactor(FrictionStruct friction_args) = 0;
+  /// structure with the needed information to compute the Nusselt number at a specific subchannel cell and heated surface
+  struct NusseltStruct
+  {
+    Real Re = 1.0;
+    Real Pr = 1.0;
+    unsigned int i_pin = std::numeric_limits<unsigned int>::max(); // sentinel (duct) default
+    unsigned int iz = 0;
+    unsigned int i_ch = 0;
+
+    NusseltStruct() = delete;
+    NusseltStruct(Real Re_, Real Pr_, unsigned int i_pin_, unsigned int iz_, unsigned int i_ch_)
+      : Re(Re_), Pr(Pr_), i_pin(i_pin_), iz(iz_), i_ch(i_ch_)
+    {
+    }
+  } _nusselt_args;
+
+  /// Return the added heat coming from the fuel pins
+  Real getAddedHeatPin(unsigned int i_ch, unsigned int iz) const
+  {
+    return computeAddedHeatPin(i_ch, iz);
+  }
+
+  /// Return the added heat coming from the duct
+  Real getAddedHeatDuct(unsigned int i_ch, unsigned int iz) const
+  {
+    return computeAddedHeatDuct(i_ch, iz);
+  }
+
+  /// Outlet pressure postprocessor value
+  const PostprocessorValue & _P_out;
+
+  /// Get outlet pressure
+  const PostprocessorValue & getOutletPressure() const { return _P_out; }
+
+  /// Non-owning pointer to fluid properties user object
+  const SinglePhaseFluidProperties * _fp;
+
+  /// Get fluid properties object
+  const SinglePhaseFluidProperties * getSinglePhaseFluidProperties() const { return _fp; }
+
+protected:
+  /// Pure virtual: daughters provide different implementations
+  virtual Real computeAddedHeatPin(unsigned int i_ch, unsigned int iz) const = 0;
+
+  /// Non-pure: implemented in the base (or override in a child if needed)
+  virtual Real computeAddedHeatDuct(unsigned int i_ch, unsigned int iz) const;
+
   /// Computes diversion crossflow per gap for block iblock
   void computeWijFromSolve(int iblock);
   /// Computes net diversion crossflow per channel for block iblock
@@ -59,8 +115,10 @@ protected:
   void computeMdot(int iblock);
   /// Computes turbulent crossflow per gap for block iblock
   void computeWijPrime(int iblock);
-  /// Computes turbulent mixing coefficient
-  virtual Real computeBeta(unsigned int i_gap, unsigned int iz) = 0;
+  /// Computes and validates the turbulent mixing parameter
+  Real computeMixingParameter(unsigned int i_gap, unsigned int iz) const;
+  /// Computes and validates the sweep-flow mixing parameter
+  Real computeSweepFlowMixingParameter(unsigned int i_gap, unsigned int iz) const;
   /// Computes Pressure Drop per channel for block iblock
   void computeDP(int iblock);
   /// Computes Pressure per channel for block iblock
@@ -75,10 +133,8 @@ protected:
   void computeMu(int iblock);
   /// Computes Residual Matrix based on the lateral momentum conservation equation for block iblock
   void computeWijResidual(int iblock);
-  /// Computes added heat for channel i_ch and cell iz
-  virtual Real computeAddedHeatPin(unsigned int i_ch, unsigned int iz) = 0;
-  /// Function that computes the heat flux added by the duct
-  Real computeAddedHeatDuct(unsigned int i_ch, unsigned int iz);
+  /// Function that computes the width of the duct cell that the peripheral subchannel i_ch sees
+  virtual Real getSubChannelPeripheralDuctWidth(unsigned int i_ch) const = 0;
   /// Computes Residual Vector based on the lateral momentum conservation equation for block iblock & updates flow variables based on current crossflow solution
   libMesh::DenseVector<Real> residualFunction(int iblock, libMesh::DenseVector<Real> solution);
   /// Computes solution of nonlinear equation using snes and provided a residual in a formFunction
@@ -93,16 +149,51 @@ protected:
 
   /// Function to initialize the solution & geometry fields
   virtual void initializeSolution() = 0;
+  /// Detects whether pin diameter or duct displacement fields require geometry recalculation
+  void detectDeformation();
 
   /// Functions that computes the interpolation scheme given the Peclet number
   PetscScalar computeInterpolationCoefficients(PetscScalar Peclet = 0.0);
   PetscScalar
   computeInterpolatedValue(PetscScalar topValue, PetscScalar botValue, PetscScalar Peclet = 0.0);
 
+  /// inline function that is used to define the gravity direction
+  Real computeGravityDir(const MooseEnum & dir) const
+  {
+    switch (dir)
+    {
+      case 0: // counter_flow
+        return 1.0;
+      case 1: // co_flow
+        return -1.0;
+      case 2: // none
+        return 0.0;
+      default:
+        mooseError(name(), ": Invalid gravity direction: expected counter_flow, co_flow, or none");
+    }
+  }
+
+  /**
+   * Solve a linear system (A * x = rhs) with a simple PCJACOBI KSP and populate the
+   * enthalpy solution into _h_soln for nodes [first_node, last_node].
+   *
+   * Uses member tolerances (_rtol, _atol, _dtol, _maxit), mesh (_subchannel_mesh),
+   * channel count (_n_channels), and error/solution handles (mooseError, _h_soln).
+   *
+   * @param A            PETSc matrix (operators)
+   * @param rhs          PETSc vector (right-hand side)
+   * @param first_node   inclusive start axial node index
+   * @param last_node    inclusive end axial node index
+   * @param ksp_prefix   options prefix for KSP (e.g. "h_sys_"), may be nullptr
+   */
+  PetscErrorCode solveAndPopulateEnthalpy(
+      Mat A, Vec rhs, unsigned int first_node, unsigned int last_node, const char * ksp_prefix);
+
   PetscErrorCode cleanUp();
   SubChannelMesh & _subchannel_mesh;
   /// number of axial blocks
   unsigned int _n_blocks;
+  libMesh::DenseMatrix<Real> _DP;
   libMesh::DenseMatrix<Real> & _Wij;
   libMesh::DenseMatrix<Real> _Wij_old;
   libMesh::DenseMatrix<Real> _WijPrime;
@@ -114,9 +205,6 @@ protected:
   unsigned int _n_pins;
   unsigned int _n_channels;
   unsigned int _block_size;
-  Real _outer_channels;
-  /// average relative error in pressure drop of channels
-  Real _dpz_error;
   /// axial location of nodes
   std::vector<Real> _z_grid;
   Real _one;
@@ -130,19 +218,19 @@ protected:
   const bool _compute_power;
   /// Flag that informs if there is a pin mesh or not
   const bool _pin_mesh_exist;
-  /// Flag that informs if there is a pin mesh or not
+  /// Flag that informs if there is a duct mesh or not
   const bool _duct_mesh_exist;
   /// Variable that informs whether we exited external solve with a converged solution or not
   bool _converged;
+  /// Whether the time integrator has been checked for consistency with the implementation
+  bool _time_integrator_checked = false;
   /// Time step
   Real _dt;
-  /// Outlet Pressure
-  const PostprocessorValue & _P_out;
   /// Turbulent modeling parameter used in axial momentum equation
-  const Real & _CT;
+  Real _CT;
   /// Convergence tolerance for the pressure loop in external solve
   const Real & _P_tol;
-  /// Convergence tolerance for the temperature loop in external solve
+  /// Convergence tolerance for the temperature loop in internal solve
   const Real & _T_tol;
   /// Maximum iterations for the inner temperature loop
   const int & _T_maxit;
@@ -156,21 +244,28 @@ protected:
   const PetscInt & _maxit;
   /// The interpolation method used in constructing the systems
   const MooseEnum _interpolation_scheme;
+  /// The direction of gravity
+  const MooseEnum _gravity_direction;
+  const Real _dir_grav;
   /// Flag to define the usage of a implicit or explicit solution
   const bool _implicit_bool;
   /// Flag to define the usage of staggered or collocated pressure
   const bool _staggered_pressure_bool;
   /// Segregated solve
   const bool _segregated_bool;
-  /// Thermal monolithic bool
-  const bool _monolithic_thermal_bool;
   /// Boolean to printout information related to subchannel solve
   const bool _verbose_subchannel;
   /// Flag that activates the effect of deformation (pin/duct) based on the auxvalues for displacement, Dpin
-  const bool _deformation;
+  bool _deformation = false;
+  /// Friction closure object
+  const SCMFrictionClosureBase * _friction_closure;
+  /// Turbulent Mixing closure object
+  const SCMMixingClosureBase * _mixing_closure;
+  /// HTC closure objects
+  const SCMHTCClosureBase * _pin_HTC_closure;
+  const SCMHTCClosureBase * _duct_HTC_closure;
 
   /// Solutions handles and link to TH tables properties
-  const SinglePhaseFluidProperties * _fp;
   std::unique_ptr<SolutionHandle> _mdot_soln;
   std::unique_ptr<SolutionHandle> _SumWij_soln;
   std::unique_ptr<SolutionHandle> _P_soln;
@@ -184,15 +279,17 @@ protected:
   std::unique_ptr<SolutionHandle> _S_flow_soln;
   std::unique_ptr<SolutionHandle> _w_perim_soln;
   std::unique_ptr<SolutionHandle> _q_prime_soln;
-  std::unique_ptr<SolutionHandle> _q_prime_duct_soln; // Only used for ducted assemblies
-  std::unique_ptr<SolutionHandle> _Tduct_soln;        // Only used for ducted assemblies
+  std::unique_ptr<SolutionHandle> _duct_heat_flux_soln; // Only used for ducted assemblies
+  std::unique_ptr<SolutionHandle> _Tduct_soln;          // Only used for ducted assemblies
   std::unique_ptr<SolutionHandle> _displacement_soln;
+  std::unique_ptr<SolutionHandle> _ff_soln;
+  std::unique_ptr<SolutionHandle> _HTC_soln;
 
   /// Petsc Functions
   inline PetscErrorCode createPetscVector(Vec & v, PetscInt n)
   {
     PetscFunctionBegin;
-    LibmeshPetscCall(VecCreate(PETSC_COMM_WORLD, &v));
+    LibmeshPetscCall(VecCreate(PETSC_COMM_SELF, &v));
     LibmeshPetscCall(PetscObjectSetName((PetscObject)v, "Solution"));
     LibmeshPetscCall(VecSetSizes(v, PETSC_DECIDE, n));
     LibmeshPetscCall(VecSetFromOptions(v));
@@ -203,7 +300,7 @@ protected:
   inline PetscErrorCode createPetscMatrix(Mat & M, PetscInt n, PetscInt m)
   {
     PetscFunctionBegin;
-    LibmeshPetscCall(MatCreate(PETSC_COMM_WORLD, &M));
+    LibmeshPetscCall(MatCreate(PETSC_COMM_SELF, &M));
     LibmeshPetscCall(MatSetSizes(M, PETSC_DECIDE, PETSC_DECIDE, n, m));
     LibmeshPetscCall(MatSetFromOptions(M));
     LibmeshPetscCall(MatSetUp(M));
@@ -234,13 +331,6 @@ protected:
                                       const unsigned int first_axial_level,
                                       const unsigned int last_axial_level,
                                       const unsigned int cross_dimension);
-
-  template <class T>
-  PetscErrorCode populateSolutionGap(const Vec & x,
-                                     T & solution,
-                                     const unsigned int first_axial_level,
-                                     const unsigned int last_axial_level,
-                                     const unsigned int cross_dimension);
 
   //// Matrices and vectors to be used in implicit assembly
   /// Mass conservation
@@ -297,7 +387,6 @@ protected:
   /// Lateral momentum system matrix
   Mat _cmc_sys_Wij_mat;
   Vec _cmc_sys_Wij_rhs;
-  Vec _cmc_Wij_channel_dummy;
 
   /// Enthalpy
   /// Enthalpy conservation - time derivative
@@ -314,8 +403,6 @@ protected:
   /// System matrices
   Mat _hc_sys_h_mat;
   Vec _hc_sys_h_rhs;
-  /// No implicit matrix
-  PetscInt _global_counter = 0;
 
   /// Added resistances for monolithic convergence
   PetscScalar _added_K = 0.0;
@@ -390,7 +477,7 @@ SubChannel1PhaseProblem::populateVectorFromDense(Vec & x,
   PetscScalar * xx;
   PetscFunctionBegin;
   LibmeshPetscCall(VecGetArray(x, &xx));
-  for (unsigned int iz = first_axial_level; iz < last_axial_level; iz++)
+  for (unsigned int iz = first_axial_level; iz < last_axial_level + 1; iz++)
   {
     unsigned int iz_ind = iz - first_axial_level;
     for (unsigned int i_l = 0; i_l < cross_dimension; i_l++)
@@ -421,28 +508,6 @@ SubChannel1PhaseProblem::populateSolutionChan(const Vec & x,
     {
       loc_node = _subchannel_mesh.getChannelNode(i_l, iz);
       loc_solution.set(loc_node, xx[iz_ind * cross_dimension + i_l]);
-    }
-  }
-  PetscFunctionReturn(LIBMESH_PETSC_SUCCESS);
-}
-
-template <class T>
-PetscErrorCode
-SubChannel1PhaseProblem::populateSolutionGap(const Vec & x,
-                                             T & loc_solution,
-                                             const unsigned int first_axial_level,
-                                             const unsigned int last_axial_level,
-                                             const unsigned int cross_dimension)
-{
-  PetscScalar * xx;
-  PetscFunctionBegin;
-  LibmeshPetscCall(VecGetArray(x, &xx));
-  for (unsigned int iz = first_axial_level; iz < last_axial_level + 1; iz++)
-  {
-    unsigned int iz_ind = iz - first_axial_level;
-    for (unsigned int i_l = 0; i_l < cross_dimension; i_l++)
-    {
-      loc_solution(iz * cross_dimension + i_l) = xx[iz_ind * cross_dimension + i_l];
     }
   }
   PetscFunctionReturn(LIBMESH_PETSC_SUCCESS);

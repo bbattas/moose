@@ -11,6 +11,7 @@
 #include "Moose.h"
 #include "AppFactory.h"
 #include "MooseSyntax.h"
+#include "MiscApp.h"
 
 #ifdef AIR_FP_ENABLED
 #include "AirApp.h"
@@ -54,12 +55,13 @@ FluidPropertiesApp::registerApps()
 {
   const std::string doc = "Saline thermophysical fluid properties ";
 #ifdef SALINE_ENABLED
-  addCapability("saline", true, doc + "are available.");
+  addBoolCapability("saline", true, doc + "are available.");
 #else
-  addCapability("saline", false, doc + "are not available.");
+  addBoolCapability("saline", false, doc + "are not available.");
 #endif
 
   registerApp(FluidPropertiesApp);
+  MiscApp::registerApps();
 #ifdef AIR_FP_ENABLED
   registerApp(AirApp);
 #endif
@@ -101,6 +103,8 @@ FluidPropertiesApp::registerAll(Factory & f, ActionFactory & af, Syntax & syntax
 #ifdef SODIUM_FP_ENABLED
   SodiumApp::registerAll(f, af, syntax);
 #endif
+
+  MiscApp::registerAll(f, af, syntax);
 
   Registry::registerObjectsTo(f, {"FluidPropertiesApp"});
   Registry::registerActionsTo(af, {"FluidPropertiesApp"});

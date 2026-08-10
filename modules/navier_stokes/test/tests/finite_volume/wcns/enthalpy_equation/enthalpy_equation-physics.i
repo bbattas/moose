@@ -88,7 +88,7 @@ advected_interp_method = 'upwind'
 
 [FunctorMaterials]
   [fluid_props_to_mat_props]
-    type = GeneralFunctorFluidProps
+    type = NonADGeneralFunctorFluidProps
     fp = lead
     pressure = ${p_ref}
     T_fluid = 'T'
@@ -134,6 +134,10 @@ advected_interp_method = 'upwind'
 [Outputs]
   exodus = true
   execute_on = 'TIMESTEP_BEGIN FINAL'
+  [out]
+    type = Checkpoint
+    execute_on = 'TIMESTEP_END'
+  []
 []
 
 # To match the gold file

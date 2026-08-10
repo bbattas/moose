@@ -7,11 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMScalarIC.h"
 #include "MFEMProblem.h"
-#include <mfem.hpp>
 
 registerMooseObject("MooseApp", MFEMScalarIC);
 
@@ -30,7 +29,7 @@ MFEMScalarIC::MFEMScalarIC(const InputParameters & params) : MFEMInitialConditio
 void
 MFEMScalarIC::execute()
 {
-  auto & coeff = getScalarCoefficient(getParam<MFEMScalarCoefficientName>("coefficient"));
+  auto & coeff = getScalarCoefficient("coefficient");
   auto grid_function = getMFEMProblem().getGridFunction(getParam<VariableName>("variable"));
   grid_function->ProjectCoefficient(coeff);
 }

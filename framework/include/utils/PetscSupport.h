@@ -28,6 +28,11 @@ class CommandLine;
 class InputParameters;
 class ParallelParamObject;
 
+namespace libMesh
+{
+class DofMapBase;
+}
+
 namespace Moose
 {
 namespace PetscSupport
@@ -58,6 +63,26 @@ public:
 
   /// Preconditioner description
   std::string pc_description;
+};
+
+/**
+ * Activates a problem's PETSc options database for the lifetime of this scope.
+ */
+class PetscOptionsScope
+{
+public:
+  explicit PetscOptionsScope(FEProblemBase & problem);
+  ~PetscOptionsScope();
+
+  PetscOptionsScope(const PetscOptionsScope &) = delete;
+  PetscOptionsScope & operator=(const PetscOptionsScope &) = delete;
+
+private:
+  /// Problem whose PETSc options database is activated
+  FEProblemBase & _problem;
+
+  /// Whether a database was pushed and therefore needs to be popped
+  bool _pushed;
 };
 
 /**
@@ -101,11 +126,6 @@ setLinearSolverDefaults(FEProblemBase & problem, libMesh::LinearSolver<T> & line
  */
 void petscSetDefaults(FEProblemBase & problem);
 
-/**
- * Setup the PETSc DM object
- */
-void petscSetupDM(NonlinearSystemBase & nl, const std::string & dm_name);
-
 PetscErrorCode petscSetupOutput(CommandLine * cmd_line);
 
 /**
@@ -140,8 +160,13 @@ void storePetscOptions(FEProblemBase & fe_problem,
 /**
  * Set flags that will instruct the user on the reason their simulation diverged from PETSc's
  * perspective
+ * @param fe_problem The problem from which to retrieve the PETSc options
+ * @param prefix The prefix to add to the convergence flags. This should not contain a
+ * leading dash per PETSc prefix convention. Note that this function will immediately \emph add said
+ * dash at the start of \p prefix so that calls to \p PetscOptionsSetValue work. This is the
+ * reason we pass \p prefix by value
  */
-void setConvergedReasonFlags(FEProblemBase & fe_problem, const std::string & prefix);
+void setConvergedReasonFlags(FEProblemBase & fe_problem, std::string prefix);
 
 /**
  * Sets the FE problem's solve type from the input params.
@@ -166,12 +191,15 @@ void storePetscOptionsFromParams(FEProblemBase & fe_problem, const InputParamete
 /**
  * Populate flags in a given PetscOptions object using a vector of input arguments
  * @param petsc_flags Container holding the flags of the petsc options
- * @param prefix The prefix to add to the user provided \p petsc_flags
+ * @param prefix The prefix to add to the user provided \p petsc_flags. This should not contain a
+ * leading dash per PETSc prefix convention. Note that this function will immediately \emph add said
+ * dash at the start of \p prefix so that later calls to \p PetscOptionsSetValue work. This is the
+ * reason we pass \p prefix by value
  * @param param_object The \p ParallelParamObject adding the PETSc options
  * @param petsc_options Data structure which handles petsc options within moose
  */
 void addPetscFlagsToPetscOptions(const MultiMooseEnum & petsc_flags,
-                                 const std::string & prefix,
+                                 std::string prefix,
                                  const ParallelParamObject & param_object,
                                  PetscOptions & petsc_options);
 
@@ -179,14 +207,17 @@ void addPetscFlagsToPetscOptions(const MultiMooseEnum & petsc_flags,
  * Populate name and value pairs in a given PetscOptions object using vectors of input arguments
  * @param petsc_pair_options Option-value pairs of petsc settings
  * @param mesh_dimension The mesh dimension, needed for multigrid settings
- * @param prefix The prefix to add to the user provided \p petsc_flags
+ * @param prefix The prefix to add to the user provided \p petsc_pair_options. This should not
+ * contain a leading dash per PETSc prefix convention. Note that this function will immediately
+ * \emph add said dash at the start of \p prefix so that later calls to \p PetscOptionsSetValue
+ * work. This is the reason we pass \p prefix by value
  * @param param_object The \p ParallelParamObject adding the PETSc options
  * @param petsc_options Data structure which handles petsc options within moose
  */
 void addPetscPairsToPetscOptions(
     const std::vector<std::pair<MooseEnumItem, std::string>> & petsc_pair_options,
     const unsigned int mesh_dimension,
-    const std::string & prefix,
+    std::string prefix,
     const ParallelParamObject & param_object,
     PetscOptions & petsc_options);
 
@@ -244,7 +275,21 @@ void setSinglePetscOptionIfAppropriate(const MultiMooseEnum & dont_add_these_opt
                                        const std::string & value = "",
                                        FEProblemBase * const problem = nullptr);
 
-void addPetscOptionsFromCommandline();
+/**
+ * Register a BibTeX entry with PETSc's citation list so that it is printed (alongside the
+ * run-specific citations from any PETSc solvers/preconditioners used) when the PETSc -citations
+ * option is enabled. The list is printed at PetscFinalize.
+ */
+void registerPetscCitation(const std::string & bibtex);
+
+/**
+ * Insert command-line PETSc options into the active PETSc options database.
+ *
+ * When \p problem is provided, this also reapplies vector and matrix type options that may have
+ * been consumed before the options database was rebuilt, which preserves PETSc's used-option
+ * bookkeeping for command-line '-vec_type' and '*mat_type' options.
+ */
+void addPetscOptionsFromCommandline(FEProblemBase * const problem = nullptr);
 
 /**
  * Setup which side we want to apply preconditioner
@@ -297,6 +342,13 @@ void dontAddCommonKSPOptions(FEProblemBase & fe_problem);
  * object to be later set unless explicitly specified in input or on the command line.
  */
 void dontAddCommonSNESOptions(FEProblemBase & fe_problem);
+
+/**
+ * Prefixed variant: suppress common SNES options for the system identified by \p prefix
+ * (e.g. "v_sys_"). Adds the prefixed flag/key names to the blocklist so that setSolverOptions
+ * and setConvergedReasonFlags skip them for that system.
+ */
+void dontAddCommonSNESOptions(FEProblemBase & fe_problem, const std::string & prefix);
 
 /**
  * Create a matrix from a binary file. Note that the returned libMesh matrix wrapper will not

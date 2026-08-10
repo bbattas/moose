@@ -10,7 +10,12 @@
 #include "TriSubChannel1PhaseProblem.h"
 #include "AuxiliarySystem.h"
 #include "TriSubChannelMesh.h"
+#include "SubChannel1PhaseProblem.h"
+#include "SinglePhaseFluidProperties.h"
 #include "SCM.h"
+#include <limits> // for std::numeric_limits
+#include <cmath>  // for std::isnan
+#include "SCMMixingClosureBase.h"
 
 registerMooseObject("SubChannelApp", TriSubChannel1PhaseProblem);
 
@@ -63,9 +68,11 @@ TriSubChannel1PhaseProblem::cleanUp()
 void
 TriSubChannel1PhaseProblem::initializeSolution()
 {
+  detectDeformation();
+
   if (_deformation)
   {
-    /// update surface area, wetted perimeter based on: Dpin, displacement
+    // update surface area, wetted perimeter based on: Dpin, displacement
     Real standard_area, wire_area, additional_area, wetted_perimeter, displaced_area;
     auto flat_to_flat = _tri_sch_mesh.getFlatToFlat();
     auto n_rings = _tri_sch_mesh.getNumOfRings();
@@ -77,9 +84,10 @@ TriSubChannel1PhaseProblem::initializeSolution()
     auto z_blockage = _subchannel_mesh.getZBlockage();
     auto index_blockage = _subchannel_mesh.getIndexBlockage();
     auto reduction_blockage = _subchannel_mesh.getReductionBlockage();
-    auto theta = std::acos(wire_lead_length /
-                           std::sqrt(std::pow(wire_lead_length, 2) +
-                                     std::pow(libMesh::pi * (pin_diameter + wire_diameter), 2)));
+    auto theta =
+        std::acos(wire_lead_length /
+                  std::sqrt(Utility::pow<2>(wire_lead_length) +
+                            Utility::pow<2>(libMesh::pi * (pin_diameter + wire_diameter))));
     for (unsigned int iz = 0; iz < _n_cells + 1; iz++)
     {
       for (unsigned int i_ch = 0; i_ch < _n_channels; i_ch++)
@@ -108,10 +116,10 @@ TriSubChannel1PhaseProblem::initializeSolution()
 
         if (subch_type == EChannelType::CENTER)
         {
-          standard_area = std::pow(pitch, 2.0) * std::sqrt(3.0) / 4.0;
+          standard_area = Utility::pow<2>(pitch) * std::sqrt(3.0) / 4.0;
           additional_area = 0.0;
           displaced_area = 0.0;
-          wire_area = libMesh::pi * std::pow(wire_diameter, 2.0) / 8.0 / std::cos(theta);
+          wire_area = libMesh::pi * Utility::pow<2>(wire_diameter) / 8.0 / std::cos(theta);
           wetted_perimeter = rod_perimeter + 0.5 * libMesh::pi * wire_diameter / std::cos(theta);
         }
         else if (subch_type == EChannelType::EDGE)
@@ -119,28 +127,28 @@ TriSubChannel1PhaseProblem::initializeSolution()
           standard_area = pitch * (pin_diameter / 2.0 + gap);
           additional_area = 0.0;
           displaced_area = (*_displacement_soln)(node)*pitch;
-          wire_area = libMesh::pi * std::pow(wire_diameter, 2.0) / 8.0 / std::cos(theta);
+          wire_area = libMesh::pi * Utility::pow<2>(wire_diameter) / 8.0 / std::cos(theta);
           wetted_perimeter =
               rod_perimeter + 0.5 * libMesh::pi * wire_diameter / std::cos(theta) + pitch;
         }
         else
         {
-          standard_area = 1.0 / std::sqrt(3.0) * std::pow((pin_diameter / 2.0 + gap), 2.0);
+          standard_area = 1.0 / std::sqrt(3.0) * Utility::pow<2>(pin_diameter / 2.0 + gap);
           additional_area = 0.0;
           displaced_area = 1.0 / std::sqrt(3.0) *
                            (pin_diameter + 2.0 * gap + (*_displacement_soln)(node)) *
                            (*_displacement_soln)(node);
-          wire_area = libMesh::pi / 24.0 * std::pow(wire_diameter, 2.0) / std::cos(theta);
+          wire_area = libMesh::pi / 24.0 * Utility::pow<2>(wire_diameter) / std::cos(theta);
           wetted_perimeter =
               rod_perimeter + libMesh::pi * wire_diameter / std::cos(theta) / 6.0 +
               2.0 / std::sqrt(3.0) * (pin_diameter / 2.0 + gap + (*_displacement_soln)(node));
         }
 
-        /// Calculate subchannel area
+        // Calculate subchannel area
         auto subchannel_area =
             standard_area + additional_area + displaced_area - rod_area - wire_area;
 
-        /// Correct subchannel area and wetted perimeter in case of overlapping pins
+        // Correct subchannel area and wetted perimeter in case of overlapping pins
         auto overlapping_pin_area = 0.0;
         auto overlapping_wetted_perimeter = 0.0;
         for (auto i_gap : _subchannel_mesh.getChannelGaps(i_ch))
@@ -177,7 +185,7 @@ TriSubChannel1PhaseProblem::initializeSolution()
         subchannel_area += overlapping_pin_area;           // correct surface area
         wetted_perimeter += -overlapping_wetted_perimeter; // correct wetted perimeter
 
-        /// Apply area reduction on subchannels affected by blockage
+        // Apply area reduction on subchannels affected by blockage
         auto index = 0;
         for (const auto & i_blockage : index_blockage)
         {
@@ -191,7 +199,7 @@ TriSubChannel1PhaseProblem::initializeSolution()
         _w_perim_soln->set(node, wetted_perimeter);
       }
     }
-    /// update map of gap between pins (gij) based on: Dpin, displacement
+    // update map of gap between pins (gij) based on: Dpin, displacement
     for (unsigned int iz = 0; iz < _n_cells + 1; iz++)
     {
       for (unsigned int i_gap = 0; i_gap < _n_gaps; i_gap++)
@@ -217,19 +225,20 @@ TriSubChannel1PhaseProblem::initializeSolution()
             }
           }
           displacement = displacement / counter;
-          _tri_sch_mesh._gij_map[iz][i_gap] =
-              0.5 * (flat_to_flat - (n_rings - 1) * pitch * std::sqrt(3.0) -
-                     (*_Dpin_soln)(pin_node_1)) +
-              displacement;
+          _tri_sch_mesh.setGapWidth(iz,
+                                    i_gap,
+                                    0.5 * (flat_to_flat - (n_rings - 1) * pitch * std::sqrt(3.0) -
+                                           (*_Dpin_soln)(pin_node_1)) +
+                                        displacement);
         }
         else // center gap
         {
-          _tri_sch_mesh._gij_map[iz][i_gap] =
-              pitch - (*_Dpin_soln)(pin_node_1) / 2.0 - (*_Dpin_soln)(pin_node_2) / 2.0;
+          _tri_sch_mesh.setGapWidth(
+              iz, i_gap, pitch - (*_Dpin_soln)(pin_node_1) / 2.0 - (*_Dpin_soln)(pin_node_2) / 2.0);
         }
         // if pins come in contact, the gap is zero
-        if (_tri_sch_mesh._gij_map[iz][i_gap] <= 0.0)
-          _tri_sch_mesh._gij_map[iz][i_gap] = 0.0;
+        if (_tri_sch_mesh.getGapWidth(iz, i_gap) <= 0.0)
+          _tri_sch_mesh.setGapWidth(iz, i_gap, 0.0);
       }
     }
   }
@@ -250,311 +259,23 @@ TriSubChannel1PhaseProblem::initializeSolution()
 }
 
 Real
-TriSubChannel1PhaseProblem::computeFrictionFactor(FrictionStruct friction_args)
+TriSubChannel1PhaseProblem::computeAddedHeatPin(unsigned int i_ch, unsigned int iz) const
 {
-  /// The upgraded Cheng and Todreas correlation for pressure drop in hexagonal wire-wrapped rod bundles
-  auto Re = friction_args.Re;
-  auto i_ch = friction_args.i_ch;
-  auto S = friction_args.S;
-  auto w_perim = friction_args.w_perim;
-  auto Dh_i = 4.0 * S / w_perim;
-  Real aL, b1L, b2L, cL;
-  Real aT, b1T, b2T, cT;
-  const Real & pitch = _subchannel_mesh.getPitch();
-  const Real & pin_diameter = _subchannel_mesh.getPinDiameter();
-  const Real & wire_lead_length = _tri_sch_mesh.getWireLeadLength();
-  const Real & wire_diameter = _tri_sch_mesh.getWireDiameter();
-  auto p_over_d = pitch / pin_diameter;
-  auto subch_type = _subchannel_mesh.getSubchannelType(i_ch);
-  // This gap is a constant value for the whole assembly. Might want to make it
-  // subchannel specific in the future if we have duct deformation.
-  auto gap = _tri_sch_mesh.getDuctToPinGap();
-  auto w_over_d = (pin_diameter + gap) / pin_diameter;
-  auto ReL = std::pow(10, (p_over_d - 1)) * 320.0;
-  auto ReT = std::pow(10, 0.7 * (p_over_d - 1)) * 1.0E+4;
-  auto psi = std::log(Re / ReL) / std::log(ReT / ReL);
-  const Real lambda = 7.0;
-  auto theta = std::acos(wire_lead_length /
-                         std::sqrt(std::pow(wire_lead_length, 2) +
-                                   std::pow(libMesh::pi * (pin_diameter + wire_diameter), 2)));
-  auto wd_t = (19.56 - 98.71 * (wire_diameter / pin_diameter) +
-               303.47 * std::pow((wire_diameter / pin_diameter), 2.0)) *
-              std::pow((wire_lead_length / pin_diameter), -0.541);
-  auto wd_l = 1.4 * wd_t;
-  auto ws_t = -11.0 * std::log(wire_lead_length / pin_diameter) + 19.0;
-  auto ws_l = ws_t;
-  Real pw_p = 0.0;
-  Real ar = 0.0;
-  Real a_p = 0.0;
+  if (!_pin_mesh_exist)
+    return 0.0;
 
-  // Find the coefficients of bare Pin bundle friction factor
-  // correlations for turbulent and laminar flow regimes. Todreas & Kazimi, Nuclear Systems
-  // second edition, Volume 1, Chapter 9.6
-  if (subch_type == EChannelType::CENTER)
+  // Compute axial location of nodes.
+  auto z2 = _z_grid[iz];
+  auto z1 = _z_grid[iz - 1];
+  auto heated_length = _subchannel_mesh.getHeatedLength();
+  auto unheated_length_entry = _subchannel_mesh.getHeatedLengthEntry();
+  if (MooseUtils::absoluteFuzzyGreaterThan(z2, unheated_length_entry) &&
+      MooseUtils::absoluteFuzzyLessThan(z1, unheated_length_entry + heated_length))
   {
-    if (p_over_d < 1.1)
-    {
-      aL = 26.0;
-      b1L = 888.2;
-      b2L = -3334.0;
-      aT = 0.09378;
-      b1T = 1.398;
-      b2T = -8.664;
-    }
-    else
-    {
-      aL = 62.97;
-      b1L = 216.9;
-      b2L = -190.2;
-      aT = 0.1458;
-      b1T = 0.03632;
-      b2T = -0.03333;
-    }
-    // laminar flow friction factor for bare Pin bundle - Center subchannel
-    cL = aL + b1L * (p_over_d - 1) + b2L * std::pow((p_over_d - 1), 2.0);
-    // turbulent flow friction factor for bare Pin bundle - Center subchannel
-    cT = aT + b1T * (p_over_d - 1) + b2T * std::pow((p_over_d - 1), 2.0);
-  }
-  else if (subch_type == EChannelType::EDGE)
-  {
-    if (w_over_d < 1.1)
-    {
-      aL = 26.18;
-      b1L = 554.5;
-      b2L = -1480.0;
-      aT = 0.09377;
-      b1T = 0.8732;
-      b2T = -3.341;
-    }
-    else
-    {
-      aL = 44.4;
-      b1L = 256.7;
-      b2L = -267.6;
-      aT = 0.1430;
-      b1T = 0.04199;
-      b2T = -0.04428;
-    }
-    // laminar flow friction factor for bare Pin bundle - Edge subchannel
-    cL = aL + b1L * (w_over_d - 1) + b2L * std::pow((w_over_d - 1), 2.0);
-    // turbulent flow friction factor for bare Pin bundle - Edge subchannel
-    cT = aT + b1T * (w_over_d - 1) + b2T * std::pow((w_over_d - 1), 2.0);
-  }
-  else
-  {
-    if (w_over_d < 1.1)
-    {
-      aL = 26.98;
-      b1L = 1636.0;
-      b2L = -10050.0;
-      aT = 0.1004;
-      b1T = 1.625;
-      b2T = -11.85;
-    }
-    else
-    {
-      aL = 87.26;
-      b1L = 38.59;
-      b2L = -55.12;
-      aT = 0.1499;
-      b1T = 0.006706;
-      b2T = -0.009567;
-    }
-    // laminar flow friction factor for bare Pin bundle - Corner subchannel
-    cL = aL + b1L * (w_over_d - 1) + b2L * std::pow((w_over_d - 1), 2.0);
-    // turbulent flow friction factor for bare Pin bundle - Corner subchannel
-    cT = aT + b1T * (w_over_d - 1) + b2T * std::pow((w_over_d - 1), 2.0);
-  }
-
-  // Find the coefficients of wire-wrapped Pin bundle friction factor
-  // correlations for turbulent and laminar flow regimes. Todreas & Kazimi, Nuclear Systems
-  // Volume 1 Chapter 9-6 also Chen and Todreas (2018).
-  if ((wire_diameter != 0.0) && (wire_lead_length != 0.0))
-  {
-    if (subch_type == EChannelType::CENTER)
-    {
-      // wetted perimeter for center subchannel and bare Pin bundle
-      pw_p = libMesh::pi * pin_diameter / 2.0;
-      // wire projected area - center subchannel wire-wrapped bundle
-      ar = libMesh::pi * (pin_diameter + wire_diameter) * wire_diameter / 6.0;
-      // bare Pin bundle center subchannel flow area (normal area + wire area)
-      a_p = S + libMesh::pi * std::pow(wire_diameter, 2.0) / 8.0 / std::cos(theta);
-      // turbulent friction factor equation constant - Center subchannel
-      cT *= (pw_p / w_perim);
-      cT += wd_t * (3.0 * ar / a_p) * (Dh_i / wire_lead_length) *
-            std::pow((Dh_i / wire_diameter), 0.18);
-      // laminar friction factor equation constant - Center subchannel
-      cL *= (pw_p / w_perim);
-      cL += wd_l * (3.0 * ar / a_p) * (Dh_i / wire_lead_length) * (Dh_i / wire_diameter);
-    }
-    else if (subch_type == EChannelType::EDGE)
-    {
-      // wire projected area - edge subchannel wire-wrapped bundle
-      ar = libMesh::pi * (pin_diameter + wire_diameter) * wire_diameter / 4.0;
-      // bare Pin bundle edge subchannel flow area (normal area + wire area)
-      a_p = S + libMesh::pi * std::pow(wire_diameter, 2.0) / 8.0 / std::cos(theta);
-      // turbulent friction factor equation constant - Edge subchannel
-      cT *= std::pow((1 + ws_t * (ar / a_p) * std::pow(std::tan(theta), 2.0)), 1.41);
-      // laminar friction factor equation constant - Edge subchannel
-      cL *= (1 + ws_l * (ar / a_p) * std::pow(std::tan(theta), 2.0));
-    }
-    else
-    {
-      // wire projected area - corner subchannel wire-wrapped bundle
-      ar = libMesh::pi * (pin_diameter + wire_diameter) * wire_diameter / 6.0;
-      // bare Pin bundle corner subchannel flow area (normal area + wire area)
-      a_p = S + libMesh::pi * std::pow(wire_diameter, 2.0) / 24.0 / std::cos(theta);
-      // turbulent friction factor equation constant - Corner subchannel
-      cT *= std::pow((1 + ws_t * (ar / a_p) * std::pow(std::tan(theta), 2.0)), 1.41);
-      // laminar friction factor equation constant - Corner subchannel
-      cL *= (1 + ws_l * (ar / a_p) * std::pow(std::tan(theta), 2.0));
-    }
-  }
-
-  // laminar friction factor
-  auto fL = cL / Re;
-  // turbulent friction factor
-  auto fT = cT / std::pow(Re, 0.18);
-
-  if (Re < ReL)
-  {
-    // laminar flow
-    return fL;
-  }
-  else if (Re > ReT)
-  {
-    // turbulent flow
-    return fT;
-  }
-  else
-  {
-    // transient flow: psi definition uses a Bulk ReT/ReL number, same for all channels
-    return fL * std::pow((1 - psi), 1.0 / 3.0) * (1 - std::pow(psi, lambda)) +
-           fT * std::pow(psi, 1.0 / 3.0);
-  }
-}
-
-Real
-TriSubChannel1PhaseProblem::computeBeta(unsigned int i_gap, unsigned int iz)
-{
-  auto beta = 0.0;
-  const Real & pitch = _subchannel_mesh.getPitch();
-  const Real & pin_diameter = _subchannel_mesh.getPinDiameter();
-  const Real & wire_lead_length = _tri_sch_mesh.getWireLeadLength();
-  const Real & wire_diameter = _tri_sch_mesh.getWireDiameter();
-  auto chans = _subchannel_mesh.getGapChannels(i_gap);
-  unsigned int i_ch = chans.first;
-  unsigned int j_ch = chans.second;
-  auto subch_type1 = _subchannel_mesh.getSubchannelType(i_ch);
-  auto subch_type2 = _subchannel_mesh.getSubchannelType(j_ch);
-  auto * node_in_i = _subchannel_mesh.getChannelNode(i_ch, iz - 1);
-  auto * node_out_i = _subchannel_mesh.getChannelNode(i_ch, iz);
-  auto * node_in_j = _subchannel_mesh.getChannelNode(j_ch, iz - 1);
-  auto * node_out_j = _subchannel_mesh.getChannelNode(j_ch, iz);
-  auto Si_in = (*_S_flow_soln)(node_in_i);
-  auto Sj_in = (*_S_flow_soln)(node_in_j);
-  auto Si_out = (*_S_flow_soln)(node_out_i);
-  auto Sj_out = (*_S_flow_soln)(node_out_j);
-  auto S_total = Si_in + Sj_in + Si_out + Sj_out;
-  auto Si = 0.5 * (Si_in + Si_out);
-  auto Sj = 0.5 * (Sj_in + Sj_out);
-  auto w_perim_i = 0.5 * ((*_w_perim_soln)(node_in_i) + (*_w_perim_soln)(node_out_i));
-  auto w_perim_j = 0.5 * ((*_w_perim_soln)(node_in_j) + (*_w_perim_soln)(node_out_j));
-  auto avg_mu = (1 / S_total) * ((*_mu_soln)(node_out_i)*Si_out + (*_mu_soln)(node_in_i)*Si_in +
-                                 (*_mu_soln)(node_out_j)*Sj_out + (*_mu_soln)(node_in_j)*Sj_in);
-  auto avg_hD = 4.0 * (Si + Sj) / (w_perim_i + w_perim_j);
-  auto avg_massflux =
-      0.5 * (((*_mdot_soln)(node_in_i) + (*_mdot_soln)(node_in_j)) / (Si_in + Sj_in) +
-             ((*_mdot_soln)(node_out_i) + (*_mdot_soln)(node_out_j)) / (Si_out + Sj_out));
-  auto Re = avg_massflux * avg_hD / avg_mu;
-  // crossflow area between channels i,j (dz*gap_width)
-  auto gap = _subchannel_mesh.getGapWidth(iz, i_gap);
-  // Calculation of flow regime
-  auto ReL = 320.0 * std::pow(10.0, pitch / pin_diameter - 1);
-  auto ReT = 10000.0 * std::pow(10.0, 0.7 * (pitch / pin_diameter - 1));
-  // Calculation of Turbulent Crossflow for wire-wrapped triangular assemblies. Cheng &
-  // Todreas (1986)
-  if ((subch_type1 == EChannelType::CENTER || subch_type2 == EChannelType::CENTER) &&
-      (wire_lead_length != 0) && (wire_diameter != 0))
-  {
-    // Calculation of geometric parameters
-    auto theta = std::acos(wire_lead_length /
-                           std::sqrt(std::pow(wire_lead_length, 2) +
-                                     std::pow(libMesh::pi * (pin_diameter + wire_diameter), 2)));
-    auto Ar1 = libMesh::pi * (pin_diameter + wire_diameter) * wire_diameter / 6.0;
-    auto A1prime =
-        (std::sqrt(3.0) / 4.0) * std::pow(pitch, 2) - libMesh::pi * std::pow(pin_diameter, 2) / 8.0;
-    auto A1 = A1prime - libMesh::pi * std::pow(wire_diameter, 2) / 8.0 / std::cos(theta);
-    auto Cm = 0.0;
-    if (Re < ReL)
-    {
-      Cm = 0.077 * std::pow((pitch - pin_diameter) / pin_diameter, -0.5);
-    }
-    else if (Re > ReT)
-    {
-      Cm = 0.14 * std::pow((pitch - pin_diameter) / pin_diameter, -0.5);
-    }
-    else
-    {
-      auto psi = (std::log(Re) - std::log(ReL)) / (std::log(ReT) - std::log(ReL));
-      auto gamma = 2.0 / 3.0;
-      Cm = 0.14 * std::pow((pitch - pin_diameter) / pin_diameter, -0.5) +
-           (0.14 * std::pow((pitch - pin_diameter) / pin_diameter, -0.5) -
-            0.077 * std::pow((pitch - pin_diameter) / pin_diameter, -0.5)) *
-               std::pow(psi, gamma);
-    }
-    // Calculation of turbulent mixing parameter
-    beta = Cm * std::pow(Ar1 / A1, 0.5) * std::tan(theta);
-  }
-  // Calculation of Turbulent Crossflow for bare assemblies, from Kim and Chung (2001).
-  else if ((wire_lead_length == 0) && (wire_diameter == 0))
-  {
-    Real gamma = 20.0;   // empirical constant
-    Real sf = 2.0 / 3.0; // shape factor
-    Real a = 0.18;
-    Real b = 0.2;
-    auto f = a * std::pow(Re, -b); // Rehme 1992 circular tube friction factor
-    auto k = (1 / S_total) *
-             (_fp->k_from_p_T((*_P_soln)(node_out_i) + _P_out, (*_T_soln)(node_out_i)) * Si_out +
-              _fp->k_from_p_T((*_P_soln)(node_in_i) + _P_out, (*_T_soln)(node_in_i)) * Si_in +
-              _fp->k_from_p_T((*_P_soln)(node_out_j) + _P_out, (*_T_soln)(node_out_j)) * Sj_out +
-              _fp->k_from_p_T((*_P_soln)(node_in_j) + _P_out, (*_T_soln)(node_in_j)) * Sj_in);
-    auto cp = (1 / S_total) *
-              (_fp->cp_from_p_T((*_P_soln)(node_out_i) + _P_out, (*_T_soln)(node_out_i)) * Si_out +
-               _fp->cp_from_p_T((*_P_soln)(node_in_i) + _P_out, (*_T_soln)(node_in_i)) * Si_in +
-               _fp->cp_from_p_T((*_P_soln)(node_out_j) + _P_out, (*_T_soln)(node_out_j)) * Sj_out +
-               _fp->cp_from_p_T((*_P_soln)(node_in_j) + _P_out, (*_T_soln)(node_in_j)) * Sj_in);
-    auto Pr = avg_mu * cp / k;                          // Prandtl number
-    auto Pr_t = Pr * (Re / gamma) * std::sqrt(f / 8.0); // Turbulent Prandtl number
-    auto delta = pitch / std::sqrt(3.0);                // centroid to centroid distance
-    auto L_x = sf * delta;  // axial length scale (gap is the lateral length scale)
-    auto lamda = gap / L_x; // aspect ratio
-    auto a_x = 1.0 - 2.0 * lamda * lamda / libMesh::pi; // velocity coefficient
-    auto z_FP_over_D = (2.0 * L_x / pin_diameter) *
-                       (1 + (-0.5 * std::log(lamda) + 0.5 * std::log(4.0) - 0.25) * lamda * lamda);
-    auto Str = 1.0 / (0.822 * (gap / pin_diameter) + 0.144); // Strouhal number (Wu & Trupp 1994)
-    auto freq_factor = 2.0 / std::pow(gamma, 2) * std::sqrt(a / 8.0) * (avg_hD / gap);
-    auto rod_mixing = (1 / Pr_t) * lamda;
-    auto axial_mixing = a_x * z_FP_over_D * Str;
-    // Mixing Stanton number: Stg (eq 25,Kim and Chung (2001), eq 19 (Jeong et. al 2005)
-    beta = freq_factor * (rod_mixing + axial_mixing) * std::pow(Re, -b / 2.0);
-  }
-  mooseAssert(beta >= 0,
-              "beta should be positive for the inner gaps, or zero for the edge gaps, because this "
-              "case is covered "
-              "explicitly in the computeh method.");
-  return beta;
-}
-
-Real
-TriSubChannel1PhaseProblem::computeAddedHeatPin(unsigned int i_ch, unsigned int iz)
-{
-  auto dz = _z_grid[iz] - _z_grid[iz - 1];
-  auto subch_type = _subchannel_mesh.getSubchannelType(i_ch);
-
-  if (_pin_mesh_exist)
-  {
-    double factor;
+    // Compute the height of this element.
+    auto dz = z2 - z1;
+    Real factor;
+    auto subch_type = _subchannel_mesh.getSubchannelType(i_ch);
     switch (subch_type)
     {
       case EChannelType::CENTER:
@@ -581,11 +302,23 @@ TriSubChannel1PhaseProblem::computeAddedHeatPin(unsigned int i_ch, unsigned int 
     return (heat_rate_in + heat_rate_out) * dz / 2.0;
   }
   else
+    return 0.0;
+}
+
+Real
+TriSubChannel1PhaseProblem::getSubChannelPeripheralDuctWidth(unsigned int i_ch) const
+{
+  auto subch_type = _subchannel_mesh.getSubchannelType(i_ch);
+  if (subch_type == EChannelType::EDGE || subch_type == EChannelType::CORNER)
   {
-    auto * node_in = _subchannel_mesh.getChannelNode(i_ch, iz - 1);
-    auto * node_out = _subchannel_mesh.getChannelNode(i_ch, iz);
-    return ((*_q_prime_soln)(node_out) + (*_q_prime_soln)(node_in)) * dz / 2.0;
+    auto width = _subchannel_mesh.getPitch();
+    if (subch_type == EChannelType::CORNER)
+      width = 2.0 / std::sqrt(3.0) *
+              (_subchannel_mesh.getPinDiameter() / 2.0 + _tri_sch_mesh.getDuctToPinGap());
+    return width;
   }
+  else
+    mooseError("Channel is not a perimetric subchannel ");
 }
 
 void
@@ -593,8 +326,6 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
 {
   unsigned int last_node = (iblock + 1) * _block_size;
   unsigned int first_node = iblock * _block_size + 1;
-  auto heated_length = _subchannel_mesh.getHeatedLength();
-  auto unheated_length_entry = _subchannel_mesh.getHeatedLengthEntry();
   const Real & wire_lead_length = _tri_sch_mesh.getWireLeadLength();
   const Real & wire_diameter = _tri_sch_mesh.getWireDiameter();
   const Real & pitch = _subchannel_mesh.getPitch();
@@ -621,7 +352,8 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
     {
       auto z_grid = _subchannel_mesh.getZGrid();
       auto dz = z_grid[iz] - z_grid[iz - 1];
-      Real gedge_ave = 0.0;
+      // Calculation of average mass flux of all periphery subchannels
+      Real edge_flux_ave = 0.0;
       Real mdot_sum = 0.0;
       Real si_sum = 0.0;
       for (unsigned int i_ch = 0; i_ch < _n_channels; i_ch++)
@@ -636,7 +368,7 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
           si_sum = si_sum + Si;
         }
       }
-      gedge_ave = mdot_sum / si_sum;
+      edge_flux_ave = mdot_sum / si_sum;
 
       for (unsigned int i_ch = 0; i_ch < _n_channels; i_ch++)
       {
@@ -649,109 +381,71 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
         auto h_out = 0.0;
         Real sumWijh = 0.0;
         Real sumWijPrimeDhij = 0.0;
+        Real sweep_enthalpy = 0.0;
         Real e_cond = 0.0;
 
-        Real added_enthalpy;
-        if (z_grid[iz] > unheated_length_entry &&
-            z_grid[iz] <= unheated_length_entry + heated_length)
-        {
-          added_enthalpy = computeAddedHeatPin(i_ch, iz);
-        }
-        else
-          added_enthalpy = 0.0;
-
+        // Calculate added enthalpy from heatflux (Pin, Duct)
+        Real added_enthalpy = computeAddedHeatPin(i_ch, iz);
         added_enthalpy += computeAddedHeatDuct(i_ch, iz);
 
-        // compute the sweep flow enthalpy change
-        auto subch_type = _subchannel_mesh.getSubchannelType(i_ch);
-        Real sweep_enthalpy = 0.0;
-
-        if ((subch_type == EChannelType::EDGE || subch_type == EChannelType::CORNER) &&
-            (wire_diameter != 0.0) && (wire_lead_length != 0.0))
-        {
-          const Real & pitch = _subchannel_mesh.getPitch();
-          const Real & pin_diameter = _subchannel_mesh.getPinDiameter();
-          const Real & wire_lead_length = _tri_sch_mesh.getWireLeadLength();
-          const Real & wire_diameter = _tri_sch_mesh.getWireDiameter();
-          auto gap = _tri_sch_mesh.getDuctToPinGap();
-          auto w = pin_diameter + gap;
-          auto theta =
-              std::acos(wire_lead_length /
-                        std::sqrt(std::pow(wire_lead_length, 2) +
-                                  std::pow(libMesh::pi * (pin_diameter + wire_diameter), 2)));
-          auto Sij = dz * gap;
-          auto Si = (*_S_flow_soln)(node_in);
-          // in/out channels for i_ch
-          auto sweep_in = _tri_sch_mesh.getSweepFlowChans(i_ch).first;
-          auto * node_sin = _subchannel_mesh.getChannelNode(sweep_in, iz - 1);
-
-          // Calculation of flow regime
-          auto ReL = 320.0 * std::pow(10.0, pitch / pin_diameter - 1);
-          auto ReT = 10000.0 * std::pow(10.0, 0.7 * (pitch / pin_diameter - 1));
-          auto massflux = (*_mdot_soln)(node_in) / Si;
-          auto w_perim = (*_w_perim_soln)(node_in);
-          auto mu = (*_mu_soln)(node_in);
-          // hydraulic diameter
-          auto hD = 4.0 * Si / w_perim;
-          auto Re = massflux * hD / mu;
-          // Calculation of geometric parameters
-          auto Ar2 = libMesh::pi * (pin_diameter + wire_diameter) * wire_diameter / 4.0;
-          auto A2prime =
-              pitch * (w - pin_diameter / 2.0) - libMesh::pi * std::pow(pin_diameter, 2) / 8.0;
-          auto A2 = A2prime - libMesh::pi * std::pow(wire_diameter, 2) / 8.0 / std::cos(theta);
-          auto Cs = 0.0;
-          if (Re < ReL)
-          {
-            Cs = 0.033 * std::pow(wire_lead_length / pin_diameter, 0.3);
-          }
-          else if (Re > ReT)
-          {
-            Cs = 0.75 * std::pow(wire_lead_length / pin_diameter, 0.3);
-          }
-          else
-          {
-            auto psi = (std::log(Re) - std::log(ReL)) / (std::log(ReT) - std::log(ReL));
-            auto gamma = 2.0 / 3.0;
-            Cs = 0.75 * std::pow(wire_lead_length / pin_diameter, 0.3) +
-                 (0.75 * std::pow(wire_lead_length / pin_diameter, 0.3) -
-                  0.033 * std::pow(wire_lead_length / pin_diameter, 0.3)) *
-                     std::pow(psi, gamma);
-          }
-          // Calculation of turbulent mixing parameter
-          auto beta = Cs * std::pow(Ar2 / A2, 0.5) * std::tan(theta);
-
-          auto wsweep_in = gedge_ave * beta * Sij;
-          auto wsweep_out = gedge_ave * beta * Sij;
-          auto sweep_hin = (*_h_soln)(node_sin);
-          auto sweep_hout = (*_h_soln)(node_in);
-          sweep_enthalpy = (wsweep_in * sweep_hin - wsweep_out * sweep_hout);
-        }
-
-        // Calculate sum of crossflow into channel i from channels j around i
+        // Calculate net sum of enthalpy into/out-of channel i from channels j around i
+        // (Turbulent diffusion, Diversion Crossflow, Sweep flow Enthalpy, Radial heat conduction)
         unsigned int counter = 0;
         for (auto i_gap : _subchannel_mesh.getChannelGaps(i_ch))
         {
           auto chans = _subchannel_mesh.getGapChannels(i_gap);
-          unsigned int ii_ch = chans.first;
-          // i is always the smallest and first index in the mapping
-          unsigned int jj_ch = chans.second;
+          auto gap = _subchannel_mesh.getGapWidth(iz, i_gap);
+          auto Sij = dz * gap;
+          unsigned int ii_ch = chans.first;  // the first subchannel next to gap i_gap
+          unsigned int jj_ch = chans.second; // the second subchannel next to gap i_gap
           auto * node_in_i = _subchannel_mesh.getChannelNode(ii_ch, iz - 1);
           auto * node_in_j = _subchannel_mesh.getChannelNode(jj_ch, iz - 1);
+          auto subch_type_i = _subchannel_mesh.getSubchannelType(ii_ch);
+          auto subch_type_j = _subchannel_mesh.getSubchannelType(jj_ch);
           // Define donor enthalpy
           auto h_star = 0.0;
           if (_Wij(i_gap, iz) > 0.0)
             h_star = (*_h_soln)(node_in_i);
           else if (_Wij(i_gap, iz) < 0.0)
             h_star = (*_h_soln)(node_in_j);
+          // Diversion crossflow
           // take care of the sign by applying the map, use donor cell
           sumWijh += _subchannel_mesh.getCrossflowSign(i_ch, counter) * _Wij(i_gap, iz) * h_star;
-          sumWijPrimeDhij += _WijPrime(i_gap, iz) * (2 * (*_h_soln)(node_in) -
-                                                     (*_h_soln)(node_in_j) - (*_h_soln)(node_in_i));
           counter++;
+          // SWEEP FLOW is calculated if i_gap is located in the periphery
+          // and we have a wire-wrap (if i_gap is in the periphery then i_ch is in the periphery)
+          // There are two gaps per periphery subchannel that this is true.
+          if ((subch_type_i == EChannelType::CORNER || subch_type_i == EChannelType::EDGE) &&
+              (subch_type_j == EChannelType::CORNER || subch_type_j == EChannelType::EDGE) &&
+              (wire_lead_length != 0) && (wire_diameter != 0))
+          {
+            // donor subchannel and node of sweep flow. The donor subchannel is the subchannel next
+            // to i_ch that sweep flow, flows from and into i_ch
+            auto sweep_donor = _tri_sch_mesh.getSweepFlowChans(i_ch).first;
+            auto * node_sweep_donor = _subchannel_mesh.getChannelNode(sweep_donor, iz - 1);
+            // if one of the neighbor subchannels of the periphery gap is the donor subchannel
+            //(the other would be the i_ch) sweep enthalpy flows into i_ch
+            if ((ii_ch == sweep_donor) || (jj_ch == sweep_donor))
+            {
+              sweep_enthalpy += computeSweepFlowMixingParameter(i_gap, iz) * edge_flux_ave * Sij *
+                                (*_h_soln)(node_sweep_donor);
+            }
+            // else sweep enthalpy flows out of i_ch
+            else
+            {
+              sweep_enthalpy -= computeSweepFlowMixingParameter(i_gap, iz) * edge_flux_ave * Sij *
+                                (*_h_soln)(node_in);
+            }
+          }
+          // Inner gap
+          // Turbulent Diffusion
+          else
+          {
+            sumWijPrimeDhij +=
+                _WijPrime(i_gap, iz) * (2 * h_in - (*_h_soln)(node_in_j) - (*_h_soln)(node_in_i));
+          }
 
           // compute the radial heat conduction through the gaps
-          auto subch_type_i = _subchannel_mesh.getSubchannelType(ii_ch);
-          auto subch_type_j = _subchannel_mesh.getSubchannelType(jj_ch);
           Real dist_ij = pitch;
 
           if (subch_type_i == EChannelType::EDGE && subch_type_j == EChannelType::EDGE)
@@ -768,7 +462,6 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
             dist_ij = pitch / std::sqrt(3);
           }
 
-          auto Sij = dz * _subchannel_mesh.getGapWidth(iz, i_gap);
           auto thcon_i = _fp->k_from_p_T((*_P_soln)(node_in_i) + _P_out, (*_T_soln)(node_in_i));
           auto thcon_j = _fp->k_from_p_T((*_P_soln)(node_in_j) + _P_out, (*_T_soln)(node_in_j));
           auto shape_factor =
@@ -851,8 +544,6 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
     for (unsigned int iz = first_node; iz < last_node + 1; iz++)
     {
       auto dz = _z_grid[iz] - _z_grid[iz - 1];
-      auto heated_length = _subchannel_mesh.getHeatedLength();
-      auto unheated_length_entry = _subchannel_mesh.getHeatedLengthEntry();
       auto pitch = _subchannel_mesh.getPitch();
       auto pin_diameter = _subchannel_mesh.getPinDiameter();
       auto iz_ind = iz - first_node;
@@ -887,7 +578,7 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
         }
         auto alpha = computeInterpolationCoefficients(Pe);
 
-        /// Time derivative term
+        // Time derivative term
         if (iz == first_node)
         {
           PetscScalar value_vec_tt =
@@ -922,7 +613,7 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
         LibmeshPetscCall(
             VecSetValues(_hc_time_derivative_rhs, 1, &row_vec_tt, &value_vec_tt, ADD_VALUES));
 
-        /// Advective derivative term
+        // Advective derivative term
         if (iz == first_node)
         {
           PetscInt row_at = i_ch + _n_channels * iz_ind;
@@ -974,7 +665,7 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
               _hc_advective_derivative_mat, 1, &row_at, 1, &col_at, &value_at, ADD_VALUES));
         }
 
-        /// Axial heat conduction
+        // Axial heat conduction
         auto * node_center = _subchannel_mesh.getChannelNode(i_ch, iz);
         auto K_center = _fp->k_from_p_T((*_P_soln)(node_center) + _P_out, (*_T_soln)(node_center));
         auto cp_center =
@@ -1094,7 +785,7 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
               _hc_axial_heat_conduction_mat, 1, &row_at, 1, &col_at, &value_at, INSERT_VALUES));
         }
 
-        /// Radial Terms
+        // Radial Terms
         unsigned int counter = 0;
         unsigned int cross_index = iz;
         // Real radial_heat_conduction(0.0);
@@ -1215,7 +906,7 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
           LibmeshPetscCall(MatSetValues(
               _hc_cross_derivative_mat, 1, &row_ct, 1, &col_ct, &value_right_ct, ADD_VALUES));
 
-          /// Radial heat conduction
+          // Radial heat conduction
           auto subch_type_i = _subchannel_mesh.getSubchannelType(ii_ch);
           auto subch_type_j = _subchannel_mesh.getSubchannelType(jj_ch);
           Real dist_ij = pitch;
@@ -1271,8 +962,9 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
           counter++;
         }
 
-        // compute the sweep flow enthalpy change
-        Real gedge_ave = 0.0;
+        // Compute the sweep flow enthalpy change
+        // Calculation of average mass flux of all periphery subchannels
+        Real edge_flux_ave = 0.0;
         Real mdot_sum = 0.0;
         Real si_sum = 0.0;
         for (unsigned int i_ch = 0; i_ch < _n_channels; i_ch++)
@@ -1287,66 +979,51 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
             si_sum = si_sum + Si;
           }
         }
-        gedge_ave = mdot_sum / si_sum;
+        edge_flux_ave = mdot_sum / si_sum;
         auto subch_type = _subchannel_mesh.getSubchannelType(i_ch);
         PetscScalar sweep_enthalpy = 0.0;
         if ((subch_type == EChannelType::EDGE || subch_type == EChannelType::CORNER) &&
             (wire_diameter != 0.0) && (wire_lead_length != 0.0))
         {
-          const Real & pitch = _subchannel_mesh.getPitch();
-          const Real & pin_diameter = _subchannel_mesh.getPinDiameter();
-          const Real & wire_lead_length = _tri_sch_mesh.getWireLeadLength();
-          const Real & wire_diameter = _tri_sch_mesh.getWireDiameter();
-          auto gap = _tri_sch_mesh.getDuctToPinGap();
-          auto w = pin_diameter + gap;
-          auto theta =
-              std::acos(wire_lead_length /
-                        std::sqrt(std::pow(wire_lead_length, 2) +
-                                  std::pow(libMesh::pi * (pin_diameter + wire_diameter), 2)));
-          auto Sij = dz * gap;
-          auto Si = (*_S_flow_soln)(node_in);
-          // in/out channels for i_ch
-          auto sweep_in = _tri_sch_mesh.getSweepFlowChans(i_ch).first;
-          auto * node_sin = _subchannel_mesh.getChannelNode(sweep_in, iz - 1);
-
-          // Calculation of flow regime
-          auto ReL = 320.0 * std::pow(10.0, pitch / pin_diameter - 1);
-          auto ReT = 10000.0 * std::pow(10.0, 0.7 * (pitch / pin_diameter - 1));
-          auto massflux = (*_mdot_soln)(node_in) / Si;
-          auto w_perim = (*_w_perim_soln)(node_in);
-          auto mu = (*_mu_soln)(node_in);
-          // hydraulic diameter
-          auto hD = 4.0 * Si / w_perim;
-          auto Re = massflux * hD / mu;
-          // Calculation of geometric parameters
-          auto Ar2 = libMesh::pi * (pin_diameter + wire_diameter) * wire_diameter / 4.0;
-          auto A2prime =
-              pitch * (w - pin_diameter / 2.0) - libMesh::pi * std::pow(pin_diameter, 2) / 8.0;
-          auto A2 = A2prime - libMesh::pi * std::pow(wire_diameter, 2) / 8.0 / std::cos(theta);
-          auto Cs = 0.0;
-          if (Re < ReL)
-          {
-            Cs = 0.033 * std::pow(wire_lead_length / pin_diameter, 0.3);
-          }
-          else if (Re > ReT)
-          {
-            Cs = 0.75 * std::pow(wire_lead_length / pin_diameter, 0.3);
-          }
-          else
-          {
-            auto psi = (std::log(Re) - std::log(ReL)) / (std::log(ReT) - std::log(ReL));
-            auto gamma = 2.0 / 3.0;
-            Cs = 0.75 * std::pow(wire_lead_length / pin_diameter, 0.3) +
-                 (0.75 * std::pow(wire_lead_length / pin_diameter, 0.3) -
-                  0.033 * std::pow(wire_lead_length / pin_diameter, 0.3)) *
-                     std::pow(psi, gamma);
-          }
+          auto beta_in = std::numeric_limits<double>::quiet_NaN();
+          auto beta_out = std::numeric_limits<double>::quiet_NaN();
+          // donor sweep channel for i_ch
+          auto sweep_donor = _tri_sch_mesh.getSweepFlowChans(i_ch).first;
+          auto * node_sweep_donor = _subchannel_mesh.getChannelNode(sweep_donor, iz - 1);
           // Calculation of turbulent mixing parameter
-          auto beta = Cs * std::pow(Ar2 / A2, 0.5) * std::tan(theta);
+          for (auto i_gap : _subchannel_mesh.getChannelGaps(i_ch))
+          {
+            auto chans = _subchannel_mesh.getGapChannels(i_gap);
+            unsigned int ii_ch = chans.first;
+            unsigned int jj_ch = chans.second;
+            auto subch_type_i = _subchannel_mesh.getSubchannelType(ii_ch);
+            auto subch_type_j = _subchannel_mesh.getSubchannelType(jj_ch);
+            if ((subch_type_i == EChannelType::CORNER || subch_type_i == EChannelType::EDGE) &&
+                (subch_type_j == EChannelType::CORNER || subch_type_j == EChannelType::EDGE))
+            {
+              if ((ii_ch == sweep_donor) || (jj_ch == sweep_donor))
+              {
+                beta_in = computeSweepFlowMixingParameter(i_gap, iz);
+              }
+              else
+              {
+                beta_out = computeSweepFlowMixingParameter(i_gap, iz);
+              }
+            }
+          }
+          // Abort execution if required values are unset
+          mooseAssert(!std::isnan(beta_in),
+                      "beta_in was not set. Check gap logic for i_ch = " + std::to_string(i_ch) +
+                          ", iz = " + std::to_string(iz));
+          mooseAssert(!std::isnan(beta_out),
+                      "beta_out was not set. Check gap logic for i_ch = " + std::to_string(i_ch) +
+                          ", iz = " + std::to_string(iz));
 
-          auto wsweep_in = gedge_ave * beta * Sij;
-          auto wsweep_out = gedge_ave * beta * Sij;
-          auto sweep_hin = (*_h_soln)(node_sin);
+          auto gap = _tri_sch_mesh.getDuctToPinGap();
+          auto Sij = dz * gap;
+          auto wsweep_in = edge_flux_ave * beta_in * Sij;
+          auto wsweep_out = edge_flux_ave * beta_out * Sij;
+          auto sweep_hin = (*_h_soln)(node_sweep_donor);
           auto sweep_hout = (*_h_soln)(node_in);
           sweep_enthalpy = (wsweep_in * sweep_hin - wsweep_out * sweep_hout);
 
@@ -1359,31 +1036,28 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
           }
           else
           {
+            // coefficient of sweep_hin
             PetscInt row_sh = i_ch + _n_channels * (iz_ind - 1);
             PetscInt col_sh = i_ch + _n_channels * (iz_ind - 1);
             LibmeshPetscCall(MatSetValues(
                 _hc_sweep_enthalpy_mat, 1, &row_sh, 1, &col_sh, &wsweep_out, ADD_VALUES));
-            PetscInt col_sh_l = sweep_in + _n_channels * (iz_ind - 1);
+            PetscInt col_sh_l = sweep_donor + _n_channels * (iz_ind - 1);
             PetscScalar neg_sweep_in = -1.0 * wsweep_in;
+            // coefficient of sweep_hout
             LibmeshPetscCall(MatSetValues(
                 _hc_sweep_enthalpy_mat, 1, &row_sh, 1, &col_sh_l, &(neg_sweep_in), ADD_VALUES));
           }
         }
 
-        /// Add heat enthalpy from pin
-        PetscScalar added_enthalpy;
-        if (_z_grid[iz] > unheated_length_entry &&
-            _z_grid[iz] <= unheated_length_entry + heated_length)
-          added_enthalpy = computeAddedHeatPin(i_ch, iz);
-        else
-          added_enthalpy = 0.0;
+        // Add heat enthalpy from pin and/or duct
+        PetscScalar added_enthalpy = computeAddedHeatPin(i_ch, iz);
         added_enthalpy += computeAddedHeatDuct(i_ch, iz);
         PetscInt row_vec_ht = i_ch + _n_channels * iz_ind;
         LibmeshPetscCall(
             VecSetValues(_hc_added_heat_rhs, 1, &row_vec_ht, &added_enthalpy, ADD_VALUES));
       }
     }
-    /// Assembling system
+    // Assembling system
     LibmeshPetscCall(MatAssemblyBegin(_hc_time_derivative_mat, MAT_FINAL_ASSEMBLY));
     LibmeshPetscCall(MatAssemblyEnd(_hc_time_derivative_mat, MAT_FINAL_ASSEMBLY));
     LibmeshPetscCall(MatAssemblyBegin(_hc_advective_derivative_mat, MAT_FINAL_ASSEMBLY));
@@ -1398,7 +1072,7 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
     LibmeshPetscCall(MatAssemblyEnd(_hc_sweep_enthalpy_mat, MAT_FINAL_ASSEMBLY));
     LibmeshPetscCall(MatAssemblyBegin(_hc_sys_h_mat, MAT_FINAL_ASSEMBLY));
     LibmeshPetscCall(MatAssemblyEnd(_hc_sys_h_mat, MAT_FINAL_ASSEMBLY));
-    /// Add all matrices together
+    // Add all matrices together
     LibmeshPetscCall(
         MatAXPY(_hc_sys_h_mat, 1.0, _hc_time_derivative_mat, DIFFERENT_NONZERO_PATTERN));
     LibmeshPetscCall(MatAssemblyBegin(_hc_sys_h_mat, MAT_FINAL_ASSEMBLY));
@@ -1434,44 +1108,8 @@ TriSubChannel1PhaseProblem::computeh(int iblock)
     LibmeshPetscCall(VecAXPY(_hc_sys_h_rhs, 1.0, _hc_radial_heat_conduction_rhs));
     LibmeshPetscCall(VecAXPY(_hc_sys_h_rhs, 1.0, _hc_sweep_enthalpy_rhs));
 
-    if (_segregated_bool || (!_monolithic_thermal_bool))
-    {
-      // Assembly the matrix system
-      KSP ksploc;
-      PC pc;
-      Vec sol;
-      LibmeshPetscCall(VecDuplicate(_hc_sys_h_rhs, &sol));
-      LibmeshPetscCall(KSPCreate(PETSC_COMM_WORLD, &ksploc));
-      LibmeshPetscCall(KSPSetOperators(ksploc, _hc_sys_h_mat, _hc_sys_h_mat));
-      LibmeshPetscCall(KSPGetPC(ksploc, &pc));
-      LibmeshPetscCall(PCSetType(pc, PCJACOBI));
-      LibmeshPetscCall(KSPSetTolerances(ksploc, _rtol, _atol, _dtol, _maxit));
-      LibmeshPetscCall(KSPSetOptionsPrefix(ksploc, "h_sys_"));
-      LibmeshPetscCall(KSPSetFromOptions(ksploc));
-      LibmeshPetscCall(KSPSolve(ksploc, _hc_sys_h_rhs, sol));
-      // VecView(sol, PETSC_VIEWER_STDOUT_WORLD);
-      PetscScalar * xx;
-      LibmeshPetscCall(VecGetArray(sol, &xx));
-      for (unsigned int iz = first_node; iz < last_node + 1; iz++)
-      {
-        auto iz_ind = iz - first_node;
-        for (unsigned int i_ch = 0; i_ch < _n_channels; i_ch++)
-        {
-          auto * node_out = _subchannel_mesh.getChannelNode(i_ch, iz);
-          auto h_out = xx[iz_ind * _n_channels + i_ch];
-          if (h_out < 0)
-          {
-            mooseError(name(),
-                       " : Calculation of negative Enthalpy h_out = : ",
-                       h_out,
-                       " Axial Level= : ",
-                       iz);
-          }
-          _h_soln->set(node_out, h_out);
-        }
-      }
-      LibmeshPetscCall(KSPDestroy(&ksploc));
-      LibmeshPetscCall(VecDestroy(&sol));
-    }
+    // Use system to solve for and populate enthalpy
+    LibmeshPetscCall(this->solveAndPopulateEnthalpy(
+        _hc_sys_h_mat, _hc_sys_h_rhs, first_node, last_node, "h_sys_"));
   }
 }

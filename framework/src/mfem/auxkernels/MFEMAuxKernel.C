@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMAuxKernel.h"
 #include "MFEMProblem.h"
@@ -15,21 +15,26 @@
 InputParameters
 MFEMAuxKernel::validParams()
 {
-  InputParameters params = MFEMGeneralUserObject::validParams();
+  InputParameters params = MFEMExecutedObject::validParams();
   params.registerBase("AuxKernel");
-  params.addClassDescription("Base class for MFEMGeneralUserObjects that update auxiliary "
-                             "variables outside of the main solve step.");
+  params.addClassDescription("Base class for MFEM objects that update auxiliary variables outside "
+                             "of the main solve step.");
   params.addRequiredParam<AuxVariableName>("variable",
                                            "The name of the variable that this object applies to");
   return params;
 }
 
 MFEMAuxKernel::MFEMAuxKernel(const InputParameters & parameters)
-  : MFEMGeneralUserObject(parameters),
+  : MFEMExecutedObject(parameters),
     _result_var_name(getParam<AuxVariableName>("variable")),
-    _result_var(*getMFEMProblem().getProblemData().gridfunctions.Get(_result_var_name))
+    _result_var(*getMFEMProblem().getGridFunction(_result_var_name))
 {
-  _result_var = 0.0;
+}
+
+std::optional<std::string>
+MFEMAuxKernel::suppliedVariableName() const
+{
+  return _result_var_name;
 }
 
 #endif

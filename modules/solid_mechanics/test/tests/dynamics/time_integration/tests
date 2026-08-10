@@ -81,6 +81,7 @@
     requirement = "The solid mechanics app shall support a form of central difference time integration
                    that uses a direct calculation of the acceleration from the residual forces to
                    perform a solution update."
+    restep = false # ExplicitMixedOrder cannot handle repeating a timestep
     design = "ExplicitMixedOrder.md"
     issues = "#27833"
   []
@@ -93,6 +94,7 @@
                    that uses a direct calculation of the acceleration from the residual forces to
                    perform a solution update. The direct central difference method should properly use
                    a time step averaging method to handle non-constant time steps."
+    restep = false # ExplicitMixedOrder cannot handle repeating a timestep
     design = "ExplicitMixedOrder.md"
     issues = "#27833"
   []
@@ -104,7 +106,18 @@
     requirement = "The solid mechanics app shall support dirichlet boundary conditions for direct central
                    difference time integration that correctly enforce constant and function boundary
                    conditions"
+    restep = false # ExplicitMixedOrder cannot handle repeating a timestep
     design = "ExplicitMixedOrder.md"
     issues = "#27833"
+  []
+  [mass_scaling]
+    type = 'Exodiff'
+    input = 'mass_scaling.i'
+    exodiff = 'mass_scaling_out.e'
+    requirement = "The solid mechanics app shall support mass scaling to enable taking time steps larger than those permitted by the stability condition when
+                   using explicit time stepping."
+    restep = false # ExplicitMixedOrder cannot handle repeating a timestep
+    design = "DensityScaling.md"
+    issues = "#32116"
   []
 []

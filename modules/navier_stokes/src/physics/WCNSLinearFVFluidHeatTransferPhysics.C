@@ -30,9 +30,6 @@ WCNSLinearFVFluidHeatTransferPhysics::validParams()
       "orthogonal meshes.");
   params.set<std::vector<SolverSystemName>>("system_names") = {"energy_system"};
 
-  params.addParam<UserObjectName>(NS::fluid, "Fluid properties userobject");
-  params.addParamNamesToGroup(NS::fluid, "Material properties");
-
   // We could split between discretization and solver here.
   params.addParamNamesToGroup("use_nonorthogonal_correction system_names", "Numerical scheme");
 
@@ -142,13 +139,15 @@ WCNSLinearFVFluidHeatTransferPhysics::addEnergyHeatConductionKernels()
     if (!_solve_for_enthalpy)
     {
       params.set<LinearVariableName>("variable") = _fluid_temperature_name;
-      params.set<MooseFunctorName>("diffusion_coeff") = _thermal_conductivity_name[block_i];
+      params.set<MooseFunctorName>("diffusion_coeff") =
+          _thermal_conductivity_name[block_i] + (_has_turbulence_model ? "_plus_kt" : "");
     }
     else
     {
       params.set<LinearVariableName>("variable") = _fluid_enthalpy_name;
-      params.set<MooseFunctorName>("diffusion_coeff") =
-          _thermal_conductivity_name[block_i] + "_by_cp";
+      const auto th_cond_name =
+          _thermal_conductivity_name[block_i] + (_has_turbulence_model ? "_plus_kt" : "");
+      params.set<MooseFunctorName>("diffusion_coeff") = th_cond_name + "_by_cp";
     }
     std::vector<SubdomainName> block_names =
         num_blocks ? _thermal_conductivity_blocks[block_i] : _blocks;
@@ -409,27 +408,41 @@ WCNSLinearFVFluidHeatTransferPhysics::addEnergyOutletBC()
 void
 WCNSLinearFVFluidHeatTransferPhysics::addMaterials()
 {
-  WCNSFVFluidHeatTransferPhysicsBase::addMaterials();
+  // For compatibility with Modules/NavierStokesFV syntax
+  if (!_has_energy_equation)
+    return;
+
+  // Note that this material choice would not work for Newton-INSFV + solve_for_enthalpy
+  const auto object_type = "LinearFVEnthalpyFunctorMaterial";
+
+  InputParameters params = getFactory().getValidParams(object_type);
+  assignBlocks(params, _blocks);
+  params.set<MooseFunctorName>(NS::pressure) = _flow_equations_physics->getPressureName();
+  params.set<MooseFunctorName>(NS::T_fluid) = _fluid_temperature_name;
+  params.set<MooseFunctorName>(NS::specific_enthalpy) = _fluid_enthalpy_name;
+  if (isParamValid(NS::fluid))
+    params.set<UserObjectName>(NS::fluid) = getParam<UserObjectName>(NS::fluid);
 
   if (_solve_for_enthalpy)
   {
-    // Define alpha, the diffusion coefficient when solving for enthalpy, on each block
-    for (unsigned int i = 0; i < _thermal_conductivity_name.size(); ++i)
+    if (!isParamValid(NS::fluid))
     {
-      const auto object_type = "ADParsedFunctorMaterial";
-      InputParameters params = getFactory().getValidParams(object_type);
-      assignBlocks(params, _blocks);
-      std::vector<std::string> f_names;
-      if (!MooseUtils::parsesToReal(_thermal_conductivity_name[i]))
-        f_names.push_back(_thermal_conductivity_name[i]);
-      if (!MooseUtils::parsesToReal(getSpecificHeatName()))
-        f_names.push_back(getSpecificHeatName());
-      params.set<std::vector<std::string>>("functor_names") = f_names;
-      params.set<std::string>("expression") =
-          _thermal_conductivity_name[i] + "/" + getSpecificHeatName();
-      params.set<std::string>("property_name") = _thermal_conductivity_name[i] + "_by_cp";
-      getProblem().addMaterial(
-          object_type, prefix() + "alpha_from_" + _thermal_conductivity_name[i], params);
+      if (!getProblem().hasFunctor("h_from_p_T_functor", 0) ||
+          !getProblem().hasFunctor("T_from_p_h_functor", 0))
+        paramError(NS::fluid,
+                   "Either 'fp' must be specified or the 'h_from_p_T_functor' and "
+                   "'T_from_p_h_functor' must be defined outside the Physics");
+      // Note: we could define those in the Physics if cp is constant
+      params.set<MooseFunctorName>("h_from_p_T_functor") = "h_from_p_T_functor";
+      params.set<MooseFunctorName>("T_from_p_h_functor") = "T_from_p_h_functor";
     }
   }
+  // If we are solving for enthalpy, we need this to compute temperature from p & h
+  // Else we don't really need it
+  if (_solve_for_enthalpy)
+    getProblem().addMaterial(object_type, prefix() + "enthalpy_material", params);
+
+  if (_solve_for_enthalpy || _has_turbulence_model)
+    WCNSFVFluidHeatTransferPhysicsBase::defineEffectiveThermalDiffusionCoeffFunctors(
+        /*use ad*/ false);
 }

@@ -7,11 +7,10 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMVectorIC.h"
 #include "MFEMProblem.h"
-#include <mfem.hpp>
 
 registerMooseObject("MooseApp", MFEMVectorIC);
 
@@ -21,7 +20,8 @@ MFEMVectorIC::validParams()
   auto params = MFEMInitialCondition::validParams();
   params.addClassDescription("Sets the initial values of an MFEM vector variable from a "
                              "user-specified vector coefficient.");
-  params.addRequiredParam<MFEMVectorCoefficientName>("coefficient", "The vector coefficient");
+  params.addRequiredParam<MFEMVectorCoefficientName>("vector_coefficient",
+                                                     "The vector coefficient");
   return params;
 }
 
@@ -30,7 +30,7 @@ MFEMVectorIC::MFEMVectorIC(const InputParameters & params) : MFEMInitialConditio
 void
 MFEMVectorIC::execute()
 {
-  auto & coeff = getVectorCoefficient(getParam<MFEMVectorCoefficientName>("coefficient"));
+  auto & coeff = getVectorCoefficient("vector_coefficient");
   auto grid_function = getMFEMProblem().getGridFunction(getParam<VariableName>("variable"));
   grid_function->ProjectCoefficient(coeff);
 }

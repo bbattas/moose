@@ -72,9 +72,6 @@ protected:
   /// Fill input variables and model parameters using the gatherers
   virtual void fillInputs();
 
-  /// Apply the predictor to set current trial state
-  virtual void applyPredictor();
-
   /// Perform the material update
   virtual bool solve();
 
@@ -84,8 +81,17 @@ protected:
   /// Expand tensor shapes if necessary to conformal sizes
   virtual void expandInputs();
 
+  /// Save stateful variables for on-device state advance
+  void advanceState();
+
   /// The NEML2BatchIndexGenerator used to generate the element-to-batch-index map
   const NEML2BatchIndexGenerator & _batch_index_generator;
+
+  /// Advance state on device (rather than via MOSOE material properties)
+  const bool _manage_state_advance;
+
+  /// Dump input tensor info on failure to aid debugging
+  const bool _debug_inputs_on_failure;
 
   /// flag that indicates if output data has been fully computed
   bool _output_ready;
@@ -99,11 +105,11 @@ protected:
   /// The output variables of the material model
   neml2::ValueMap _out;
 
+  /// Cached variables from the last successful step (for on-device advance)
+  neml2::ValueMap _state_vars;
+
   /// The derivative of the output variables w.r.t. the input variables
   neml2::DerivMap _dout_din;
-
-  // set of variables to skip
-  std::set<neml2::VariableName> _skip_vars;
 
   // set of gathered NEML2 input variables
   std::set<neml2::VariableName> _gathered_variable_names;
@@ -113,6 +119,7 @@ protected:
 
   /// MOOSE data gathering user objects
   std::vector<const MOOSEToNEML2 *> _gatherers;
+  std::vector<const MOOSEToNEML2 *> _param_gatherers;
 
   /// set of output variables that were retrieved (by other objects)
   mutable neml2::ValueMap _retrieved_outputs;

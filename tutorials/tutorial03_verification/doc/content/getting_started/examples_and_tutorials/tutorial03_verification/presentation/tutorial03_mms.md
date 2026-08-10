@@ -142,7 +142,7 @@ can be done with the use of three `Kernel` objects as follows.
 
 The boundary portions of the equation weak form are defined using the
 Boundary Condition System in the `[BCs]` block. At top of the domain ($y=0$) a
-Neumann condition is applied with a constant outward flux. On the button of the domain
+Neumann condition is applied with a constant outward flux. On the bottom of the domain
 ($y=-0.2 \textrm{m}$) a constant temperature is defined. The remain boundaries are "insulated",
 which is known as the natural boundary condition.
 
@@ -175,12 +175,14 @@ Executing the simulation is straightforward, simply execute the heat transfer mo
 with the input file included using the "-i" option as follows.
 
 ```
-~/projects/moose/modules/heat_transfer/heat_conduction-opt -i 2d_main.i
+~/projects/moose/modules/heat_transfer/heat_transfer-opt -i 2d_main.i
 ```
 
 !---
 
-!media tutorial03_verification/2d_main.mp4 style=width:100%;margin-left:auto;margin-right:auto;display:block;
+!media tutorial03_verification/2d_main.mp4
+       style=width:100%;margin-left:auto;margin-right:auto;display:block;
+       alt=Result of a forced heat conduction simulation.
 
 !---
 
@@ -220,13 +222,13 @@ Executing this script, assuming a name of `spatial_function.py` results in the f
 $ python spatial_function.py
 [mms_force]
   type = ParsedFunction
-  value = 'cp*rho*sin(x*pi)*sin(5*y*pi) + 26*pi^2*k*t*sin(x*pi)*sin(5*y*pi) - shortwave*exp(y*kappa)*sin((1/2)*x*pi)*sin((1/3600)*pi*t/hours)'
-  vars = 'hours rho shortwave k cp kappa'
-  vals = '1.0 1.0 1.0 1.0 1.0 1.0'
+  expression = 'cp*rho*sin(x*pi)*sin(5*y*pi) + 26*pi^2*k*t*sin(x*pi)*sin(5*y*pi) - shortwave*exp(y*kappa)*sin((1/2)*x*pi)*sin((1/3600)*pi*t/hours)'
+  symbol_names = 'hours rho shortwave k cp kappa'
+  symbol_values = '1.0 1.0 1.0 1.0 1.0 1.0'
 []
 [mms_exact]
   type = ParsedFunction
-  value = 't*sin(x*pi)*sin(5*y*pi)'
+  expression = 't*sin(x*pi)*sin(5*y*pi)'
 []
 
 !---
@@ -296,6 +298,7 @@ second-order shape functions are considered.
 !---
 
 !media tutorial03_verification/2d_mms_spatial.png
+       alt=L2 error for the simulation, as a function of element size.
 
 !---
 
@@ -328,13 +331,13 @@ Executing this script, assuming a name of `temporal_function.py` results in the 
 $ python temporal_function.py
 [mms_force]
   type = ParsedFunction
-  value = '-3.08641975308642e-5*x*y*cp*rho*exp(-3.08641975308642e-5*t) - shortwave*exp(y*kappa)*sin((1/2)*x*pi)*sin((1/3600)*pi*t/hours)'
-  vars = 'kappa rho shortwave cp hours'
-  vals = '1.0 1.0 1.0 1.0 1.0'
+  expression = '-3.08641975308642e-5*x*y*cp*rho*exp(-3.08641975308642e-5*t) - shortwave*exp(y*kappa)*sin((1/2)*x*pi)*sin((1/3600)*pi*t/hours)'
+  symbol_names = 'kappa rho shortwave cp hours'
+  symbol_values = '1.0 1.0 1.0 1.0 1.0'
 []
 [mms_exact]
   type = ParsedFunction
-  value = 'x*y*exp(-3.08641975308642e-5*t)'
+  expression = 'x*y*exp(-3.08641975308642e-5*t)'
 []
 
 !---
@@ -359,3 +362,4 @@ second-order shape functions are considered.
 !---
 
 !media tutorial03_verification/2d_mms_temporal.png
+       alt=L2 error of the simulation as a function of time-step size.

@@ -74,6 +74,8 @@ MultiAppUserObjectTransfer::validParams()
                         false,
                         "When True, a from_multiapp transfer will work by finding the nearest "
                         "(using the `location`) sub-app and query that for the value to transfer");
+  MultiAppTransfer::addUserObjectExecutionCheckParam(params);
+
   return params;
 }
 
@@ -123,6 +125,7 @@ MultiAppUserObjectTransfer::execute()
   {
     case TO_MULTIAPP:
     {
+      checkParentAppUserObjectExecuteOn(_user_object_name);
       _fe_problem.computeUserObjectByName(EXEC_TRANSFER, Moose::PRE_AUX, _user_object_name);
       _fe_problem.computeUserObjectByName(EXEC_TRANSFER, Moose::POST_AUX, _user_object_name);
       break;
@@ -174,7 +177,7 @@ MultiAppUserObjectTransfer::execute()
             const std::vector<BoundaryName> & boundary_names =
                 getParam<std::vector<BoundaryName>>("boundary");
             for (const auto & b : boundary_names)
-              if (!MooseMeshUtils::hasBoundaryName(*mesh, b))
+              if (!MooseMeshUtils::hasBoundaryNameOrID(*mesh, b))
                 paramError("boundary", "The boundary '", b, "' was not found in the mesh");
 
             std::vector<BoundaryID> ids = mesh->getBoundaryIDs(boundary_names, true);
@@ -324,7 +327,7 @@ MultiAppUserObjectTransfer::execute()
         const std::vector<BoundaryName> & boundary_names =
             getParam<std::vector<BoundaryName>>("boundary");
         for (const auto & b : boundary_names)
-          if (!MooseMeshUtils::hasBoundaryName(*to_mesh, b))
+          if (!MooseMeshUtils::hasBoundaryNameOrID(*to_mesh, b))
             paramError("boundary", "The boundary '", b, "' was not found in the mesh");
 
         std::vector<BoundaryID> ids = to_mesh->getBoundaryIDs(boundary_names, true);

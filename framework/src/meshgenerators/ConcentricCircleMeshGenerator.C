@@ -26,6 +26,8 @@ InputParameters
 ConcentricCircleMeshGenerator::validParams()
 {
   InputParameters params = MeshGenerator::validParams();
+  params.addParam<SubdomainName>("subdomain_name",
+                                 "Name of the subdomain assigned to all the elements");
   MooseEnum portion(
       "full top_right top_left bottom_left bottom_right right_half left_half top_half bottom_half",
       "full");
@@ -979,8 +981,12 @@ ConcentricCircleMeshGenerator::generate()
     mesh->prepare_for_use();
 
   // Laplace smoothing
-  libMesh::LaplaceMeshSmoother lms(*mesh);
-  lms.smooth(_smoothing_max_it);
+  libMesh::LaplaceMeshSmoother lms(*mesh, _smoothing_max_it);
+  lms.smooth();
+
+  // Add subdomain name
+  if (isParamValid("subdomain_name"))
+    mesh->subdomain_name(0) = getParam<SubdomainName>("subdomain_name");
 
   mesh->prepare_for_use();
   return dynamic_pointer_cast<MeshBase>(mesh);

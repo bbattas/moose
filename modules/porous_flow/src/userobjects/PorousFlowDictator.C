@@ -41,6 +41,9 @@ PorousFlowDictator::validParams()
                                 0,
                                 "The fluid phase number of the aqueous phase in which the "
                                 "equilibrium and kinetic chemical reactions occur");
+
+  params.addParam<SolverSystemName>("solver_sys", "Name of the solver system for the porepressure");
+  params.addParamNamesToGroup("solver_sys", "Advanced");
   return params;
 }
 
@@ -54,7 +57,8 @@ PorousFlowDictator::PorousFlowDictator(const InputParameters & parameters)
     _num_aqueous_kinetic(getParam<unsigned int>("number_aqueous_kinetic")),
     _aqueous_phase_number(getParam<unsigned int>("aqueous_phase_number")),
     _consistent_fe_type(false),
-    _fe_type(0)
+    _fe_type(0),
+    _is_fv(false)
 {
   _moose_var_num.resize(_num_variables);
   for (unsigned int i = 0; i < _num_variables; ++i)
@@ -63,6 +67,7 @@ PorousFlowDictator::PorousFlowDictator(const InputParameters & parameters)
   if (_num_variables > 0)
   {
     _consistent_fe_type = true;
+    _is_fv = getFieldVar("porous_flow_vars", 0)->isFV();
     _fe_type = FEType(getFieldVar("porous_flow_vars", 0)->feType());
     for (unsigned int i = 1; i < _num_variables; ++i)
       if (getFieldVar("porous_flow_vars", i)->feType() != _fe_type)
@@ -73,15 +78,17 @@ PorousFlowDictator::PorousFlowDictator(const InputParameters & parameters)
                      _num_variables); // Note: the _num_variables assignment indicates that "this is
                                       // not a PorousFlow variable"
   for (unsigned int i = 0; i < _num_variables; ++i)
+  {
     if (_moose_var_num[i] < _pf_var_num.size())
       _pf_var_num[_moose_var_num[i]] = i;
     else
       // should not couple AuxVariables to the Dictator (Jacobian entries are not calculated for
       // them)
       mooseError("PorousFlowDictator: AuxVariables variables must not be coupled into the Dictator "
-                 "for this is against specification #1984.  Variable number ",
-                 i,
-                 " is an AuxVariable.");
+                 "for this is against specification #1984.  Variable '",
+                 coupledName("porous_flow_vars", /*comp=*/i),
+                 "' is either an AuxVariable or from a different nonlinear system.");
+  }
 
   if ((_num_phases > 0) && (_aqueous_phase_number >= _num_phases))
     mooseError("PorousflowDictator: The aqueous phase number must be less than the number of fluid "
@@ -170,4 +177,10 @@ FEType
 PorousFlowDictator::feType() const
 {
   return _fe_type;
+}
+
+bool
+PorousFlowDictator::isFV() const
+{
+  return _is_fv;
 }

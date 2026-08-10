@@ -72,10 +72,12 @@ NodalValueSampler::execute()
   // separate NodalValueSampler objects to get their values.
   for (unsigned int i = 0; i < _coupled_standard_moose_vars.size(); i++)
   {
-    const VariableValue & nodal_solution = _coupled_standard_moose_vars[i]->dofValues();
+    const auto & dof_indices = _coupled_standard_moose_vars[i]->dofIndices();
 
-    if (nodal_solution.size() > 0)
+    if (dof_indices.size() > 0)
     {
+      const VariableValue & nodal_solution = _coupled_standard_moose_vars[i]->dofValues();
+      mooseAssert(nodal_solution.size() == dof_indices.size(), "These must be the same length");
       _values[i] = nodal_solution[_qp];
       _has_values[i] = 1;
     }
@@ -115,4 +117,18 @@ NodalValueSampler::threadJoin(const UserObject & y)
   const auto & vpp = static_cast<const NodalValueSampler &>(y);
 
   SamplerBase::threadJoin(vpp);
+}
+
+std::set<MooseVariableFieldBase *>
+NodalValueSampler::checkVariables(
+    const libMesh::Node &,
+    const std::set<MooseVariableFieldBase *> & libmesh_dbg_var(vars_to_check))
+{
+  mooseAssert(vars_to_check ==
+                  std::set<MooseVariableFieldBase *>(_coupled_standard_moose_vars.begin(),
+                                                     _coupled_standard_moose_vars.end()),
+              "The constructor should have caught any non-standard MOOSE variables");
+  // This class implements its own handling of its variables which don't have dof indices on a given
+  // node
+  return {};
 }

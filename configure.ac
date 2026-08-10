@@ -51,7 +51,7 @@ AS_IF([test "$libtorch_support" = yes],
               [
                     AS_IF([test "${LIBTORCH_DIR+set}" = set],
                           [libtorch_library="${LIBTORCH_DIR}"],
-                          [libtorch_library="$ac_pwd/framework/contrib/libtorch"])
+                          [libtorch_library="$ac_pwd/framework/contrib/pytorch/installed"])
               ])
         AC_DEFINE_UNQUOTED(LIBTORCH_DIR, [$libtorch_library], [The directory where libtorch is installed])
         AC_SUBST([libtorch_library])
@@ -100,11 +100,58 @@ AS_IF([test "$neml2_support" = yes],
               [
                     AS_IF([test "${NEML2_DIR+set}" = set],
                           [neml2_library="${NEML2_DIR}"],
-                          [neml2_library="$ac_pwd/framework/contrib/neml2/installed"])
+                          [neml2_library="$ac_pwd/framework/contrib/neml2/installed/moose"])
               ])
         AC_DEFINE_UNQUOTED(NEML2_DIR, [$neml2_library], [The directory where neml2 is installed])
         AC_SUBST([neml2_library])
         AC_MSG_RESULT([NEML2 library path: $neml2_library])
+      ])
+
+AC_ARG_WITH(kokkos,
+            AS_HELP_STRING([--with-kokkos@<:@=ARG@:>@],[Specify if Kokkos support should be enabled @<:@ARG=yes or cpu to disable GPU capabilities@:>@]),
+            [kokkos_support=yes],
+            [kokkos_support=no])
+
+AC_ARG_WITH(kokkos-index-size,
+            AS_HELP_STRING([--with-kokkos-index-size=ARG],[Specify Kokkos index size @<:@ARG=4 (default) or 8@:>@]))
+
+AS_IF([test "x$with_kokkos_index_size" != x && test "$kokkos_support" != yes],
+      [AC_MSG_ERROR([--with-kokkos-index-size requires --with-kokkos])])
+
+AC_MSG_RESULT([configuring with kokkos support: $kokkos_support])
+
+AS_IF([test "$kokkos_support" = yes],
+      [
+        AC_DEFINE(KOKKOS_ENABLED, 1, [Whether to use Kokkos-related code or not])
+        AC_SUBST([kokkos_support],[true])
+
+        AS_IF([test "x$with_kokkos_index_size" = x],
+              [with_kokkos_index_size=4])
+
+        AS_CASE([$with_kokkos_index_size],
+                [4],
+                [
+                  AC_MSG_RESULT([Kokkos index size: 4 bytes])
+                  AC_DEFINE([KOKKOS_INDEX_TYPE], [uint32_t], [Kokkos index type])
+                ],
+                [8],
+                [
+                  AC_MSG_RESULT([Kokkos index size: 8 bytes])
+                  AC_DEFINE([KOKKOS_INDEX_TYPE], [uint64_t], [Kokkos index type])
+                ],
+                [
+                  AC_MSG_ERROR([invalid value for --with-kokkos-index-size: $with_kokkos_index_size (valid values are 4 or 8)])
+                ])
+
+        AS_IF([test "$with_kokkos" = cpu],
+              [
+                  AC_MSG_RESULT([Kokkos GPU capabilities disabled])
+                  AC_SUBST([kokkos_gpu],[false])
+              ],
+              [
+                  AC_MSG_RESULT([Kokkos GPU capabilities enabled])
+                  AC_SUBST([kokkos_gpu],[true])
+              ])
       ])
 
 AC_PATH_TOOL(PKG_CONFIG,pkg-config)

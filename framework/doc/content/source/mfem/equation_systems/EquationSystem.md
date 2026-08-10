@@ -4,9 +4,8 @@
 
 The EquationSystem is responsible for defining and assembling the weak form of the PDE into an
 [`mfem::Operator`](https://docs.mfem.org/html/classmfem_1_1Operator.html) used to solve an iteration
-of the FE problem. This operator is passed to an
-[`mfem::NewtonSolver`](https://docs.mfem.org/html/classmfem_1_1NewtonSolver.html) in a
-[ProblemOperator](source/mfem/problem_operators/ProblemOperator.md), which handles the update of the
+of the FE problem. This operator is passed to a linear or nonlinear solver as appropriate in a
+[ProblemOperator.md], which handles the update of the
 state of all variables (including any required nonlinear iterations).
 
 !equation
@@ -32,26 +31,17 @@ form. [`mfem::BilinearFormIntegrators`](https://mfem.org/bilininteg/) add contri
 $A_{ij}(\varphi_i, \phi_j)$ and [`mfem::LinearFormIntegrators`](https://mfem.org/lininteg/) add
 contributions to $b_i(\varphi_i)$ when assembled.
 
-## TimeDependentEquationSystem
-
-For transient problems, time derivatives $\dot{u}$ of the trial variables $u$ will also be
-present in the weak form.
-
-!equation
-\left(\mathcal{T}(\dot{u}), v\right)_{\Omega} + {\left(\mathcal{L}(u), v\right)_{\Omega}
-=\left(f,v\right)_{\Omega}\,\,\,\forall v \in V}
-
-Contributions to $\left(\mathcal{T}(\phi_j), \varphi_i\right)_{\Omega}$ are given by
-time derivative kernels such as
- [MFEMTimeDerivativeMassKernel](source/mfem/kernels/MFEMTimeDerivativeMassKernel.md)
-
-Currently, transient problems in MOOSE's wrapping of MFEM are solved using an implicit backwards Euler method.
-Denoting $u_n=u(t+\delta t)$, $u_{n-1}=u(t)$ and approximating
-$u(t+\delta t) \approx u(t) + \delta t \dot{u}(t+\delta t)$, we have
+[MFEMKernels](source/mfem/kernels/MFEMKernel.md) can also contribute to domain integrators for
+non-linear actions. This allows to form the residual $\mathcal{L}(u)$ for non-linear Newton's
+method as shown below
 
 !equation
-\left([\mathcal{T}+\delta t\mathcal{L}](\dot{u}_n), v\right)_{\Omega}
-=\left([f-\mathcal{L}(u_{n-1})],v\right)_{\Omega}\,\,\,\forall v \in V
+{\mathbf{J}\left(\vec{u}_n\right) \delta \vec{u}_{n+1}=-\vec{R}\left(\vec{u}_n\right)}
+
+!equation
+{\vec{u}_{n+1}=\vec{u}_n+\delta \vec{u}_{n+1}}
+
+where $\mathbf{J}$ is the Jacobian, and $\delta \vec{u}$ is the incremental solution.
 
 !if-end!
 

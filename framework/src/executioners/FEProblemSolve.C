@@ -14,6 +14,8 @@
 #include "LinearSystem.h"
 #include "Convergence.h"
 #include "Executioner.h"
+#include "ConvergenceIterationTypes.h"
+#include "MooseUtils.h"
 
 std::set<std::string> const FEProblemSolve::_moose_line_searches = {"contact", "project"};
 
@@ -63,13 +65,6 @@ FEProblemSolve::validParams()
   InputParameters params = MultiSystemSolveObject::validParams();
   params += FEProblemSolve::feProblemDefaultConvergenceParams();
 
-  params.addParam<std::vector<std::vector<std::string>>>(
-      "splitting",
-      {},
-      "Top-level splitting defining a hierarchical decomposition into "
-      "subsystems to help the solver. Outer-vector of this vector-of-vector parameter correspond "
-      "to each nonlinear system.");
-
   std::set<std::string> line_searches = mooseLineSearches();
 
   std::set<std::string> alias_line_searches = {"default", "none", "basic"};
@@ -115,12 +110,6 @@ FEProblemSolve::validParams()
       "Specifies whether or not to reuse the base vector for matrix-free calculation");
   params.addParam<bool>(
       "skip_exception_check", false, "Specifies whether or not to skip exception check");
-  params.addParam<bool>("compute_initial_residual_before_preset_bcs",
-                        false,
-                        "Use the residual norm computed *before* solution modifying objects like "
-                        "preset BCs are imposed in relative convergence check.");
-  params.deprecateParam(
-      "compute_initial_residual_before_preset_bcs", "use_pre_SMO_residual", "12/31/2024");
   params.addParam<bool>(
       "use_pre_SMO_residual",
       false,
@@ -184,25 +173,12 @@ FEProblemSolve::validParams()
                                 "until the number of linear iterations "
                                 "exceeds this number");
 
-  // Multi-system fixed point
-  // Defaults to false because of the difficulty of defining a good multi-system convergence
-  // criterion, unless we add a default one to the simulation?
-  params.addParam<bool>(
-      "multi_system_fixed_point",
-      false,
-      "Whether to perform fixed point (Picard) iterations between the nonlinear systems.");
-  params.addParam<ConvergenceName>(
-      "multi_system_fixed_point_convergence",
-      "Convergence object to determine the convergence of the multi-system fixed point iteration. "
-      "If unspecified, defaults to checking that every system is converged (based on their own "
-      "convergence criterion)");
-
   params.addParamNamesToGroup("l_tol l_abs_tol l_max_its reuse_preconditioner "
                               "reuse_preconditioner_max_linear_its",
                               "Linear Solver");
   params.addParamNamesToGroup(
       "solve_type snesmf_reuse_base use_pre_SMO_residual "
-      "num_grids residual_and_jacobian_together splitting nonlinear_convergence linear_convergence",
+      "num_grids residual_and_jacobian_together nonlinear_convergence linear_convergence",
       "Nonlinear Solver");
   params.addParamNamesToGroup(
       "automatic_scaling compute_scaling_once off_diagonals_in_auto_scaling "
@@ -211,8 +187,6 @@ FEProblemSolve::validParams()
   params.addParamNamesToGroup("line_search line_search_package contact_line_search_ltol "
                               "contact_line_search_allowed_lambda_cuts",
                               "Solver line search");
-  params.addParamNamesToGroup("multi_system_fixed_point multi_system_fixed_point_convergence",
-                              "Multiple solver system");
   params.addParamNamesToGroup("skip_exception_check", "Advanced");
 
   return params;
@@ -220,9 +194,7 @@ FEProblemSolve::validParams()
 
 FEProblemSolve::FEProblemSolve(Executioner & ex)
   : MultiSystemSolveObject(ex),
-    _num_grid_steps(cast_int<unsigned int>(getParam<unsigned int>("num_grids") - 1)),
-    _using_multi_sys_fp_iterations(getParam<bool>("multi_system_fixed_point")),
-    _multi_sys_fp_convergence(nullptr) // has not been created yet
+    _num_grid_steps(cast_int<unsigned int>(getParam<unsigned int>("num_grids") - 1))
 {
   if (_moose_line_searches.find(getParam<MooseEnum>("line_search").operator std::string()) !=
       _moose_line_searches.end())
@@ -231,6 +203,8 @@ FEProblemSolve::FEProblemSolve(Executioner & ex)
   auto set_solver_params = [this, &ex](const SolverSystem & sys)
   {
     const auto prefix = sys.prefix();
+    if (dynamic_cast<const LinearSystem *>(&sys))
+      Moose::PetscSupport::dontAddCommonSNESOptions(_problem, prefix);
     Moose::PetscSupport::storePetscOptions(_problem, prefix, ex);
     Moose::PetscSupport::setConvergedReasonFlags(_problem, prefix);
 
@@ -301,7 +275,8 @@ FEProblemSolve::FEProblemSolve(Executioner & ex)
             : (getMooseApp().defaultAutomaticScaling() &&
                std::any_of(_systems.begin(),
                            _systems.end(),
-                           [this](const auto & solver_sys) {
+                           [this](const auto & solver_sys)
+                           {
                              return _problem.solverParams(solver_sys->number())._type !=
                                     Moose::ST_JFNK;
                            })));
@@ -327,13 +302,6 @@ FEProblemSolve::FEProblemSolve(Executioner & ex)
     i_nl_sys++;
 
     nl.setPreSMOResidual(getParam<bool>("use_pre_SMO_residual"));
-
-    const auto & all_splittings = getParam<std::vector<std::vector<std::string>>>("splitting");
-    if (all_splittings.size())
-      nl.setDecomposition(
-          getParamFromNonlinearSystemVectorParam<std::vector<std::string>>("splitting", i_nl_sys));
-    else
-      nl.setDecomposition({});
 
     const auto res_and_jac =
         getParamFromNonlinearSystemVectorParam<bool>("residual_and_jacobian_together", i_nl_sys);
@@ -409,31 +377,86 @@ FEProblemSolve::getParamFromNonlinearSystemVectorParam(const std::string & param
     return param_vec[index];
 }
 
+void
+FEProblemSolve::initialSetup()
+{
+  MultiSystemSolveObject::initialSetup();
+  convergenceSetup();
+  // Keep track of the solution warnings from the setup
+  // before a count reset at the beginning of the time step
+  if (!_app.isRecovering())
+  {
+    _app.solutionInvalidity().syncIteration();
+    _app.solutionInvalidity().accumulateIterationIntoTimeStepOccurences();
+    _app.solutionInvalidity().accumulateTimeStepIntoTotalOccurences(0);
+  }
+}
+
+void
+FEProblemSolve::convergenceSetup()
+{
+  // nonlinear
+  const auto conv_names = _problem.getNonlinearConvergenceNames();
+  for (const auto & conv_name : conv_names)
+  {
+    auto & conv = _problem.getConvergence(conv_name);
+    conv.checkIterationType(ConvergenceIterationTypes::NONLINEAR);
+  }
+
+  // linear
+  if (isParamValid("linear_convergence"))
+  {
+    const auto conv_names = getParam<std::vector<ConvergenceName>>("linear_convergence");
+    for (const auto & conv_name : conv_names)
+    {
+      auto & conv = _problem.getConvergence(conv_name);
+      conv.checkIterationType(ConvergenceIterationTypes::LINEAR);
+    }
+  }
+
+  // multisystem fixed point
+  if (isParamValid("multi_system_fixed_point_convergence"))
+  {
+    _multi_sys_fp_convergence =
+        &_problem.getConvergence(getParam<ConvergenceName>("multi_system_fixed_point_convergence"));
+    _multi_sys_fp_convergence->checkIterationType(
+        ConvergenceIterationTypes::MULTISYSTEM_FIXED_POINT);
+  }
+}
+
 bool
 FEProblemSolve::solve()
 {
-  // This should be late enough to retrieve the convergence object.
-  // TODO: Move this to a setup phase, which does not exist for SolveObjects
-  if (isParamValid("multi_system_fixed_point_convergence"))
-    _multi_sys_fp_convergence =
-        &_problem.getConvergence(getParam<ConvergenceName>("multi_system_fixed_point_convergence"));
-
   // Outer loop for multi-grid convergence
   bool converged = false;
-  unsigned int num_fp_multisys_iters = 0;
+  unsigned int fp_iter = 0;
+
   for (MooseIndex(_num_grid_steps) grid_step = 0; grid_step <= _num_grid_steps; ++grid_step)
   {
     // Multi-system fixed point loop
-    // Use a convergence object if provided, if not, use a reasonable default of every nested system
-    // being converged
-    num_fp_multisys_iters = 0;
+    fp_iter = 0;
     converged = false;
     while (!converged)
     {
+      if (_using_multi_sys_fp_iterations)
+        _console << COLOR_MAGENTA << "Multi-system fixed point iteration " << fp_iter << ":"
+                 << COLOR_DEFAULT << "\n"
+                 << std::endl;
+
       // Loop over each system
-      for (const auto sys : _systems)
+      for (const auto sys_i : index_range(_systems))
       {
+        auto * const sys = _systems[sys_i];
         const bool is_nonlinear = (dynamic_cast<NonlinearSystemBase *>(sys) != nullptr);
+        const Real fp_relax =
+            _using_multi_sys_fp_iterations ? _multi_sys_fp_relax_factors[sys_i] : 1.0;
+        const bool apply_fp_relax =
+            _using_multi_sys_fp_iterations && !MooseUtils::absoluteFuzzyEqual(fp_relax, 1.0);
+        if (apply_fp_relax)
+        {
+          sys->setFixedPointRelaxationFactor(fp_relax);
+          sys->saveOldSolutionForFixedPointRelaxation();
+        }
 
         // Call solve on the problem for that system
         if (is_nonlinear)
@@ -443,12 +466,6 @@ FEProblemSolve::solve()
           const auto linear_sys_number =
               cast_int<unsigned int>(sys->number() - _problem.numNonlinearSystems());
           _problem.solveLinearSystem(linear_sys_number, &_problem.getPetscOptions());
-
-          // This is for postprocessing purposes in case none of the objects
-          // request the gradients.
-          // TODO: Somehow collect information if the postprocessors
-          // need gradients and if nothing needs this, just skip it
-          _problem.getLinearSystem(linear_sys_number).computeGradients();
         }
 
         // Check convergence
@@ -457,16 +474,39 @@ FEProblemSolve::solve()
         if (_problem.shouldSolve())
         {
           if (_problem.converged(sys->number()))
-            _console << COLOR_GREEN << solve_name << " Converged!" << COLOR_DEFAULT << std::endl;
+          {
+            if (apply_fp_relax)
+              sys->applyFixedPointRelaxation();
+            _console << COLOR_GREEN << solve_name << " Converged!" << COLOR_DEFAULT << "\n"
+                     << std::endl;
+          }
           else
           {
-            _console << COLOR_RED << solve_name << " Did NOT Converge!" << COLOR_DEFAULT
+            _console << COLOR_RED << solve_name << " Did NOT Converge!" << COLOR_DEFAULT << "\n"
                      << std::endl;
+            if (apply_fp_relax)
+              sys->clearFixedPointRelaxation();
             return false;
           }
         }
         else
-          _console << COLOR_GREEN << solve_name << " Skipped!" << COLOR_DEFAULT << std::endl;
+          _console << COLOR_GREEN << solve_name << " Skipped!" << COLOR_DEFAULT << "\n"
+                   << std::endl;
+
+        if (!is_nonlinear)
+        {
+          const auto linear_sys_number =
+              cast_int<unsigned int>(sys->number() - _problem.numNonlinearSystems());
+          auto & linear_sys = _problem.getLinearSystem(linear_sys_number);
+
+          // This is for postprocessing purposes in case none of the objects request the gradients.
+          // TODO: Somehow collect information if the postprocessors need gradients and if nothing
+          // needs this, just skip it
+          linear_sys.computeGradients();
+        }
+
+        if (apply_fp_relax)
+          sys->clearFixedPointRelaxation();
       }
 
       // Assess convergence of the multi-system fixed point iteration
@@ -474,22 +514,21 @@ FEProblemSolve::solve()
         converged = true;
       else
       {
-        converged = _multi_sys_fp_convergence->checkConvergence(num_fp_multisys_iters) ==
-                    Convergence::MooseConvergenceStatus::CONVERGED;
-        if (_multi_sys_fp_convergence->checkConvergence(num_fp_multisys_iters) ==
-            Convergence::MooseConvergenceStatus::DIVERGED)
+        _problem.execute(EXEC_MULTISYSTEM_FIXED_POINT_CONVERGENCE);
+
+        // checkConvergence expects the number of iterations performed, not the iteration index:
+        const auto n_fp_iter = fp_iter + 1;
+        const auto convergence_status = _multi_sys_fp_convergence->checkConvergence(n_fp_iter);
+        converged = convergence_status == Convergence::MooseConvergenceStatus::CONVERGED;
+        if (convergence_status == Convergence::MooseConvergenceStatus::DIVERGED)
           break;
       }
-      num_fp_multisys_iters++;
+      fp_iter++;
     }
 
     if (grid_step != _num_grid_steps)
       _problem.uniformRefine();
   }
 
-  if (_multi_sys_fp_convergence)
-    return (_multi_sys_fp_convergence->checkConvergence(num_fp_multisys_iters) ==
-            Convergence::MooseConvergenceStatus::CONVERGED);
-  else
-    return converged;
+  return converged;
 }

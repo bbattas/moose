@@ -9,8 +9,10 @@
 
 #include "PIDTransientControl.h"
 #include "Function.h"
-#include "Transient.h"
+#include "TransientBase.h"
+#include "TimeStepper.h"
 #include "FEProblemBase.h"
+#include "MooseApp.h"
 
 registerMooseObject("MooseApp", PIDTransientControl);
 
@@ -136,6 +138,9 @@ PIDTransientControl::execute()
     else
       _value = getPostprocessorValueByName(getParam<std::string>("parameter_pp"));
 
+    // Compute the delta between the current value of the postprocessor and the desired value
+    Real delta = _current - _target.value(_t);
+
     // Save integral and controlled value at each time step
     // if the solver fails, a smaller time step will be used but _t_step is unchanged
     if (_t_step != _t_step_old)
@@ -147,6 +152,8 @@ PIDTransientControl::execute()
       _integral_old = _integral;
       _value_old = _value;
       _t_step_old = _t_step;
+      _delta_prev_tstep = delta;
+      _old_delta_prev_tstep = _old_delta;
     }
 
     // If there were coupling/Picard iterations during the transient and they failed,
@@ -156,14 +163,9 @@ PIDTransientControl::execute()
     {
       _integral = _integral_old;
       _value = _value_old;
-
-      // Note we do not restore _old_delta because we dont have a way to keep track of it at the
-      // moment. And we really need to, it comes in the time derivative term. In the future, we will
-      // reset restartableData on new fixed point iterations.
+      delta = _delta_prev_tstep;
+      _old_delta = _old_delta_prev_tstep;
     }
-
-    // Compute the delta between the current value of the postprocessor and the desired value
-    Real delta = _current - _target.value(_t);
 
     // If desired, reset integral of the error if the error crosses zero
     if (_reset_integral_windup && delta * _old_delta < 0)
@@ -183,7 +185,7 @@ PIDTransientControl::execute()
     // Compute the value, within the bounds
     _value = std::min(std::max(_minimum_output_value, _value), _maximum_output_value);
 
-    // Set the new value of the postprocessor
+    // Set the new value of the parameter or postprocessor
     if (isParamValid("parameter"))
       setControllableValue<Real>("parameter", _value);
     else
@@ -192,5 +194,35 @@ PIDTransientControl::execute()
     // Keep track of the previous delta for integral windup control
     // and for time derivative calculation
     _old_delta = delta;
+  }
+}
+
+void
+PIDTransientControl::initialSetup()
+{
+  if (_app.isRecovering())
+  {
+    if (isParamValid("parameter"))
+      setControllableValue<Real>("parameter", _value);
+    else
+      _fe_problem.setPostprocessorValueByName(getParam<std::string>("parameter_pp"), _value);
+  }
+}
+
+void
+PIDTransientControl::timestepSetup()
+{
+  const auto * t_ex = dynamic_cast<const TransientBase *>(_app.getExecutioner());
+  if (t_ex && t_ex->getTimeStepper()->justFailedTimeStep() &&
+      getExecuteOnEnum().contains(EXEC_TIMESTEP_END))
+  {
+    // We need to revert to the timestep begin state
+    _integral = _integral_old;
+    _value = _value_old;
+    _old_delta = _old_delta_prev_tstep;
+    if (isParamValid("parameter"))
+      setControllableValue<Real>("parameter", _value);
+    else
+      _fe_problem.setPostprocessorValueByName(getParam<std::string>("parameter_pp"), _value);
   }
 }

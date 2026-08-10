@@ -10,6 +10,9 @@ variety of options to control its behavior. These can be specified in the
 Executioner block. Please see the online
 [PETSc documentation](http://www.mcs.anl.gov/petsc/documentation/index.html) for
 detailed information about these options.
+MOOSE exposes PETSc and MOOSE-specific nonlinear line searches through the
+[!param](/Executioner/Steady/line_search) parameter; see the
+[Line Search System](syntax/LineSearches/index.md) page for the available choices.
 
 MOOSE provides MultiApp coupling algorithms in all its executioners for tightly-coupled multiphysics simulations.
 MultiApps of two groups, those executed before and after the main app, and the main app are solved sequentially within one app coupling iteration.
@@ -20,7 +23,7 @@ Because MultiApp allows wrapping another levels of MultiApps, the design enables
 App coupling iterations can be relaxed to improve the stability of the convergence.
 When a MultiApp is a subapp of a main application and is also the main application for its own subapps, MOOSE allows relaxation of the MultiApp solution
 within the main coupling iterations and within the coupling iterations, where the MultiApp is the main application, independently.
-More details about the MultiApp coupling algorithms may be found in [FixedPointAlgorithms/index.md])
+More details about the MultiApp coupling algorithms may be found in [FixedPointAlgorithms/index.md].
 
 ## Automatic and Default Preconditioning
 

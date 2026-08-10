@@ -4,71 +4,16 @@ heated_length = 1.0
 
 [QuadSubChannelMesh]
   [sub_channel]
-    type = SCMQuadSubChannelMeshGenerator
+    type = SCMQuadAssemblyMeshGenerator
     nx = 2
     ny = 2
     n_cells = 10
     pitch = 0.014605
     pin_diameter = 0.012065
-    gap = 0.0015875
+    side_gap = 0.0015875
     heated_length = ${heated_length}
     spacer_z = '0.0'
     spacer_k = '0.0'
-  []
-
-  [fuel_pins]
-    type = SCMQuadPinMeshGenerator
-    input = sub_channel
-    nx = 2
-    ny = 2
-    n_cells = 10
-    pitch = 0.014605
-    heated_length = ${heated_length}
-  []
-[]
-
-[AuxVariables]
-  [mdot]
-    block = sub_channel
-  []
-  [SumWij]
-    block = sub_channel
-  []
-  [P]
-    block = sub_channel
-  []
-  [DP]
-    block = sub_channel
-  []
-  [h]
-    block = sub_channel
-  []
-  [T]
-    block = sub_channel
-  []
-  [Tpin]
-    block = fuel_pins
-  []
-  [Dpin]
-    block = fuel_pins
-  []
-  [rho]
-    block = sub_channel
-  []
-  [mu]
-    block = sub_channel
-  []
-  [S]
-    block = sub_channel
-  []
-  [w_perim]
-    block = sub_channel
-  []
-  [q_prime]
-    block = fuel_pins
-  []
-  [displacement]
-    block = sub_channel
   []
 []
 
@@ -91,24 +36,34 @@ heated_length = 1.0
   type = QuadSubChannel1PhaseProblem
   n_blocks = 1
   fp = water
-  beta = 0.006
-  CT = 2.6
   compute_density = true
   compute_viscosity = true
   compute_power = true
   P_out = ${P_out}
+  pin_HTC_closure = 'dittus-boelter'
+  friction_closure = 'MATRA'
+  full_output = true
+  mixing_closure = 'constant'
+
+[]
+
+[SCMClosures]
+  [MATRA]
+    type = SCMFrictionMATRA
+  []
+  [dittus-boelter]
+    type = SCMHTCDittusBoelter
+    correction_factor = none
+  []
+  [constant]
+    type = SCMMixingConstantBeta
+    beta = 0.006
+    CT = 2.6
+  []
 []
 
 [ICs]
-  [S_IC]
-    type = SCMQuadFlowAreaIC
-    variable = S
-  []
 
-  [w_perim_IC]
-    type = SCMQuadWettedPerimIC
-    variable = w_perim
-  []
 
   [q_prime_IC]
     type = SCMQuadPowerIC
@@ -124,11 +79,6 @@ heated_length = 1.0
     value = ${T_in}
   []
 
-  [Dpin_ic]
-    type = ConstantIC
-    variable = Dpin
-    value = 0.012065
-  []
 
   [P_ic]
     type = ConstantIC
@@ -215,11 +165,13 @@ heated_length = 1.0
     execute_on = 'timestep_end'
     positions = '0   0   0 '
     bounding_box_padding = '0 0 0.01'
+    max_procs_per_app = 1
   []
   [viz]
     type = FullSolveMultiApp
     input_files = '3d.i'
     execute_on = 'timestep_end'
+    max_procs_per_app = 1
   []
 []
 
@@ -249,7 +201,8 @@ heated_length = 1.0
   []
 
   [pin_transfer]
-    type = SCMPinSolutionTransfer
+    type = SCMSolutionTransfer
+    transfer_type = pin
     to_multi_app = viz
     variable = 'Tpin q_prime Dpin'
     execute_on = 'timestep_end'

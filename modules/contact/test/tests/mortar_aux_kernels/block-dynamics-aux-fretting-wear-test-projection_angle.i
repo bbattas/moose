@@ -43,7 +43,7 @@ offset = -0.045
     generate_output = 'stress_xx stress_yy'
     strain = FINITE
     block = '1 2'
-    zeta = 1.0
+    stiffness_damping_coefficient = 1.0
     hht_alpha = 0.0
   []
   [inertia_x]
@@ -199,6 +199,7 @@ offset = -0.045
     disp_x = disp_x
     disp_y = disp_y
     debug_mesh = true
+    minimum_projection_angle = 0.0
   []
 []
 

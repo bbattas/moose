@@ -7,27 +7,28 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
-#include "MFEMSolverBase.h"
+
+#include "MFEMLORLinearSolverBase.h"
 #include "MFEMFESpace.h"
 
 /**
  * Wrapper for mfem::HypreADS solver.
  */
-class MFEMHypreADS : public MFEMSolverBase
+class MFEMHypreADS : public Moose::MFEM::LORLinearSolverBase<mfem::HypreADS>
 {
 public:
   static InputParameters validParams();
 
   MFEMHypreADS(const InputParameters &);
 
-  /// Updates the solver with the bilinear form in case LOR solve is required
-  void updateSolver(mfem::ParBilinearForm & a, mfem::Array<int> & tdofs) override;
+  void ConstructSolver() override;
 
 protected:
-  void constructSolver(const InputParameters & parameters) override;
+  /// Update the wrapped MFEM solver parameters
+  virtual void SetSolverParameters(mfem::HypreADS & solver) override;
 
 private:
   const MFEMFESpace & _mfem_fespace;

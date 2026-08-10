@@ -30,6 +30,12 @@ LayeredBase::validParams()
                                      "The 'bounding' positions of the layers i.e.: '0, "
                                      "1.2, 3.7, 4.2' will mean 3 layers between those "
                                      "positions.");
+  params.addRangeCheckedParam<unsigned int>("bound_uniform_splits",
+                                            "bound_uniform_splits > 0",
+                                            "The number of times the bins specified in 'bounds' "
+                                            "should be split uniformly.");
+  params.addParam<std::vector<unsigned int>>(
+      "bound_splits", "Number of uniform splits of all layers in 'bounds' (default to all ones)");
 
   MooseEnum sample_options("direct interpolate average", "direct");
   params.addParam<MooseEnum>("sample_type",
@@ -68,8 +74,9 @@ LayeredBase::validParams()
                         "Minimum coordinate along 'direction' that bounds the layers");
   params.addParam<Real>("direction_max",
                         "Maximum coordinate along 'direction' that bounds the layers");
-  params.addParamNamesToGroup("direction num_layers bounds direction_min direction_max",
-                              "Layers extent and definition");
+  params.addParamNamesToGroup(
+      "direction num_layers bounds direction_min direction_max bound_uniform_splits bound_splits",
+      "Layers extent and definition");
   params.addParamNamesToGroup("sample_type average_radius cumulative positive_cumulative_direction",
                               "Value sampling / aggregating");
   return params;
@@ -77,10 +84,10 @@ LayeredBase::validParams()
 
 LayeredBase::LayeredBase(const InputParameters & parameters)
   : Restartable(parameters.getCheckedPointerParam<SubProblem *>("_subproblem")->getMooseApp(),
-                parameters.get<std::string>("_object_name") + "_layered_base",
+                parameters.getObjectName() + "_layered_base",
                 "LayeredBase",
                 parameters.get<THREAD_ID>("_tid")),
-    _layered_base_name(parameters.get<std::string>("_object_name")),
+    _layered_base_name(parameters.getObjectName()),
     _layered_base_params(parameters),
     _direction_enum(parameters.get<MooseEnum>("direction")),
     _direction(_direction_enum),
@@ -114,8 +121,55 @@ LayeredBase::LayeredBase(const InputParameters & parameters)
 
     _layer_bounds = _layered_base_params.get<std::vector<Real>>("bounds");
 
+    if (_layer_bounds.size() < 2)
+      mooseError("At least two boundaries must be provided in 'bounds' to form layers!");
+
     // Make sure the bounds are sorted - we're going to depend on this
     std::sort(_layer_bounds.begin(), _layer_bounds.end());
+
+    if (_layered_base_params.isParamValid("bound_splits") &&
+        _layered_base_params.isParamValid("bound_uniform_splits"))
+      mooseError("Parameters 'bound_splits' and 'bound_uniform_splits' cannot be both supplied");
+
+    // If requested, we uniformly split the layers.
+    if (_layered_base_params.isParamValid("bound_uniform_splits"))
+    {
+      const auto splits = _layered_base_params.get<unsigned int>("bound_uniform_splits");
+      for (unsigned int s = 0; s < splits; ++s)
+      {
+        std::vector<Real> new_bnds;
+        new_bnds.reserve(2 * (_layer_bounds.size() - 1) + 1);
+        for (unsigned int i = 0; i < _layer_bounds.size() - 1; ++i)
+        {
+          new_bnds.emplace_back(_layer_bounds[i]);
+          new_bnds.emplace_back(0.5 * (_layer_bounds[i] + _layer_bounds[i + 1]));
+        }
+        new_bnds.emplace_back(_layer_bounds.back());
+        _layer_bounds = new_bnds;
+      }
+    }
+
+    if (_layered_base_params.isParamValid("bound_splits"))
+    {
+      // expand layers with subdivisions
+      const auto nsubs = _layered_base_params.get<std::vector<unsigned int>>("bound_splits");
+      if (nsubs.size() != _layer_bounds.size() - 1)
+        mooseError("'bound_splits' size must be equal to the size of 'bounds' minus one");
+
+      std::vector<Real> new_layers;
+      new_layers.reserve(std::accumulate(nsubs.begin(), nsubs.end(), (unsigned int)0));
+      new_layers.push_back(_layer_bounds[0]);
+      for (const auto i : index_range(nsubs))
+      {
+        Real dz = (_layer_bounds[i + 1] - _layer_bounds[i]) / nsubs[i];
+        for (const auto j : make_range(nsubs[i]))
+        {
+          libmesh_ignore(j);
+          new_layers.push_back(new_layers.back() + dz);
+        }
+      }
+      _layer_bounds = new_layers;
+    }
 
     _num_layers = _layer_bounds.size() - 1; // Layers are only in-between the bounds
     _direction_min = _layer_bounds.front();

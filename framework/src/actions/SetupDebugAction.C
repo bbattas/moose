@@ -41,6 +41,9 @@ SetupDebugAction::validParams()
       "show_material_props",
       false,
       "Print out the material properties supplied for each block, face, neighbor, and/or sideset");
+  params.addParam<bool>("show_chain_control_data",
+                        false,
+                        "Print out the chain control data on every time step setup");
   params.addParam<bool>("show_controllable",
                         false,
                         "Print out the controllable parameters from all input parameters");
@@ -72,6 +75,17 @@ SetupDebugAction::validParams()
       "show_block_restriction",
       BlockRestrictionDebugOutput::getScopes("none"),
       "Print out active objects like variables supplied for each block.");
+  params.addParam<bool>("show_block_restriction_groups",
+                        false,
+                        "Print groups of objects with identical block restrictions.");
+  params.addParam<bool>("show_boundary_restriction_groups",
+                        false,
+                        "Print groups of objects with identical boundary restrictions.");
+  params.addParam<bool>(
+      "error_on_residual_nan",
+      false,
+      "This option applies only to dbg and devel modes. If enabled, residual contributions are "
+      "checked for NaN or Inf values; if found, an error is reported.");
 
   params.addClassDescription("Adds various debugging type output to the simulation system.");
 
@@ -163,14 +177,26 @@ SetupDebugAction::act()
   if (getParam<bool>("show_functors"))
     _problem->setFunctorOutput(getParam<bool>("show_functors"));
 
+  // Add chain control data output
+  if (getParam<bool>("show_chain_control_data"))
+    _problem->setChainControlDataOutput(true);
+
   // Block-restriction
   const MultiMooseEnum & block_restriction_scope =
       _pars.get<MultiMooseEnum>("show_block_restriction");
-  if (block_restriction_scope.isValid() && !block_restriction_scope.contains("none"))
+  const bool show_block_restriction_map =
+      block_restriction_scope.isValid() && !block_restriction_scope.contains("none");
+  const bool show_block_restriction_groups = getParam<bool>("show_block_restriction_groups");
+  const bool show_boundary_restriction_groups = getParam<bool>("show_boundary_restriction_groups");
+  if (show_block_restriction_map || show_block_restriction_groups ||
+      show_boundary_restriction_groups)
   {
     const std::string type = "BlockRestrictionDebugOutput";
     auto params = _factory.getValidParams(type);
     params.set<MultiMooseEnum>("scope") = block_restriction_scope;
+    params.set<bool>("show_block_restriction_map") = show_block_restriction_map;
+    params.set<bool>("show_block_restriction_groups") = show_block_restriction_groups;
+    params.set<bool>("show_boundary_restriction_groups") = show_boundary_restriction_groups;
     _problem->addOutput(type, "_moose_block_restriction_debug_output", params);
   }
 
@@ -180,5 +206,16 @@ SetupDebugAction::act()
     const std::string type = "ControlOutput";
     auto params = _factory.getValidParams(type);
     _problem->addOutput(type, "_moose_controllable_debug_output", params);
+  }
+
+  // Enable residual NaN/Inf-checking
+  if (getParam<bool>("error_on_residual_nan"))
+  {
+#ifdef NDEBUG
+    mooseError("The parameter 'error_on_residual_nan' may only be set to 'true' for 'dbg' and "
+               "'devel' modes.");
+#else
+    _problem->setCheckResidualForNans(true);
+#endif
   }
 }

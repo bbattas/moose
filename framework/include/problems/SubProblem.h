@@ -359,6 +359,11 @@ public:
   virtual const SystemBase & systemBaseLinear(const unsigned int sys_num) const = 0;
   virtual SystemBase & systemBaseLinear(const unsigned int sys_num) = 0;
   /**
+   * Return the solver system object as a base class reference given the system number
+   */
+  virtual const SystemBase & systemBaseSolver(const unsigned int sys_num) const = 0;
+  virtual SystemBase & systemBaseSolver(const unsigned int sys_num) = 0;
+  /**
    * Return the auxiliary system object as a base class reference
    */
   virtual const SystemBase & systemBaseAuxiliary() const = 0;
@@ -508,9 +513,17 @@ public:
    */
   virtual void clearDiracInfo() = 0;
 
-  // Geom Search
+  /**
+   * update geometric search data
+   */
   virtual void
   updateGeomSearch(GeometricSearchData::GeometricSearchType type = GeometricSearchData::ALL) = 0;
+
+  /**
+   * reinitialize this object's geometric search data, e.g. do things like clear and re-add
+   * quadrature nodes
+   */
+  void reinitGeomSearch();
 
   virtual GeometricSearchData & geomSearchData() = 0;
 
@@ -916,7 +929,14 @@ public:
   virtual void jacobianSetup();
 
   /// Setter for debug functor output
-  void setFunctorOutput(bool set_output) { _output_functors = set_output; }
+  void setFunctorOutput(bool set_output) { _show_functors = set_output; }
+  /// Setter for debug chain control data output
+  void setChainControlDataOutput(bool set_output) { _show_chain_control_data = set_output; }
+
+#ifndef NDEBUG
+  /// Whether to check residual for NaN/Inf values
+  virtual bool checkResidualForNans() const = 0;
+#endif
 
   /**
    * @return the number of nonlinear systems in the problem
@@ -1004,6 +1024,12 @@ public:
   [[nodiscard]] bool havePRefinement() const { return _have_p_refinement; }
 
   /**
+   * Mark a variable family for either disabling or enabling p-refinement with valid parameters of a
+   * variable
+   */
+  void markFamilyPRefinement(const InputParameters & params);
+
+  /**
    * Set the current lower dimensional element. This can be null
    */
   virtual void setCurrentLowerDElem(const Elem * const lower_d_elem, const THREAD_ID tid);
@@ -1025,12 +1051,6 @@ protected:
    * Verify the integrity of _vector_tags and _typed_vector_tags
    */
   bool verifyVectorTags() const;
-
-  /**
-   * Mark a variable family for either disabling or enabling p-refinement with valid parameters of a
-   * variable
-   */
-  void markFamilyPRefinement(const InputParameters & params);
 
   /// The currently declared tags
   std::map<TagName, TagID> _matrix_tag_name_to_tag_id;
@@ -1156,7 +1176,10 @@ private:
   std::vector<std::multimap<std::string, std::pair<bool, bool>>> _functor_to_request_info;
 
   /// Whether to output a list of the functors used and requested (currently only at initialSetup)
-  bool _output_functors;
+  bool _show_functors;
+
+  /// Whether to output a list of all the chain control data
+  bool _show_chain_control_data;
 
   /// The declared vector tags
   std::vector<VectorTag> _vector_tags;

@@ -136,6 +136,16 @@ public:
     return *p;
   }
   template <class T>
+  T & getAction(const std::string & name)
+  {
+    return const_cast<T &>(static_cast<const ActionWarehouse *>(this)->getAction<T>(name));
+  }
+
+  /**
+   * Retrieve a Physics with its name and the desired type.
+   * @param name The action name.
+   */
+  template <class T>
   T * getPhysics(const std::string & name) const
   {
     auto physics = const_cast<T *>(&getAction<T>(name));
@@ -236,7 +246,7 @@ public:
    * This method executes only the actions in the warehouse that satisfy the task
    * passed in.
    */
-  void executeActionsWithAction(const std::string & name);
+  void executeActionsWithAction(const std::string & task_name);
 
   /**
    * This method sets a Boolean which is used to print information about action dependencies
@@ -306,6 +316,22 @@ protected:
    * @param task The name of the task to find and build Actions for.
    */
   void buildBuildableActions(const std::string & task);
+
+  /**
+   * @return The names of the UserObjects referenced by \p params through its UserObjectName (or
+   * std::vector<UserObjectName>) parameters. Mirrors
+   * MeshGeneratorSystem::getMeshGeneratorParamDependencies.
+   */
+  std::vector<UserObjectName> getUserObjectParamDependencies(const InputParameters & params) const;
+
+  /**
+   * Reorder the UserObject-constructing actions \p actions so that a UserObject that references
+   * another (through a UserObjectName parameter) is constructed after the one it references. This
+   * makes the input order-agnostic: a referenced UserObject no longer has to be declared before the
+   * UserObject that uses it in its constructor. Mirrors the dependency resolution
+   * MeshGeneratorSystem performs for mesh generators.
+   */
+  void sortUserObjectActions(std::list<Action *> & actions) const;
 
   std::vector<std::shared_ptr<Action>> _all_ptrs;
 

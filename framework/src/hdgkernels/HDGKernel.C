@@ -18,7 +18,13 @@ HDGKernel::validParams()
   return params;
 }
 
-HDGKernel::HDGKernel(const InputParameters & parameters) : Kernel(parameters)
+HDGKernel::HDGKernel(const InputParameters & parameters)
+  : Kernel(parameters),
+    _qrule_face(_assembly.qRuleFace()),
+    _q_point_face(_assembly.qPointsFace()),
+    _JxW_face(_assembly.JxWFace()),
+    _normals(_assembly.normals()),
+    _current_side_elem(_assembly.sideElem())
 {
   if (const auto * const ti = _sys.queryTimeIntegrator(_var.number()); ti && ti->isExplicit())
     mooseError("HDGKernels do not currently work with explicit time integration. This is because "
@@ -33,5 +39,6 @@ HDGKernel::HDGKernel(const InputParameters & parameters) : Kernel(parameters)
 void
 HDGKernel::computeResidualAndJacobianOnSide()
 {
-  mooseError("not implemented");
+  computeResidualOnSide();
+  computeJacobianOnSide();
 }

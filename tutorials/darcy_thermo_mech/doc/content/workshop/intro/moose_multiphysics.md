@@ -1,14 +1,44 @@
-# Creating a Multiphysics Code
+# Multiphysics Simulation
 
 !---
 
-- Multiphysics is popular, but how is it achieved?
-- Scientists are adept at creating applications in their domain
-- What about collaborating across research groups and/or disciplines?
+## Historical Multiphysics Simulation
 
-  - Iterating between design teams?
-  - Development of "coupling" codes?
-  - Is there something better?
+- Predictive multiphysics capability involved best-estimate calculations
+
+  - Best estimates: data and correlation driven, many approximations
+  - Necessitated experimental data for each design
+
+- Physics performed independently
+
+  - Was a "siloed" task; handoffs of data/results from person to person
+
+- While individual codes were computationally efficient and well validated, coupling
+  them was neither efficient nor well validated
+
+- Used many approximations for evaluations of safety parameters
+
+  - Pin-power reconstruction, gap conductance, spacer grid models
+
+!---
+
+## Modern Multiphysics Simulation
+
+- Direct, physics-based models of all components
+
+  - Reduces approximations as needed
+  - Can be computationally expensive
+
+- Can employ tighter and more consistent coupling
+
+- Length and time scales of physics can be vastly different
+
+  - What does this change for the analyst?
+
+- Not as well validated:
+
+  - Experiments prohibitively expensive
+  - Very large design space
 
 !---
 
@@ -18,144 +48,44 @@
 
   - Allows for "decoupling" of code
   - Leads to more reuse and less bugs
-  - +Challenging for FEM+: Shape functions, DOFs, Elements, QPs, Material Properties, Analytic
-    Functions, Global Integrals, Transferred Data and much more are needed in FEM assembly
+  - +Challenging for FEM+
 
-    The complexity makes computational science codes brittle and hard to reuse
+    - Shape functions, degrees of freedom, meshing, quadrature points, material properties, analytic functions, global integrals, data transfer, ...
+    - The complexity makes computational science codes brittle and hard to reuse
 
 - A consistent set of "systems" are needed to carry out common actions, these systems should be
   separated by interfaces
-
-
-!---
-
-## MOOSE Pluggable Systems
-
-- Systems break apart responsibility
-- No direct communication between systems
-- Everything flows through MOOSE interfaces
-- Objects can be mixed and matched to achieve simulation goals
-- Incoming data can be changed dynamically
-- Outputs can be manipulated (e.g. multiplication by radius for cylindrical coordinates)
-- An object, by itself, can be lifted from one application and used by another
-
-!---
-
-## MOOSE Pluggable Systems
-
-!style! halign=center
-!row!
-!col! small=12 medium=6 large=3 style=margin-left:auto;margin-right:20px;
-Actions\\
-AuxKernels\\
-Base\\
-BCs\\
-Constraints\\
-Controls\\
-Dampers\\
-DGKernels\\
-DiracKernels\\
-Distributions\\
-Executioners\\
-!col-end!
-
-!col! small=12 medium=6 large=3 style=margin-right:2%;
-Functions\\
-Geomsearch\\
-ICs\\
-Indicators\\
-InterfaceKernels\\
-Kernels\\
-LineSearches\\
-Markers\\
-Materials\\
-Mesh\\
-!col-end!
-
-!col! small=12 medium=6 large=3 style=margin-right:2%;
-MeshGenerators\\
-MeshModifiers\\
-Multiapps\\
-NodalKernels\\
-Outputs\\
-Parser\\
-Partitioner\\
-Positions\\
-Postprocessors\\
-Preconditioners\\
-Predictors\\
-!col-end!
-
-!col! small=12 medium=6 large=3 style=margin-right:10%;
-Problems\\
-Reporters\\
-RelationshipManagers\\
-Samplers\\
-Splits\\
-TimeIntegrators\\
-TimeSteppers\\
-Transfers\\
-UserObject\\
-Utils\\
-Variables\\
-VectorPostprocessors\\
-!col-end!
-!row-end!
-!style-end!
 
 !---
 
 ## Finite-Element Reactor Fuel Simulation
 
-!media darcy_thermo_mech/simulator.mp4 style=width:70%;margin-left:auto;margin-right:auto;display:block;
+!media darcy_thermo_mech/simulator.mp4 alt=Video showing what is required to create a finite-element nuclear reactor fuel simulator, and then grouping those requirements based on what is within PETSc, libMesh, MOOSE, and example MOOSE-based applications. style=width:70%;margin-left:auto;margin-right:auto;display:block;
 
 !---
 
-## MOOSE Modules
+## MOOSE Coupling Strategies
 
-!style! halign=center
-!row!
-!col! small=12 medium=6 large=3 style=margin-left:10%;
-+Physics+\\
-Chemical Reactions\\
-Contact\\
-Electromagnetics\\
-Fluid Structure Interaction (FSI)\\
-Geochemistry\\
-Heat Transfer\\
-Level Set\\
-Navier Stokes\\
-Peridynamics\\
-Phase Field\\
-Porous Flow\\
-Solid Mechanics\\
-Thermal Hydraulics\\
-!col-end!
+- Coupling strategies:
 
-!col! small=12 medium=6 large=3 style=margin-right:2%;
-+Numerics+\\
-External PETSc Solver\\
-Function Expansion Tools\\
-Optimization\\
-Ray Tracing\\
-rDG\\
-Stochastic Tools\\
-XFEM\\
-!col-end!
+  - +Full coupling+: Solve all physics in a single (linear or nonlinear) system
+  - +Loose coupling+: Solve each physics sequentially
+  - +Tight coupling+: Solve each physics sequentially and iterate
 
-!col! small=12 medium=6 large=3 style=margin-right:10%;
-+Physics support+\\
-Fluid Properties\\
-Solid Properties\\
-Reactor\\
-!col-end!
-!row-end!
-!style-end!
+- Segregated (loose/tight) coupling achieved using [`MultiApps`](MultiApps/index.md)
+
+  - Physics coupled via in-memory transfer of fields and scalars
+
+- Coupling specified in the input file (no code needed)
+
+- No universally superior coupling strategy; correct choice depends on problem
+
+- +Provides a standardized interface for an analyst to produce a coupled model+
 
 !---
 
-## The MOOSE ecosystem
+## MOOSE MultiApp Hierarchy Example
 
-!media darcy_thermo_mech/moose_herd_2022.png style=margin-left:auto;margin-right:auto;display:block;
+!style halign=center
+!media multiapp_tree.png style=width:70% alt=Multiapp tree
 
-Many are open-source on GitHub. Some are accessible through the [NCRC](https://inl.gov/ncrc/)

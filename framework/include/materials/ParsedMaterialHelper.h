@@ -9,12 +9,15 @@
 
 #pragma once
 
+#include "MooseEnum.h"
 #include "FunctionMaterialBase.h"
 #include "FunctionParserUtils.h"
 #include "FunctionMaterialPropertyDescriptor.h"
 #include "DerivativeMaterialPropertyNameInterface.h"
 
 #include "libmesh/fparser_ad.hh"
+
+#include <optional>
 
 #define usingParsedMaterialHelperMembers(T)                                                        \
   usingFunctionMaterialBaseMembers(T);                                                             \
@@ -28,6 +31,8 @@
   using ParsedMaterialHelper<T>::_mat_prop_descriptors;                                            \
   using ParsedMaterialHelper<T>::_tol;                                                             \
   using ParsedMaterialHelper<T>::_postprocessor_values;                                            \
+  using ParsedMaterialHelper<T>::_extra_symbols;                                                   \
+  using ParsedMaterialHelper<T>::_functors;                                                        \
   using ParsedMaterialHelper<T>::_map_mode
 
 /**
@@ -40,22 +45,12 @@ class ParsedMaterialHelper : public FunctionMaterialBase<is_ad>, public Function
 public:
   typedef DerivativeMaterialPropertyNameInterface::SymbolName SymbolName;
 
-  enum class VariableNameMappingMode
-  {
-    USE_MOOSE_NAMES,
-    USE_PARAM_NAMES
-  };
+  CreateMooseEnumClass(VariableNameMappingMode, USE_MOOSE_NAMES, USE_PARAM_NAMES);
+  CreateMooseEnumClass(ExtraSymbols, x, y, z, t, dt);
 
-  enum class ExtraSymbols
-  {
-    x,
-    y,
-    z,
-    t,
-    dt
-  };
-
-  ParsedMaterialHelper(const InputParameters & parameters, VariableNameMappingMode map_mode);
+  ParsedMaterialHelper(const InputParameters & parameters,
+                       const VariableNameMappingMode map_mode,
+                       const std::optional<std::string> & function_param_name = {});
 
   static InputParameters validParams();
 
@@ -202,6 +197,9 @@ protected:
    */
   const VariableNameMappingMode _map_mode;
 
+  /// Optional parameter name that represents the function to associate errors with
+  const std::optional<std::string> _function_param_name;
+
   /**
    * Vector to hold list of material names that must be updated prior to evaluating current material
    * (for compute = false materials)
@@ -216,4 +214,11 @@ protected:
    * (for compute = false materials)
    */
   std::vector<MaterialBase *> _upstream_mat;
+
+private:
+  /// Helper for reporting a parse error with a much as context as possible
+  void parseError(const std::string & message) const;
+
+  /// The underlying parameters
+  const InputParameters & _params;
 };

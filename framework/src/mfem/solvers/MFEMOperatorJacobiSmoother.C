@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMOperatorJacobiSmoother.h"
 #include "MFEMProblem.h"
@@ -17,29 +17,35 @@ registerMooseObject("MooseApp", MFEMOperatorJacobiSmoother);
 InputParameters
 MFEMOperatorJacobiSmoother::validParams()
 {
-  InputParameters params = MFEMSolverBase::validParams();
+  InputParameters params =
+      Moose::MFEM::LORLinearSolverBase<mfem::OperatorJacobiSmoother>::validParams();
   params.addClassDescription("MFEM solver for performing Jacobi smoothing of the equation system.");
-
+  params.addParam<mfem::real_t>(
+      "damping",
+      1.0,
+      "Damping factor omega for the scaled-Jacobi iteration y = omega * D^{-1} * x. "
+      "When used as a multigrid smoother, omega must satisfy omega < 2/lambda_max(D^{-1}A).");
   return params;
 }
 
 MFEMOperatorJacobiSmoother::MFEMOperatorJacobiSmoother(const InputParameters & parameters)
-  : MFEMSolverBase(parameters)
+  : Moose::MFEM::LORLinearSolverBase<mfem::OperatorJacobiSmoother>(parameters)
 {
-  constructSolver(parameters);
+  ConstructSolver();
 }
 
 void
-MFEMOperatorJacobiSmoother::constructSolver(const InputParameters &)
+MFEMOperatorJacobiSmoother::ConstructSolver()
 {
-  _solver = std::make_unique<mfem::OperatorJacobiSmoother>();
+  auto solver = std::make_unique<mfem::OperatorJacobiSmoother>(getParam<double>("damping"));
+  SetSolverParameters(*solver);
+  _solver = std::move(solver);
 }
 
 void
-MFEMOperatorJacobiSmoother::updateSolver(mfem::ParBilinearForm & a, mfem::Array<int> & tdofs)
+MFEMOperatorJacobiSmoother::SetSolverParameters(mfem::OperatorJacobiSmoother & solver)
 {
-  if (getParam<bool>("low_order_refined"))
-    _solver.reset(new mfem::LORSolver<mfem::OperatorJacobiSmoother>(a, tdofs));
+  solver.iterative_mode = getParam<bool>("use_initial_guess");
 }
 
 #endif

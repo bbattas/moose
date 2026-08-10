@@ -35,8 +35,8 @@
 #include "RayTracingTestApp.h"
 #include "RdgTestApp.h"
 #include "ReactorTestApp.h"
-#include "RichardsTestApp.h"
 #include "ScalarTransportTestApp.h"
+#include "ShiftedBoundaryMethodTestApp.h"
 #include "SolidPropertiesTestApp.h"
 #include "StochasticToolsTestApp.h"
 #include "ScalarTransportTestApp.h"
@@ -92,8 +92,8 @@ CombinedTestApp::registerAll(Factory & f, ActionFactory & af, Syntax & s, bool u
     RayTracingTestApp::registerAll(f, af, s, use_test_objs);
     RdgTestApp::registerAll(f, af, s, use_test_objs);
     ReactorTestApp::registerAll(f, af, s, use_test_objs);
-    RichardsTestApp::registerAll(f, af, s, use_test_objs);
     ScalarTransportTestApp::registerAll(f, af, s, use_test_objs);
+    ShiftedBoundaryMethodTestApp::registerAll(f, af, s, use_test_objs);
     SolidPropertiesTestApp::registerAll(f, af, s, use_test_objs);
     StochasticToolsTestApp::registerAll(f, af, s, use_test_objs);
     SolidMechanicsTestApp::registerAll(f, af, s, use_test_objs);
@@ -127,8 +127,8 @@ CombinedTestApp::registerApps()
   RayTracingTestApp::registerApps();
   RdgTestApp::registerApps();
   ReactorTestApp::registerApps();
-  RichardsTestApp::registerApps();
   ScalarTransportTestApp::registerApps();
+  ShiftedBoundaryMethodTestApp::registerApps();
   SolidPropertiesTestApp::registerApps();
   StochasticToolsTestApp::registerApps();
   SolidMechanicsTestApp::registerApps();

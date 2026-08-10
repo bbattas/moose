@@ -7,12 +7,12 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
+
 #include "GeneralUserObject.h"
 #include "libmesh/ignore_warnings.h"
-#include <mfem.hpp>
 #include "mfem/miniapps/common/mfem-common.hpp"
 #include "libmesh/restore_warnings.h"
 
@@ -27,7 +27,8 @@ public:
 
   MFEMBoundaryRestrictable(const InputParameters & parameters, const mfem::ParMesh & mfem_mesh);
 
-  mfem::Array<int> boundariesToAttributes(const std::vector<BoundaryName> & boundary_names);
+  mfem::Array<int> boundariesToAttributes();
+  std::vector<std::string> boundariesToStrings();
 
   /// Returns a bool indicating if the object is restricted to a subset of boundaries
   bool isBoundaryRestricted() const
@@ -35,9 +36,9 @@ public:
     return !(_boundary_attributes.Size() == 1 && _boundary_attributes[0] == -1);
   }
 
-  const mfem::ParMesh & getMesh() { return _mfem_mesh; }
   const mfem::Array<int> & getBoundaryAttributes() { return _boundary_attributes; }
   mfem::Array<int> & getBoundaryMarkers() { return _boundary_markers; }
+  const mfem::ParMesh & getMesh() { return _mfem_mesh; }
 
 protected:
   /// Stores the names of the boundaries.

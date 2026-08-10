@@ -91,7 +91,7 @@ public:
 
   // DoF value type for the template class OutputType
   typedef typename Moose::DOFType<OutputType>::type OutputData;
-  typedef MooseArray<OutputData> DoFValue;
+  typedef MooseArray<OutputData> DofValue;
 
   MooseVariableDataFV(const MooseVariableFV<OutputType> & var,
                       SystemBase & sys,
@@ -172,28 +172,26 @@ public:
    */
   const FieldVariableCurl & curlSln(Moose::SolutionState state) const;
 
-  const ADTemplateVariableValue<OutputType> & adSln() const
-  {
-    _need_ad = _need_ad_u = true;
-    return _ad_u;
-  }
+  /**
+   * @returns The automatic differentiation solution indexable at quadrature points
+   */
+  const ADTemplateVariableValue<OutputType> & adSln() const;
 
-  const ADTemplateVariableGradient<OutputType> & adGradSln() const
-  {
-    _need_ad = _need_ad_grad_u = true;
-    return _ad_grad_u;
-  }
+  /**
+   * @returns The automatic differentiation gradient indexable at quadrature points
+   */
+  const ADTemplateVariableGradient<OutputType> & adGradSln() const;
 
   const ADTemplateVariableGradient<OutputType> & adGradSlnDot() const
   {
     mooseError("Gradient of time derivative not yet implemented for FV");
   }
 
-  const ADTemplateVariableSecond<OutputType> & adSecondSln() const
-  {
-    _need_ad = _need_ad_second_u = true;
-    return _ad_second_u;
-  }
+  /**
+   * @returns The automatic differentiation matrix of second derivatives indexable at quadrature
+   * points
+   */
+  const ADTemplateVariableSecond<OutputType> & adSecondSln() const;
 
   const ADTemplateVariableValue<OutputType> & adUDot() const;
 
@@ -247,10 +245,10 @@ public:
 
   /////////////////////////// DoF value getters /////////////////////////////////////
 
-  const DoFValue & dofValuesDot() const;
-  const DoFValue & dofValuesDotOld() const;
-  const DoFValue & dofValuesDotDot() const;
-  const DoFValue & dofValuesDotDotOld() const;
+  const DofValue & dofValuesDot() const;
+  const DofValue & dofValuesDotOld() const;
+  const DofValue & dofValuesDotDot() const;
+  const DofValue & dofValuesDotDotOld() const;
   const MooseArray<libMesh::Number> & dofValuesDuDotDu() const;
   const MooseArray<libMesh::Number> & dofValuesDuDotDotDu() const;
 
@@ -293,7 +291,7 @@ private:
    * values as they're referred to here in this class). These methods are only truly meaningful
    * for nodal basis families
    */
-  void fetchADDoFValues();
+  void fetchADDofValues();
 
   /**
    * Helper method that tells us whether it's safe to compute _ad_u_dot
@@ -430,7 +428,7 @@ private:
   using MooseVariableDataBase<OutputType>::_need_matrix_tag_u;
   using MooseVariableDataBase<OutputType>::_dof_indices;
   using MooseVariableDataBase<OutputType>::_has_dof_values;
-  using MooseVariableDataBase<OutputType>::fetchDoFValues;
+  using MooseVariableDataBase<OutputType>::fetchDofValues;
   using MooseVariableDataBase<OutputType>::assignNodalValue;
   using MooseVariableDataBase<OutputType>::zeroSizeDofValues;
   using MooseVariableDataBase<OutputType>::_solution_tag;
@@ -471,22 +469,6 @@ private:
 /////////////////////// General template definitions //////////////////////////////////////
 
 template <typename OutputType>
-const MooseArray<ADReal> &
-MooseVariableDataFV<OutputType>::adDofValues() const
-{
-  _need_ad = true;
-  return _ad_dof_values;
-}
-
-template <typename OutputType>
-const MooseArray<ADReal> &
-MooseVariableDataFV<OutputType>::adDofValuesDot() const
-{
-  _need_ad = _need_ad_u_dot = true;
-  return _ad_dofs_dot;
-}
-
-template <typename OutputType>
 inline bool
 MooseVariableDataFV<OutputType>::safeToComputeADUDot() const
 {
@@ -497,19 +479,6 @@ MooseVariableDataFV<OutputType>::safeToComputeADUDot() const
   // in their solve() method, and that solve() method only happens for the nonlinear system copy of
   // the time integrator.
   return _time_integrator && (_var.kind() == Moose::VAR_SOLVER);
-}
-
-template <typename OutputType>
-inline const ADTemplateVariableValue<OutputType> &
-MooseVariableDataFV<OutputType>::adUDot() const
-{
-  _need_ad = _need_ad_u_dot = true;
-
-  if (!safeToComputeADUDot())
-    // We will just copy the value of _u_dot into _ad_u_dot
-    _need_u_dot = true;
-
-  return _ad_u_dot;
 }
 
 template <typename OutputType>

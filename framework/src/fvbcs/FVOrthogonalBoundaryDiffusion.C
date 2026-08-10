@@ -15,7 +15,7 @@ registerMooseObject("MooseApp", FVOrthogonalBoundaryDiffusion);
 InputParameters
 FVOrthogonalBoundaryDiffusion::validParams()
 {
-  InputParameters params = FVFluxBC::validParams();
+  InputParameters params = FVQpFluxBC::validParams();
   params.addClassDescription(
       "Imposes an orthogonal diffusion boundary term with specified boundary function.");
   params.addRequiredParam<FunctionName>("function",
@@ -28,7 +28,7 @@ FVOrthogonalBoundaryDiffusion::validParams()
 }
 
 FVOrthogonalBoundaryDiffusion::FVOrthogonalBoundaryDiffusion(const InputParameters & parameters)
-  : FVFluxBC(parameters),
+  : FVQpFluxBC(parameters),
     _function(getFunction("function")),
     _coeff_elem(getADMaterialProperty<Real>("coeff")),
     _coeff_neighbor(getNeighborADMaterialProperty<Real>("coeff")),
@@ -44,9 +44,7 @@ FVOrthogonalBoundaryDiffusion::FVOrthogonalBoundaryDiffusion(const InputParamete
 ADReal
 FVOrthogonalBoundaryDiffusion::computeQpResidual()
 {
-  const bool elem_is_interior =
-      _face_info->faceType(std::make_pair(_var.number(), _var.sys().number())) ==
-      FaceInfo::VarFaceNeighbors::ELEM;
+  const bool elem_is_interior = (_face_type == FaceInfo::VarFaceNeighbors::ELEM);
 
   const auto & diff_quant = elem_is_interior ? _diff_quant_elem[_qp] : _diff_quant_neighbor[_qp];
   const auto & coeff = elem_is_interior ? _coeff_elem[_qp] : _coeff_neighbor[_qp];

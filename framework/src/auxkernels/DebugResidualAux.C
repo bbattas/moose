@@ -19,9 +19,9 @@ DebugResidualAux::validParams()
 {
   InputParameters params = AuxKernel::validParams();
   params.addClassDescription(
-      "Populate an auxiliary variable with the residual contribution of a variable.");
-  params.addRequiredParam<NonlinearVariableName>("debug_variable",
-                                                 "The variable that is being debugged.");
+      "Populate an auxiliary variable with the residual contribution of a variable's equation.");
+  params.addRequiredParam<NonlinearVariableName>(
+      "debug_variable", "The variable whose equation residual is being output.");
   return params;
 }
 
@@ -30,18 +30,36 @@ DebugResidualAux::DebugResidualAux(const InputParameters & parameters)
     _debug_var(_nl_sys.getVariable(_tid, getParam<NonlinearVariableName>("debug_variable"))),
     _residual_copy(_nl_sys.residualGhosted())
 {
+  // Note we don't use Coupleable API checks to avoid computing the variable values
+  for (const auto block_id : blockIDs())
+    if (!_debug_var.hasBlocks(block_id))
+    {
+      const auto block_name = _mesh.getSubdomainName(block_id);
+      const auto block_description =
+          block_name.empty() ? Moose::stringify(block_id)
+                             : "'" + block_name + "' (" + Moose::stringify(block_id) + ")";
+
+      paramError("debug_variable",
+                 "The variable '",
+                 _debug_var.name(),
+                 "', whose equation we want to output the residual of, is not defined on block ",
+                 block_description,
+                 ", where DebugResidualAux '",
+                 name(),
+                 "' is active.");
+    }
+
   // Check that variable order/family match aux_variable order/family
   auto var_order = Utility::string_to_enum<Order>(_var.getParam<MooseEnum>("order"));
   auto debug_order = Utility::string_to_enum<Order>(_debug_var.getParam<MooseEnum>("order"));
   auto var_family = Utility::string_to_enum<FEFamily>(_var.getParam<MooseEnum>("family"));
   auto debug_family = Utility::string_to_enum<FEFamily>(_debug_var.getParam<MooseEnum>("family"));
   if (var_order != debug_order || var_family != debug_family)
-    mooseError("A mismatch was found between family and order parameters for ",
+    paramError("variable",
+               "A mismatch was found between family and order parameters for ",
                _var.name(),
                " and ",
-               _debug_var.name(),
-               " in ",
-               this->getParam<std::string>("_object_name"));
+               _debug_var.name());
   if (!_nodal && debug_order > 0)
     mooseWarning("Residual output is approximate for variable order " +
                  Moose::stringify(debug_order));

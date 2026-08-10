@@ -1,4 +1,13 @@
-#ifdef MFEM_ENABLED
+//* This file is part of the MOOSE framework
+//* https://mooseframework.inl.gov
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMObjectUnitTest.h"
 #include "MFEML2Error.h"
@@ -27,11 +36,11 @@ public:
     NDFE_params.set<MooseEnum>("fec_type") = "ND";
     _mfem_problem->addFESpace("MFEMVectorFESpace", "ND_vector", NDFE_params);
     InputParameters scalar_params = _factory.getValidParams("MFEMVariable");
-    scalar_params.set<UserObjectName>("fespace") = "H1_scalar";
+    scalar_params.set<MFEMFESpaceName>("fespace") = "H1_scalar";
     _mfem_problem->addVariable("MFEMVariable", "scalar_var", scalar_params);
     _scalar_var = _mfem_problem->getProblemData().gridfunctions.Get("scalar_var");
     InputParameters vector_params = _factory.getValidParams("MFEMVariable");
-    vector_params.set<UserObjectName>("fespace") = "ND_vector";
+    vector_params.set<MFEMFESpaceName>("fespace") = "ND_vector";
     _mfem_problem->addVariable("MFEMVariable", "vector_var", vector_params);
     _vector_var = _mfem_problem->getProblemData().gridfunctions.Get("vector_var");
   }
@@ -65,12 +74,24 @@ TEST_F(MFEMPostprocessorTest, MFEML2ErrorCoefficient)
   pp_params.set<MFEMScalarCoefficientName>("function") = "scalar_ones";
   pp_params.set<VariableName>("variable") = "scalar_var";
   _mfem_problem->addPostprocessor("MFEML2Error", "ppl2", pp_params);
-  auto & l2_pp = _mfem_problem->getUserObject<MFEML2Error>("ppl2");
-  auto & l2_coef = _mfem_problem->getCoefficients().getScalarCoefficient("ppl2");
+  auto & l2_pp = _mfem_problem->getPostprocessorObjectByName("ppl2");
+  auto & l2_pp_as_coef = _mfem_problem->getCoefficients().getScalarCoefficient("ppl2");
 
   mfem::ConstantCoefficient twos(2.);
   _scalar_var->ProjectCoefficient(twos);
-  l2_pp.getValue();
+  _mfem_problem->executeMFEMObjects(EXEC_TIMESTEP_END);
+  const auto l2_pp_value = l2_pp.getCurrentValue();
+
+  // Compute domain volume
+  mfem::ConstantCoefficient one(1.0);
+  mfem::LinearForm volume_form(_scalar_var->FESpace());
+  volume_form.AddDomainIntegrator(new mfem::DomainLFIntegrator(one));
+  volume_form.Assemble();
+  mfem::Vector ones(volume_form.Size());
+  ones = 1.0;
+  const auto volume = volume_form * ones;
+  using std::sqrt;
+  EXPECT_NEAR(l2_pp_value, sqrt(volume), TOLERANCE * TOLERANCE);
 
   mfem::IsoparametricTransformation fe_transform;
   mfem::IntegrationPoint point;
@@ -78,7 +99,7 @@ TEST_F(MFEMPostprocessorTest, MFEML2ErrorCoefficient)
   point.Set2(0., 0.);
   fe_transform.SetIdentityTransformation(mfem::Geometry::SQUARE);
 
-  EXPECT_EQ(l2_coef.Eval(fe_transform, point), l2_pp.getCurrentValue());
+  EXPECT_EQ(l2_pp_as_coef.Eval(fe_transform, point), l2_pp_value);
 }
 
 /**
@@ -91,7 +112,7 @@ TEST_F(MFEMPostprocessorTest, MFEMVectorL2Error)
   pp_params.set<VariableName>("variable") = "vector_var";
   auto & l2_pp = addObject<MFEMVectorL2Error>("MFEMVectorL2Error", "ppl2", pp_params);
 
-  mfem::VectorConstantCoefficient twos(mfem::Vector({2., 2.}));
+  mfem::VectorConstantCoefficient twos(mfem::Vector({2., 2., 2.}));
   _vector_var->ProjectCoefficient(twos);
   EXPECT_GT(l2_pp.getValue(), 1.);
 

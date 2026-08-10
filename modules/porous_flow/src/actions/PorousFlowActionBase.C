@@ -422,7 +422,7 @@ PorousFlowActionBase::addMassFractionMaterial(bool at_nodes)
   if (_current_task == "add_material")
   {
     if (!(parameters().hasDefaultCoupledValue("mass_fraction_vars") ||
-          parameters().hasCoupledValue("mass_fraction_vars")))
+          parameters().hasCoupledVar("mass_fraction_vars")))
       mooseError("Attempt to add a PorousFlowMassFraction material without setting the "
                  "mass_fraction_vars");
 
@@ -647,7 +647,10 @@ PorousFlowActionBase::addRelativePermeabilityFLAC(
 }
 
 void
-PorousFlowActionBase::addCapillaryPressureVG(Real m, Real alpha, std::string userobject_name)
+PorousFlowActionBase::addCapillaryPressureVG(Real m,
+                                             Real alpha,
+                                             std::string userobject_name,
+                                             Real sat_lr)
 {
   if (_current_task == "add_user_object")
   {
@@ -657,6 +660,7 @@ PorousFlowActionBase::addCapillaryPressureVG(Real m, Real alpha, std::string use
       params.set<std::vector<SubdomainName>>("block") = _subdomain_names;
     params.set<Real>("m") = m;
     params.set<Real>("alpha") = alpha;
+    params.set<Real>("sat_lr") = sat_lr;
     _problem->addUserObject(userobject_type, userobject_name, params);
   }
 }

@@ -14,6 +14,7 @@
 #include "OutputInterface.h"
 #include "MooseEnum.h"
 #include "ReporterContext.h"
+#include "NonADFunctorInterface.h"
 
 // libMesh
 #include "libmesh/parallel.h"
@@ -30,7 +31,7 @@ InputParameters validParams();
 /**
  * Base class for Postprocessors that produce a vector of values.
  */
-class VectorPostprocessor : public OutputInterface
+class VectorPostprocessor : public OutputInterface, public NonADFunctorInterface
 {
 public:
   static InputParameters validParams();
@@ -38,6 +39,13 @@ public:
   VectorPostprocessor(const MooseObject * moose_object);
 
   virtual ~VectorPostprocessor() = default;
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  VectorPostprocessor(const VectorPostprocessor & object, const Moose::Kokkos::FunctorCopy & key);
+#endif
 
   /**
    * Returns the name of the VectorPostprocessor.

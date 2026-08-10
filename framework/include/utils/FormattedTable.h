@@ -167,13 +167,13 @@ public:
   /**
    * Retrieve the last time (or independent variable) value.
    */
-  Real getLastTime();
+  Real getLastTime() const;
 
   /**
    * Retrieve Data for last value of given name
    */
   template <typename T = Real>
-  T & getLastData(const std::string & name);
+  T & getLastData(const std::string & name) const;
 
   void clear();
 
@@ -220,6 +220,14 @@ public:
    * By default printCSV prints output to a precision of 14, this allows this to be changed
    */
   void setPrecision(unsigned int precision) { _csv_precision = precision; }
+
+  /**
+   * Set whether printCSV uses scientific notation for floating point values.
+   */
+  void setUseScientificNotation(bool use_scientific_notation)
+  {
+    _csv_use_scientific_notation = use_scientific_notation;
+  }
 
   /**
    * Sorts columns alphabetically.
@@ -319,6 +327,9 @@ private:
   /// *.csv file precision, defaults to 14
   unsigned int _csv_precision;
 
+  /// Whether to print floating point CSV values in scientific notation
+  bool _csv_use_scientific_notation;
+
   /// Flag indicating that sorting is necessary (used by sortColumns method).
   bool _column_names_unsorted = true;
 
@@ -399,7 +410,7 @@ FormattedTable::addData(const std::string & name, const std::vector<T> & vector)
 
 template <typename T>
 T &
-FormattedTable::getLastData(const std::string & name)
+FormattedTable::getLastData(const std::string & name) const
 {
   mooseAssert(!empty(), "No Data stored in the FormattedTable");
 

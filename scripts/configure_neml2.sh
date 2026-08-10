@@ -19,22 +19,18 @@ function get_variable()
 # Configure NEML2 with the default MOOSE configuration options
 #
 # Separated so that it can be used across all NEML2 build scripts:
-# - scripts/update_and_rebuild_wasp.sh
+# - scripts/update_and_rebuild_neml2.sh
 #
 # Arguments:
 #   1. Path to the NEML2 source directory
 #   2. Path to the NEML2 build directory
-#   3. Path to the libtorch directory
-#   4. Path to the WASP directory
-#   5. Path to the HIT source directory
-#   6. Path to the TIMPI directory
 #
 # Remaining arguments will be appended to the cmake command verbatim
 function configure_neml2()
 {
   ARGS=()
   if [ -n "$HIT_SRC_DIR" ]; then
-    ARGS+=("-DHIT_SOURCE_DIR=$HIT_SRC_DIR")
+    ARGS+=("-Dhit_SOURCE_DIR=$HIT_SRC_DIR")
   fi
   if which ninja &> /dev/null; then
     ARGS+=("-GNinja")
@@ -43,14 +39,11 @@ function configure_neml2()
   cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DNEML2_TESTS=OFF \
-    -DNEML2_RUNNER=OFF \
-    -DNEML2_PYBIND=OFF \
-    -DNEML2_DOC=OFF \
     -DNEML2_WORK_DISPATCHER=ON \
     -DNEML2_JSON=OFF \
-    -DTorch_ROOT="$(get_variable LIBTORCH_DIR)" \
-    -DWASP_ROOT="$(get_variable WASP_DIR)" \
-    -DTIMPI_ROOT="$(get_variable TIMPI_DIR)" \
+    -DNEML2_CONTRIB_PREFIX="$2/contrib" \
+    -Dtorch_ROOT="$(get_variable LIBTORCH_DIR)" \
+    -Dtorch_SEARCH_SITE_PACKAGES=OFF \
     -G "Unix Makefiles" \
     -B "$2" \
     -S "$1" \

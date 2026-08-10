@@ -1,5 +1,7 @@
 # NEML2ModelExecutor
 
+!if! function=hasCapability('neml2')
+
 !syntax description /UserObjects/NEML2ModelExecutor
 
 !alert note
@@ -10,12 +12,6 @@ Users are +NOT+ expected to directly use this object in an input file. Instead, 
 This object uses the specified NEML2 material model to perform mesh-wise (or subdomain-wise) batched material update.
 
 Each NEML2 model +input variable+ is gathered from MOOSE by a `MOOSEToNEML2` user object (gatherer) given in [!param](/UserObjects/NEML2ModelExecutor/gatherers). Optionally, NEML2 model +parameters+ can also be gathered from MOOSE by gatherers given in [!param](/UserObjects/NEML2ModelExecutor/param_gatherers).
-
-Currently, three types of gatherers are available:
-
-- [MOOSEMaterialPropertyToNEML2](MOOSEMaterialPropertyToNEML2.md) gathers material property stored at each quadrature point.
-- [MOOSEVariableToNEML2](MOOSEVariableToNEML2.md) gathers (auxiliary) variables interpolated at quadrature points.
-- [MOOSEPostprocessorToNEML2](MOOSEPostprocessorToNEML2.md) gathers postprocessor value broadcast to all quadrature points.
 
 Each model +output+ and its +derivatives+ with respect to input variables and model parameters can be retireved by a [NEML2ToMOOSEMaterialProperty](NEML2ToMOOSEMaterialProperty.md) material object.
 
@@ -35,3 +31,9 @@ Note that the model is only re-allocated when the gathered batch size and the mo
 - After a mesh-change event which results in a change in the number of quadrature points in the operating subdomain.
 
 !syntax parameters /UserObjects/NEML2ModelExecutor
+
+!if-end!
+
+!else
+
+!include neml2/neml2_warning.md

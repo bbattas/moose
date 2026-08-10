@@ -3,7 +3,7 @@ mass_flux_in = '${fparse 1e+6 * 37.00 / 36000.*0.5}'
 P_out = 2.0e5 # Pa
 [TriSubChannelMesh]
   [subchannel]
-    type = SCMTriSubChannelMeshGenerator
+    type = SCMTriAssemblyMeshGenerator
     nrings = 4
     n_cells = 100
     flat_to_flat = 0.085
@@ -64,7 +64,7 @@ P_out = 2.0e5 # Pa
   [displacement]
     block = subchannel
   []
-  [q_prime_duct]
+  [duct_heat_flux]
     block = duct
   []
   [Tduct]
@@ -83,7 +83,6 @@ P_out = 2.0e5 # Pa
   fp = sodium
   n_blocks = 1
   P_out = 2.0e5
-  CT = 1.0
   compute_density = false
   compute_viscosity = false
   compute_power = true
@@ -92,9 +91,24 @@ P_out = 2.0e5 # Pa
   implicit = true
   segregated = false
   staggered_pressure = false
-  monolithic_thermal = false
   verbose_multiapps = true
   verbose_subchannel = false
+  duct_HTC_closure = 'gnielinski'
+  friction_closure = 'cheng'
+  mixing_closure = 'cheng_todreas'
+[]
+
+[SCMClosures]
+  [cheng]
+    type = SCMFrictionUpdatedChengTodreas
+  []
+  [gnielinski]
+    type = SCMHTCGnielinski
+  []
+  [cheng_todreas]
+    type = SCMMixingChengTodreas
+    CT = 1.0
+  []
 []
 
 [ICs]
@@ -254,7 +268,7 @@ P_out = 2.0e5 # Pa
     type = MultiAppInterpolationTransfer
     from_multi_app = duct_map
     source_variable = q_prime
-    variable = q_prime_duct
+    variable = duct_heat_flux
   []
 
   [xfer]

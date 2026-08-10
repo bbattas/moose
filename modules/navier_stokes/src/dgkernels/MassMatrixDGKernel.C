@@ -8,6 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "MassMatrixDGKernel.h"
+#include "MassMatrix.h"
 
 registerMooseObject("NavierStokesApp", MassMatrixDGKernel);
 
@@ -15,20 +16,16 @@ InputParameters
 MassMatrixDGKernel::validParams()
 {
   InputParameters params = DGKernel::validParams();
-  params.addClassDescription("Computes a finite element mass matrix meant for use in "
-                             "preconditioning schemes which require one");
-  params.addParam<Real>("density", 1, "Optional density for scaling the computed mass.");
-  params.set<MultiMooseEnum>("vector_tags") = "";
-  params.set<MultiMooseEnum>("matrix_tags") = "";
-  params.suppressParameter<MultiMooseEnum>("vector_tags");
-  params.suppressParameter<std::vector<TagName>>("extra_vector_tags");
-  params.suppressParameter<std::vector<TagName>>("absolute_value_vector_tags");
-  params.set<bool>("matrix_only") = true;
+  params.addClassDescription(
+      "Computes a finite element mass matrix on internal faces meant for use in "
+      "preconditioning schemes which require one");
+  MassMatrix::setMassMatrixParams(params);
+  params.addParam<Real>("density", 1, "The density");
   return params;
 }
 
 MassMatrixDGKernel::MassMatrixDGKernel(const InputParameters & parameters)
-  : DGKernel(parameters), _density(getParam<Real>("density"))
+  : DGKernel(parameters), _density(getParam<Real>("density")), _hmax(0)
 {
   if (!isParamValid("matrix_tags") && !isParamValid("extra_matrix_tags"))
     mooseError("One of 'matrix_tags' or 'extra_matrix_tags' must be provided");
@@ -41,6 +38,12 @@ MassMatrixDGKernel::computeQpResidual(Moose::DGResidualType)
   return 0;
 }
 
+void
+MassMatrixDGKernel::precalculateJacobian()
+{
+  _hmax = _current_side_elem->hmax();
+}
+
 Real
 MassMatrixDGKernel::computeQpJacobian(const Moose::DGJacobianType type)
 {
@@ -49,7 +52,7 @@ MassMatrixDGKernel::computeQpJacobian(const Moose::DGJacobianType type)
   switch (type)
   {
     case Moose::ElementElement:
-      jac = _test[_i][_qp] * _density * _phi[_j][_qp];
+      jac = _test[_i][_qp] * _density * _hmax * _phi[_j][_qp];
       break;
 
     default:

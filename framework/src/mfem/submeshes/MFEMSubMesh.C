@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMSubMesh.h"
 #include "MFEMProblem.h"
@@ -15,11 +15,12 @@
 InputParameters
 MFEMSubMesh::validParams()
 {
-  InputParameters params = MFEMGeneralUserObject::validParams();
+  InputParameters params = MFEMObject::validParams();
   params.registerBase("MFEMSubMesh");
+  params.registerSystemAttributeName("MFEMSubMesh");
   return params;
 }
 
-MFEMSubMesh::MFEMSubMesh(const InputParameters & parameters) : MFEMGeneralUserObject(parameters) {}
+MFEMSubMesh::MFEMSubMesh(const InputParameters & parameters) : MFEMObject(parameters) {}
 
 #endif

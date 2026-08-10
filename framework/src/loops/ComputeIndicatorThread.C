@@ -73,7 +73,12 @@ ComputeIndicatorThread::subdomainChanged()
   _indicator_whs.updateMatPropDependency(needed_mat_props, _tid);
   _internal_side_indicators.updateMatPropDependency(needed_mat_props, _tid);
 
-  _fe_problem.prepareMaterials(needed_mat_props, _subdomain, _tid);
+  // Only prepare (and therefore reinit) materials if an indicator actually consumes a material
+  // property. Otherwise skip the material system entirely to avoid recomputing the whole stack.
+  if (!needed_mat_props.empty())
+    _fe_problem.prepareMaterials(needed_mat_props, _subdomain, _tid);
+  else
+    _fe_problem.clearActiveMaterialProperties(_tid);
 }
 
 void
@@ -124,11 +129,8 @@ ComputeIndicatorThread::onElement(const Elem * elem)
   }
 
   if (!_finalize) // During finalize the Indicators should be setting values in the vectors manually
-  {
-    Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
     for (auto * var : _aux_sys._elem_vars[_tid])
       var->add(_aux_sys.solution());
-  }
 }
 
 void

@@ -7,11 +7,11 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
+
 #include <map>
-#include <memory>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -20,9 +20,6 @@
 
 #include "MooseException.h"
 
-#include "libmesh/ignore_warnings.h"
-#include <mfem.hpp>
-#include "libmesh/restore_warnings.h"
 #include "CoefficientMap.h"
 
 namespace Moose::MFEM
@@ -173,7 +170,12 @@ public:
   bool scalarPropertyIsDefined(const std::string & name, const std::string & block) const;
   bool vectorPropertyIsDefined(const std::string & name, const std::string & block) const;
   bool matrixPropertyIsDefined(const std::string & name, const std::string & block) const;
-  void setTime(const double time);
+  void setTime(const mfem::real_t time);
+
+  /// Notify quadrature function coefficients that solution variables have changed, marking the
+  /// stored values of those with a NONLINEAR update policy as stale so their source coefficients
+  /// are re-projected on next use.
+  void markSolutionChanged();
 
 private:
   ScalarMap _scalar_coeffs;

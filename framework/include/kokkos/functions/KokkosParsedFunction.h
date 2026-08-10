@@ -1,0 +1,65 @@
+//* This file is part of the MOOSE framework
+//* https://mooseframework.inl.gov
+//*
+//* All rights reserved, see COPYRIGHT for full restrictions
+//* https://github.com/idaholab/moose/blob/master/COPYRIGHT
+//*
+//* Licensed under LGPL 2.1, please see LICENSE for details
+//* https://www.gnu.org/licenses/lgpl-2.1.html
+
+#pragma once
+
+#include "KokkosFunction.h"
+#include "KokkosFunctionParser.h"
+
+#include "MooseParsedFunctionBase.h"
+
+class FEProblemBase;
+
+class KokkosParsedFunction : public Moose::Kokkos::FunctionBase, public MooseParsedFunctionBase
+{
+public:
+  static InputParameters validParams();
+
+  KokkosParsedFunction(const InputParameters & parameters);
+  KokkosParsedFunction(const KokkosParsedFunction & function);
+
+  using Real3 = Moose::Kokkos::Real3;
+
+  KOKKOS_FUNCTION Real value(Real t, Real3 p) const { return _evaluator.eval(t, p); }
+
+  /**
+   * Create the parsed function
+   */
+  virtual void initialSetup() override;
+
+protected:
+  /**
+   * Parsed function expression
+   */
+  const std::string _expression;
+  /**
+   * Parsed function builder
+   */
+  std::unique_ptr<Moose::Kokkos::RPNBuilder> _builder;
+  /**
+   * Parsed function evaluator
+   */
+  Moose::Kokkos::RPNEvaluator _evaluator;
+  /**
+   * Constant values associated with symbols
+   */
+  std::vector<Real> _symbol_values;
+  /**
+   * Functions associated with symbols
+   */
+  std::vector<Moose::Kokkos::Function> _symbol_functions;
+  /**
+   * Mathematical constants
+   */
+  static inline const std::unordered_map<std::string, Real> _math_symbols = {{"pi", libMesh::pi},
+                                                                             {"e", std::exp(1.0)}};
+
+private:
+  FEProblemBase & _problem;
+};

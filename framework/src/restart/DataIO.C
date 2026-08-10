@@ -8,7 +8,6 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "DenseMatrix.h"
-#include "MooseConfig.h"
 #include "DataIO.h"
 #include "MooseMesh.h"
 #include "FEProblemBase.h"
@@ -16,11 +15,13 @@
 
 #include "libmesh/vector_value.h"
 #include "libmesh/tensor_value.h"
+#include "libmesh/fe_type.h"
 
 #include "libmesh/elem.h"
 #include "libmesh/petsc_vector.h"
 #include "libmesh/enum_solver_package.h"
 #include "libmesh/petsc_solver_exception.h"
+#include "libmesh/bounding_box.h"
 
 using namespace libMesh;
 
@@ -64,6 +65,31 @@ void
 dataStore(std::ostream & stream, bool & v, void * /*context*/)
 {
   stream.write((char *)&v, sizeof(v));
+}
+
+template <>
+void
+dataStore(std::ostream & stream, FEType & v, void * context)
+{
+  auto order = v.order.get_order();
+  dataStore(stream, order, context);
+
+  auto family = v.family;
+  dataStore(stream, family, context);
+
+#ifdef LIBMESH_ENABLE_INFINITE_ELEMENTS
+  auto radial_order = v.radial_order.get_order();
+  dataStore(stream, radial_order, context);
+
+  auto radial_family = v.radial_family;
+  dataStore(stream, radial_family, context);
+
+  auto inf_map = v.inf_map;
+  dataStore(stream, inf_map, context);
+#endif
+
+  auto p_refinement = v.p_refinement;
+  dataStore(stream, p_refinement, context);
 }
 
 template <>
@@ -194,34 +220,32 @@ dataStore(std::ostream & stream, std::stringstream & s, void * /* context */)
   stream.write(s_str.c_str(), sizeof(char) * (s_str.size()));
 }
 
+#ifdef MOOSE_LIBTORCH_ENABLED
 template <>
 void
-dataStore(std::ostream & stream, RealEigenVector & v, void * context)
+dataStore(std::ostream & stream, torch::Tensor & t, void * context)
 {
-  unsigned int m = v.size();
-  stream.write((char *)&m, sizeof(m));
-  for (unsigned int i = 0; i < v.size(); i++)
+  const auto tensor = LibtorchUtils::toCPUContiguous(t);
+  mooseAssert(tensor.scalar_type() == at::kDouble,
+              "Restart storage currently supports only double tensors.");
+
+  auto rank = cast_int<unsigned int>(tensor.dim());
+  dataStore(stream, rank, nullptr);
+  for (unsigned int dim = 0; dim < rank; ++dim)
   {
-    Real r = v(i);
+    auto size = cast_int<unsigned int>(tensor.sizes()[dim]);
+    dataStore(stream, size, nullptr);
+  }
+
+  const auto flattened = tensor.reshape({tensor.numel()});
+  const auto t_accessor = flattened.accessor<Real, 1>();
+  for (int64_t i = 0; i < flattened.numel(); ++i)
+  {
+    Real r = t_accessor[i];
     dataStore(stream, r, context);
   }
 }
-
-template <>
-void
-dataStore(std::ostream & stream, RealEigenMatrix & v, void * context)
-{
-  unsigned int m = v.rows();
-  stream.write((char *)&m, sizeof(m));
-  unsigned int n = v.cols();
-  stream.write((char *)&n, sizeof(n));
-  for (unsigned int i = 0; i < m; i++)
-    for (unsigned int j = 0; j < n; j++)
-    {
-      Real r = v(i, j);
-      dataStore(stream, r, context);
-    }
-}
+#endif
 
 template <typename T>
 void
@@ -277,10 +301,13 @@ void
 dataStore(std::ostream & stream, Point & p, void * context)
 {
   for (const auto i : make_range(Moose::dim))
-  {
-    Real r = p(i);
-    dataStore(stream, r, context);
-  }
+    dataStore(stream, p(i), context);
+}
+
+void
+dataStore(std::ostream & stream, libMesh::BoundingBox & bbox, void * context)
+{
+  storeHelper(stream, static_cast<std::pair<Point, Point> &>(bbox), context);
 }
 
 template <>
@@ -415,6 +442,28 @@ dataLoad(std::istream & stream, bool & v, void * /*context*/)
 
 template <>
 void
+dataLoad(std::istream & stream, FEType & v, void * context)
+{
+  int order = 0;
+  dataLoad(stream, order, context);
+  v.order = order;
+
+  dataLoad(stream, v.family, context);
+
+#ifdef LIBMESH_ENABLE_INFINITE_ELEMENTS
+  int radial_order = 0;
+  dataLoad(stream, radial_order, context);
+  v.radial_order = radial_order;
+
+  dataLoad(stream, v.radial_family, context);
+  dataLoad(stream, v.inf_map, context);
+#endif
+
+  dataLoad(stream, v.p_refinement, context);
+}
+
+template <>
+void
 dataLoad(std::istream & stream, std::vector<bool> & v, void * context)
 {
   for (bool b : v)
@@ -537,38 +586,33 @@ dataLoad(std::istream & stream, std::stringstream & s, void * /* context */)
   s.write(s_s.get(), s_size);
 }
 
+#ifdef MOOSE_LIBTORCH_ENABLED
 template <>
 void
-dataLoad(std::istream & stream, RealEigenVector & v, void * context)
+dataLoad(std::istream & stream, torch::Tensor & t, void * context)
 {
-  unsigned int n = 0;
-  stream.read((char *)&n, sizeof(n));
-  v.resize(n);
-  for (unsigned int i = 0; i < n; i++)
+  unsigned int rank = 0;
+  dataLoad(stream, rank, nullptr);
+
+  std::vector<int64_t> sizes(rank);
+  for (unsigned int dim = 0; dim < rank; ++dim)
+  {
+    unsigned int size = 0;
+    dataLoad(stream, size, nullptr);
+    sizes[dim] = size;
+  }
+
+  t = torch::empty(sizes, at::kDouble);
+  auto flattened = t.reshape({t.numel()});
+  auto t_accessor = flattened.accessor<Real, 1>();
+  for (int64_t i = 0; i < flattened.numel(); ++i)
   {
     Real r = 0;
     dataLoad(stream, r, context);
-    v(i) = r;
+    t_accessor[i] = r;
   }
 }
-
-template <>
-void
-dataLoad(std::istream & stream, RealEigenMatrix & v, void * context)
-{
-  unsigned int m = 0;
-  stream.read((char *)&m, sizeof(m));
-  unsigned int n = 0;
-  stream.read((char *)&n, sizeof(n));
-  v.resize(m, n);
-  for (unsigned int i = 0; i < m; i++)
-    for (unsigned int j = 0; j < n; j++)
-    {
-      Real r = 0;
-      dataLoad(stream, r, context);
-      v(i, j) = r;
-    }
-}
+#endif
 
 template <typename T>
 void
@@ -629,11 +673,13 @@ void
 dataLoad(std::istream & stream, Point & p, void * context)
 {
   for (const auto i : make_range(Moose::dim))
-  {
-    Real r = 0;
-    dataLoad(stream, r, context);
-    p(i) = r;
-  }
+    dataLoad(stream, p(i), context);
+}
+
+void
+dataLoad(std::istream & stream, libMesh::BoundingBox & bbox, void * context)
+{
+  loadHelper(stream, static_cast<std::pair<Point, Point> &>(bbox), context);
 }
 
 template <>

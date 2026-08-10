@@ -5,46 +5,55 @@
   n_cells = 48
   pitch = 0.014605
   pin_diameter = 0.012065
-  gap = 0.0015875
+  side_gap = 0.0015875
   heated_length = 1.2192
 []
 
 [Mesh]
-  [subchannel]
-    type = SCMDetailedQuadSubChannelMeshGenerator
-  []
-  [pins]
-    type = SCMDetailedQuadPinMeshGenerator
-    input = subchannel
+  [assembly]
+    type = SCMDetailedQuadAssemblyMeshGenerator
   []
 []
 
 [AuxVariables]
   [mdot]
+    block = subchannel
   []
   [SumWij]
+    block = subchannel
   []
   [P]
+    block = subchannel
   []
   [DP]
+    block = subchannel
   []
   [h]
+    block = subchannel
   []
   [T]
+    block = subchannel
   []
   [Tpin]
+    block = fuel_pins
   []
   [Dpin]
+    block = fuel_pins
   []
   [rho]
+    block = subchannel
   []
   [mu]
+    block = subchannel
   []
   [S]
+    block = subchannel
   []
   [w_perim]
+    block = subchannel
   []
   [q_prime]
+    block = fuel_pins
   []
 []
 

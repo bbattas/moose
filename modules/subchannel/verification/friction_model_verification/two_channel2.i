@@ -4,13 +4,13 @@ P_out = 155e+5 # Pa
 
 [QuadSubChannelMesh]
   [sub_channel]
-    type = SCMQuadSubChannelMeshGenerator
+    type = SCMQuadAssemblyMeshGenerator
     nx = 2
     ny = 1
     n_cells = 100
     pitch = 0.0126
     pin_diameter = 0.00950
-    gap = 0.00095 # the half gap between sub-channel assemblies
+    side_gap = 0.00095
     heated_length = 10.0
     spacer_z = '0.0'
     spacer_k = '0.0'
@@ -20,7 +20,7 @@ P_out = 155e+5 # Pa
 [Functions]
   [S_fn]
     type = ParsedFunction
-    value = if(x>0.0,0.002,0.001)
+    expression = if(x>0.0,0.002,0.001)
   []
 []
 
@@ -34,13 +34,24 @@ P_out = 155e+5 # Pa
   type = QuadSubChannel1PhaseProblem
   fp = water
   n_blocks = 1
-  beta = 0.006
-  CT = 0.0
   compute_density = true
   compute_viscosity = true
   compute_power = true
   P_out = ${P_out}
-  default_friction_model = false
+  friction_closure = 'cheng'
+  full_output = true
+  mixing_closure ='constant_beta'
+[]
+
+[SCMClosures]
+  [cheng]
+    type = SCMFrictionUpdatedChengTodreas
+  []
+  [constant_beta]
+    type = SCMMixingConstantBeta
+    beta = 0.006
+    CT = 0.0
+  []
 []
 
 [ICs]

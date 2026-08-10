@@ -7,16 +7,17 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
+
 #include "EquationSystem.h"
+#include "ComplexEquationSystem.h"
 #include "MFEMContainers.h"
 #include "CoefficientManager.h"
-#include "MFEMSolverBase.h"
-#include <fstream>
-#include <iostream>
-#include <memory>
+#include "MFEMLinearSolverBase.h"
+#include "MFEMNonlinearSolverBase.h"
+#include "MFEMRefinementMarker.h"
 
 /// Base problem data struct.
 struct MFEMProblemData
@@ -30,16 +31,23 @@ public:
   Moose::MFEM::CoefficientManager coefficients;
 
   std::unique_ptr<mfem::ODESolver> ode_solver{nullptr};
-  mfem::BlockVector f;
+  /// Persistent true-DoF solution vector backing trial grid functions after problem operator init.
+  mfem::BlockVector true_solution;
 
   std::shared_ptr<Moose::MFEM::EquationSystem> eqn_system{nullptr};
-  std::shared_ptr<mfem::NewtonSolver> nonlinear_solver{nullptr};
-
-  std::shared_ptr<MFEMSolverBase> jacobian_solver{nullptr};
+  std::shared_ptr<Moose::MFEM::NonlinearSolverBase> nonlinear_solver{nullptr};
+  std::shared_ptr<Moose::MFEM::LinearSolverBase> jacobian_solver{nullptr};
 
   Moose::MFEM::FECollections fecs;
   Moose::MFEM::FESpaces fespaces;
+  Moose::MFEM::FESpaceHierarchies fespace_hierarchies;
   Moose::MFEM::GridFunctions gridfunctions;
+  Moose::MFEM::TimeDerivativeMap time_derivative_map;
+  Moose::MFEM::ComplexGridFunctions cmplx_gridfunctions;
+
+  std::string mode_separator{"_"};
+
+  std::shared_ptr<MFEMRefinementMarker> refiner;
 
   MPI_Comm comm;
   int myid;

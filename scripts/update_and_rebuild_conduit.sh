@@ -39,14 +39,10 @@ fi
 
 set -e
 
-get_realpath() {
-    python3 -c "import os, sys; print(os.path.realpath(sys.argv[1]))" "$1"
-}
-
 if [ -n "$CONDUIT_SRC_DIR" ]; then
   skip_sub_update=1
 else
-  CONDUIT_SRC_DIR="$(get_realpath "${SCRIPT_DIR}"/../framework/contrib/conduit)"
+  CONDUIT_SRC_DIR="$(realpath "${SCRIPT_DIR}"/../framework/contrib/conduit/.)"
 fi
 CONDUIT_BUILD_DIR="${CONDUIT_SRC_DIR}/build"
 if [ -n "$CONDUIT_DIR" ]; then
@@ -67,9 +63,22 @@ fi
 # Clean up old builds
 rm -rf "$CONDUIT_BUILD_DIR"
 
+ARGS=()
+# Use ninja for build if available
+if which ninja &> /dev/null; then
+  ARGS+=("-GNinja")
+fi
+
 # Build and install conduit
 mkdir -p "$CONDUIT_BUILD_DIR"
 cd "$CONDUIT_BUILD_DIR"
-cmake ../src -DCMAKE_INSTALL_PREFIX="$CONDUIT_DIR"
-make -j ${MOOSE_JOBS:-4}
-make -j ${MOOSE_JOBS:-4} install
+cmake ../src \
+  -DCMAKE_INSTALL_PREFIX="$CONDUIT_DIR" \
+  -DENABLE_EXAMPLES=OFF \
+  -DENABLE_UTILS=OFF \
+  -DENABLE_RELAY_WEBSERVER=OFF \
+  -DCONDUIT_ENABLE_TESTS=OFF \
+  "${ARGS[@]}" \
+  "$@"
+cmake --build . --parallel "${MOOSE_JOBS:-4}"
+cmake --install .

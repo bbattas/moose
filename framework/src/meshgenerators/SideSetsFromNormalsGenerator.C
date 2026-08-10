@@ -10,6 +10,7 @@
 #include "SideSetsFromNormalsGenerator.h"
 #include "Parser.h"
 #include "InputParameters.h"
+#include "MeshTraversingUtils.h"
 #include "MooseMeshUtils.h"
 #include "CastUniquePointer.h"
 #include "MooseApp.h"
@@ -37,8 +38,6 @@ SideSetsFromNormalsGenerator::validParams()
       "Adds a new named sideset to the mesh for all faces matching the specified normal.");
   params.addRequiredParam<std::vector<Point>>(
       "normals", "A list of normals for which to start painting sidesets");
-  params.addParam<Real>("tolerance", "Tolerance for comparing the face normal");
-  params.deprecateParam("tolerance", "normal_tol", "4/01/2025");
 
   // We want to use a different normal_tol for this generator than from the base class to preserve
   // old behavior.
@@ -108,7 +107,7 @@ SideSetsFromNormalsGenerator::generate()
 
       for (const auto i : make_range(boundary_ids.size()))
       {
-        if (normalsWithinTol(_normals[i], face_normal, _normal_tol))
+        if (MeshTraversingUtils::normalsWithinTol(_normals[i], face_normal, _normal_tol))
           flood(elem, _normals[i], boundary_ids[i], *mesh);
       }
     }
@@ -122,8 +121,6 @@ SideSetsFromNormalsGenerator::generate()
     _boundary_to_normal_map[boundary_ids[i]] = _normals[i];
   }
 
-  // This is a terrible hack that we'll want to remove once BMBBG isn't terrible
-  if (!_app.getMeshGeneratorSystem().hasBreakMeshByBlockGenerator())
-    mesh->set_isnt_prepared();
+  mesh->unset_is_prepared();
   return dynamic_pointer_cast<MeshBase>(mesh);
 }
