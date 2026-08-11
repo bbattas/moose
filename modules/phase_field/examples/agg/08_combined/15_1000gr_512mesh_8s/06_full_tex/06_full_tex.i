@@ -4,8 +4,8 @@
 # Created Date: Thursday August 6th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Thursday August 6th 2026
-# Modified By: Brandon Battas
+# Last Modified: Tuesday August 11th 2026
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #
@@ -153,7 +153,7 @@ randseed = 20
     grain_tracker = grain_tracker
     gb_mode = FULL
     bulk_scalar = 0.75
-    alpha_tol = 8 #10
+    alpha_tol = 5 #8 #10
     hgbalpha_tol = 5
     # ifunc_a = 0.1
     kappa_name = kappa_op
@@ -248,7 +248,7 @@ randseed = 20
   l_max_its = 60 # Max number of linear iterations
   l_tol = 1e-4 # Relative tolerance for linear solves
   nl_max_its = 12 # Max number of nonlinear iterations
-  nl_rel_tol = 1e-6#1e-8 #1e-10 # Relative tolerance for nonlienar solves
+  nl_rel_tol = 1e-5 #6 #1e-8 #1e-10 # Relative tolerance for nonlienar solves
   # nl_abs_tol = 1e-10
 
   start_time = 0.0
