@@ -29,7 +29,8 @@ protected:
     INC = 1,
     MISO = 2,
     FULL = 3,
-    ISO = 4
+    ISO = 4,
+    INC_ALT = 5
   };
 
   enum AvgType
@@ -52,6 +53,8 @@ protected:
                                      const MisorientationData & miso,
                                      Real w_inc,
                                      Real w_miso) const;
+
+  AngleFunctionResult computeInclinationAlternateGBE(Real theta_inc, Real polar_inc) const;
 
 protected:
   const int _gb_mode;

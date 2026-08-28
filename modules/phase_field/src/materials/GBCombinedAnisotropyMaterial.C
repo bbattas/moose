@@ -10,7 +10,7 @@ GBCombinedAnisotropyMaterial::validParams()
   params += GBMisorientationHelper::validParams();
 
   // Settings/Modes
-  MooseEnum gb_mode("cos=0 inc=1 miso=2 full=3 iso=4", "full");
+  MooseEnum gb_mode("cos=0 inc=1 miso=2 full=3 iso=4 inc_alt=5", "full");
   params.addParam<MooseEnum>("gb_mode",
                              gb_mode,
                              "Which grain-boundary property model to use. "
@@ -302,6 +302,12 @@ GBCombinedAnisotropyMaterial::computeQpProperties()
         break;
       }
 
+      case INC_ALT:
+      {
+        out = computeInclinationAlternateGBE(theta[k], polar[k]);
+        break;
+      }
+
       default:
         mooseError(name(), ": unknown gb_mode = ", _gb_mode);
     }
@@ -557,6 +563,28 @@ GBCombinedAnisotropyMaterial::computeFullGBE(const Real theta_inc,
   out.d2f_dpolar2 = 0.0;
 
   out.d2f_dthetadpolar = dA_dtheta * dB_dpolar * w_inc;
+
+  return out;
+}
+
+GBCombinedAnisotropyMaterial::AngleFunctionResult
+GBCombinedAnisotropyMaterial::computeInclinationAlternateGBE(const Real theta_inc,
+                                                             const Real polar_inc) const
+{
+  // Smooth version of Lins combined inc portion, [0.5-1]
+  // 0.5 + 0.5 * (1 + cos(2*theta)) * B
+  AngleFunctionResult out;
+  const Real c2 = std::cos(2.0 * theta_inc);
+  const Real s2 = std::sin(2.0 * theta_inc);
+  const Real B = 0.5;       // + (0.2 - 0.5) * polar_inc / (libMesh::pi / 2);
+  const Real dB_dpolar = 0; // (0.2 - 0.5) / (libMesh::pi / 2);
+  // Using a 50 percent range (0.5-1)
+  out.f = 0.5 + 0.5 * (1.0 + c2) * B;
+  out.df_dtheta = -s2 * B;
+  out.d2f_dtheta2 = -2.0 * c2 * B;
+  out.df_dpolar = 0.0; // 0.5 * (1.0 + c2) * dB_dpolar;
+  out.d2f_dpolar2 = 0.0;
+  out.d2f_dthetadpolar = 0.0; //-s2 * dB_dpolar;
 
   return out;
 }
