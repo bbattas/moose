@@ -373,12 +373,6 @@
     boundary = 'left right top bottom'
     value = 0
   []
-  [bc_gr19]
-    type = NeumannBC
-    variable = 'gr19'
-    boundary = 'left right top bottom'
-    value = 0
-  []
   [bc_gr23]
     type = NeumannBC
     variable = 'gr23'
