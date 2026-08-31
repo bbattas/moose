@@ -4,8 +4,8 @@
 # Created Date: Friday August 28th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday August 28th 2026
-# Modified By: Brandon Battas
+# Last Modified: Monday August 31st 2026
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Alternate inclination function from 0.5-1 instead of 0.5-0.7
@@ -153,7 +153,7 @@ randseed = 20
     grain_tracker = grain_tracker
     gb_mode = INC_ALT
     bulk_scalar = 0.75
-    alpha_tol = 8
+    alpha_tol = 6 #8
     hgbalpha_tol = 5
     # ifunc_a = 0.1
     kappa_name = kappa_op
@@ -237,7 +237,7 @@ randseed = 20
     mat_prop = int_width
     value_type = MAX
   []
-    # GBE
+  # GBE
   [gbe_notj_total]
     type = ElementIntegralMaterialProperty
     mat_prop = gbe_notj_masked
