@@ -4,13 +4,13 @@
 # Created Date: Monday August 10th 2026
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday September 14th 2026
-# Modified By: Battas,Brandon Scott
+# Last Modified: Friday September 18th 2026
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  iso with matching gbe (Step 1 no change from relaxed is 0.95(28))
 #  Might want to wait for miso to run then check a few timesteps in and readjust
-#
+#  mack 1k averaged at about 0.946 (though t0 was 0.949)
 #
 ##############################################################################
 

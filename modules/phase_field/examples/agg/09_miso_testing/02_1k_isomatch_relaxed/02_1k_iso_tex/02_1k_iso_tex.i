@@ -4,13 +4,13 @@
 # Created Date: Monday August 10th 2026
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday September 14th 2026
-# Modified By: Battas,Brandon Scott
+# Last Modified: Friday September 18th 2026
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  iso with matching gbe avg (Step 1 no change from relaxed is 0.83(89))
 #  Might want to wait for miso to run then check a few timesteps in and readjust
-#
+#  tex 1k averaged at about 0.818 (though t0 was about 0.829)
 #
 ##############################################################################
 
@@ -295,7 +295,7 @@
     gb_id_method = graintracker
     grain_tracker = grain_tracker
     gb_mode = ISO
-    iso_gbe = 0.84
+    iso_gbe = 0.82
     bulk_scalar = 0.75
     alpha_tol = 10
     hgbalpha_tol = 5
