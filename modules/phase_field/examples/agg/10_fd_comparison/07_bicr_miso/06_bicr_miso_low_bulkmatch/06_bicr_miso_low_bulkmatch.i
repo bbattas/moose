@@ -5,7 +5,7 @@
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
 # Last Modified: Friday October 16th 2026
-# Modified By: Battas,Brandon Scott
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  setting the bulk gbe to match the miso single value (0.58133)
@@ -18,8 +18,8 @@
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2
-    nx = 160
-    ny = 160
+    nx = 320
+    ny = 320
     xmin = 0
     xmax = 160
     ymin = 0

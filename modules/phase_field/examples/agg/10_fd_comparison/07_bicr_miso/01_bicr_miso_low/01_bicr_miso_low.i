@@ -4,7 +4,7 @@
 # Created Date: Tuesday October 13th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Tuesday October 13th 2026
+# Last Modified: Friday October 16th 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -18,8 +18,8 @@
   [gmg]
     type = DistributedRectilinearMeshGenerator
     dim = 2
-    nx = 160
-    ny = 160
+    nx = 320
+    ny = 320
     xmin = 0
     xmax = 160
     ymin = 0

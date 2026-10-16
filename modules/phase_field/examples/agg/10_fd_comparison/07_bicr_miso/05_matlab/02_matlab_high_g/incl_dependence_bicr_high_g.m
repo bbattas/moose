@@ -1,10 +1,10 @@
 function [kappa,g,L,m,deltax,deltat,order_par,bound_cond,delta_s,delta_s_kin,n_fold,n_fold_kin,ofset_angle,ofset_angle_kin,anis] = incl_depence_input
 
 kappa = 2.100e07; %0.3; % energy gradient coefficient
-g = [0 0.39506; 0 0]; %[0 sqrt(2)/3; 0 0]; % g-values
+g = [0 0.66870; 0 0]; %[0 sqrt(2)/3; 0 0]; % g-values
 L = [0 2.7815e-6; 0 0]; %[0 0.8333; 0 0];-6 % kinetic coefficient in Allen Cahn equations
 m = 1.305e7; %0.9375; % prefactor in homogeneous free energy
-deltax = 1; %1 %0.2; % grid spacing
+deltax = 0.5; %1; %1 %0.2; % grid spacing
 deltat = 0.001; %0.003; % time step
 order_par = 2; % number of order parameters (eta) or number different grain types considered
 bound_cond = 'pp'; % type of boundary conditions; pp : periodic (possible vlaues 'pp' (periodic), 'pn' (periodic along 1 direction and Neumann along the other), 'nn' (Neumann), 'dd' (Dirichlett))

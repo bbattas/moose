@@ -2,7 +2,7 @@ function start_incl_dependence
 addpath .
 addpath('../');
 % invoer = 'incl_dependence_single_grain_inputt';%'incl_dependence_bicr';
-invoer = 'incl_dependence_bicr_high';
+invoer = 'incl_dependence_bicr_low_g';
 n = 30000;%30000; %30000;
 n_old = 0;
 
@@ -16,9 +16,10 @@ n_old = 0;
 % end
 
 % --- domain & initial condition (replace the nested loops) ---
-N  = 161;          % 161 points -> 160 intervals ("elements")
-cx = 81; cy = 81;  % center index (1-based). 81 gives symmetric -80..80
-R  = 60;           % radius in grid points (physical R = R * deltax)
+N  = 321; %161;          % 161 points -> 160 intervals ("elements")
+% cx = 81; cy = 81;  % center index (1-based). 81 gives symmetric -80..80
+cx = 161; cy = 161;
+R  = 120; %60;           % radius in grid points (physical R = R * deltax)
 
 eta{1} = zeros(N, N);
 [I, J] = ndgrid(1:N, 1:N);
