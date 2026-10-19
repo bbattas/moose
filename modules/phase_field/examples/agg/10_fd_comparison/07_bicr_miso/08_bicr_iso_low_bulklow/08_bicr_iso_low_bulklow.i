@@ -4,8 +4,8 @@
 # Created Date: Friday October 16th 2026
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Friday October 16th 2026
-# Modified By: Brandon Battas
+# Last Modified: Monday October 19th 2026
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  isomatch but using the bulk value at 0.5 instead of the iso value
@@ -159,8 +159,8 @@
     gb_id_method = graintracker
     grain_tracker = grain_tracker
     gb_mode = ISO
-    bulk_scalar = 0.58133
-    iso_gbe = 0.5
+    bulk_scalar = 0.5
+    iso_gbe = 0.58133
     alpha_tol = 0
     hgbalpha_tol = 0
     # ifunc_a = 0.1
