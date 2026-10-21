@@ -4,8 +4,8 @@
 # Created Date: Monday August 31st 2026
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Monday August 31st 2026
-# Modified By: Battas,Brandon Scott
+# Last Modified: Wednesday October 21st 2026
+# Modified By: Brandon Battas
 # -----
 # Description:
 #  smaller version of the voronoi input so i can test SOMETHING on INL
@@ -599,7 +599,7 @@
 [Preconditioning]
   [SMP]
     type = SMP
-    full = true
+    full = false #was true but might be killing memory usage
   []
 []
 
@@ -617,8 +617,8 @@
   nl_rel_tol = 1e-6 #6 #default is 1e-8
   # nl_abs_tol = 1e-14 #only needed when near equilibrium or veeeery small dt
   # start_time = 0
-  end_time = 10000 #1e8
-  # num_steps = 0
+  # end_time = 10000 #1e8
+  num_steps = 10
   # steady_state_detection = true
   # # From tonks ode input
   automatic_scaling = true
