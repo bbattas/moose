@@ -4,7 +4,7 @@
 # Created Date: Monday August 31st 2026
 # Author: Battas,Brandon Scott (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday October 21st 2026
+# Last Modified: Thursday October 22nd 2026
 # Modified By: Brandon Battas
 # -----
 # Description:
@@ -594,6 +594,74 @@
   #   expression = 'hgb'
   #   outputs = nemesis
   # []
+[]
+
+
+[Postprocessors]
+  [physical]
+    type = MemoryUsage
+    mem_type = physical_memory
+    value_type = total
+    mem_units = gigabytes
+    # by default MemoryUsage reports the peak value for the current timestep
+    # out of all samples that have been taken (at linear and non-linear iterations)
+    execute_on = 'INITIAL TIMESTEP_END NONLINEAR LINEAR'
+    outputs = csv
+  []
+  [physical_max]
+    type = MemoryUsage
+    mem_type = physical_memory
+    value_type = max_process
+    mem_units = gigabytes
+    # by default MemoryUsage reports the peak value for the current timestep
+    # out of all samples that have been taken (at linear and non-linear iterations)
+    execute_on = 'INITIAL TIMESTEP_END NONLINEAR LINEAR'
+    outputs = csv
+  []
+  [physical_avg]
+    type = MemoryUsage
+    mem_type = physical_memory
+    value_type = average
+    mem_units = gigabytes
+    # by default MemoryUsage reports the peak value for the current timestep
+    # out of all samples that have been taken (at linear and non-linear iterations)
+    execute_on = 'INITIAL TIMESTEP_END NONLINEAR LINEAR'
+    outputs = csv
+  []
+  [virtual]
+    type = MemoryUsage
+    mem_type = virtual_memory
+    value_type = total
+    mem_units = gigabytes
+    execute_on = 'INITIAL TIMESTEP_END'
+    outputs = csv
+  []
+  [virtual_max]
+    type = MemoryUsage
+    mem_type = virtual_memory
+    value_type = max_process
+    mem_units = gigabytes
+    execute_on = 'INITIAL TIMESTEP_END'
+    outputs = csv
+  []
+  [virtual_avg]
+    type = MemoryUsage
+    mem_type = virtual_memory
+    value_type = average
+    mem_units = gigabytes
+    execute_on = 'INITIAL TIMESTEP_END'
+    outputs = csv
+  []
+[]
+
+[VectorPostprocessors]
+  [memory]
+    type = VectorMemoryUsage
+    execute_on = 'INITIAL TIMESTEP_END NONLINEAR LINEAR'
+    report_peak_value = true
+    mem_units = gigabytes # or bytes, megabytes, gigabytes
+    outputs = csv
+  []
 []
 
 [Preconditioning]
