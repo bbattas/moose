@@ -633,7 +633,7 @@
     mem_type = virtual_memory
     value_type = total
     mem_units = gigabytes
-    execute_on = 'INITIAL TIMESTEP_END'
+    execute_on = 'INITIAL TIMESTEP_END NONLINEAR LINEAR'
     outputs = csv
   []
   [virtual_max]
@@ -641,7 +641,7 @@
     mem_type = virtual_memory
     value_type = max_process
     mem_units = gigabytes
-    execute_on = 'INITIAL TIMESTEP_END'
+    execute_on = 'INITIAL TIMESTEP_END NONLINEAR LINEAR'
     outputs = csv
   []
   [virtual_avg]
@@ -649,7 +649,7 @@
     mem_type = virtual_memory
     value_type = average
     mem_units = gigabytes
-    execute_on = 'INITIAL TIMESTEP_END'
+    execute_on = 'INITIAL TIMESTEP_END NONLINEAR LINEAR'
     outputs = csv
   []
 []
