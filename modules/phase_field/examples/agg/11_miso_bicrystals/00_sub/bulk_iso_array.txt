@@ -1,0 +1,17 @@
+bulk=0.5 iso=0.5
+bulk=0.75 iso=0.5
+bulk=1.0 iso=0.5
+bulk=0.5 iso=0.58133
+bulk=0.58133 iso=0.58133
+bulk=0.75 iso=0.58133
+bulk=1.0 iso=0.58133
+bulk=0.5 iso=0.75
+bulk=0.75 iso=0.75
+bulk=1.0 iso=0.75
+bulk=0.5 iso=0.984
+bulk=0.75 iso=0.984
+bulk=0.984 iso=0.984
+bulk=1.0 iso=0.984
+bulk=0.5 iso=1.0
+bulk=0.75 iso=1.0
+bulk=1.0 iso=1.0
