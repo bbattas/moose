@@ -2,7 +2,7 @@ function start_incl_dependence
 addpath .
 addpath('../00_sub/');
 % invoer = 'incl_dependence_single_grain_inputt';%'incl_dependence_bicr';
-invoer = '11_matlab_0p75_properties';
+invoer = 'matlab_0p75_properties';
 n = 50000;%30000; %30000;
 n_old = 0;
 
