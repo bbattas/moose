@@ -4,8 +4,8 @@
 # Created Date: Wednesday October 28th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday October 28th 2026
-# Modified By: Brandon Battas
+# Last Modified: Thursday October 29th 2026
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Testing all the bulk gbe options for the low misorientation case
@@ -321,5 +321,5 @@ bulk = 0.5
   #   heaviest_branch = true # Default is false
   #   heaviest_sections = 7 # Default is 0
   # []
-  file_base = 07_aniso_miso_low_bulk${i_tol}_out
+  file_base = 07_aniso_miso_low_bulk${bulk}_out
 []

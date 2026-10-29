@@ -4,8 +4,8 @@
 # Created Date: Wednesday October 28th 2026
 # Author: Brandon Battas (bbattas@ufl.edu)
 # -----
-# Last Modified: Wednesday October 28th 2026
-# Modified By: Brandon Battas
+# Last Modified: Thursday October 29th 2026
+# Modified By: Battas,Brandon Scott
 # -----
 # Description:
 #  Testing all combos of the iso gbe values (0.5/low/0.75/high/1.0) with the
@@ -323,5 +323,5 @@ iso = 0.5
   #   heaviest_branch = true # Default is false
   #   heaviest_sections = 7 # Default is 0
   # []
-  file_base = 06_aniso_iso_iso${iso}_bulk${i_tol}_out
+  file_base = 06_aniso_iso_iso${iso}_bulk${bulk}_out
 []
