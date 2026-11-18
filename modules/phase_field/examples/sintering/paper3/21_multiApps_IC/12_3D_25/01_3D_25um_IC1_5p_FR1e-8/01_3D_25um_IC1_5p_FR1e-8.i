@@ -190,13 +190,13 @@ f_dot = 1e-8
   [recombination_vac]
     type = MatReaction
     variable = cvac_var
-    mob_name = cvi_recomb
+    reaction_rate = cvi_recomb
     args = 'wvac wint cint_var phi'
   []
   [recombination_int]
     type = MatReaction
     variable = cint_var
-    mob_name = cvi_recomb
+    reaction_rate = cvi_recomb
     args = 'wvac wint cvac_var phi'
   []
   # Damage/Mixing
